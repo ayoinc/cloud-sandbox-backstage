@@ -1,0 +1,53 @@
+apiVersion: backstage.io/v1alpha1
+kind: Domain
+metadata:
+  name: infrastructure-as-code
+  title: Infrastructure as Code
+  description: Terraform, CloudFormation, Pulumi, and other IaC tools
+spec:
+  owner: platform-team
+---
+apiVersion: backstage.io/v1alpha1
+kind: Domain
+metadata:
+  name: cloud-platforms
+  title: Cloud Platforms
+  description: AWS, Azure, GCP cloud services and integrations
+spec:
+  owner: cloud-team
+---
+apiVersion: backstage.io/v1alpha1
+kind: Domain
+metadata:
+  name: testing-quality
+  title: Testing & Quality Assurance
+  description: Testing frameworks, quality gates, and validation tools
+spec:
+  owner: quality-team
+---
+apiVersion: backstage.io/v1alpha1
+kind: Domain
+metadata:
+  name: observability
+  title: Observability & Monitoring
+  description: Monitoring, logging, tracing, and alerting systems
+spec:
+  owner: sre-team
+---
+apiVersion: backstage.io/v1alpha1
+kind: Domain
+metadata:
+  name: security-compliance
+  title: Security & Compliance
+  description: Security tools, vulnerability scanning, and compliance frameworks
+spec:
+  owner: security-team
+---
+apiVersion: backstage.io/v1alpha1
+kind: Domain
+metadata:
+  name: data-platforms
+  title: Data Platforms
+  description: Databases, data lakes, streaming, and analytics platforms
+spec:
+  owner: data-team

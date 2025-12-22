@@ -1,0 +1,103 @@
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: awx-automation-platform
+  title: AWX Automation Platform
+  description: Complete Ansible automation platform including AWX core and operator
+  annotations:
+    github.com/project-slug: ansible/awx
+    sonarqube.org/project-key: awx-platform
+  tags:
+    - ansible
+    - automation
+    - platform
+    - infrastructure
+  links:
+    - url: https://github.com/ansible/awx
+      title: AWX Repository
+      icon: github
+    - url: https://ansible.readthedocs.io/projects/awx/en/latest/
+      title: Documentation
+      icon: docs
+    - url: https://forum.ansible.com
+      title: Community Forum
+      icon: forum
+spec:
+  owner: awx-team
+  domain: automation-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: kubernetes-operators
+  title: Kubernetes Operators
+  description: Collection of Kubernetes operators for automation platform
+  annotations:
+    github.com/project-slug: ansible/awx-operator
+  tags:
+    - kubernetes
+    - operators
+    - deployment
+    - infrastructure
+spec:
+  owner: platform-team
+  domain: infrastructure
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: ci-cd-platform
+  title: CI/CD Platform
+  description: Continuous integration and deployment automation
+  tags:
+    - ci-cd
+    - automation
+    - deployment
+spec:
+  owner: devops-team
+  domain: devops
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: cloud-sandbox-environments
+  title: Cloud Sandbox Environments
+  description: Development sandbox environments for AWS, Azure, and GCP
+  tags:
+    - cloud
+    - sandbox
+    - terraform
+    - development
+spec:
+  owner: platform-team
+  domain: cloud-sandbox
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: local-development
+  title: Local Development
+  description: Local VM and container development environments
+  tags:
+    - vagrant
+    - docker
+    - local
+    - development
+spec:
+  owner: platform-team
+  domain: cloud-sandbox
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: machine-images
+  title: Machine Images
+  description: Packer-based machine image building for cloud providers
+  tags:
+    - packer
+    - ami
+    - images
+    - infrastructure
+spec:
+  owner: platform-team
+  domain: cloud-sandbox

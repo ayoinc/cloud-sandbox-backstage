@@ -1,0 +1,324 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: kubernetes-microservice
+  title: Kubernetes Microservice
+  description: Create a production-ready microservice with Kubernetes deployment, CI/CD, monitoring, and security
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - recommended
+    - kubernetes
+    - microservice
+    - ci-cd
+    - monitoring
+    - security
+spec:
+  owner: platform-team
+  type: service
+  parameters:
+    - title: Service Information
+      required:
+        - name
+        - description
+        - owner
+        - language
+      properties:
+        name:
+          title: Service Name
+          type: string
+          description: Unique name of the microservice
+          pattern: '^[a-z0-9\-]+$'
+          ui:autofocus: true
+          ui:help: 'Use lowercase letters, numbers, and hyphens only'
+        description:
+          title: Description
+          type: string
+          description: Brief description of the microservice functionality
+        owner:
+          title: Owner
+          type: string
+          description: Owner of the service
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: [Group, User]
+        language:
+          title: Programming Language
+          type: string
+          description: Primary programming language
+          default: nodejs
+          enum:
+            - nodejs
+            - python
+            - java
+            - golang
+            - dotnet
+          enumNames:
+            - Node.js (Express)
+            - Python (FastAPI)
+            - Java (Spring Boot)
+            - Go (Gin)
+            - .NET Core
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+              - gitlab.com
+
+    - title: Architecture & Infrastructure
+      properties:
+        architecture_type:
+          title: Architecture Type
+          type: string
+          description: Service architecture pattern
+          default: rest-api
+          enum:
+            - rest-api
+            - graphql-api
+            - grpc-service
+            - event-driven
+            - batch-processor
+          enumNames:
+            - REST API Service
+            - GraphQL API Service
+            - gRPC Service
+            - Event-Driven Service
+            - Batch Processor
+        database_type:
+          title: Database Type
+          type: string
+          description: Primary database technology
+          default: postgresql
+          enum:
+            - none
+            - postgresql
+            - mysql
+            - mongodb
+            - redis
+            - elasticsearch
+          enumNames:
+            - No Database
+            - PostgreSQL
+            - MySQL
+            - MongoDB
+            - Redis
+            - Elasticsearch
+        message_queue:
+          title: Message Queue
+          type: string
+          description: Message queue system
+          default: none
+          enum:
+            - none
+            - rabbitmq
+            - kafka
+            - redis-pub-sub
+            - aws-sqs
+          enumNames:
+            - No Message Queue
+            - RabbitMQ
+            - Apache Kafka
+            - Redis Pub/Sub
+            - AWS SQS
+
+    - title: Cloud & Deployment
+      properties:
+        cloud_provider:
+          title: Cloud Provider
+          type: string
+          description: Target cloud platform
+          default: aws
+          enum:
+            - aws
+            - azure
+            - gcp
+            - on-premise
+          enumNames:
+            - Amazon Web Services
+            - Microsoft Azure
+            - Google Cloud Platform
+            - On-Premise
+        environment_strategy:
+          title: Environment Strategy
+          type: string
+          description: Deployment environment setup
+          default: multi-env
+          enum:
+            - single-env
+            - multi-env
+            - gitops
+          enumNames:
+            - Single Environment
+            - Multi-Environment (Dev/Staging/Prod)
+            - GitOps with ArgoCD
+        kubernetes_namespace:
+          title: Kubernetes Namespace
+          type: string
+          description: Target Kubernetes namespace
+          default: default
+        enable_hpa:
+          title: Enable Horizontal Pod Autoscaler
+          type: boolean
+          description: Auto-scale pods based on CPU/memory usage
+          default: true
+        enable_pdb:
+          title: Enable Pod Disruption Budget
+          type: boolean
+          description: Ensure minimum pod availability during updates
+          default: true
+
+    - title: Observability & Security
+      properties:
+        monitoring_stack:
+          title: Monitoring Stack
+          type: string
+          description: Observability and monitoring tools
+          default: prometheus-grafana
+          enum:
+            - basic
+            - prometheus-grafana
+            - elastic-stack
+            - datadog
+            - new-relic
+          enumNames:
+            - Basic (Health checks only)
+            - Prometheus + Grafana
+            - Elastic Stack (ELK)
+            - Datadog
+            - New Relic
+        enable_tracing:
+          title: Enable Distributed Tracing
+          type: boolean
+          description: Include Jaeger/OpenTelemetry tracing
+          default: true
+        enable_security_scanning:
+          title: Enable Security Scanning
+          type: boolean
+          description: Include Trivy, Snyk, and OWASP scanning
+          default: true
+        enable_policy_enforcement:
+          title: Enable Policy Enforcement
+          type: boolean
+          description: Include OPA/Gatekeeper policies
+          default: true
+
+    - title: CI/CD Configuration
+      properties:
+        ci_cd_platform:
+          title: CI/CD Platform
+          type: string
+          description: Continuous integration and deployment platform
+          default: github-actions
+          enum:
+            - github-actions
+            - gitlab-ci
+            - jenkins
+            - azure-devops
+            - tekton
+          enumNames:
+            - GitHub Actions
+            - GitLab CI/CD
+            - Jenkins
+            - Azure DevOps
+            - Tekton Pipelines
+        enable_automated_testing:
+          title: Enable Automated Testing
+          type: boolean
+          description: Include unit, integration, and e2e tests
+          default: true
+        enable_code_quality:
+          title: Enable Code Quality Checks
+          type: boolean
+          description: Include SonarQube, ESLint, etc.
+          default: true
+        deployment_strategy:
+          title: Deployment Strategy
+          type: string
+          description: Kubernetes deployment strategy
+          default: rolling-update
+          enum:
+            - rolling-update
+            - blue-green
+            - canary
+          enumNames:
+            - Rolling Update
+            - Blue-Green Deployment
+            - Canary Deployment
+
+  steps:
+    - id: fetch
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          language: ${{ parameters.language }}
+          architecture_type: ${{ parameters.architecture_type }}
+          database_type: ${{ parameters.database_type }}
+          message_queue: ${{ parameters.message_queue }}
+          cloud_provider: ${{ parameters.cloud_provider }}
+          environment_strategy: ${{ parameters.environment_strategy }}
+          kubernetes_namespace: ${{ parameters.kubernetes_namespace }}
+          enable_hpa: ${{ parameters.enable_hpa }}
+          enable_pdb: ${{ parameters.enable_pdb }}
+          monitoring_stack: ${{ parameters.monitoring_stack }}
+          enable_tracing: ${{ parameters.enable_tracing }}
+          enable_security_scanning: ${{ parameters.enable_security_scanning }}
+          enable_policy_enforcement: ${{ parameters.enable_policy_enforcement }}
+          ci_cd_platform: ${{ parameters.ci_cd_platform }}
+          enable_automated_testing: ${{ parameters.enable_automated_testing }}
+          enable_code_quality: ${{ parameters.enable_code_quality }}
+          deployment_strategy: ${{ parameters.deployment_strategy }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish to Repository
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        description: ${{ parameters.description }}
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: main
+        gitCommitMessage: 'Initial microservice setup from DevOps Platform'
+        gitAuthorName: 'DevOps Platform'
+        gitAuthorEmail: 'devops@company.com'
+
+    - id: register
+      name: Register in Software Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+    - id: create-argocd-app
+      name: Create ArgoCD Application
+      action: argocd:create-app
+      if: ${{ parameters.environment_strategy === 'gitops' }}
+      input:
+        appName: ${{ parameters.name }}
+        argoInstance: default
+        namespace: ${{ parameters.kubernetes_namespace }}
+        repoUrl: ${{ steps.publish.output.remoteUrl }}
+        path: 'k8s'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}
+      - title: CI/CD Pipeline
+        url: ${{ steps.publish.output.remoteUrl + '/actions' if parameters.ci_cd_platform === 'github-actions' else steps.publish.output.remoteUrl + '/-/pipelines' }}

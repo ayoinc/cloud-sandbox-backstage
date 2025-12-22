@@ -1,0 +1,426 @@
+{% if values.ci_cd_platform === 'github-actions' %}
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+    
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ values.destination.owner }}/${{ values.name }}
+  {% if values.cloud_provider === 'aws' %}
+  AWS_REGION: us-west-2
+  {% elif values.cloud_provider === 'azure' %}
+  AZURE_REGION: eastus
+  {% elif values.cloud_provider === 'gcp' %}
+  GCP_REGION: us-central1
+  {% endif %}
+
+permissions:
+  contents: read
+  packages: write
+  security-events: write
+  id-token: write
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        {% if values.language === 'nodejs' %}
+        node-version: [18.x, 20.x]
+        {% elif values.language === 'python' %}
+        python-version: ['3.9', '3.10', '3.11']
+        {% elif values.language === 'java' %}
+        java-version: ['11', '17', '21']
+        {% elif values.language === 'golang' %}
+        go-version: ['1.20', '1.21']
+        {% elif values.language === 'dotnet' %}
+        dotnet-version: ['6.0', '7.0', '8.0']
+        {% endif %}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    {% if values.language === 'nodejs' %}
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run linting
+      run: npm run lint
+    
+    {% if values.enable_automated_testing %}
+    - name: Run tests
+      run: npm run test:coverage
+    {% endif %}
+    
+    {% elif values.language === 'python' %}
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+    
+    - name: Run linting
+      run: |
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        black --check .
+        isort --check-only .
+    
+    {% if values.enable_automated_testing %}
+    - name: Run tests
+      run: |
+        pytest --cov=app --cov-report=xml --cov-report=html
+    {% endif %}
+    
+    {% elif values.language === 'java' %}
+    - name: Setup JDK
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ matrix.java-version }}
+        distribution: 'temurin'
+    
+    - name: Cache Maven packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
+    
+    - name: Run linting
+      run: mvn spotless:check
+    
+    {% if values.enable_automated_testing %}
+    - name: Run tests
+      run: mvn clean test jacoco:report
+    {% endif %}
+    
+    {% elif values.language === 'golang' %}
+    - name: Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ matrix.go-version }}
+    
+    - name: Run linting
+      uses: golangci/golangci-lint-action@v3
+      with:
+        version: latest
+    
+    {% if values.enable_automated_testing %}
+    - name: Run tests
+      run: go test -v -race -coverprofile=coverage.out ./...
+    {% endif %}
+    
+    {% elif values.language === 'dotnet' %}
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: ${{ matrix.dotnet-version }}
+    
+    - name: Restore dependencies
+      run: dotnet restore
+    
+    - name: Build
+      run: dotnet build --no-restore
+    
+    {% if values.enable_automated_testing %}
+    - name: Run tests
+      run: dotnet test --no-build --verbosity normal --collect:"XPlat Code Coverage"
+    {% endif %}
+    {% endif %}
+
+    {% if values.enable_code_quality %}
+    - name: SonarQube Scan
+      uses: sonarqube-quality-gate-action@master
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    {% endif %}
+
+    {% if values.enable_automated_testing %}
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./coverage.xml
+        fail_ci_if_error: true
+    {% endif %}
+
+  security-scan:
+    runs-on: ubuntu-latest
+    {% if values.enable_security_scanning %}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+    
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+    
+    - name: Run Snyk security scan
+      uses: snyk/actions/${{ values.language }}@master
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+    
+    - name: OWASP Dependency Check
+      uses: dependency-check/dependency-check-action@main
+      with:
+        project: '${{ values.name }}'
+        path: '.'
+        format: 'ALL'
+    
+    - name: Upload OWASP results
+      uses: actions/upload-artifact@v3
+      with:
+        name: dependency-check-report
+        path: reports/
+    {% endif %}
+
+  build-and-push:
+    needs: [lint-and-test, security-scan]
+    runs-on: ubuntu-latest
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
+      image-url: ${{ steps.build.outputs.image-url }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+    
+    - name: Build and push Docker image
+      id: build
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push=true
+
+  {% if values.environment_strategy !== 'single-env' %}
+  deploy-staging:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    {% if values.cloud_provider === 'aws' %}
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Update kubeconfig
+      run: aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name staging-cluster
+    
+    {% elif values.cloud_provider === 'azure' %}
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+    
+    - name: Get AKS credentials
+      run: az aks get-credentials --resource-group staging-rg --name staging-aks
+    
+    {% elif values.cloud_provider === 'gcp' %}
+    - name: Setup Google Cloud CLI
+      uses: google-github-actions/setup-gcloud@v1
+      with:
+        service_account_key: ${{ secrets.GCP_SA_KEY }}
+        project_id: ${{ secrets.GCP_PROJECT_ID }}
+    
+    - name: Get GKE credentials
+      run: gcloud container clusters get-credentials staging-cluster --zone ${{ env.GCP_REGION }}
+    {% endif %}
+    
+    - name: Deploy to staging
+      run: |
+        kubectl set image deployment/${{ values.name }} ${{ values.name }}=${{ needs.build-and-push.outputs.image-url }}@${{ needs.build-and-push.outputs.image-digest }} -n staging
+        kubectl rollout status deployment/${{ values.name }} -n staging --timeout=300s
+    
+    - name: Run smoke tests
+      run: |
+        kubectl run smoke-test --image=curlimages/curl --rm -i --restart=Never -- curl -f http://${{ values.name }}.staging/health
+  {% endif %}
+
+  deploy-production:
+    needs: [build-and-push{% if values.environment_strategy !== 'single-env' %}, deploy-staging{% endif %}]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    {% if values.cloud_provider === 'aws' %}
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Update kubeconfig
+      run: aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name production-cluster
+    
+    {% elif values.cloud_provider === 'azure' %}
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+    
+    - name: Get AKS credentials
+      run: az aks get-credentials --resource-group production-rg --name production-aks
+    
+    {% elif values.cloud_provider === 'gcp' %}
+    - name: Setup Google Cloud CLI
+      uses: google-github-actions/setup-gcloud@v1
+      with:
+        service_account_key: ${{ secrets.GCP_SA_KEY }}
+        project_id: ${{ secrets.GCP_PROJECT_ID }}
+    
+    - name: Get GKE credentials
+      run: gcloud container clusters get-credentials production-cluster --zone ${{ env.GCP_REGION }}
+    {% endif %}
+    
+    {% if values.deployment_strategy === 'canary' %}
+    - name: Canary deployment
+      run: |
+        # Deploy canary version (10% traffic)
+        kubectl apply -f k8s/canary/
+        kubectl set image deployment/${{ values.name }}-canary ${{ values.name }}=${{ needs.build-and-push.outputs.image-url }}@${{ needs.build-and-push.outputs.image-digest }} -n production
+        kubectl rollout status deployment/${{ values.name }}-canary -n production --timeout=300s
+        
+        # Wait and monitor metrics
+        sleep 300
+        
+        # If successful, promote to full deployment
+        kubectl set image deployment/${{ values.name }} ${{ values.name }}=${{ needs.build-and-push.outputs.image-url }}@${{ needs.build-and-push.outputs.image-digest }} -n production
+        kubectl rollout status deployment/${{ values.name }} -n production --timeout=300s
+        
+        # Cleanup canary
+        kubectl delete -f k8s/canary/
+    
+    {% elif values.deployment_strategy === 'blue-green' %}
+    - name: Blue-Green deployment
+      run: |
+        # Deploy to green environment
+        kubectl apply -f k8s/green/
+        kubectl set image deployment/${{ values.name }}-green ${{ values.name }}=${{ needs.build-and-push.outputs.image-url }}@${{ needs.build-and-push.outputs.image-digest }} -n production
+        kubectl rollout status deployment/${{ values.name }}-green -n production --timeout=300s
+        
+        # Switch traffic to green
+        kubectl patch service ${{ values.name }} -p '{"spec":{"selector":{"version":"green"}}}' -n production
+        
+        # Wait and monitor
+        sleep 180
+        
+        # Cleanup blue environment
+        kubectl delete deployment ${{ values.name }}-blue -n production || true
+        kubectl label deployment ${{ values.name }}-green version=blue -n production
+    
+    {% else %}
+    - name: Rolling deployment
+      run: |
+        kubectl set image deployment/${{ values.name }} ${{ values.name }}=${{ needs.build-and-push.outputs.image-url }}@${{ needs.build-and-push.outputs.image-digest }} -n production
+        kubectl rollout status deployment/${{ values.name }} -n production --timeout=300s
+    {% endif %}
+    
+    - name: Run production smoke tests
+      run: |
+        kubectl run prod-smoke-test --image=curlimages/curl --rm -i --restart=Never -- curl -f http://${{ values.name }}.production/health
+    
+    - name: Update Backstage deployment annotation
+      run: |
+        curl -X POST \
+          -H "Authorization: Bearer ${{ secrets.BACKSTAGE_TOKEN }}" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "entity": "${{ values.name }}",
+            "deployment": {
+              "version": "${{ github.sha }}",
+              "environment": "production",
+              "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
+              "image": "${{ needs.build-and-push.outputs.image-url }}@${{ needs.build-and-push.outputs.image-digest }}"
+            }
+          }' \
+          "${BACKSTAGE_API_URL}/api/deployments"
+
+  performance-test:
+    needs: deploy-production
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Run K6 performance tests
+      uses: grafana/k6-action@v0.3.1
+      with:
+        filename: tests/performance/load-test.js
+      env:
+        K6_CLOUD_TOKEN: ${{ secrets.K6_CLOUD_TOKEN }}
+        TARGET_URL: https://${{ values.name }}.company.com
+{% endif %}

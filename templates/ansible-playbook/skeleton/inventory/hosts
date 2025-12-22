@@ -1,0 +1,49 @@
+[all:vars]
+ansible_user=ansible
+ansible_ssh_private_key_file=~/.ssh/id_rsa
+ansible_host_key_checking=False
+
+[webservers]
+# Add your web servers here
+# web1.example.com
+# web2.example.com
+
+[databases]
+# Add your database servers here
+# db1.example.com
+# db2.example.com
+
+[application_servers]
+# Add your application servers here
+# app1.example.com
+# app2.example.com
+
+[development]
+# Add your development servers here
+# dev1.example.com
+
+[staging]
+# Add your staging servers here
+# staging1.example.com
+
+[production]
+# Add your production servers here
+# prod1.example.com
+# prod2.example.com
+
+# Group of groups
+[web:children]
+webservers
+
+[app:children]
+application_servers
+
+[db:children]
+databases
+
+[nonprod:children]
+development
+staging
+
+[prod:children]
+production

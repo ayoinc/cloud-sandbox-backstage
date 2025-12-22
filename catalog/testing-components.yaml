@@ -1,0 +1,257 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: testing-frameworks
+  title: Testing Frameworks Suite
+  description: Comprehensive testing frameworks for unit, integration, and e2e testing
+  annotations:
+    github.com/project-slug: company/testing-frameworks
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - testing
+    - jest
+    - cypress
+    - selenium
+    - junit
+    - pytest
+  links:
+    - url: https://github.com/company/testing-frameworks
+      title: Source Code
+      icon: github
+    - url: https://test-results.company.com
+      title: Test Results Dashboard
+      icon: dashboard
+spec:
+  type: library
+  lifecycle: production
+  owner: quality-team
+  system: testing-automation-platform
+  providesApis:
+    - testing-api
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: sonarqube
+  title: SonarQube Code Quality
+  description: Static code analysis and quality gate enforcement
+  annotations:
+    sonarqube.org/project-key: company-sonarqube
+    sonarqube.org/server-url: https://sonar.company.com
+  tags:
+    - code-quality
+    - static-analysis
+    - security-scan
+    - technical-debt
+spec:
+  type: service
+  lifecycle: production
+  owner: quality-team
+  system: testing-automation-platform
+  dependsOn:
+    - resource:sonarqube-database
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: security-scanning-suite
+  title: Security Scanning Suite
+  description: Vulnerability scanning, SAST, DAST, and dependency analysis
+  annotations:
+    github.com/project-slug: company/security-scanning
+    security.company.com/policy-version: v2.1
+  tags:
+    - security
+    - vulnerability-scanning
+    - sast
+    - dast
+    - dependency-check
+  links:
+    - url: https://security.company.com/dashboard
+      title: Security Dashboard
+      icon: security
+spec:
+  type: service
+  lifecycle: production
+  owner: security-team
+  system: security-compliance-platform
+  providesApis:
+    - security-api
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: performance-testing
+  title: Performance Testing Suite
+  description: Load testing, stress testing, and performance monitoring
+  annotations:
+    github.com/project-slug: company/performance-testing
+    jmeter.apache.org/version: "5.5"
+  tags:
+    - performance-testing
+    - load-testing
+    - jmeter
+    - k6
+    - gatling
+spec:
+  type: library
+  lifecycle: production
+  owner: quality-team
+  system: testing-automation-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ci-cd-pipelines
+  title: CI/CD Pipeline Templates
+  description: Standardized CI/CD pipeline templates for various technologies
+  annotations:
+    github.com/project-slug: company/ci-cd-templates
+    jenkins.io/server-url: https://jenkins.company.com
+  tags:
+    - ci-cd
+    - jenkins
+    - github-actions
+    - gitlab-ci
+    - azure-devops
+spec:
+  type: library
+  lifecycle: production
+  owner: devops-team
+  system: ci-cd-platform
+  providesApis:
+    - pipeline-api
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: artifact-repository
+  title: Artifact Repository
+  description: Maven, npm, Docker, and generic artifact storage
+  annotations:
+    artifactory.jfrog.com/url: https://artifacts.company.com
+    nexus.sonatype.com/url: https://nexus.company.com
+  tags:
+    - artifacts
+    - maven
+    - npm
+    - docker
+    - storage
+spec:
+  type: service
+  lifecycle: production
+  owner: platform-team
+  system: ci-cd-platform
+  dependsOn:
+    - resource:artifact-storage
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: testing-api
+  title: Testing Framework API
+  description: API for test execution and result management
+  tags:
+    - testing
+    - api
+    - results
+spec:
+  type: openapi
+  lifecycle: production
+  owner: quality-team
+  system: testing-automation-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Testing Framework API
+      version: '1.0.0'
+    paths:
+      /tests:
+        get:
+          summary: List test suites
+          responses:
+            '200':
+              description: Test suites
+        post:
+          summary: Execute test suite
+          requestBody:
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    suite:
+                      type: string
+                    environment:
+                      type: string
+          responses:
+            '202':
+              description: Test execution started
+      /tests/{id}/results:
+        get:
+          summary: Get test results
+          responses:
+            '200':
+              description: Test results
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: security-api
+  title: Security Scanning API
+  description: API for security scans and vulnerability management
+  tags:
+    - security
+    - api
+    - vulnerabilities
+spec:
+  type: openapi
+  lifecycle: production
+  owner: security-team
+  system: security-compliance-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: pipeline-api
+  title: CI/CD Pipeline API
+  description: API for pipeline management and execution
+  tags:
+    - ci-cd
+    - pipeline
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: devops-team
+  system: ci-cd-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: sonarqube-database
+  title: SonarQube Database
+  description: PostgreSQL database for SonarQube
+  tags:
+    - database
+    - postgresql
+    - sonarqube
+spec:
+  type: database
+  owner: platform-team
+  system: testing-automation-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: artifact-storage
+  title: Artifact Storage
+  description: S3-compatible storage for build artifacts
+  tags:
+    - storage
+    - artifacts
+    - s3
+spec:
+  type: storage
+  owner: platform-team
+  system: ci-cd-platform

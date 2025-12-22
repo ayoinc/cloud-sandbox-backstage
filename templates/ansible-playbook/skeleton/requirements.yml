@@ -1,0 +1,27 @@
+{%- if values.galaxy_requirements %}
+---
+# Ansible Galaxy requirements
+collections:
+{%- for collection in values.collections %}
+  - name: {{ collection }}
+    version: ">=1.0.0"
+{%- endfor %}
+  
+# Example roles from Galaxy
+roles:
+  # Uncomment and modify as needed
+  # - name: geerlingguy.docker
+  #   version: ">=4.0.0"
+  # - name: community.mysql
+  #   version: ">=3.0.0"
+
+# Git-based collections and roles
+# - name: https://github.com/example/ansible-collection.git
+#   type: git
+#   version: main
+
+# Private automation hub collections
+# - name: company.internal_collection
+#   source: https://automation-hub.company.com/
+
+{%- endif %}

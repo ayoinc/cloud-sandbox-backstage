@@ -1,0 +1,150 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: cloud-sandbox-template
+  title: Cloud Sandbox Environment
+  description: Create a cloud development sandbox with VPC, compute, and optional services
+  tags:
+    - cloud
+    - sandbox
+    - aws
+    - azure
+    - gcp
+    - terraform
+spec:
+  owner: platform-team
+  type: environment
+  parameters:
+    - title: Basic Information
+      required:
+        - name
+        - description
+        - owner
+      properties:
+        name:
+          title: Name
+          type: string
+          pattern: '^([a-z0-9\-])+$'
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+        owner:
+          title: Owner
+          type: string
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: [Group, User]
+    - title: Cloud Configuration
+      required:
+        - cloud_provider
+        - region
+      properties:
+        cloud_provider:
+          title: Cloud Provider
+          type: string
+          default: aws
+          enum:
+            - aws
+            - azure
+            - gcp
+          enumNames:
+            - Amazon Web Services
+            - Microsoft Azure
+            - Google Cloud Platform
+        region:
+          title: Region
+          type: string
+          default: us-east-1
+        environment:
+          title: Environment
+          type: string
+          default: sandbox
+          enum:
+            - sandbox
+            - dev
+            - staging
+    - title: Network Configuration
+      properties:
+        vpc_cidr:
+          title: VPC CIDR
+          type: string
+          default: '10.0.0.0/16'
+        public_subnets:
+          title: Number of Public Subnets
+          type: integer
+          default: 2
+          minimum: 1
+          maximum: 4
+        private_subnets:
+          title: Number of Private Subnets
+          type: integer
+          default: 2
+          minimum: 0
+          maximum: 4
+    - title: Compute Options
+      properties:
+        include_bastion:
+          title: Include Bastion Host
+          type: boolean
+          default: true
+        include_eks:
+          title: Include Kubernetes (EKS/AKS/GKE)
+          type: boolean
+          default: false
+        include_rds:
+          title: Include Database (RDS/SQL/CloudSQL)
+          type: boolean
+          default: false
+    - title: Repository
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+  steps:
+    - id: fetch
+      name: Fetch Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          cloud_provider: ${{ parameters.cloud_provider }}
+          region: ${{ parameters.region }}
+          environment: ${{ parameters.environment }}
+          vpc_cidr: ${{ parameters.vpc_cidr }}
+          public_subnets: ${{ parameters.public_subnets }}
+          private_subnets: ${{ parameters.private_subnets }}
+          include_bastion: ${{ parameters.include_bastion }}
+          include_eks: ${{ parameters.include_eks }}
+          include_rds: ${{ parameters.include_rds }}
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        description: ${{ parameters.description }}
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: main
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}

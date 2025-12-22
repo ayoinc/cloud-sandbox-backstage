@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ${{ values.namespace }}
+  labels:
+    name: ${{ values.namespace }}
+    environment: ${{ values.environment }}
+    component: awx
+  annotations:
+    backstage.io/managed-by: awx-backstage-platform

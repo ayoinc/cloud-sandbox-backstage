@@ -1,0 +1,166 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: awx-core
+  title: AWX Core
+  description: Web-based user interface, REST API, and task engine built on top of Ansible
+  annotations:
+    github.com/project-slug: ansible/awx
+    backstage.io/techdocs-ref: dir:.
+    sonarqube.org/project-key: awx-core
+    jenkins.io/job-full-name: awx/awx-ci
+  tags:
+    - ansible
+    - automation
+    - web-ui
+    - api
+    - python
+    - django
+  links:
+    - url: https://github.com/ansible/awx
+      title: Source Code
+      icon: github
+    - url: https://ansible.readthedocs.io/projects/awx/en/latest/
+      title: Documentation
+      icon: docs
+    - url: https://github.com/ansible/awx/issues
+      title: Issues
+      icon: github
+    - url: https://groups.google.com/g/awx-project
+      title: Mailing List
+      icon: email
+    - url: https://matrix.to/#/#awx:ansible.com
+      title: Matrix Chat
+      icon: chat
+spec:
+  type: service
+  lifecycle: production
+  owner: awx-team
+  system: awx-automation-platform
+  dependsOn:
+    - resource:postgresql-database
+    - resource:redis-cache
+    - resource:awx-operator
+  providesApis:
+    - awx-rest-api
+    - awx-websocket-api
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: awx-rest-api
+  title: AWX REST API
+  description: RESTful API for AWX automation platform
+  annotations:
+    github.com/project-slug: ansible/awx
+  tags:
+    - rest
+    - api
+    - automation
+spec:
+  type: openapi
+  lifecycle: production
+  owner: awx-team
+  system: awx-automation-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: AWX REST API
+      version: '23.0.0'
+      description: REST API for AWX automation platform
+    servers:
+      - url: https://awx.example.com/api/v2
+        description: Production server
+    paths:
+      /jobs/:
+        get:
+          summary: List jobs
+          description: Retrieve a list of jobs
+          responses:
+            '200':
+              description: Successful response
+      /job_templates/:
+        get:
+          summary: List job templates
+          description: Retrieve a list of job templates
+          responses:
+            '200':
+              description: Successful response
+      /inventories/:
+        get:
+          summary: List inventories
+          description: Retrieve a list of inventories
+          responses:
+            '200':
+              description: Successful response
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: awx-websocket-api
+  title: AWX WebSocket API
+  description: Real-time WebSocket API for AWX events and notifications
+  annotations:
+    github.com/project-slug: ansible/awx
+  tags:
+    - websocket
+    - api
+    - real-time
+spec:
+  type: asyncapi
+  lifecycle: production
+  owner: awx-team
+  system: awx-automation-platform
+  definition: |
+    asyncapi: 2.0.0
+    info:
+      title: AWX WebSocket API
+      version: '1.0.0'
+      description: Real-time events and notifications from AWX
+    servers:
+      production:
+        url: wss://awx.example.com/websocket/
+        protocol: wss
+    channels:
+      /job_events/:
+        subscribe:
+          message:
+            payload:
+              type: object
+              properties:
+                job_id:
+                  type: integer
+                status:
+                  type: string
+                event:
+                  type: string
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: postgresql-database
+  title: PostgreSQL Database
+  description: PostgreSQL database for AWX data storage
+  tags:
+    - database
+    - postgresql
+    - storage
+spec:
+  type: database
+  owner: platform-team
+  system: awx-automation-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: redis-cache
+  title: Redis Cache
+  description: Redis cache for AWX session storage and task queuing
+  tags:
+    - cache
+    - redis
+    - storage
+spec:
+  type: cache
+  owner: platform-team
+  system: awx-automation-platform

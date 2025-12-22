@@ -1,0 +1,377 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: terraform-infrastructure
+  title: Terraform Infrastructure
+  description: Create enterprise-grade cloud infrastructure with Terraform, including security, monitoring, and compliance
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - recommended
+    - terraform
+    - infrastructure
+    - cloud
+    - security
+    - monitoring
+spec:
+  owner: platform-team
+  type: infrastructure
+  parameters:
+    - title: Infrastructure Information
+      required:
+        - name
+        - description
+        - owner
+        - cloud_provider
+      properties:
+        name:
+          title: Infrastructure Name
+          type: string
+          description: Name of the infrastructure stack
+          pattern: '^[a-z0-9\-]+$'
+          ui:autofocus: true
+          ui:help: 'Use lowercase letters, numbers, and hyphens only'
+        description:
+          title: Description
+          type: string
+          description: Brief description of the infrastructure purpose
+        owner:
+          title: Owner
+          type: string
+          description: Owner of the infrastructure
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: [Group, User]
+        cloud_provider:
+          title: Cloud Provider
+          type: string
+          description: Primary cloud platform
+          default: aws
+          enum:
+            - aws
+            - azure
+            - gcp
+            - multi-cloud
+          enumNames:
+            - Amazon Web Services
+            - Microsoft Azure
+            - Google Cloud Platform
+            - Multi-Cloud Setup
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+              - gitlab.com
+
+    - title: Infrastructure Components
+      properties:
+        infrastructure_type:
+          title: Infrastructure Type
+          type: string
+          description: Primary infrastructure pattern
+          default: web-application
+          enum:
+            - web-application
+            - data-platform
+            - ml-platform
+            - container-platform
+            - serverless-platform
+            - networking-foundation
+          enumNames:
+            - Web Application Stack
+            - Data Platform
+            - ML/AI Platform
+            - Container Platform (EKS/AKS/GKE)
+            - Serverless Platform
+            - Networking Foundation
+        enable_networking:
+          title: Enable Custom Networking
+          type: boolean
+          description: Create VPC/VNet with subnets
+          default: true
+        enable_database:
+          title: Enable Database
+          type: boolean
+          description: Include managed database services
+          default: false
+        database_type:
+          title: Database Type
+          type: string
+          description: Type of managed database
+          default: postgresql
+          enum:
+            - postgresql
+            - mysql
+            - mongodb
+            - redis
+            - dynamodb
+            - cosmosdb
+          enumNames:
+            - PostgreSQL
+            - MySQL
+            - MongoDB
+            - Redis
+            - DynamoDB (AWS)
+            - CosmosDB (Azure)
+        enable_storage:
+          title: Enable Object Storage
+          type: boolean
+          description: Include object storage (S3, Blob, etc.)
+          default: true
+        enable_cdn:
+          title: Enable CDN
+          type: boolean
+          description: Include CDN for content delivery
+          default: false
+
+    - title: Compute & Container Services
+      properties:
+        enable_kubernetes:
+          title: Enable Kubernetes
+          type: boolean
+          description: Deploy managed Kubernetes cluster
+          default: false
+        kubernetes_version:
+          title: Kubernetes Version
+          type: string
+          description: Kubernetes version for the cluster
+          default: "1.28"
+          enum:
+            - "1.26"
+            - "1.27"
+            - "1.28"
+            - "1.29"
+        node_instance_type:
+          title: Node Instance Type
+          type: string
+          description: Instance type for Kubernetes nodes
+          default: medium
+          enum:
+            - small
+            - medium
+            - large
+            - xlarge
+          enumNames:
+            - Small (2 vCPU, 4GB RAM)
+            - Medium (4 vCPU, 8GB RAM)
+            - Large (8 vCPU, 16GB RAM)
+            - XLarge (16 vCPU, 32GB RAM)
+        enable_autoscaling:
+          title: Enable Auto Scaling
+          type: boolean
+          description: Enable cluster auto-scaling
+          default: true
+        min_nodes:
+          title: Minimum Nodes
+          type: integer
+          description: Minimum number of nodes
+          default: 2
+        max_nodes:
+          title: Maximum Nodes
+          type: integer
+          description: Maximum number of nodes
+          default: 10
+
+    - title: Security & Compliance
+      properties:
+        enable_security_group_rules:
+          title: Enable Security Groups/NSGs
+          type: boolean
+          description: Create security group rules
+          default: true
+        enable_waf:
+          title: Enable Web Application Firewall
+          type: boolean
+          description: Include WAF for web protection
+          default: false
+        enable_secrets_manager:
+          title: Enable Secrets Management
+          type: boolean
+          description: Include secrets manager service
+          default: true
+        enable_kms:
+          title: Enable Key Management
+          type: boolean
+          description: Include KMS for encryption
+          default: true
+        enable_backup:
+          title: Enable Backup Solutions
+          type: boolean
+          description: Include backup services
+          default: true
+        compliance_framework:
+          title: Compliance Framework
+          type: string
+          description: Target compliance framework
+          default: none
+          enum:
+            - none
+            - cis
+            - pci-dss
+            - hipaa
+            - sox
+            - gdpr
+          enumNames:
+            - No Specific Framework
+            - CIS Benchmarks
+            - PCI DSS
+            - HIPAA
+            - SOX
+            - GDPR
+
+    - title: Monitoring & Observability
+      properties:
+        enable_monitoring:
+          title: Enable Monitoring Stack
+          type: boolean
+          description: Include monitoring and logging
+          default: true
+        monitoring_solution:
+          title: Monitoring Solution
+          type: string
+          description: Monitoring platform
+          default: native
+          enum:
+            - native
+            - prometheus-grafana
+            - elastic-stack
+            - datadog
+            - new-relic
+          enumNames:
+            - Native Cloud Monitoring
+            - Prometheus + Grafana
+            - Elastic Stack (ELK)
+            - Datadog
+            - New Relic
+        enable_alerting:
+          title: Enable Alerting
+          type: boolean
+          description: Setup alerting and notifications
+          default: true
+        log_retention_days:
+          title: Log Retention (Days)
+          type: integer
+          description: Number of days to retain logs
+          default: 30
+          enum: [7, 30, 90, 365]
+
+    - title: Environment & Deployment
+      properties:
+        environments:
+          title: Environments to Create
+          type: array
+          description: Target environments
+          default: ["staging", "production"]
+          items:
+            type: string
+            enum: ["development", "staging", "production"]
+          uniqueItems: true
+          ui:widget: checkboxes
+        enable_disaster_recovery:
+          title: Enable Disaster Recovery
+          type: boolean
+          description: Setup multi-region disaster recovery
+          default: false
+        enable_cost_optimization:
+          title: Enable Cost Optimization
+          type: boolean
+          description: Include cost optimization features
+          default: true
+        terraform_version:
+          title: Terraform Version Constraint
+          type: string
+          description: Terraform version requirement
+          default: '>= 1.5'
+          enum:
+            - '>= 1.0'
+            - '>= 1.3'
+            - '>= 1.5'
+            - '>= 1.6'
+
+  steps:
+    - id: fetch
+      name: Fetch Infrastructure Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          cloud_provider: ${{ parameters.cloud_provider }}
+          infrastructure_type: ${{ parameters.infrastructure_type }}
+          enable_networking: ${{ parameters.enable_networking }}
+          enable_database: ${{ parameters.enable_database }}
+          database_type: ${{ parameters.database_type }}
+          enable_storage: ${{ parameters.enable_storage }}
+          enable_cdn: ${{ parameters.enable_cdn }}
+          enable_kubernetes: ${{ parameters.enable_kubernetes }}
+          kubernetes_version: ${{ parameters.kubernetes_version }}
+          node_instance_type: ${{ parameters.node_instance_type }}
+          enable_autoscaling: ${{ parameters.enable_autoscaling }}
+          min_nodes: ${{ parameters.min_nodes }}
+          max_nodes: ${{ parameters.max_nodes }}
+          enable_security_group_rules: ${{ parameters.enable_security_group_rules }}
+          enable_waf: ${{ parameters.enable_waf }}
+          enable_secrets_manager: ${{ parameters.enable_secrets_manager }}
+          enable_kms: ${{ parameters.enable_kms }}
+          enable_backup: ${{ parameters.enable_backup }}
+          compliance_framework: ${{ parameters.compliance_framework }}
+          enable_monitoring: ${{ parameters.enable_monitoring }}
+          monitoring_solution: ${{ parameters.monitoring_solution }}
+          enable_alerting: ${{ parameters.enable_alerting }}
+          log_retention_days: ${{ parameters.log_retention_days }}
+          environments: ${{ parameters.environments }}
+          enable_disaster_recovery: ${{ parameters.enable_disaster_recovery }}
+          enable_cost_optimization: ${{ parameters.enable_cost_optimization }}
+          terraform_version: ${{ parameters.terraform_version }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish to Repository
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        description: ${{ parameters.description }}
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: main
+        gitCommitMessage: 'Initial infrastructure setup from DevOps Platform'
+        gitAuthorName: 'DevOps Platform'
+        gitAuthorEmail: 'devops@company.com'
+
+    - id: register
+      name: Register in Software Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+    - id: create-terraform-workspace
+      name: Create Terraform Cloud Workspace
+      action: terraform:create-workspace
+      input:
+        workspaceName: ${{ parameters.name }}
+        organization: company-terraform
+        repository: ${{ steps.publish.output.remoteUrl }}
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}
+      - title: Terraform Workspace
+        url: https://app.terraform.io/app/company-terraform/workspaces/${{ parameters.name }}
+      - title: Infrastructure Documentation
+        icon: docs
+        url: ${{ steps.publish.output.remoteUrl }}/blob/main/README.md

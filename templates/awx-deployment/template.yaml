@@ -1,0 +1,179 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: awx-deployment-template
+  title: AWX Deployment
+  description: Deploy AWX instance using the AWX Operator in Kubernetes
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - recommended
+    - awx
+    - kubernetes
+    - deployment
+    - operator
+spec:
+  owner: platform-team
+  type: infrastructure
+  parameters:
+    - title: Basic Information
+      required:
+        - name
+        - namespace
+        - owner
+        - environment
+      properties:
+        name:
+          title: AWX Instance Name
+          type: string
+          description: Name for the AWX instance
+          pattern: '^([a-z0-9\-])+$'
+          ui:autofocus: true
+          ui:help: 'Use lowercase letters, numbers, and hyphens only'
+        namespace:
+          title: Kubernetes Namespace
+          type: string
+          description: Kubernetes namespace for deployment
+          default: awx
+          pattern: '^([a-z0-9\-])+$'
+        owner:
+          title: Owner
+          type: string
+          description: Owner of the deployment
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: [Group, User]
+        environment:
+          title: Environment
+          type: string
+          description: Target environment
+          default: development
+          enum:
+            - development
+            - staging
+            - production
+          enumNames:
+            - Development
+            - Staging
+            - Production
+    - title: Repository Information
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+              - gitlab.com
+    - title: AWX Configuration
+      properties:
+        awx_version:
+          title: AWX Version
+          type: string
+          description: AWX version to deploy
+          default: latest
+        service_type:
+          title: Service Type
+          type: string
+          description: Kubernetes service type
+          default: ClusterIP
+          enum:
+            - ClusterIP
+            - NodePort
+            - LoadBalancer
+          enumNames:
+            - ClusterIP (Internal only)
+            - NodePort (External access via node port)
+            - LoadBalancer (External load balancer)
+        ingress_enabled:
+          title: Enable Ingress
+          type: boolean
+          description: Enable ingress for external access
+          default: true
+        hostname:
+          title: Hostname
+          type: string
+          description: Hostname for AWX instance (required if ingress enabled)
+          default: awx.example.com
+        storage_class:
+          title: Storage Class
+          type: string
+          description: Kubernetes storage class for persistent volumes
+          default: default
+        postgres_storage_size:
+          title: PostgreSQL Storage Size
+          type: string
+          description: Storage size for PostgreSQL database
+          default: 8Gi
+        project_storage_size:
+          title: Project Storage Size
+          type: string
+          description: Storage size for project data
+          default: 8Gi
+    - title: Security Configuration
+      properties:
+        admin_user:
+          title: Admin Username
+          type: string
+          description: AWX admin username
+          default: admin
+        ssl_enabled:
+          title: Enable SSL/TLS
+          type: boolean
+          description: Enable SSL/TLS encryption
+          default: true
+        ldap_enabled:
+          title: Enable LDAP
+          type: boolean
+          description: Enable LDAP authentication
+          default: false
+  steps:
+    - id: fetch
+      name: Fetch Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          namespace: ${{ parameters.namespace }}
+          owner: ${{ parameters.owner }}
+          environment: ${{ parameters.environment }}
+          awx_version: ${{ parameters.awx_version }}
+          service_type: ${{ parameters.service_type }}
+          ingress_enabled: ${{ parameters.ingress_enabled }}
+          hostname: ${{ parameters.hostname }}
+          storage_class: ${{ parameters.storage_class }}
+          postgres_storage_size: ${{ parameters.postgres_storage_size }}
+          project_storage_size: ${{ parameters.project_storage_size }}
+          admin_user: ${{ parameters.admin_user }}
+          ssl_enabled: ${{ parameters.ssl_enabled }}
+          ldap_enabled: ${{ parameters.ldap_enabled }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        description: AWX deployment configuration for ${{ parameters.environment }}
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: main
+        gitCommitMessage: 'Initial AWX deployment configuration'
+        gitAuthorName: 'AWX Backstage'
+        gitAuthorEmail: 'backstage@awx.automation.local'
+    - id: register
+      name: Register in Software Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}

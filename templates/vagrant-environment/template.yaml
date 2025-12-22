@@ -1,0 +1,170 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: vagrant-environment-template
+  title: Vagrant Environment
+  description: Create a local VM development environment with Vagrant
+  tags:
+    - vagrant
+    - vm
+    - local
+    - development
+spec:
+  owner: platform-team
+  type: environment
+  parameters:
+    - title: Basic Information
+      required:
+        - name
+        - description
+        - owner
+      properties:
+        name:
+          title: Name
+          type: string
+          pattern: '^([a-z0-9\-])+$'
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+        owner:
+          title: Owner
+          type: string
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: [Group, User]
+    - title: VM Configuration
+      required:
+        - box
+        - provider
+      properties:
+        box:
+          title: Vagrant Box
+          type: string
+          default: ubuntu/jammy64
+          enum:
+            - ubuntu/jammy64
+            - ubuntu/focal64
+            - centos/stream9
+            - debian/bookworm64
+            - generic/rhel9
+            - hashicorp/bionic64
+        provider:
+          title: Provider
+          type: string
+          default: virtualbox
+          enum:
+            - virtualbox
+            - vmware_desktop
+            - libvirt
+            - hyperv
+        cpus:
+          title: CPUs
+          type: integer
+          default: 2
+          minimum: 1
+          maximum: 8
+        memory:
+          title: Memory (MB)
+          type: integer
+          default: 2048
+          minimum: 512
+          maximum: 16384
+        disk_size:
+          title: Disk Size (GB)
+          type: integer
+          default: 40
+    - title: Network Configuration
+      properties:
+        private_network:
+          title: Private Network IP
+          type: string
+          default: '192.168.56.10'
+        forwarded_ports:
+          title: Forwarded Ports
+          type: array
+          items:
+            type: object
+            properties:
+              guest:
+                type: integer
+              host:
+                type: integer
+          default:
+            - guest: 22
+              host: 2222
+            - guest: 80
+              host: 8080
+    - title: Provisioning
+      properties:
+        provisioner:
+          title: Provisioner
+          type: string
+          default: shell
+          enum:
+            - shell
+            - ansible
+            - ansible_local
+            - puppet
+            - chef
+        install_docker:
+          title: Install Docker
+          type: boolean
+          default: false
+        install_k3s:
+          title: Install K3s
+          type: boolean
+          default: false
+    - title: Repository
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+  steps:
+    - id: fetch
+      name: Fetch Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          box: ${{ parameters.box }}
+          provider: ${{ parameters.provider }}
+          cpus: ${{ parameters.cpus }}
+          memory: ${{ parameters.memory }}
+          disk_size: ${{ parameters.disk_size }}
+          private_network: ${{ parameters.private_network }}
+          forwarded_ports: ${{ parameters.forwarded_ports }}
+          provisioner: ${{ parameters.provisioner }}
+          install_docker: ${{ parameters.install_docker }}
+          install_k3s: ${{ parameters.install_k3s }}
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        description: ${{ parameters.description }}
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: main
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}

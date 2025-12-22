@@ -1,0 +1,177 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: docker-application-template
+  title: Docker Application
+  description: Create a new Docker-based application with custom actions
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - recommended
+    - docker
+    - application
+spec:
+  owner: platform-team
+  type: service
+  parameters:
+    - title: Basic Information
+      required:
+        - name
+        - description
+        - owner
+      properties:
+        name:
+          title: Name
+          type: string
+          description: Unique name of the application
+          pattern: '^([a-z0-9\-])+$'
+          ui:autofocus: true
+          ui:help: 'Use lowercase letters, numbers, and hyphens only'
+        description:
+          title: Description
+          type: string
+          description: Brief description of the application
+        owner:
+          title: Owner
+          type: string
+          description: Owner of the component
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: [Group, User]
+    - title: Repository Information
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+              - gitlab.com
+    - title: Docker Configuration
+      properties:
+        baseImage:
+          title: Base Image
+          type: string
+          description: Docker base image to use
+          default: 'node:18-alpine'
+          enum:
+            - 'node:18-alpine'
+            - 'python:3.11-alpine'
+            - 'openjdk:17-alpine'
+            - 'golang:1.20-alpine'
+          enumNames:
+            - 'Node.js 18 (Alpine)'
+            - 'Python 3.11 (Alpine)'
+            - 'OpenJDK 17 (Alpine)'
+            - 'Go 1.20 (Alpine)'
+        port:
+          title: Container Port
+          type: number
+          description: Port the application will listen on
+          default: 8080
+        includeHealthcheck:
+          title: Include Healthcheck
+          type: boolean
+          description: Include Docker healthcheck configuration
+          default: true
+  steps:
+    - id: fetch
+      name: Fetch Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          baseImage: ${{ parameters.baseImage }}
+          port: ${{ parameters.port }}
+          includeHealthcheck: ${{ parameters.includeHealthcheck }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+    
+    - id: validate-yaml
+      name: Validate YAML Files
+      action: org:validate:yaml
+      input:
+        path: ./
+        recursive: true
+    
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        description: ${{ parameters.description }}
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: main
+        gitCommitMessage: 'Initial commit from Docker Application template'
+    
+    - id: register
+      name: Register in Software Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+    
+    - id: notify
+      name: Send Notification
+      action: org:notify
+      input:
+        title: New Docker Application Created
+        message: |
+          A new Docker application has been created:
+          
+          Name: ${{ parameters.name }}
+          Description: ${{ parameters.description }}
+          Owner: ${{ parameters.owner }}
+          Repository: ${{ parameters.repoUrl }}
+        notificationType: webhook
+        webhookUrl: https://example.com/webhook
+    
+    - id: update-docs
+      name: Update Documentation
+      action: org:docs:update
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        path: docs/README.md
+        content: |
+          # ${{ parameters.name }}
+          
+          ${{ parameters.description }}
+          
+          ## Getting Started
+          
+          This application is containerized using Docker.
+          
+          ### Prerequisites
+          
+          - Docker
+          - Docker Compose (optional)
+          
+          ### Running Locally
+          
+          ```bash
+          docker build -t ${{ parameters.name }} .
+          docker run -p ${{ parameters.port }}:${{ parameters.port }} ${{ parameters.name }}
+          ```
+          
+          ## Configuration
+          
+          The application listens on port ${{ parameters.port }}.
+          
+          ## Deployment
+          
+          This application can be deployed using Kubernetes or Docker Compose.
+        commitMessage: Add initial documentation
+        branch: main
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}

@@ -1,0 +1,201 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: aws-services
+  title: AWS Services Integration
+  description: AWS cloud services and infrastructure management
+  annotations:
+    aws.amazon.com/account-id: "123456789012"
+    aws.amazon.com/region: us-east-1
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - aws
+    - cloud
+    - ec2
+    - s3
+    - rds
+    - lambda
+  links:
+    - url: https://console.aws.amazon.com
+      title: AWS Console
+      icon: cloud
+    - url: https://docs.aws.amazon.com
+      title: AWS Documentation
+      icon: docs
+spec:
+  type: service
+  lifecycle: production
+  owner: cloud-team
+  system: cloud-services-platform
+  providesApis:
+    - aws-api
+  dependsOn:
+    - resource:aws-account
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: azure-services
+  title: Azure Services Integration
+  description: Microsoft Azure cloud services and resources
+  annotations:
+    azure.microsoft.com/subscription-id: "12345678-1234-1234-1234-123456789012"
+    azure.microsoft.com/resource-group: production-rg
+  tags:
+    - azure
+    - cloud
+    - vm
+    - storage
+    - sql
+    - functions
+spec:
+  type: service
+  lifecycle: production
+  owner: cloud-team
+  system: cloud-services-platform
+  providesApis:
+    - azure-api
+  dependsOn:
+    - resource:azure-subscription
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: gcp-services
+  title: Google Cloud Platform Services
+  description: GCP cloud services and infrastructure
+  annotations:
+    gcp.google.com/project-id: company-production
+    gcp.google.com/region: us-central1
+  tags:
+    - gcp
+    - cloud
+    - compute-engine
+    - cloud-storage
+    - bigquery
+    - cloud-functions
+spec:
+  type: service
+  lifecycle: production
+  owner: cloud-team
+  system: cloud-services-platform
+  providesApis:
+    - gcp-api
+  dependsOn:
+    - resource:gcp-project
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: multi-cloud-management
+  title: Multi-Cloud Management
+  description: Unified management across AWS, Azure, and GCP
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - multi-cloud
+    - management
+    - cost-optimization
+    - governance
+spec:
+  type: service
+  lifecycle: production
+  owner: cloud-team
+  system: cloud-services-platform
+  dependsOn:
+    - component:aws-services
+    - component:azure-services
+    - component:gcp-services
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: aws-api
+  title: AWS Services API
+  description: AWS SDK and service integrations
+  tags:
+    - aws
+    - sdk
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: cloud-team
+  system: cloud-services-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: azure-api
+  title: Azure Services API
+  description: Azure SDK and REST API integrations
+  tags:
+    - azure
+    - sdk
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: cloud-team
+  system: cloud-services-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: gcp-api
+  title: Google Cloud API
+  description: GCP SDK and API integrations
+  tags:
+    - gcp
+    - sdk
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: cloud-team
+  system: cloud-services-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: aws-account
+  title: AWS Production Account
+  description: Main AWS account for production workloads
+  tags:
+    - aws
+    - account
+    - production
+spec:
+  type: cloud-account
+  owner: cloud-team
+  system: cloud-services-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: azure-subscription
+  title: Azure Production Subscription
+  description: Azure subscription for production resources
+  tags:
+    - azure
+    - subscription
+    - production
+spec:
+  type: cloud-subscription
+  owner: cloud-team
+  system: cloud-services-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: gcp-project
+  title: GCP Production Project
+  description: Google Cloud project for production workloads
+  tags:
+    - gcp
+    - project
+    - production
+spec:
+  type: cloud-project
+  owner: cloud-team
+  system: cloud-services-platform

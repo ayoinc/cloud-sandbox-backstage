@@ -1,0 +1,143 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: ansible-playbook-template
+  title: Ansible Playbook
+  description: Create a new Ansible playbook project with best practices
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - recommended
+    - ansible
+    - automation
+    - playbook
+spec:
+  owner: awx-team
+  type: service
+  parameters:
+    - title: Basic Information
+      required:
+        - name
+        - description
+        - owner
+      properties:
+        name:
+          title: Name
+          type: string
+          description: Unique name of the playbook
+          pattern: '^([a-z0-9\-])+$'
+          ui:autofocus: true
+          ui:help: 'Use lowercase letters, numbers, and hyphens only'
+        description:
+          title: Description
+          type: string
+          description: Brief description of what this playbook does
+        owner:
+          title: Owner
+          type: string
+          description: Owner of the component
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: [Group, User]
+        target_os:
+          title: Target OS
+          type: string
+          description: Primary target operating system
+          default: linux
+          enum:
+            - linux
+            - windows
+            - macos
+            - any
+          enumNames:
+            - Linux
+            - Windows
+            - macOS
+            - Any/Cross-platform
+    - title: Repository Information
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+              - gitlab.com
+    - title: Ansible Configuration
+      properties:
+        ansible_version:
+          title: Minimum Ansible Version
+          type: string
+          description: Minimum required Ansible version
+          default: '2.9'
+          enum:
+            - '2.9'
+            - '2.10'
+            - '2.11'
+            - '2.12'
+            - '2.13'
+            - '2.14'
+            - '2.15'
+        collections:
+          title: Required Collections
+          type: array
+          description: List of Ansible collections this playbook requires
+          items:
+            type: string
+          default:
+            - community.general
+            - ansible.posix
+        galaxy_requirements:
+          title: Include Galaxy Requirements
+          type: boolean
+          description: Include requirements.yml for Galaxy dependencies
+          default: true
+        molecule_testing:
+          title: Include Molecule Testing
+          type: boolean
+          description: Include Molecule framework for testing
+          default: true
+  steps:
+    - id: fetch
+      name: Fetch Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          target_os: ${{ parameters.target_os }}
+          ansible_version: ${{ parameters.ansible_version }}
+          collections: ${{ parameters.collections }}
+          galaxy_requirements: ${{ parameters.galaxy_requirements }}
+          molecule_testing: ${{ parameters.molecule_testing }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        description: ${{ parameters.description }}
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: main
+        gitCommitMessage: 'Initial commit from AWX Backstage template'
+        gitAuthorName: 'AWX Backstage'
+        gitAuthorEmail: 'backstage@awx.automation.local'
+    - id: register
+      name: Register in Software Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}

@@ -1,0 +1,327 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: prometheus-stack
+  title: Prometheus Monitoring Stack
+  description: Prometheus, Grafana, and AlertManager for metrics and monitoring
+  annotations:
+    prometheus.io/server-url: https://prometheus.company.com
+    grafana.com/dashboard-url: https://grafana.company.com
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - prometheus
+    - grafana
+    - alertmanager
+    - monitoring
+    - metrics
+  links:
+    - url: https://prometheus.company.com
+      title: Prometheus Server
+      icon: dashboard
+    - url: https://grafana.company.com
+      title: Grafana Dashboards
+      icon: dashboard
+    - url: https://alertmanager.company.com
+      title: Alert Manager
+      icon: alert
+spec:
+  type: service
+  lifecycle: production
+  owner: sre-team
+  system: observability-platform
+  providesApis:
+    - prometheus-api
+    - grafana-api
+  dependsOn:
+    - resource:prometheus-storage
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: elk-stack
+  title: ELK Stack (Elasticsearch, Logstash, Kibana)
+  description: Centralized logging and log analysis platform
+  annotations:
+    elasticsearch.elastic.co/cluster-url: https://elasticsearch.company.com
+    kibana.elastic.co/dashboard-url: https://kibana.company.com
+  tags:
+    - elasticsearch
+    - logstash
+    - kibana
+    - logging
+    - search
+    - analytics
+spec:
+  type: service
+  lifecycle: production
+  owner: sre-team
+  system: observability-platform
+  providesApis:
+    - elasticsearch-api
+    - kibana-api
+  dependsOn:
+    - resource:elasticsearch-cluster
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: jaeger-tracing
+  title: Jaeger Distributed Tracing
+  description: Distributed tracing and performance monitoring
+  annotations:
+    jaegertracing.io/collector-url: https://jaeger-collector.company.com
+    jaegertracing.io/query-url: https://jaeger.company.com
+  tags:
+    - jaeger
+    - tracing
+    - performance
+    - distributed-systems
+    - observability
+spec:
+  type: service
+  lifecycle: production
+  owner: sre-team
+  system: observability-platform
+  providesApis:
+    - jaeger-api
+  dependsOn:
+    - resource:jaeger-storage
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: datadog-integration
+  title: Datadog Monitoring Integration
+  description: Datadog APM, infrastructure monitoring, and log management
+  annotations:
+    datadoghq.com/api-url: https://api.datadoghq.com
+    datadoghq.com/app-url: https://app.datadoghq.com
+  tags:
+    - datadog
+    - apm
+    - infrastructure-monitoring
+    - log-management
+    - synthetic-monitoring
+spec:
+  type: service
+  lifecycle: production
+  owner: sre-team
+  system: observability-platform
+  providesApis:
+    - datadog-api
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: new-relic-integration
+  title: New Relic Monitoring
+  description: Application performance monitoring and observability
+  annotations:
+    newrelic.com/api-url: https://api.newrelic.com
+    newrelic.com/app-url: https://one.newrelic.com
+  tags:
+    - new-relic
+    - apm
+    - monitoring
+    - alerts
+    - dashboards
+spec:
+  type: service
+  lifecycle: production
+  owner: sre-team
+  system: observability-platform
+  providesApis:
+    - newrelic-api
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: splunk-enterprise
+  title: Splunk Enterprise
+  description: Machine data analytics and security monitoring
+  annotations:
+    splunk.com/server-url: https://splunk.company.com
+  tags:
+    - splunk
+    - machine-data
+    - analytics
+    - security
+    - siem
+spec:
+  type: service
+  lifecycle: production
+  owner: security-team
+  system: observability-platform
+  providesApis:
+    - splunk-api
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: pagerduty-integration
+  title: PagerDuty Incident Management
+  description: Incident response and on-call management
+  annotations:
+    pagerduty.com/service-url: https://company.pagerduty.com
+  tags:
+    - pagerduty
+    - incident-management
+    - on-call
+    - alerts
+    - escalation
+spec:
+  type: service
+  lifecycle: production
+  owner: sre-team
+  system: observability-platform
+  providesApis:
+    - pagerduty-api
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: prometheus-api
+  title: Prometheus API
+  description: Prometheus query API for metrics retrieval
+  tags:
+    - prometheus
+    - metrics
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: sre-team
+  system: observability-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Prometheus API
+      version: '1.0.0'
+    paths:
+      /api/v1/query:
+        get:
+          summary: Execute instant query
+          parameters:
+            - name: query
+              in: query
+              required: true
+              schema:
+                type: string
+          responses:
+            '200':
+              description: Query result
+      /api/v1/query_range:
+        get:
+          summary: Execute range query
+          responses:
+            '200':
+              description: Range query result
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: grafana-api
+  title: Grafana API
+  description: Grafana dashboard and administration API
+  tags:
+    - grafana
+    - dashboards
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: sre-team
+  system: observability-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: elasticsearch-api
+  title: Elasticsearch API
+  description: Elasticsearch search and indexing API
+  tags:
+    - elasticsearch
+    - search
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: sre-team
+  system: observability-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: kibana-api
+  title: Kibana API
+  description: Kibana visualization and dashboard API
+  tags:
+    - kibana
+    - visualization
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: sre-team
+  system: observability-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: jaeger-api
+  title: Jaeger API
+  description: Jaeger tracing query API
+  tags:
+    - jaeger
+    - tracing
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: sre-team
+  system: observability-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: prometheus-storage
+  title: Prometheus Storage
+  description: Time-series database storage for Prometheus
+  tags:
+    - storage
+    - time-series
+    - prometheus
+spec:
+  type: storage
+  owner: platform-team
+  system: observability-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: elasticsearch-cluster
+  title: Elasticsearch Cluster
+  description: Elasticsearch cluster for log storage and search
+  tags:
+    - elasticsearch
+    - cluster
+    - search
+spec:
+  type: cluster
+  owner: platform-team
+  system: observability-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: jaeger-storage
+  title: Jaeger Storage Backend
+  description: Storage backend for Jaeger traces
+  tags:
+    - jaeger
+    - storage
+    - tracing
+spec:
+  type: storage
+  owner: platform-team
+  system: observability-platform

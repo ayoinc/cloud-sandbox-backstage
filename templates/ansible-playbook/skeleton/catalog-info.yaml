@@ -1,0 +1,26 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.name }}
+  title: ${{ values.name | title }}
+  description: ${{ values.description }}
+  annotations:
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - ansible
+    - playbook
+    - automation
+    - ${{ values.target_os }}
+  links:
+    - url: https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}
+      title: Repository
+      icon: github
+    - url: https://galaxy.ansible.com
+      title: Ansible Galaxy
+      icon: catalog
+spec:
+  type: library
+  lifecycle: experimental
+  owner: ${{ values.owner }}
+  system: awx-automation-platform

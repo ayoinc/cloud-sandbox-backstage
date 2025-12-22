@@ -1,0 +1,164 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: terraform-module-template
+  title: Terraform Module
+  description: Create a production-ready Terraform module with best practices
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - recommended
+    - terraform
+    - infrastructure-as-code
+    - aws
+    - azure
+    - gcp
+spec:
+  owner: platform-team
+  type: infrastructure
+  parameters:
+    - title: Basic Information
+      required:
+        - name
+        - description
+        - owner
+        - provider
+      properties:
+        name:
+          title: Module Name
+          type: string
+          description: Name of the Terraform module
+          pattern: '^terraform-[a-z0-9\-]+$'
+          ui:autofocus: true
+          ui:help: 'Must start with "terraform-" and use lowercase letters, numbers, and hyphens'
+        description:
+          title: Description
+          type: string
+          description: Brief description of what this module provisions
+        owner:
+          title: Owner
+          type: string
+          description: Owner of the module
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: [Group, User]
+        provider:
+          title: Cloud Provider
+          type: string
+          description: Primary cloud provider for this module
+          default: aws
+          enum:
+            - aws
+            - azure
+            - gcp
+            - multi-cloud
+          enumNames:
+            - Amazon Web Services
+            - Microsoft Azure
+            - Google Cloud Platform
+            - Multi-Cloud
+    - title: Repository Information
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+              - gitlab.com
+    - title: Module Configuration
+      properties:
+        terraform_version:
+          title: Terraform Version Constraint
+          type: string
+          description: Minimum Terraform version required
+          default: '>= 1.0'
+          enum:
+            - '>= 0.14'
+            - '>= 0.15'
+            - '>= 1.0'
+            - '>= 1.3'
+            - '>= 1.5'
+        resource_type:
+          title: Primary Resource Type
+          type: string
+          description: Main type of resource this module creates
+          default: compute
+          enum:
+            - compute
+            - network
+            - storage
+            - database
+            - security
+            - monitoring
+            - serverless
+            - container
+          enumNames:
+            - Compute (EC2, VM, etc.)
+            - Networking (VPC, Subnets, etc.)
+            - Storage (S3, Blob, etc.)
+            - Database (RDS, SQL, etc.)
+            - Security (IAM, Policies, etc.)
+            - Monitoring (CloudWatch, etc.)
+            - Serverless (Lambda, Functions, etc.)
+            - Container (ECS, AKS, etc.)
+        include_examples:
+          title: Include Usage Examples
+          type: boolean
+          description: Include example usage scenarios
+          default: true
+        include_testing:
+          title: Include Testing Framework
+          type: boolean
+          description: Include Terratest or similar testing
+          default: true
+        enable_compliance:
+          title: Enable Compliance Checks
+          type: boolean
+          description: Include security and compliance validations
+          default: true
+  steps:
+    - id: fetch
+      name: Fetch Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          provider: ${{ parameters.provider }}
+          terraform_version: ${{ parameters.terraform_version }}
+          resource_type: ${{ parameters.resource_type }}
+          include_examples: ${{ parameters.include_examples }}
+          include_testing: ${{ parameters.include_testing }}
+          enable_compliance: ${{ parameters.enable_compliance }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+    - id: publish
+      name: Publish to Repository
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        description: ${{ parameters.description }}
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: main
+        gitCommitMessage: 'Initial commit from DevOps Backstage template'
+        gitAuthorName: 'DevOps Backstage'
+        gitAuthorEmail: 'backstage@devops.company.com'
+    - id: register
+      name: Register in Software Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}

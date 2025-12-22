@@ -1,0 +1,65 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: ${{ values.name }}
+  description: ${{ values.description }}
+  annotations:
+    github.com/project-slug: ${{ values.destination.owner + "/" + values.destination.repo }}
+    backstage.io/techdocs-ref: dir:.
+    terraform.io/workspace: ${{ values.name }}
+    {% if values.cloud_provider === 'aws' %}
+    aws.amazon.com/arn: arn:aws:cloudformation:us-west-2:123456789012:stack/${{ values.name }}/*
+    {% elif values.cloud_provider === 'azure' %}
+    azure.com/resource-group: ${{ values.name }}-rg
+    {% elif values.cloud_provider === 'gcp' %}
+    gcp.google.com/project-id: ${{ values.name }}-project
+    {% endif %}
+    {% if values.enable_monitoring %}
+    grafana/dashboard-selector: "infrastructure={{ values.name }}"
+    {% endif %}
+  tags:
+    - infrastructure
+    - terraform
+    - ${{ values.cloud_provider }}
+    - ${{ values.infrastructure_type }}
+  links:
+    - url: https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}
+      title: Repository
+      icon: github
+    - url: https://app.terraform.io/app/company-terraform/workspaces/${{ values.name }}
+      title: Terraform Cloud
+      icon: dashboard
+    {% if values.enable_monitoring %}
+    - url: https://grafana.company.com/d/${{ values.name }}-infra
+      title: Infrastructure Dashboard
+      icon: dashboard
+    {% endif %}
+    {% if values.cloud_provider === 'aws' %}
+    - url: https://console.aws.amazon.com/cloudformation/home?region=us-west-2#/stacks
+      title: AWS Console
+      icon: cloud
+    {% elif values.cloud_provider === 'azure' %}
+    - url: https://portal.azure.com/#@tenant/resource/subscriptions/subscription-id/resourceGroups/${{ values.name }}-rg
+      title: Azure Portal
+      icon: cloud
+    {% elif values.cloud_provider === 'gcp' %}
+    - url: https://console.cloud.google.com/home/dashboard?project=${{ values.name }}-project
+      title: GCP Console
+      icon: cloud
+    {% endif %}
+spec:
+  type: infrastructure
+  lifecycle: production
+  owner: ${{ values.owner }}
+  system: platform
+  dependsOn: []
+
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: ${{ values.name }}-system
+  description: System encompassing ${{ values.name }} infrastructure
+spec:
+  owner: ${{ values.owner }}
+  domain: infrastructure

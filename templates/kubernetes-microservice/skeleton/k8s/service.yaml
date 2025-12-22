@@ -1,0 +1,95 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ${{ values.name }}
+  namespace: ${{ values.kubernetes_namespace }}
+  labels:
+    app: ${{ values.name }}
+    service: ${{ values.name }}
+  annotations:
+    {% if values.monitoring_stack === 'prometheus-grafana' %}
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "{% if values.language === 'nodejs' %}3000{% elif values.language === 'python' %}8000{% elif values.language === 'java' %}8080{% elif values.language === 'golang' %}8080{% elif values.language === 'dotnet' %}5000{% endif %}"
+    prometheus.io/path: "/metrics"
+    {% endif %}
+    backstage.io/kubernetes-id: ${{ values.name }}
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+    protocol: TCP
+  {% if values.enable_tracing %}
+  - name: metrics
+    port: 9090
+    targetPort: metrics
+    protocol: TCP
+  {% endif %}
+  selector:
+    app: ${{ values.name }}
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ${{ values.name }}
+  namespace: ${{ values.kubernetes_namespace }}
+  labels:
+    app: ${{ values.name }}
+  annotations:
+    backstage.io/kubernetes-id: ${{ values.name }}
+automountServiceAccountToken: false
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ${{ values.name }}-config
+  namespace: ${{ values.kubernetes_namespace }}
+  labels:
+    app: ${{ values.name }}
+  annotations:
+    backstage.io/kubernetes-id: ${{ values.name }}
+data:
+  LOG_LEVEL: "info"
+  APP_NAME: "${{ values.name }}"
+  APP_VERSION: "1.0.0"
+  {% if values.language === 'nodejs' %}
+  NODE_ENV: "production"
+  {% elif values.language === 'java' %}
+  SPRING_PROFILES_ACTIVE: "production"
+  {% endif %}
+  {% if values.enable_tracing %}
+  ENABLE_TRACING: "true"
+  JAEGER_SERVICE_NAME: "${{ values.name }}"
+  OTEL_SERVICE_NAME: "${{ values.name }}"
+  {% endif %}
+  {% if values.monitoring_stack === 'prometheus-grafana' %}
+  ENABLE_METRICS: "true"
+  METRICS_PORT: "9090"
+  {% endif %}
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ${{ values.name }}-secrets
+  namespace: ${{ values.kubernetes_namespace }}
+  labels:
+    app: ${{ values.name }}
+  annotations:
+    backstage.io/kubernetes-id: ${{ values.name }}
+type: Opaque
+data:
+  {% if values.database_type !== 'none' %}
+  # Base64 encoded database connection string
+  # Replace with actual values during deployment
+  database-url: cG9zdGdyZXNxbDovL3VzZXI6cGFzc3dvcmRAbG9jYWxob3N0OjU0MzIvZGI=
+  {% endif %}
+  {% if values.message_queue !== 'none' %}
+  # Base64 encoded message queue connection string
+  message-queue-url: YW1xcDovL3VzZXI6cGFzc3dvcmRAbG9jYWxob3N0OjU2NzI=
+  {% endif %}
+  # JWT secret for authentication (replace with actual secret)
+  jwt-secret: c3VwZXItc2VjcmV0LWp3dC1rZXk=

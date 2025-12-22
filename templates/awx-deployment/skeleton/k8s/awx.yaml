@@ -1,0 +1,124 @@
+apiVersion: awx.ansible.com/v1beta1
+kind: AWX
+metadata:
+  name: ${{ values.name }}
+  namespace: ${{ values.namespace }}
+  labels:
+    environment: ${{ values.environment }}
+    managed-by: backstage
+  annotations:
+    backstage.io/managed-by: awx-backstage-platform
+spec:
+  # Service configuration
+  service_type: ${{ values.service_type }}
+  {%- if values.service_type == 'NodePort' %}
+  nodeport_port: 30080
+  {%- endif %}
+  
+  # Ingress configuration
+  {%- if values.ingress_enabled %}
+  ingress_type: ingress
+  hostname: ${{ values.hostname }}
+  {%- if values.ssl_enabled %}
+  ingress_tls_secret: awx-${{ values.name }}-tls
+  {%- endif %}
+  {%- else %}
+  ingress_type: none
+  {%- endif %}
+  
+  # Admin user configuration
+  admin_user: ${{ values.admin_user }}
+  admin_password_secret: awx-${{ values.name }}-admin-password
+  
+  # Database configuration
+  postgres_configuration_secret: awx-${{ values.name }}-postgres-configuration
+  postgres_storage_class: ${{ values.storage_class }}
+  postgres_storage_requirements:
+    requests:
+      storage: ${{ values.postgres_storage_size }}
+  
+  # Project storage configuration
+  projects_persistence: true
+  projects_storage_class: ${{ values.storage_class }}
+  projects_storage_size: ${{ values.project_storage_size }}
+  projects_storage_access_mode: ReadWriteMany
+  
+  # Image configuration
+  {%- if values.awx_version != 'latest' %}
+  image: quay.io/ansible/awx:${{ values.awx_version }}
+  {%- endif %}
+  
+  # Resource requirements
+  web_resource_requirements:
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+  
+  task_resource_requirements:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+  
+  ee_resource_requirements:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+  
+  # Redis configuration
+  redis_resource_requirements:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+  
+  # Environment-specific configuration
+  {%- if values.environment == 'production' %}
+  replicas: 2
+  auto_upgrade: false
+  {%- elif values.environment == 'staging' %}
+  replicas: 1
+  auto_upgrade: true
+  {%- else %}
+  replicas: 1
+  auto_upgrade: true
+  {%- endif %}
+  
+  # Security configuration
+  {%- if values.ssl_enabled %}
+  ingress_annotations: |
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+  {%- else %}
+  ingress_annotations: |
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  {%- endif %}
+  
+  # LDAP configuration
+  {%- if values.ldap_enabled %}
+  ldap_cacert_secret: awx-${{ values.name }}-ldap-cacert
+  {%- endif %}
+  
+  # Additional environment variables
+  extra_settings:
+    - setting: SYSTEM_TASK_ABS_CPU
+      value: 6
+    - setting: SYSTEM_TASK_ABS_MEM
+      value: 20
+    {%- if values.environment == 'development' %}
+    - setting: AWX_TASK_ENV['DJANGO_SETTINGS_MODULE']
+      value: awx.settings.development
+    {%- endif %}

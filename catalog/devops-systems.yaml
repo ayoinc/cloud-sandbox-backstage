@@ -1,0 +1,96 @@
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: infrastructure-as-code-platform
+  title: Infrastructure as Code Platform
+  description: Terraform, CloudFormation, Pulumi, and infrastructure automation
+  annotations:
+    github.com/project-slug: company/terraform-modules
+  tags:
+    - terraform
+    - cloudformation
+    - pulumi
+    - infrastructure
+spec:
+  owner: platform-team
+  domain: infrastructure-as-code
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: cloud-services-platform
+  title: Cloud Services Platform
+  description: Multi-cloud management and services across AWS, Azure, and GCP
+  tags:
+    - aws
+    - azure
+    - gcp
+    - multi-cloud
+spec:
+  owner: cloud-team
+  domain: cloud-platforms
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: testing-automation-platform
+  title: Testing & Automation Platform
+  description: Comprehensive testing frameworks and quality assurance tools
+  tags:
+    - testing
+    - quality-assurance
+    - automation
+    - ci-cd
+spec:
+  owner: quality-team
+  domain: testing-quality
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: observability-platform
+  title: Observability Platform
+  description: Monitoring, logging, tracing, and alerting infrastructure
+  annotations:
+    grafana.com/dashboard-uid: observability-overview
+    prometheus.io/service-discovery: enabled
+  tags:
+    - monitoring
+    - logging
+    - tracing
+    - alerting
+spec:
+  owner: sre-team
+  domain: observability
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: security-compliance-platform
+  title: Security & Compliance Platform
+  description: Security scanning, vulnerability management, and compliance tools
+  annotations:
+    security.company.com/compliance-framework: SOC2
+  tags:
+    - security
+    - compliance
+    - vulnerability-scanning
+    - policy-enforcement
+spec:
+  owner: security-team
+  domain: security-compliance
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: data-platform
+  title: Data Platform
+  description: Databases, data lakes, streaming platforms, and analytics
+  tags:
+    - databases
+    - data-lakes
+    - streaming
+    - analytics
+spec:
+  owner: data-team
+  domain: data-platforms

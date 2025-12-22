@@ -1,0 +1,65 @@
+apiVersion: backstage.io/v1alpha1
+kind: User
+metadata:
+  name: admin
+  description: Admin user
+spec:
+  profile:
+    displayName: Admin User
+    email: admin@example.com
+  memberOf: [admins]
+---
+apiVersion: backstage.io/v1alpha1
+kind: User
+metadata:
+  name: editor
+  description: Editor user
+spec:
+  profile:
+    displayName: Editor User
+    email: editor@example.com
+  memberOf: [editors]
+---
+apiVersion: backstage.io/v1alpha1
+kind: User
+metadata:
+  name: viewer
+  description: Viewer user
+spec:
+  profile:
+    displayName: Viewer User
+    email: viewer@example.com
+  memberOf: [viewers]
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: admins
+  description: Administrators
+spec:
+  type: team
+  profile:
+    displayName: Administrators
+  children: []
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: editors
+  description: Content editors
+spec:
+  type: team
+  profile:
+    displayName: Editors
+  children: []
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: viewers
+  description: Viewers with read-only access
+spec:
+  type: team
+  profile:
+    displayName: Viewers
+  children: []

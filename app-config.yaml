@@ -1,9 +1,9 @@
 app:
-  title: Scaffolded Backstage App
+  title: Cloud Sandbox
   baseUrl: http://localhost:3000
 
 organization:
-  name: My Company
+  name: Platform Team
 
 backend:
   # Used for enabling authentication, secret is shared by all backend plugins
@@ -66,7 +66,8 @@ auth:
   # see https://backstage.io/docs/auth/ to learn about auth providers
   providers:
     # See https://backstage.io/docs/auth/guest/provider
-    guest: {}
+    guest:
+      dangerouslyAllowOutsideDevelopment: true
 
 scaffolder:
   # see https://backstage.io/docs/features/software-templates/configuration for software template options
@@ -76,33 +77,93 @@ catalog:
     entityFilename: catalog-info.yaml
     pullRequestBranchName: backstage-integration
   rules:
-    - allow: [Component, System, API, Resource, Location]
+    - allow: [Component, System, API, Resource, Location, Domain, Template, User, Group]
   locations:
-    # Local example data, file locations are relative to the backend process, typically `packages/backend`
+    # Custom catalog - Users and Groups
     - type: file
-      target: ../../examples/entities.yaml
-
-    # Local example template
-    - type: file
-      target: ../../examples/template/template.yaml
-      rules:
-        - allow: [Template]
-
-    # Local example organizational data
-    - type: file
-      target: ../../examples/org.yaml
+      target: ../../catalog/users.yaml
       rules:
         - allow: [User, Group]
 
-    ## Uncomment these lines to add more example data
-    # - type: url
-    #   target: https://github.com/backstage/backstage/blob/master/packages/catalog-model/examples/all.yaml
+    # Custom catalog - Domains
+    - type: file
+      target: ../../catalog/domains.yaml
+      rules:
+        - allow: [Domain]
 
-    ## Uncomment these lines to add an example org
-    # - type: url
-    #   target: https://github.com/backstage/backstage/blob/master/packages/catalog-model/examples/acme-corp.yaml
-    #   rules:
-    #     - allow: [User, Group]
+    # Custom catalog - DevOps Domains
+    - type: file
+      target: ../../catalog/devops-domains.yaml
+      rules:
+        - allow: [Domain]
+
+    # Custom catalog - Systems
+    - type: file
+      target: ../../catalog/systems.yaml
+      rules:
+        - allow: [System]
+
+    # Custom catalog - DevOps Systems
+    - type: file
+      target: ../../catalog/devops-systems.yaml
+      rules:
+        - allow: [System]
+
+    # Custom catalog - Components
+    - type: file
+      target: ../../catalog/sample-components.yaml
+    - type: file
+      target: ../../catalog/cloud-components.yaml
+    - type: file
+      target: ../../catalog/data-components.yaml
+    - type: file
+      target: ../../catalog/infrastructure-components.yaml
+    - type: file
+      target: ../../catalog/observability-components.yaml
+    - type: file
+      target: ../../catalog/testing-components.yaml
+    - type: file
+      target: ../../catalog/awx-core.yaml
+    - type: file
+      target: ../../catalog/awx-operator.yaml
+
+    # Templates
+    - type: file
+      target: ../../templates/terraform-module/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/terraform-infrastructure/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/ansible-playbook/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/kubernetes-microservice/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/docker-application/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/awx-deployment/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/packer-image/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/vagrant-environment/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/cloud-sandbox/template.yaml
+      rules:
+        - allow: [Template]
 
 kubernetes:
   # see https://backstage.io/docs/features/kubernetes/configuration for kubernetes configuration options
@@ -110,4 +171,4 @@ kubernetes:
 # see https://backstage.io/docs/permissions/getting-started for more on the permission framework
 permission:
   # setting this to `false` will disable permissions
-  enabled: true
+  enabled: false

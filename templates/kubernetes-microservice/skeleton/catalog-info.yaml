@@ -1,0 +1,96 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.name }}
+  description: ${{ values.description }}
+  annotations:
+    github.com/project-slug: ${{ values.destination.owner + "/" + values.destination.repo }}
+    backstage.io/techdocs-ref: dir:.
+    backstage.io/kubernetes-namespace: ${{ values.kubernetes_namespace }}
+    argocd/app-name: ${{ values.name }}
+    {% if values.enable_security_scanning %}
+    snyk.io/project-name: ${{ values.name }}
+    sonarqube.org/project-key: ${{ values.name }}
+    {% endif %}
+    {% if values.monitoring_stack === 'prometheus-grafana' %}
+    grafana/dashboard-selector: "app={{ values.name }}"
+    prometheus.io/scrape: "true"
+    {% endif %}
+  tags:
+    - microservice
+    - ${{ values.language }}
+    - ${{ values.architecture_type }}
+    - kubernetes
+  links:
+    - url: https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}
+      title: Repository
+      icon: github
+    - url: https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}/actions
+      title: CI/CD Pipeline
+      icon: dashboard
+    {% if values.monitoring_stack === 'prometheus-grafana' %}
+    - url: https://grafana.company.com/d/${{ values.name }}
+      title: Grafana Dashboard
+      icon: dashboard
+    {% endif %}
+    {% if values.enable_tracing %}
+    - url: https://jaeger.company.com/search?service=${{ values.name }}
+      title: Distributed Tracing
+      icon: search
+    {% endif %}
+spec:
+  type: service
+  lifecycle: experimental
+  owner: ${{ values.owner }}
+  system: platform
+  providesApis:
+    - ${{ values.name }}-api
+  dependsOn:
+    {% if values.database_type !== 'none' %}
+    - resource:${{ values.name }}-database
+    {% endif %}
+    {% if values.message_queue !== 'none' %}
+    - resource:${{ values.name }}-messagequeue
+    {% endif %}
+
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: ${{ values.name }}-api
+  description: API for ${{ values.name }}
+  annotations:
+    github.com/project-slug: ${{ values.destination.owner + "/" + values.destination.repo }}
+spec:
+  type: openapi
+  lifecycle: experimental
+  owner: ${{ values.owner }}
+  system: platform
+  definition:
+    $text: ./api-spec.yaml
+
+{% if values.database_type !== 'none' %}
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: ${{ values.name }}-database
+  description: Database for ${{ values.name }}
+spec:
+  type: database
+  owner: ${{ values.owner }}
+  system: platform
+{% endif %}
+
+{% if values.message_queue !== 'none' %}
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: ${{ values.name }}-messagequeue
+  description: Message queue for ${{ values.name }}
+spec:
+  type: message-queue
+  owner: ${{ values.owner }}
+  system: platform
+{% endif %}

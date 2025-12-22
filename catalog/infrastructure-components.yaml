@@ -1,0 +1,171 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: terraform-modules
+  title: Terraform Modules
+  description: Reusable Terraform modules for infrastructure provisioning
+  annotations:
+    github.com/project-slug: company/terraform-modules
+    backstage.io/techdocs-ref: dir:.
+    terraform.io/registry: company/terraform-modules
+  tags:
+    - terraform
+    - infrastructure-as-code
+    - aws
+    - azure
+    - gcp
+  links:
+    - url: https://github.com/company/terraform-modules
+      title: Source Code
+      icon: github
+    - url: https://registry.terraform.io/namespaces/company
+      title: Terraform Registry
+      icon: catalog
+spec:
+  type: library
+  lifecycle: production
+  owner: platform-team
+  system: infrastructure-as-code-platform
+  providesApis:
+    - terraform-modules-api
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: cloudformation-templates
+  title: CloudFormation Templates
+  description: AWS CloudFormation templates for infrastructure deployment
+  annotations:
+    github.com/project-slug: company/cloudformation-templates
+    aws.amazon.com/service: cloudformation
+  tags:
+    - cloudformation
+    - aws
+    - infrastructure-as-code
+spec:
+  type: library
+  lifecycle: production
+  owner: cloud-team
+  system: infrastructure-as-code-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: pulumi-projects
+  title: Pulumi Infrastructure Projects
+  description: Pulumi infrastructure as code projects
+  annotations:
+    github.com/project-slug: company/pulumi-projects
+    pulumi.com/organization: company
+  tags:
+    - pulumi
+    - infrastructure-as-code
+    - typescript
+    - python
+spec:
+  type: library
+  lifecycle: production
+  owner: platform-team
+  system: infrastructure-as-code-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: helm-charts
+  title: Helm Charts Repository
+  description: Kubernetes Helm charts for application deployment
+  annotations:
+    github.com/project-slug: company/helm-charts
+    helm.sh/repository: https://charts.company.com
+  tags:
+    - helm
+    - kubernetes
+    - deployment
+    - charts
+spec:
+  type: library
+  lifecycle: production
+  owner: platform-team
+  system: kubernetes-operators
+  dependsOn:
+    - resource:kubernetes-cluster
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: docker-images
+  title: Docker Images Registry
+  description: Company Docker images and base images
+  annotations:
+    docker.com/registry: harbor.company.com
+    security.company.com/scan-enabled: "true"
+  tags:
+    - docker
+    - containers
+    - base-images
+    - security-scanning
+spec:
+  type: library
+  lifecycle: production
+  owner: platform-team
+  system: infrastructure-as-code-platform
+  dependsOn:
+    - resource:docker-registry
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: terraform-modules-api
+  title: Terraform Modules API
+  description: API for managing and discovering Terraform modules
+  tags:
+    - terraform
+    - infrastructure
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: platform-team
+  system: infrastructure-as-code-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Terraform Modules API
+      version: '1.0.0'
+      description: API for managing Terraform modules
+    paths:
+      /modules:
+        get:
+          summary: List available modules
+          responses:
+            '200':
+              description: List of modules
+      /modules/{name}:
+        get:
+          summary: Get module details
+          parameters:
+            - name: name
+              in: path
+              required: true
+              schema:
+                type: string
+          responses:
+            '200':
+              description: Module details
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: docker-registry
+  title: Docker Registry
+  description: Private Docker registry for container images
+  annotations:
+    harbor.company.com/project: library
+  tags:
+    - docker
+    - registry
+    - containers
+spec:
+  type: container-registry
+  owner: platform-team
+  system: infrastructure-as-code-platform

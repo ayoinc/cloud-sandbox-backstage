@@ -1,0 +1,37 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: awx-${{ values.environment }}-${{ values.name }}
+  title: AWX ${{ values.environment | title }} - ${{ values.name }}
+  description: AWX deployment for ${{ values.environment }} environment
+  annotations:
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
+    backstage.io/techdocs-ref: dir:.
+    kubernetes.io/namespace: ${{ values.namespace }}
+    argocd/app-name: awx-${{ values.name }}
+  tags:
+    - awx
+    - kubernetes
+    - deployment
+    - ${{ values.environment }}
+    - automation
+  links:
+    - url: https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}
+      title: Repository
+      icon: github
+    {%- if values.ingress_enabled %}
+    - url: https://${{ values.hostname }}
+      title: AWX Web Interface
+      icon: web
+    {%- endif %}
+    - url: https://ansible.readthedocs.io/projects/awx/en/latest/
+      title: AWX Documentation
+      icon: docs
+spec:
+  type: service
+  lifecycle: ${{ values.environment }}
+  owner: ${{ values.owner }}
+  system: awx-automation-platform
+  dependsOn:
+    - component:awx-operator
+    - resource:kubernetes-cluster

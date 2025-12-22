@@ -1,0 +1,33 @@
+# -*- mode: ruby -*-
+Vagrant.configure("2") do |config|
+  config.vm.box = "${{ values.box }}"
+  config.vm.hostname = "${{ values.name }}"
+
+  # Provider configuration
+  config.vm.provider "${{ values.provider }}" do |v|
+    v.memory = ${{ values.memory }}
+    v.cpus = ${{ values.cpus }}
+  end
+
+  # Network
+  config.vm.network "private_network", ip: "${{ values.private_network }}"
+  {%- for port in values.forwarded_ports %}
+  config.vm.network "forwarded_port", guest: {{ port.guest }}, host: {{ port.host }}
+  {%- endfor %}
+
+  # Synced folder
+  config.vm.synced_folder ".", "/vagrant", disabled: false
+
+  # Provisioning
+  {%- if values.provisioner == "shell" %}
+  config.vm.provision "shell", path: "scripts/provision.sh"
+  {%- elif values.provisioner == "ansible" %}
+  config.vm.provision "ansible" do |ansible|
+    ansible.playbook = "ansible/playbook.yml"
+  end
+  {%- elif values.provisioner == "ansible_local" %}
+  config.vm.provision "ansible_local" do |ansible|
+    ansible.playbook = "ansible/playbook.yml"
+  end
+  {%- endif %}
+end

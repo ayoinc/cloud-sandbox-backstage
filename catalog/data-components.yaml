@@ -1,0 +1,453 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: postgresql-cluster
+  title: PostgreSQL Database Cluster
+  description: High-availability PostgreSQL cluster for application data
+  annotations:
+    postgresql.org/version: "15.3"
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - postgresql
+    - database
+    - sql
+    - cluster
+    - high-availability
+  links:
+    - url: https://pgadmin.company.com
+      title: pgAdmin
+      icon: dashboard
+spec:
+  type: service
+  lifecycle: production
+  owner: data-team
+  system: data-platform
+  providesApis:
+    - postgresql-api
+  dependsOn:
+    - resource:postgresql-storage
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: mongodb-cluster
+  title: MongoDB Cluster
+  description: MongoDB NoSQL database cluster for document storage
+  annotations:
+    mongodb.com/version: "6.0"
+    mongodb.com/replica-set: rs0
+  tags:
+    - mongodb
+    - nosql
+    - document-database
+    - cluster
+spec:
+  type: service
+  lifecycle: production
+  owner: data-team
+  system: data-platform
+  providesApis:
+    - mongodb-api
+  dependsOn:
+    - resource:mongodb-storage
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: redis-cluster
+  title: Redis Cluster
+  description: Redis cluster for caching and session storage
+  annotations:
+    redis.io/version: "7.0"
+    redis.io/cluster-enabled: "true"
+  tags:
+    - redis
+    - cache
+    - in-memory
+    - cluster
+    - session-storage
+spec:
+  type: service
+  lifecycle: production
+  owner: data-team
+  system: data-platform
+  providesApis:
+    - redis-api
+  dependsOn:
+    - resource:redis-storage
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: apache-kafka
+  title: Apache Kafka Streaming Platform
+  description: Distributed streaming platform for real-time data processing
+  annotations:
+    kafka.apache.org/version: "3.5"
+    kafka.apache.org/cluster-id: kafka-production
+  tags:
+    - kafka
+    - streaming
+    - messaging
+    - event-driven
+    - real-time
+spec:
+  type: service
+  lifecycle: production
+  owner: data-team
+  system: data-platform
+  providesApis:
+    - kafka-api
+  dependsOn:
+    - resource:kafka-storage
+    - component:zookeeper-ensemble
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: rabbitmq-cluster
+  title: RabbitMQ Message Broker
+  description: Message broker for asynchronous communication
+  annotations:
+    rabbitmq.com/version: "3.12"
+    rabbitmq.com/management-url: https://rabbitmq.company.com
+  tags:
+    - rabbitmq
+    - message-broker
+    - amqp
+    - messaging
+    - queue
+spec:
+  type: service
+  lifecycle: production
+  owner: data-team
+  system: data-platform
+  providesApis:
+    - rabbitmq-api
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: elasticsearch-data
+  title: Elasticsearch Data Platform
+  description: Elasticsearch for search and analytics workloads
+  annotations:
+    elasticsearch.elastic.co/version: "8.8"
+    elasticsearch.elastic.co/cluster-name: data-platform
+  tags:
+    - elasticsearch
+    - search
+    - analytics
+    - data-platform
+    - full-text-search
+spec:
+  type: service
+  lifecycle: production
+  owner: data-team
+  system: data-platform
+  providesApis:
+    - elasticsearch-data-api
+  dependsOn:
+    - resource:elasticsearch-data-storage
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: apache-airflow
+  title: Apache Airflow
+  description: Workflow orchestration and data pipeline management
+  annotations:
+    airflow.apache.org/version: "2.6"
+    airflow.apache.org/webserver-url: https://airflow.company.com
+  tags:
+    - airflow
+    - workflow-orchestration
+    - data-pipelines
+    - etl
+    - scheduling
+spec:
+  type: service
+  lifecycle: production
+  owner: data-team
+  system: data-platform
+  providesApis:
+    - airflow-api
+  dependsOn:
+    - component:postgresql-cluster
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: zookeeper-ensemble
+  title: Apache ZooKeeper Ensemble
+  description: Distributed coordination service for Kafka and other systems
+  annotations:
+    zookeeper.apache.org/version: "3.8"
+  tags:
+    - zookeeper
+    - coordination
+    - configuration
+    - synchronization
+spec:
+  type: service
+  lifecycle: production
+  owner: data-team
+  system: data-platform
+  dependsOn:
+    - resource:zookeeper-storage
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: minio-storage
+  title: MinIO Object Storage
+  description: S3-compatible object storage for data and artifacts
+  annotations:
+    minio.io/version: "2023.06.19"
+    minio.io/console-url: https://minio-console.company.com
+  tags:
+    - minio
+    - object-storage
+    - s3-compatible
+    - data-lake
+spec:
+  type: service
+  lifecycle: production
+  owner: data-team
+  system: data-platform
+  providesApis:
+    - s3-api
+  dependsOn:
+    - resource:minio-storage-backend
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: apache-spark
+  title: Apache Spark Cluster
+  description: Unified analytics engine for big data processing
+  annotations:
+    spark.apache.org/version: "3.4"
+    spark.apache.org/ui-url: https://spark.company.com
+  tags:
+    - spark
+    - big-data
+    - analytics
+    - machine-learning
+    - streaming
+spec:
+  type: service
+  lifecycle: production
+  owner: data-team
+  system: data-platform
+  providesApis:
+    - spark-api
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: postgresql-api
+  title: PostgreSQL API
+  description: PostgreSQL database connection and query interface
+  tags:
+    - postgresql
+    - sql
+    - database
+spec:
+  type: openapi
+  lifecycle: production
+  owner: data-team
+  system: data-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: mongodb-api
+  title: MongoDB API
+  description: MongoDB database driver and query API
+  tags:
+    - mongodb
+    - nosql
+    - database
+spec:
+  type: openapi
+  lifecycle: production
+  owner: data-team
+  system: data-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: redis-api
+  title: Redis API
+  description: Redis cache and data structure server API
+  tags:
+    - redis
+    - cache
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: data-team
+  system: data-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: kafka-api
+  title: Kafka API
+  description: Kafka producer and consumer API
+  tags:
+    - kafka
+    - streaming
+    - messaging
+spec:
+  type: asyncapi
+  lifecycle: production
+  owner: data-team
+  system: data-platform
+  definition: |
+    asyncapi: 2.0.0
+    info:
+      title: Kafka Streaming API
+      version: '1.0.0'
+    servers:
+      production:
+        url: kafka.company.com:9092
+        protocol: kafka
+    channels:
+      user.events:
+        subscribe:
+          message:
+            payload:
+              type: object
+              properties:
+                userId:
+                  type: string
+                event:
+                  type: string
+                timestamp:
+                  type: string
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: rabbitmq-api
+  title: RabbitMQ API
+  description: RabbitMQ AMQP messaging API
+  tags:
+    - rabbitmq
+    - amqp
+    - messaging
+spec:
+  type: asyncapi
+  lifecycle: production
+  owner: data-team
+  system: data-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: s3-api
+  title: S3 Compatible API
+  description: S3-compatible object storage API
+  tags:
+    - s3
+    - object-storage
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: data-team
+  system: data-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: airflow-api
+  title: Airflow REST API
+  description: Apache Airflow workflow management API
+  tags:
+    - airflow
+    - workflow
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: data-team
+  system: data-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: postgresql-storage
+  title: PostgreSQL Storage
+  description: Persistent storage for PostgreSQL databases
+  tags:
+    - storage
+    - postgresql
+    - persistent
+spec:
+  type: storage
+  owner: platform-team
+  system: data-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: mongodb-storage
+  title: MongoDB Storage
+  description: Persistent storage for MongoDB data
+  tags:
+    - storage
+    - mongodb
+    - persistent
+spec:
+  type: storage
+  owner: platform-team
+  system: data-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: redis-storage
+  title: Redis Storage
+  description: Persistent storage for Redis data
+  tags:
+    - storage
+    - redis
+    - persistent
+spec:
+  type: storage
+  owner: platform-team
+  system: data-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: kafka-storage
+  title: Kafka Storage
+  description: Persistent storage for Kafka topics and logs
+  tags:
+    - storage
+    - kafka
+    - streaming
+spec:
+  type: storage
+  owner: platform-team
+  system: data-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: minio-storage-backend
+  title: MinIO Storage Backend
+  description: Backend storage for MinIO object storage
+  tags:
+    - storage
+    - minio
+    - object-storage
+spec:
+  type: storage
+  owner: platform-team
+  system: data-platform

@@ -1,0 +1,161 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${{ values.name }}
+  namespace: ${{ values.kubernetes_namespace }}
+  labels:
+    app: ${{ values.name }}
+    version: "1.0.0"
+    component: microservice
+    language: ${{ values.language }}
+  annotations:
+    deployment.kubernetes.io/revision: "1"
+    backstage.io/kubernetes-id: ${{ values.name }}
+spec:
+  replicas: 3
+  strategy:
+    {% if values.deployment_strategy === 'rolling-update' %}
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+    {% elif values.deployment_strategy === 'blue-green' %}
+    type: Recreate
+    {% endif %}
+  selector:
+    matchLabels:
+      app: ${{ values.name }}
+  template:
+    metadata:
+      labels:
+        app: ${{ values.name }}
+        version: "1.0.0"
+        component: microservice
+      annotations:
+        {% if values.enable_tracing %}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{% if values.language === 'nodejs' %}3000{% elif values.language === 'python' %}8000{% elif values.language === 'java' %}8080{% elif values.language === 'golang' %}8080{% elif values.language === 'dotnet' %}5000{% endif %}"
+        prometheus.io/path: "/metrics"
+        {% endif %}
+        sidecar.istio.io/inject: "true"
+    spec:
+      serviceAccountName: ${{ values.name }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 2000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: ${{ values.name }}
+        image: ${{ values.name }}:latest
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: {% if values.language === 'nodejs' %}3000{% elif values.language === 'python' %}8000{% elif values.language === 'java' %}8080{% elif values.language === 'golang' %}8080{% elif values.language === 'dotnet' %}5000{% endif %}
+          protocol: TCP
+        {% if values.enable_tracing %}
+        - name: metrics
+          containerPort: {% if values.language === 'nodejs' %}9090{% elif values.language === 'python' %}9090{% elif values.language === 'java' %}8081{% elif values.language === 'golang' %}9090{% elif values.language === 'dotnet' %}9090{% endif %}
+          protocol: TCP
+        {% endif %}
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "{% if values.language === 'nodejs' %}3000{% elif values.language === 'python' %}8000{% elif values.language === 'java' %}8080{% elif values.language === 'golang' %}8080{% elif values.language === 'dotnet' %}5000{% endif %}"
+        - name: SERVICE_NAME
+          value: ${{ values.name }}
+        - name: SERVICE_VERSION
+          value: "1.0.0"
+        {% if values.database_type !== 'none' %}
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: ${{ values.name }}-secrets
+              key: database-url
+        {% endif %}
+        {% if values.message_queue !== 'none' %}
+        - name: MESSAGE_QUEUE_URL
+          valueFrom:
+            secretKeyRef:
+              name: ${{ values.name }}-secrets
+              key: message-queue-url
+        {% endif %}
+        {% if values.enable_tracing %}
+        - name: JAEGER_ENDPOINT
+          value: "http://jaeger-collector:14268/api/traces"
+        - name: OTEL_EXPORTER_JAEGER_ENDPOINT
+          value: "http://jaeger-collector:14268/api/traces"
+        {% endif %}
+        envFrom:
+        - configMapRef:
+            name: ${{ values.name }}-config
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1001
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: cache
+          mountPath: /app/cache
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: cache
+        emptyDir: {}
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+      - key: "kubernetes.io/arch"
+        operator: "Equal"
+        value: "arm64"
+        effect: "NoSchedule"
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - ${{ values.name }}
+              topologyKey: kubernetes.io/hostname

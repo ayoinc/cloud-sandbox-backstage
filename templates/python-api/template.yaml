@@ -1,0 +1,390 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: python-api
+  title: Python API Service
+  description: Create a production-ready Python API with FastAPI, authentication, monitoring, and comprehensive testing
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - recommended
+    - python
+    - api
+    - fastapi
+    - microservice
+spec:
+  owner: platform-team
+  type: service
+  parameters:
+    - title: Service Information
+      required:
+        - name
+        - description
+        - owner
+      properties:
+        name:
+          title: Service Name
+          type: string
+          description: Name of the Python API service
+          pattern: '^[a-z0-9\-]+$'
+          ui:autofocus: true
+          ui:help: 'Use lowercase letters, numbers, and hyphens only'
+        description:
+          title: Description
+          type: string
+          description: Brief description of the API service
+        owner:
+          title: Owner
+          type: string
+          description: Owner of the service
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: [Group, User]
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+              - gitlab.com
+
+    - title: API Configuration
+      properties:
+        api_type:
+          title: API Type
+          type: string
+          description: Primary API pattern
+          default: rest-crud
+          enum:
+            - rest-crud
+            - rest-microservice
+            - graphql
+            - websocket
+            - async-tasks
+          enumNames:
+            - REST CRUD API
+            - REST Microservice
+            - GraphQL API
+            - WebSocket Service
+            - Async Task Processor
+        python_version:
+          title: Python Version
+          type: string
+          description: Python version to use
+          default: "3.11"
+          enum:
+            - "3.9"
+            - "3.10"
+            - "3.11"
+            - "3.12"
+        framework:
+          title: Web Framework
+          type: string
+          description: Python web framework
+          default: fastapi
+          enum:
+            - fastapi
+            - flask
+            - django-rest
+            - starlette
+          enumNames:
+            - FastAPI
+            - Flask + Flask-RESTful
+            - Django REST Framework
+            - Starlette
+        enable_async:
+          title: Enable Async Support
+          type: boolean
+          description: Enable asynchronous programming features
+          default: true
+
+    - title: Database & Storage
+      properties:
+        database_type:
+          title: Database Type
+          type: string
+          description: Primary database technology
+          default: postgresql
+          enum:
+            - none
+            - postgresql
+            - mysql
+            - mongodb
+            - redis
+            - sqlite
+          enumNames:
+            - No Database
+            - PostgreSQL
+            - MySQL
+            - MongoDB
+            - Redis
+            - SQLite (Dev only)
+        orm_type:
+          title: ORM/ODM
+          type: string
+          description: Object-Relational Mapping tool
+          default: sqlalchemy
+          enum:
+            - sqlalchemy
+            - tortoise-orm
+            - peewee
+            - mongoengine
+            - redis-om
+          enumNames:
+            - SQLAlchemy
+            - Tortoise ORM
+            - Peewee
+            - MongoEngine
+            - Redis OM
+        enable_migrations:
+          title: Enable Database Migrations
+          type: boolean
+          description: Include database migration support
+          default: true
+        enable_caching:
+          title: Enable Caching
+          type: boolean
+          description: Include Redis caching layer
+          default: true
+
+    - title: Authentication & Security
+      properties:
+        auth_type:
+          title: Authentication Type
+          type: string
+          description: Authentication mechanism
+          default: jwt
+          enum:
+            - none
+            - jwt
+            - oauth2
+            - basic-auth
+            - api-key
+            - ldap
+          enumNames:
+            - No Authentication
+            - JWT Tokens
+            - OAuth2 / OpenID Connect
+            - Basic Authentication
+            - API Key Authentication
+            - LDAP Authentication
+        enable_rbac:
+          title: Enable Role-Based Access Control
+          type: boolean
+          description: Include RBAC for authorization
+          default: false
+        enable_rate_limiting:
+          title: Enable Rate Limiting
+          type: boolean
+          description: Include API rate limiting
+          default: true
+        enable_cors:
+          title: Enable CORS
+          type: boolean
+          description: Enable Cross-Origin Resource Sharing
+          default: true
+        enable_security_headers:
+          title: Enable Security Headers
+          type: boolean
+          description: Include security headers middleware
+          default: true
+
+    - title: Features & Integrations
+      properties:
+        enable_docs:
+          title: Enable API Documentation
+          type: boolean
+          description: Auto-generate OpenAPI/Swagger docs
+          default: true
+        enable_validation:
+          title: Enable Input Validation
+          type: boolean
+          description: Include Pydantic validation
+          default: true
+        enable_logging:
+          title: Enable Structured Logging
+          type: boolean
+          description: Include structured logging with JSON format
+          default: true
+        enable_metrics:
+          title: Enable Metrics Collection
+          type: boolean
+          description: Include Prometheus metrics
+          default: true
+        enable_health_checks:
+          title: Enable Health Checks
+          type: boolean
+          description: Include health check endpoints
+          default: true
+        enable_background_tasks:
+          title: Enable Background Tasks
+          type: boolean
+          description: Include Celery for background tasks
+          default: false
+        message_queue:
+          title: Message Queue
+          type: string
+          description: Message queue for async tasks
+          default: none
+          enum:
+            - none
+            - redis
+            - rabbitmq
+            - kafka
+          enumNames:
+            - No Message Queue
+            - Redis
+            - RabbitMQ
+            - Apache Kafka
+
+    - title: Testing & Quality
+      properties:
+        enable_testing:
+          title: Enable Comprehensive Testing
+          type: boolean
+          description: Include unit, integration, and API tests
+          default: true
+        testing_framework:
+          title: Testing Framework
+          type: string
+          description: Python testing framework
+          default: pytest
+          enum:
+            - pytest
+            - unittest
+            - nose2
+          enumNames:
+            - pytest
+            - unittest
+            - nose2
+        enable_coverage:
+          title: Enable Code Coverage
+          type: boolean
+          description: Include code coverage reporting
+          default: true
+        enable_linting:
+          title: Enable Code Linting
+          type: boolean
+          description: Include linting tools (flake8, black, isort)
+          default: true
+        enable_type_checking:
+          title: Enable Type Checking
+          type: boolean
+          description: Include mypy for static type checking
+          default: true
+
+    - title: Deployment & DevOps
+      properties:
+        containerization:
+          title: Containerization
+          type: string
+          description: Container configuration
+          default: docker
+          enum:
+            - docker
+            - docker-compose
+            - kubernetes
+          enumNames:
+            - Docker Only
+            - Docker + Docker Compose
+            - Docker + Kubernetes
+        enable_ci_cd:
+          title: Enable CI/CD Pipeline
+          type: boolean
+          description: Include GitHub Actions workflow
+          default: true
+        deployment_target:
+          title: Deployment Target
+          type: string
+          description: Primary deployment platform
+          default: kubernetes
+          enum:
+            - local
+            - docker
+            - kubernetes
+            - serverless
+            - vm
+          enumNames:
+            - Local Development
+            - Docker Containers
+            - Kubernetes
+            - Serverless (Lambda/Functions)
+            - Virtual Machines
+
+  steps:
+    - id: fetch
+      name: Fetch Python API Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          api_type: ${{ parameters.api_type }}
+          python_version: ${{ parameters.python_version }}
+          framework: ${{ parameters.framework }}
+          enable_async: ${{ parameters.enable_async }}
+          database_type: ${{ parameters.database_type }}
+          orm_type: ${{ parameters.orm_type }}
+          enable_migrations: ${{ parameters.enable_migrations }}
+          enable_caching: ${{ parameters.enable_caching }}
+          auth_type: ${{ parameters.auth_type }}
+          enable_rbac: ${{ parameters.enable_rbac }}
+          enable_rate_limiting: ${{ parameters.enable_rate_limiting }}
+          enable_cors: ${{ parameters.enable_cors }}
+          enable_security_headers: ${{ parameters.enable_security_headers }}
+          enable_docs: ${{ parameters.enable_docs }}
+          enable_validation: ${{ parameters.enable_validation }}
+          enable_logging: ${{ parameters.enable_logging }}
+          enable_metrics: ${{ parameters.enable_metrics }}
+          enable_health_checks: ${{ parameters.enable_health_checks }}
+          enable_background_tasks: ${{ parameters.enable_background_tasks }}
+          message_queue: ${{ parameters.message_queue }}
+          enable_testing: ${{ parameters.enable_testing }}
+          testing_framework: ${{ parameters.testing_framework }}
+          enable_coverage: ${{ parameters.enable_coverage }}
+          enable_linting: ${{ parameters.enable_linting }}
+          enable_type_checking: ${{ parameters.enable_type_checking }}
+          containerization: ${{ parameters.containerization }}
+          enable_ci_cd: ${{ parameters.enable_ci_cd }}
+          deployment_target: ${{ parameters.deployment_target }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish to Repository
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        description: ${{ parameters.description }}
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: main
+        gitCommitMessage: 'Initial Python API setup from DevOps Platform'
+        gitAuthorName: 'DevOps Platform'
+        gitAuthorEmail: 'devops@company.com'
+
+    - id: register
+      name: Register in Software Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}
+      - title: API Documentation
+        url: ${{ steps.publish.output.remoteUrl }}/blob/main/docs/api.md
+      - title: Local Development Guide
+        url: ${{ steps.publish.output.remoteUrl }}/blob/main/README.md#development

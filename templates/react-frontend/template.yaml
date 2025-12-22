@@ -1,0 +1,374 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: react-frontend
+  title: React Frontend Application
+  description: Create a modern React frontend application with TypeScript, testing, and deployment pipeline
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - recommended
+    - react
+    - frontend
+    - typescript
+    - web
+spec:
+  owner: platform-team
+  type: website
+  parameters:
+    - title: Application Information
+      required:
+        - name
+        - description
+        - owner
+      properties:
+        name:
+          title: Application Name
+          type: string
+          description: Name of the React application
+          pattern: '^[a-z0-9\-]+$'
+          ui:autofocus: true
+          ui:help: 'Use lowercase letters, numbers, and hyphens only'
+        description:
+          title: Description
+          type: string
+          description: Brief description of the application
+        owner:
+          title: Owner
+          type: string
+          description: Owner of the application
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: [Group, User]
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+              - gitlab.com
+
+    - title: Frontend Framework & Setup
+      properties:
+        react_version:
+          title: React Version
+          type: string
+          description: React version to use
+          default: "18"
+          enum:
+            - "17"
+            - "18"
+        typescript:
+          title: Use TypeScript
+          type: boolean
+          description: Enable TypeScript for type safety
+          default: true
+        build_tool:
+          title: Build Tool
+          type: string
+          description: Build tool and bundler
+          default: vite
+          enum:
+            - vite
+            - webpack
+            - parcel
+            - esbuild
+          enumNames:
+            - Vite (Recommended)
+            - Webpack
+            - Parcel
+            - ESBuild
+        app_type:
+          title: Application Type
+          type: string
+          description: Type of React application
+          default: spa
+          enum:
+            - spa
+            - ssr
+            - static
+            - pwa
+          enumNames:
+            - Single Page Application
+            - Server-Side Rendered
+            - Static Site
+            - Progressive Web App
+
+    - title: UI Framework & Styling
+      properties:
+        ui_framework:
+          title: UI Framework
+          type: string
+          description: UI component library
+          default: mui
+          enum:
+            - none
+            - mui
+            - antd
+            - chakra
+            - mantine
+            - tailwind
+          enumNames:
+            - No Framework
+            - Material-UI (MUI)
+            - Ant Design
+            - Chakra UI
+            - Mantine
+            - Tailwind CSS
+        styling_solution:
+          title: Styling Solution
+          type: string
+          description: CSS styling approach
+          default: css-modules
+          enum:
+            - css
+            - scss
+            - css-modules
+            - styled-components
+            - emotion
+            - tailwind
+          enumNames:
+            - Plain CSS
+            - SCSS/Sass
+            - CSS Modules
+            - Styled Components
+            - Emotion
+            - Tailwind CSS
+        responsive_design:
+          title: Enable Responsive Design
+          type: boolean
+          description: Include responsive design utilities
+          default: true
+
+    - title: State Management & Routing
+      properties:
+        state_management:
+          title: State Management
+          type: string
+          description: State management solution
+          default: context
+          enum:
+            - context
+            - redux
+            - zustand
+            - jotai
+            - recoil
+          enumNames:
+            - React Context
+            - Redux Toolkit
+            - Zustand
+            - Jotai
+            - Recoil
+        routing:
+          title: Routing Library
+          type: string
+          description: Client-side routing solution
+          default: react-router
+          enum:
+            - none
+            - react-router
+            - reach-router
+            - next-router
+          enumNames:
+            - No Routing
+            - React Router
+            - Reach Router
+            - Next.js Router
+        enable_auth:
+          title: Enable Authentication
+          type: boolean
+          description: Include authentication setup
+          default: false
+        auth_provider:
+          title: Authentication Provider
+          type: string
+          description: Authentication service
+          default: none
+          enum:
+            - none
+            - auth0
+            - firebase
+            - cognito
+            - oauth
+          enumNames:
+            - No Authentication
+            - Auth0
+            - Firebase Auth
+            - AWS Cognito
+            - Generic OAuth
+
+    - title: Development Tools
+      properties:
+        enable_testing:
+          title: Enable Testing
+          type: boolean
+          description: Include comprehensive testing setup
+          default: true
+        testing_framework:
+          title: Testing Framework
+          type: string
+          description: Testing library setup
+          default: jest-rtl
+          enum:
+            - jest-rtl
+            - vitest-rtl
+            - cypress
+            - playwright
+          enumNames:
+            - Jest + React Testing Library
+            - Vitest + React Testing Library
+            - Cypress (E2E)
+            - Playwright (E2E)
+        enable_storybook:
+          title: Enable Storybook
+          type: boolean
+          description: Include Storybook for component development
+          default: true
+        enable_linting:
+          title: Enable Linting & Formatting
+          type: boolean
+          description: Include ESLint, Prettier, and Husky
+          default: true
+        enable_pwa:
+          title: Progressive Web App Features
+          type: boolean
+          description: Enable PWA capabilities
+          default: false
+
+    - title: API Integration
+      properties:
+        api_client:
+          title: API Client
+          type: string
+          description: HTTP client for API calls
+          default: fetch
+          enum:
+            - fetch
+            - axios
+            - swr
+            - react-query
+            - apollo
+          enumNames:
+            - Native Fetch
+            - Axios
+            - SWR
+            - TanStack Query (React Query)
+            - Apollo GraphQL
+        enable_mock_api:
+          title: Enable Mock API
+          type: boolean
+          description: Include MSW for API mocking
+          default: true
+        api_base_url:
+          title: API Base URL
+          type: string
+          description: Base URL for API calls
+          default: "/api"
+
+    - title: Deployment & DevOps
+      properties:
+        deployment_target:
+          title: Deployment Target
+          type: string
+          description: Primary deployment platform
+          default: static
+          enum:
+            - static
+            - docker
+            - kubernetes
+            - serverless
+            - cdn
+          enumNames:
+            - Static Hosting (Netlify, Vercel)
+            - Docker Container
+            - Kubernetes
+            - Serverless Functions
+            - CDN Distribution
+        enable_ci_cd:
+          title: Enable CI/CD Pipeline
+          type: boolean
+          description: Include GitHub Actions workflow
+          default: true
+        enable_docker:
+          title: Enable Docker
+          type: boolean
+          description: Include Docker configuration
+          default: true
+        enable_monitoring:
+          title: Enable Performance Monitoring
+          type: boolean
+          description: Include performance and error monitoring
+          default: true
+
+  steps:
+    - id: fetch
+      name: Fetch React Frontend Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          react_version: ${{ parameters.react_version }}
+          typescript: ${{ parameters.typescript }}
+          build_tool: ${{ parameters.build_tool }}
+          app_type: ${{ parameters.app_type }}
+          ui_framework: ${{ parameters.ui_framework }}
+          styling_solution: ${{ parameters.styling_solution }}
+          responsive_design: ${{ parameters.responsive_design }}
+          state_management: ${{ parameters.state_management }}
+          routing: ${{ parameters.routing }}
+          enable_auth: ${{ parameters.enable_auth }}
+          auth_provider: ${{ parameters.auth_provider }}
+          enable_testing: ${{ parameters.enable_testing }}
+          testing_framework: ${{ parameters.testing_framework }}
+          enable_storybook: ${{ parameters.enable_storybook }}
+          enable_linting: ${{ parameters.enable_linting }}
+          enable_pwa: ${{ parameters.enable_pwa }}
+          api_client: ${{ parameters.api_client }}
+          enable_mock_api: ${{ parameters.enable_mock_api }}
+          api_base_url: ${{ parameters.api_base_url }}
+          deployment_target: ${{ parameters.deployment_target }}
+          enable_ci_cd: ${{ parameters.enable_ci_cd }}
+          enable_docker: ${{ parameters.enable_docker }}
+          enable_monitoring: ${{ parameters.enable_monitoring }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish to Repository
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        description: ${{ parameters.description }}
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: main
+        gitCommitMessage: 'Initial React frontend setup from DevOps Platform'
+        gitAuthorName: 'DevOps Platform'
+        gitAuthorEmail: 'devops@company.com'
+
+    - id: register
+      name: Register in Software Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}
+      - title: Development Server
+        url: http://localhost:3000
+      - title: Storybook
+        url: http://localhost:6006
