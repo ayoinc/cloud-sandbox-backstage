@@ -1,13 +1,17 @@
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
-  name: backstage
-  description: An example of a Backstage application.
-  # Example for optional annotations
-  # annotations:
-  #   github.com/project-slug: backstage/backstage
-  #   backstage.io/techdocs-ref: dir:.
+  name: cloud-sandbox-backstage
+  description: Cloud Sandbox Developer Portal - Backstage instance with custom catalog and templates
+  annotations:
+    github.com/project-slug: ayointegral/cloud-sandbox-backstage
+    backstage.io/techdocs-ref: dir:.
+  links:
+    - url: https://github.com/ayointegral/cloud-sandbox-backstage
+      title: GitHub Repository
+      icon: github
 spec:
   type: website
-  owner: john@example.com
-  lifecycle: experimental
+  owner: platform-team
+  lifecycle: production
+  system: cloud-sandbox
