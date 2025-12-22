@@ -6,17 +6,12 @@ metadata:
   description: High-availability PostgreSQL cluster for application data
   annotations:
     postgresql.org/version: "15.3"
-    backstage.io/techdocs-ref: dir:.
   tags:
     - postgresql
     - database
     - sql
     - cluster
     - high-availability
-  links:
-    - url: https://pgadmin.company.com
-      title: pgAdmin
-      icon: dashboard
 spec:
   type: service
   lifecycle: production
@@ -110,7 +105,6 @@ metadata:
   description: Message broker for asynchronous communication
   annotations:
     rabbitmq.com/version: "3.12"
-    rabbitmq.com/management-url: https://rabbitmq.company.com
   tags:
     - rabbitmq
     - message-broker
@@ -158,7 +152,6 @@ metadata:
   description: Workflow orchestration and data pipeline management
   annotations:
     airflow.apache.org/version: "2.6"
-    airflow.apache.org/webserver-url: https://airflow.company.com
   tags:
     - airflow
     - workflow-orchestration
@@ -204,7 +197,6 @@ metadata:
   description: S3-compatible object storage for data and artifacts
   annotations:
     minio.io/version: "2023.06.19"
-    minio.io/console-url: https://minio-console.company.com
   tags:
     - minio
     - object-storage
@@ -228,7 +220,6 @@ metadata:
   description: Unified analytics engine for big data processing
   annotations:
     spark.apache.org/version: "3.4"
-    spark.apache.org/ui-url: https://spark.company.com
   tags:
     - spark
     - big-data
@@ -258,6 +249,18 @@ spec:
   lifecycle: production
   owner: data-team
   system: data-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: PostgreSQL API
+      version: 1.0.0
+    paths:
+      /query:
+        post:
+          summary: Execute SQL query
+          responses:
+            '200':
+              description: Query results
 ---
 apiVersion: backstage.io/v1alpha1
 kind: API
@@ -274,6 +277,18 @@ spec:
   lifecycle: production
   owner: data-team
   system: data-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: MongoDB API
+      version: 1.0.0
+    paths:
+      /collections:
+        get:
+          summary: List collections
+          responses:
+            '200':
+              description: Collection list
 ---
 apiVersion: backstage.io/v1alpha1
 kind: API
@@ -290,6 +305,18 @@ spec:
   lifecycle: production
   owner: data-team
   system: data-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Redis API
+      version: 1.0.0
+    paths:
+      /keys:
+        get:
+          summary: List keys
+          responses:
+            '200':
+              description: Key list
 ---
 apiVersion: backstage.io/v1alpha1
 kind: API
@@ -344,6 +371,26 @@ spec:
   lifecycle: production
   owner: data-team
   system: data-platform
+  definition: |
+    asyncapi: 2.0.0
+    info:
+      title: RabbitMQ AMQP API
+      version: '1.0.0'
+    servers:
+      production:
+        url: rabbitmq.company.com:5672
+        protocol: amqp
+    channels:
+      task.queue:
+        subscribe:
+          message:
+            payload:
+              type: object
+              properties:
+                taskId:
+                  type: string
+                payload:
+                  type: object
 ---
 apiVersion: backstage.io/v1alpha1
 kind: API
@@ -360,6 +407,30 @@ spec:
   lifecycle: production
   owner: data-team
   system: data-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: S3 Compatible API
+      version: 1.0.0
+    paths:
+      /buckets:
+        get:
+          summary: List buckets
+          responses:
+            '200':
+              description: List of buckets
+      /buckets/{bucket}/objects:
+        get:
+          summary: List objects in bucket
+          parameters:
+            - name: bucket
+              in: path
+              required: true
+              schema:
+                type: string
+          responses:
+            '200':
+              description: List of objects
 ---
 apiVersion: backstage.io/v1alpha1
 kind: API
@@ -376,6 +447,110 @@ spec:
   lifecycle: production
   owner: data-team
   system: data-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Apache Airflow API
+      version: 2.6.0
+    paths:
+      /dags:
+        get:
+          summary: List DAGs
+          responses:
+            '200':
+              description: List of DAGs
+      /dags/{dag_id}/dagRuns:
+        get:
+          summary: List DAG runs
+          parameters:
+            - name: dag_id
+              in: path
+              required: true
+              schema:
+                type: string
+          responses:
+            '200':
+              description: List of DAG runs
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: spark-api
+  title: Spark REST API
+  description: Apache Spark cluster management API
+  tags:
+    - spark
+    - api
+    - big-data
+spec:
+  type: openapi
+  lifecycle: production
+  owner: data-team
+  system: data-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Apache Spark API
+      version: 3.4.0
+    paths:
+      /applications:
+        get:
+          summary: List applications
+          responses:
+            '200':
+              description: List of Spark applications
+      /applications/{appId}/jobs:
+        get:
+          summary: List jobs for application
+          parameters:
+            - name: appId
+              in: path
+              required: true
+              schema:
+                type: string
+          responses:
+            '200':
+              description: List of jobs
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: elasticsearch-data-api
+  title: Elasticsearch Data API
+  description: Elasticsearch search and indexing API for data platform
+  tags:
+    - elasticsearch
+    - search
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: data-team
+  system: data-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Elasticsearch Data API
+      version: 8.8.0
+    paths:
+      /_search:
+        post:
+          summary: Search documents
+          responses:
+            '200':
+              description: Search results
+      /{index}/_doc:
+        post:
+          summary: Index document
+          parameters:
+            - name: index
+              in: path
+              required: true
+              schema:
+                type: string
+          responses:
+            '201':
+              description: Document indexed
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Resource
@@ -447,6 +622,34 @@ metadata:
     - storage
     - minio
     - object-storage
+spec:
+  type: storage
+  owner: platform-team
+  system: data-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: zookeeper-storage
+  title: ZooKeeper Storage
+  description: Persistent storage for ZooKeeper data
+  tags:
+    - storage
+    - zookeeper
+spec:
+  type: storage
+  owner: platform-team
+  system: data-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: elasticsearch-data-storage
+  title: Elasticsearch Data Storage
+  description: Persistent storage for Elasticsearch data platform
+  tags:
+    - storage
+    - elasticsearch
 spec:
   type: storage
   owner: platform-team

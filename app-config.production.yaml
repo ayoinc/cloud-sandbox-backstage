@@ -1,19 +1,24 @@
+# Production configuration for containerized deployment
+# This file is merged with app-config.yaml
+
 app:
-  # Should be the same as backend.baseUrl when using the `app-backend` plugin.
+  title: Cloud Sandbox
   baseUrl: http://localhost:7007
+
+organization:
+  name: Platform Team
 
 backend:
-  # Note that the baseUrl should be the URL that the browser and other clients
-  # should use when communicating with the backend, i.e. it needs to be
-  # reachable not just from within the backend host, but from all of your
-  # callers. When its value is "http://localhost:7007", it's strictly private
-  # and can't be reached by others.
   baseUrl: http://localhost:7007
-  # The listener can also be expressed as a single <host>:<port> string. In this case we bind to
-  # all interfaces, the most permissive setting. The right value depends on your specific deployment.
   listen: ':7007'
+  csp:
+    connect-src: ["'self'", 'http:', 'https:']
+  cors:
+    origin: http://localhost:7007
+    methods: [GET, HEAD, PATCH, POST, PUT, DELETE]
+    credentials: true
 
-  # config options: https://node-postgres.com/apis/client
+  # PostgreSQL database
   database:
     client: pg
     connection:
@@ -21,35 +26,139 @@ backend:
       port: ${POSTGRES_PORT}
       user: ${POSTGRES_USER}
       password: ${POSTGRES_PASSWORD}
-      # https://node-postgres.com/features/ssl
-      # you can set the sslmode configuration option via the `PGSSLMODE` environment variable
-      # see https://www.postgresql.org/docs/current/libpq-ssl.html Table 33.1. SSL Mode Descriptions (e.g. require)
-      # ssl:
-      #   ca: # if you have a CA file and want to verify it you can uncomment this section
-      #     $file: <file-path>/ca/server.crt
+      database: backstage
+
+  # Redis cache
+  cache:
+    store: redis
+    connection: redis://${REDIS_HOST}:${REDIS_PORT}
+
+# GitHub integration
+integrations:
+  github:
+    - host: github.com
+      token: ${GITHUB_TOKEN}
+
+# Kubernetes - provide empty clusters to satisfy required config
+kubernetes:
+  serviceLocatorMethod:
+    type: 'multiTenant'
+  clusterLocatorMethods:
+    - type: config
+      clusters: []
+
+# TechDocs with MinIO (S3-compatible) storage
+techdocs:
+  builder: 'local'
+  generator:
+    runIn: 'local'
+  publisher:
+    type: 'awsS3'
+    awsS3:
+      bucketName: ${TECHDOCS_BUCKET}
+      endpoint: http://${MINIO_HOST}:${MINIO_PORT}
+      region: us-east-1
+      s3ForcePathStyle: true
+      credentials:
+        accessKeyId: ${MINIO_ACCESS_KEY}
+        secretAccessKey: ${MINIO_SECRET_KEY}
 
 auth:
   providers:
-    guest: {}
+    guest:
+      dangerouslyAllowOutsideDevelopment: true
+
+scaffolder:
+  defaultAuthor:
+    name: Cloud Sandbox
+    email: platform-team@company.com
+  defaultCommitMessage: 'Initial commit from Cloud Sandbox template'
 
 catalog:
-  # Overrides the default list locations from app-config.yaml as these contain example data.
-  # See https://backstage.io/docs/features/software-catalog/#adding-components-to-the-catalog for more details
-  # on how to get entities into the catalog.
+  rules:
+    - allow: [Component, System, API, Resource, Location, Domain, Template, User, Group]
   locations:
-    # Local example data, replace this with your production config, these are intended for demo use only.
-    # File locations are relative to the backend process, typically in a deployed context, such as in a Docker container, this will be the root
+    # Users and Groups
     - type: file
-      target: ./examples/entities.yaml
+      target: ./catalog/users.yaml
+      rules:
+        - allow: [User, Group]
 
-    # Local example template
+    # Domains
     - type: file
-      target: ./examples/template/template.yaml
+      target: ./catalog/domains.yaml
+      rules:
+        - allow: [Domain]
+    - type: file
+      target: ./catalog/devops-domains.yaml
+      rules:
+        - allow: [Domain]
+
+    # Systems
+    - type: file
+      target: ./catalog/systems.yaml
+      rules:
+        - allow: [System]
+    - type: file
+      target: ./catalog/devops-systems.yaml
+      rules:
+        - allow: [System]
+
+    # Components
+    - type: file
+      target: ./catalog/sample-components.yaml
+    - type: file
+      target: ./catalog/cloud-components.yaml
+    - type: file
+      target: ./catalog/data-components.yaml
+    - type: file
+      target: ./catalog/infrastructure-components.yaml
+    - type: file
+      target: ./catalog/observability-components.yaml
+    - type: file
+      target: ./catalog/testing-components.yaml
+    - type: file
+      target: ./catalog/awx-core.yaml
+    - type: file
+      target: ./catalog/awx-operator.yaml
+
+    # Templates
+    - type: file
+      target: ./templates/terraform-module/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/terraform-infrastructure/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/ansible-playbook/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/kubernetes-microservice/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/docker-application/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/awx-deployment/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/packer-image/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/vagrant-environment/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/cloud-sandbox/template.yaml
       rules:
         - allow: [Template]
 
-    # Local example organizational data
-    - type: file
-      target: ./examples/org.yaml
-      rules:
-        - allow: [User, Group]
+permission:
+  enabled: false

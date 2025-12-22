@@ -1,0 +1,73 @@
+# Production override - optimized settings
+# Use with: docker-compose -f docker-compose.yaml -f docker-compose.services.yaml -f docker-compose.prod.yaml up -d
+
+services:
+  nginx:
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  backstage:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  postgres:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+    # Remove port exposure in production
+    ports: []
+
+  redis:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    # Remove port exposure in production
+    ports: []
+
+  rabbitmq:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+    # Only expose management UI internally
+    ports:
+      - "127.0.0.1:15672:15672"
+
+  minio:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+    # Remove port exposure in production
+    ports: []

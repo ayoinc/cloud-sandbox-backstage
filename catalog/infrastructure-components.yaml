@@ -6,7 +6,6 @@ metadata:
   description: Reusable Terraform modules for infrastructure provisioning
   annotations:
     github.com/project-slug: company/terraform-modules
-    backstage.io/techdocs-ref: dir:.
     terraform.io/registry: company/terraform-modules
   tags:
     - terraform
@@ -15,10 +14,7 @@ metadata:
     - azure
     - gcp
   links:
-    - url: https://github.com/company/terraform-modules
-      title: Source Code
-      icon: github
-    - url: https://registry.terraform.io/namespaces/company
+    - url: https://registry.terraform.io
       title: Terraform Registry
       icon: catalog
 spec:
@@ -76,7 +72,6 @@ metadata:
   description: Kubernetes Helm charts for application deployment
   annotations:
     github.com/project-slug: company/helm-charts
-    helm.sh/repository: https://charts.company.com
   tags:
     - helm
     - kubernetes
@@ -97,7 +92,6 @@ metadata:
   title: Docker Images Registry
   description: Company Docker images and base images
   annotations:
-    docker.com/registry: harbor.company.com
     security.company.com/scan-enabled: "true"
   tags:
     - docker
@@ -159,8 +153,6 @@ metadata:
   name: docker-registry
   title: Docker Registry
   description: Private Docker registry for container images
-  annotations:
-    harbor.company.com/project: library
   tags:
     - docker
     - registry

@@ -7,23 +7,12 @@ metadata:
   annotations:
     prometheus.io/server-url: https://prometheus.company.com
     grafana.com/dashboard-url: https://grafana.company.com
-    backstage.io/techdocs-ref: dir:.
   tags:
     - prometheus
     - grafana
     - alertmanager
     - monitoring
     - metrics
-  links:
-    - url: https://prometheus.company.com
-      title: Prometheus Server
-      icon: dashboard
-    - url: https://grafana.company.com
-      title: Grafana Dashboards
-      icon: dashboard
-    - url: https://alertmanager.company.com
-      title: Alert Manager
-      icon: alert
 spec:
   type: service
   lifecycle: production
@@ -232,6 +221,30 @@ spec:
   lifecycle: production
   owner: sre-team
   system: observability-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Grafana API
+      version: '10.0.0'
+    paths:
+      /api/dashboards:
+        get:
+          summary: List dashboards
+          responses:
+            '200':
+              description: Dashboard list
+      /api/dashboards/{uid}:
+        get:
+          summary: Get dashboard by UID
+          parameters:
+            - name: uid
+              in: path
+              required: true
+              schema:
+                type: string
+          responses:
+            '200':
+              description: Dashboard details
 ---
 apiVersion: backstage.io/v1alpha1
 kind: API
@@ -248,6 +261,30 @@ spec:
   lifecycle: production
   owner: sre-team
   system: observability-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Elasticsearch API
+      version: '8.8.0'
+    paths:
+      /_search:
+        post:
+          summary: Search across indices
+          responses:
+            '200':
+              description: Search results
+      /{index}/_search:
+        post:
+          summary: Search within index
+          parameters:
+            - name: index
+              in: path
+              required: true
+              schema:
+                type: string
+          responses:
+            '200':
+              description: Search results
 ---
 apiVersion: backstage.io/v1alpha1
 kind: API
@@ -264,6 +301,30 @@ spec:
   lifecycle: production
   owner: sre-team
   system: observability-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Kibana API
+      version: '8.8.0'
+    paths:
+      /api/saved_objects/_find:
+        get:
+          summary: Find saved objects
+          responses:
+            '200':
+              description: Saved objects list
+      /api/dashboards/dashboard/{id}:
+        get:
+          summary: Get dashboard
+          parameters:
+            - name: id
+              in: path
+              required: true
+              schema:
+                type: string
+          responses:
+            '200':
+              description: Dashboard details
 ---
 apiVersion: backstage.io/v1alpha1
 kind: API
@@ -280,6 +341,183 @@ spec:
   lifecycle: production
   owner: sre-team
   system: observability-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Jaeger API
+      version: '1.0.0'
+    paths:
+      /api/traces:
+        get:
+          summary: Search traces
+          parameters:
+            - name: service
+              in: query
+              required: true
+              schema:
+                type: string
+          responses:
+            '200':
+              description: Trace list
+      /api/traces/{traceId}:
+        get:
+          summary: Get trace by ID
+          parameters:
+            - name: traceId
+              in: path
+              required: true
+              schema:
+                type: string
+          responses:
+            '200':
+              description: Trace details
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: datadog-api
+  title: Datadog API
+  description: Datadog monitoring and APM API
+  tags:
+    - datadog
+    - monitoring
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: sre-team
+  system: observability-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Datadog API
+      version: '1.0.0'
+    paths:
+      /api/v1/metrics:
+        get:
+          summary: Query metrics
+          responses:
+            '200':
+              description: Metrics data
+      /api/v1/events:
+        get:
+          summary: Query events
+          responses:
+            '200':
+              description: Events list
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: newrelic-api
+  title: New Relic API
+  description: New Relic monitoring API
+  tags:
+    - new-relic
+    - monitoring
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: sre-team
+  system: observability-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: New Relic API
+      version: '2.0.0'
+    paths:
+      /v2/applications.json:
+        get:
+          summary: List applications
+          responses:
+            '200':
+              description: Application list
+      /v2/applications/{id}/metrics.json:
+        get:
+          summary: Get application metrics
+          parameters:
+            - name: id
+              in: path
+              required: true
+              schema:
+                type: integer
+          responses:
+            '200':
+              description: Metrics data
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: splunk-api
+  title: Splunk API
+  description: Splunk search and data API
+  tags:
+    - splunk
+    - search
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: security-team
+  system: observability-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Splunk API
+      version: '9.0.0'
+    paths:
+      /services/search/jobs:
+        post:
+          summary: Create search job
+          responses:
+            '201':
+              description: Search job created
+      /services/search/jobs/{sid}/results:
+        get:
+          summary: Get search results
+          parameters:
+            - name: sid
+              in: path
+              required: true
+              schema:
+                type: string
+          responses:
+            '200':
+              description: Search results
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: pagerduty-api
+  title: PagerDuty API
+  description: PagerDuty incident management API
+  tags:
+    - pagerduty
+    - incident
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: sre-team
+  system: observability-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: PagerDuty API
+      version: '2.0.0'
+    paths:
+      /incidents:
+        get:
+          summary: List incidents
+          responses:
+            '200':
+              description: Incident list
+        post:
+          summary: Create incident
+          responses:
+            '201':
+              description: Incident created
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Resource

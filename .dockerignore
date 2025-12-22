@@ -1,8 +1,52 @@
 .git
+.github
+.gitignore
 .yarn/cache
 .yarn/install-state.gz
 node_modules
-packages/*/src
 packages/*/node_modules
-plugins
+plugins/*/node_modules
+
+# Local config files
 *.local.yaml
+.env
+.env.*
+!.env.example
+
+# Documentation
+*.md
+!README.md
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Test files
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+__tests__
+__mocks__
+coverage
+playwright-report
+test-results
+
+# Build artifacts
+*.log
+*.tsbuildinfo
+dist
+
+# Development files
+.eslintcache
+.eslintrc.js
+.prettierignore
+.prettierrc
+playwright.config.ts
+tsconfig.json
+
+# Docker development files
+docker-compose.dev.yaml
+Dockerfile.dev

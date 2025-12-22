@@ -1,0 +1,4 @@
+site_name: Terraform Module
+docs_dir: docs
+plugins:
+  - techdocs-core

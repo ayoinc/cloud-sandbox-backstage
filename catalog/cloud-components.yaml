@@ -7,7 +7,6 @@ metadata:
   annotations:
     aws.amazon.com/account-id: "123456789012"
     aws.amazon.com/region: us-east-1
-    backstage.io/techdocs-ref: dir:.
   tags:
     - aws
     - cloud
@@ -48,6 +47,13 @@ metadata:
     - storage
     - sql
     - functions
+  links:
+    - url: https://portal.azure.com
+      title: Azure Portal
+      icon: cloud
+    - url: https://docs.microsoft.com/azure
+      title: Azure Documentation
+      icon: docs
 spec:
   type: service
   lifecycle: production
@@ -74,6 +80,13 @@ metadata:
     - cloud-storage
     - bigquery
     - cloud-functions
+  links:
+    - url: https://console.cloud.google.com
+      title: GCP Console
+      icon: cloud
+    - url: https://cloud.google.com/docs
+      title: GCP Documentation
+      icon: docs
 spec:
   type: service
   lifecycle: production
@@ -90,8 +103,6 @@ metadata:
   name: multi-cloud-management
   title: Multi-Cloud Management
   description: Unified management across AWS, Azure, and GCP
-  annotations:
-    backstage.io/techdocs-ref: dir:.
   tags:
     - multi-cloud
     - management
@@ -122,6 +133,25 @@ spec:
   lifecycle: production
   owner: cloud-team
   system: cloud-services-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: AWS Services API
+      version: 1.0.0
+      description: AWS SDK and service integrations
+    paths:
+      /ec2/instances:
+        get:
+          summary: List EC2 instances
+          responses:
+            '200':
+              description: List of instances
+      /s3/buckets:
+        get:
+          summary: List S3 buckets
+          responses:
+            '200':
+              description: List of buckets
 ---
 apiVersion: backstage.io/v1alpha1
 kind: API
@@ -138,6 +168,25 @@ spec:
   lifecycle: production
   owner: cloud-team
   system: cloud-services-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Azure Services API
+      version: 1.0.0
+      description: Azure SDK and REST API integrations
+    paths:
+      /vms:
+        get:
+          summary: List Virtual Machines
+          responses:
+            '200':
+              description: List of VMs
+      /storage/accounts:
+        get:
+          summary: List Storage Accounts
+          responses:
+            '200':
+              description: List of storage accounts
 ---
 apiVersion: backstage.io/v1alpha1
 kind: API
@@ -154,6 +203,25 @@ spec:
   lifecycle: production
   owner: cloud-team
   system: cloud-services-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Google Cloud API
+      version: 1.0.0
+      description: GCP SDK and API integrations
+    paths:
+      /compute/instances:
+        get:
+          summary: List Compute instances
+          responses:
+            '200':
+              description: List of instances
+      /storage/buckets:
+        get:
+          summary: List Cloud Storage buckets
+          responses:
+            '200':
+              description: List of buckets
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Resource

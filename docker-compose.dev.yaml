@@ -1,0 +1,41 @@
+# Development override - adds hot reload and debugging
+# Use with: docker-compose -f docker-compose.yaml -f docker-compose.services.yaml -f docker-compose.dev.yaml up
+
+services:
+  backstage:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.yarn
+    environment:
+      NODE_ENV: development
+    ports:
+      - "7007:7007"
+      - "9229:9229"  # Node.js debugger
+    command: yarn dev
+
+  nginx:
+    ports:
+      - "80:80"
+      - "443:443"
+
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  rabbitmq:
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  minio:
+    ports:
+      - "9000:9000"
+      - "9001:9001"

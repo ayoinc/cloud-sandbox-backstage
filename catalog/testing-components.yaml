@@ -6,7 +6,6 @@ metadata:
   description: Comprehensive testing frameworks for unit, integration, and e2e testing
   annotations:
     github.com/project-slug: company/testing-frameworks
-    backstage.io/techdocs-ref: dir:.
   tags:
     - testing
     - jest
@@ -14,13 +13,6 @@ metadata:
     - selenium
     - junit
     - pytest
-  links:
-    - url: https://github.com/company/testing-frameworks
-      title: Source Code
-      icon: github
-    - url: https://test-results.company.com
-      title: Test Results Dashboard
-      icon: dashboard
 spec:
   type: library
   lifecycle: production
@@ -66,10 +58,6 @@ metadata:
     - sast
     - dast
     - dependency-check
-  links:
-    - url: https://security.company.com/dashboard
-      title: Security Dashboard
-      icon: security
 spec:
   type: service
   lifecycle: production
@@ -190,6 +178,12 @@ spec:
       /tests/{id}/results:
         get:
           summary: Get test results
+          parameters:
+            - name: id
+              in: path
+              required: true
+              schema:
+                type: string
           responses:
             '200':
               description: Test results
@@ -209,6 +203,40 @@ spec:
   lifecycle: production
   owner: security-team
   system: security-compliance-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Security Scanning API
+      version: '1.0.0'
+    paths:
+      /scans:
+        get:
+          summary: List security scans
+          responses:
+            '200':
+              description: Scan list
+        post:
+          summary: Initiate security scan
+          requestBody:
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    target:
+                      type: string
+                    scanType:
+                      type: string
+                      enum: [sast, dast, dependency]
+          responses:
+            '202':
+              description: Scan initiated
+      /vulnerabilities:
+        get:
+          summary: List vulnerabilities
+          responses:
+            '200':
+              description: Vulnerability list
 ---
 apiVersion: backstage.io/v1alpha1
 kind: API
@@ -225,6 +253,41 @@ spec:
   lifecycle: production
   owner: devops-team
   system: ci-cd-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: CI/CD Pipeline API
+      version: '1.0.0'
+    paths:
+      /pipelines:
+        get:
+          summary: List pipelines
+          responses:
+            '200':
+              description: Pipeline list
+      /pipelines/{id}/runs:
+        get:
+          summary: List pipeline runs
+          parameters:
+            - name: id
+              in: path
+              required: true
+              schema:
+                type: string
+          responses:
+            '200':
+              description: Pipeline runs
+        post:
+          summary: Trigger pipeline run
+          parameters:
+            - name: id
+              in: path
+              required: true
+              schema:
+                type: string
+          responses:
+            '201':
+              description: Pipeline run triggered
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Resource

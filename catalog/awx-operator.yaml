@@ -6,7 +6,6 @@ metadata:
   description: Kubernetes operator for deploying and managing AWX instances
   annotations:
     github.com/project-slug: ansible/awx-operator
-    backstage.io/techdocs-ref: dir:.
     sonarqube.org/project-key: awx-operator
     jenkins.io/job-full-name: awx-operator/awx-operator-ci
   tags:
@@ -22,15 +21,6 @@ metadata:
     - url: https://ansible.readthedocs.io/projects/awx-operator/en/latest/
       title: Documentation
       icon: docs
-    - url: https://github.com/ansible/awx-operator/issues
-      title: Issues
-      icon: github
-    - url: https://operatorhub.io/operator/awx-operator
-      title: OperatorHub
-      icon: catalog
-    - url: https://quay.io/repository/ansible/awx-operator
-      title: Container Images
-      icon: container
 spec:
   type: library
   lifecycle: production
@@ -118,6 +108,43 @@ spec:
   lifecycle: production
   owner: platform-team
   system: kubernetes-operators
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Kubernetes API
+      version: '1.28.0'
+      description: Standard Kubernetes API for cluster management
+    paths:
+      /api/v1/namespaces:
+        get:
+          summary: List namespaces
+          responses:
+            '200':
+              description: Namespace list
+      /api/v1/namespaces/{namespace}/pods:
+        get:
+          summary: List pods in namespace
+          parameters:
+            - name: namespace
+              in: path
+              required: true
+              schema:
+                type: string
+          responses:
+            '200':
+              description: Pod list
+      /apis/apps/v1/namespaces/{namespace}/deployments:
+        get:
+          summary: List deployments in namespace
+          parameters:
+            - name: namespace
+              in: path
+              required: true
+              schema:
+                type: string
+          responses:
+            '200':
+              description: Deployment list
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Resource

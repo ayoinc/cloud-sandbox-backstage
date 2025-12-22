@@ -1,0 +1,91 @@
+# Base docker-compose file with common network and volume definitions
+# Use with: docker-compose -f docker-compose.yaml -f docker-compose.services.yaml up
+
+x-common-env: &common-env
+  TZ: UTC
+
+x-healthcheck-defaults: &healthcheck-defaults
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 40s
+
+networks:
+  backstage-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  rabbitmq_data:
+    driver: local
+  minio_data:
+    driver: local
+  techdocs_data:
+    driver: local
+
+services:
+  # Nginx reverse proxy - main entry point
+  nginx:
+    build:
+      context: ./docker/nginx
+      dockerfile: Dockerfile
+    container_name: backstage-nginx
+    ports:
+      - "80:80"
+    depends_on:
+      backstage:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - backstage-network
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+
+  # Backstage application
+  backstage:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: backstage-app
+    environment:
+      <<: *common-env
+      NODE_ENV: production
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: backstage
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-backstage}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: backstage
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-backstage}
+      MINIO_HOST: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-backstage}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-backstage123}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      TECHDOCS_BUCKET: techdocs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - backstage-network
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:7007/healthcheck', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      start_period: 60s

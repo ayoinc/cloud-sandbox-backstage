@@ -6,7 +6,6 @@ metadata:
   description: Web-based user interface, REST API, and task engine built on top of Ansible
   annotations:
     github.com/project-slug: ansible/awx
-    backstage.io/techdocs-ref: dir:.
     sonarqube.org/project-key: awx-core
     jenkins.io/job-full-name: awx/awx-ci
   tags:
@@ -23,15 +22,6 @@ metadata:
     - url: https://ansible.readthedocs.io/projects/awx/en/latest/
       title: Documentation
       icon: docs
-    - url: https://github.com/ansible/awx/issues
-      title: Issues
-      icon: github
-    - url: https://groups.google.com/g/awx-project
-      title: Mailing List
-      icon: email
-    - url: https://matrix.to/#/#awx:ansible.com
-      title: Matrix Chat
-      icon: chat
 spec:
   type: service
   lifecycle: production
@@ -162,5 +152,20 @@ metadata:
     - storage
 spec:
   type: cache
+  owner: platform-team
+  system: awx-automation-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: awx-operator
+  title: AWX Operator Resource
+  description: AWX Operator for Kubernetes deployment
+  tags:
+    - kubernetes
+    - operator
+    - awx
+spec:
+  type: operator
   owner: platform-team
   system: awx-automation-platform
