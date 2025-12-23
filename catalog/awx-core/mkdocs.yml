@@ -4,7 +4,9 @@ site_description: AWX automation controller core components
 nav:
   - Home: index.md
   - Overview: overview.md
+  - Architecture: architecture.md
   - Usage: usage.md
 
 plugins:
   - techdocs-core
+  - d2

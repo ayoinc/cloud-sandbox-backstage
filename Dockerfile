@@ -57,12 +57,25 @@ RUN apt-get update && \
         ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-# Install mkdocs and plugins for TechDocs generation
+# Install D2 diagramming tool (direct binary download for reliability)
+RUN ARCH=$(dpkg --print-architecture) && \
+    if [ "$ARCH" = "arm64" ]; then D2_ARCH="linux-arm64"; else D2_ARCH="linux-amd64"; fi && \
+    D2_VERSION="v0.7.1" && \
+    curl -fsSL "https://github.com/terrastruct/d2/releases/download/${D2_VERSION}/d2-${D2_VERSION}-${D2_ARCH}.tar.gz" -o /tmp/d2.tar.gz && \
+    mkdir -p /tmp/d2 && \
+    tar -xzf /tmp/d2.tar.gz -C /tmp/d2 --strip-components=1 && \
+    cp /tmp/d2/bin/d2 /usr/local/bin/d2 && \
+    chmod +x /usr/local/bin/d2 && \
+    rm -rf /tmp/d2 /tmp/d2.tar.gz && \
+    d2 --version
+
+# Install mkdocs and plugins for TechDocs generation (including D2 support)
 RUN pip3 install --break-system-packages \
     mkdocs \
     mkdocs-material \
     mkdocs-techdocs-core \
-    mkdocs-monorepo-plugin
+    mkdocs-monorepo-plugin \
+    mkdocs-d2-plugin
 
 # Install MinIO client for TechDocs upload
 RUN curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc && \

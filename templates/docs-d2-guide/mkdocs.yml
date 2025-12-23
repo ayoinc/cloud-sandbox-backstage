@@ -1,0 +1,9 @@
+site_name: D2 Diagramming Guide
+site_description: How to use D2 declarative diagramming in TechDocs
+
+nav:
+  - Home: index.md
+
+plugins:
+  - techdocs-core
+  - d2

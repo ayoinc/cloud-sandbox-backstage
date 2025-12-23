@@ -8,21 +8,60 @@ Apache Kafka uses a distributed commit log architecture. Messages are persisted 
 
 Starting with Kafka 3.0, ZooKeeper is being replaced with KRaft (Kafka Raft) for metadata management:
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    KRaft Cluster                             │
-├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
-│  │ Controller  │  │ Controller  │  │ Controller  │         │
-│  │  + Broker   │  │  + Broker   │  │  + Broker   │         │
-│  │   Node 1    │  │   Node 2    │  │   Node 3    │         │
-│  └─────────────┘  └─────────────┘  └─────────────┘         │
-│         │                │                │                 │
-│         └────────────────┼────────────────┘                 │
-│                          │                                  │
-│              Raft Consensus Protocol                        │
-│              (Metadata Replication)                         │
-└─────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+title: KRaft Cluster Architecture {
+  shape: text
+  near: top-center
+  style: {
+    font-size: 20
+    bold: true
+  }
+}
+
+cluster: KRaft Cluster {
+  style: {
+    fill: "#E3F2FD"
+    stroke: "#1976D2"
+    stroke-width: 2
+  }
+  
+  node1: Controller + Broker Node 1 {
+    shape: hexagon
+    style: {
+      fill: "#BBDEFB"
+    }
+  }
+  
+  node2: Controller + Broker Node 2 {
+    shape: hexagon
+    style: {
+      fill: "#BBDEFB"
+    }
+  }
+  
+  node3: Controller + Broker Node 3 {
+    shape: hexagon
+    style: {
+      fill: "#BBDEFB"
+    }
+  }
+  
+  node1 <-> node2: Raft
+  node2 <-> node3: Raft
+  node1 <-> node3: Raft
+}
+
+consensus: Raft Consensus Protocol\n(Metadata Replication) {
+  shape: text
+  style: {
+    font-size: 14
+    italic: true
+  }
+}
+
+cluster -> consensus
 ```
 
 ## Components
@@ -44,11 +83,47 @@ Kafka brokers are the servers that store data and serve clients.
 
 Topics are divided into partitions for parallelism:
 
-```
-Topic: user-events (3 partitions, RF=2)
-├── Partition 0: Broker 1 (leader), Broker 2 (replica)
-├── Partition 1: Broker 2 (leader), Broker 3 (replica)
-└── Partition 2: Broker 3 (leader), Broker 1 (replica)
+```d2
+direction: down
+
+topic: "Topic: user-events (3 partitions, RF=2)" {
+  shape: rectangle
+  style: {
+    fill: "#E8F5E9"
+    stroke: "#388E3C"
+    stroke-width: 2
+  }
+  
+  p0: "Partition 0" {
+    leader: "Broker 1 (leader)" {
+      style.fill: "#C8E6C9"
+    }
+    replica: "Broker 2 (replica)" {
+      style.fill: "#DCEDC8"
+    }
+    leader -> replica: replicate
+  }
+  
+  p1: "Partition 1" {
+    leader: "Broker 2 (leader)" {
+      style.fill: "#C8E6C9"
+    }
+    replica: "Broker 3 (replica)" {
+      style.fill: "#DCEDC8"
+    }
+    leader -> replica: replicate
+  }
+  
+  p2: "Partition 2" {
+    leader: "Broker 3 (leader)" {
+      style.fill: "#C8E6C9"
+    }
+    replica: "Broker 1 (replica)" {
+      style.fill: "#DCEDC8"
+    }
+    leader -> replica: replicate
+  }
+}
 ```
 
 **Partitioning Strategies:**

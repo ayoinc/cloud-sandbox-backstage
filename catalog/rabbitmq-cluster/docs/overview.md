@@ -4,73 +4,168 @@
 
 ### Message Flow
 
-```
-┌──────────────┐       ┌──────────────┐       ┌──────────────┐       ┌──────────────┐
-│   Producer   │──────▶│   Exchange   │──────▶│    Queue     │──────▶│   Consumer   │
-│              │       │              │       │              │       │              │
-│ • Publish    │       │ • Routing    │       │ • Storage    │       │ • Consume    │
-│ • Confirm    │       │ • Bindings   │       │ • Ordering   │       │ • Ack/Nack   │
-└──────────────┘       └──────────────┘       └──────────────┘       └──────────────┘
-                              │
-                              │ Routing Key Match
-                              ▼
-                    ┌──────────────────────────────────────┐
-                    │            Bindings                   │
-                    │  Exchange ──(routing_key)──▶ Queue   │
-                    └──────────────────────────────────────┘
+```d2
+direction: right
+
+producer: Producer {
+  shape: rectangle
+  style.fill: "#E3F2FD"
+  
+  publish: "Publish"
+  confirm: "Confirm"
+}
+
+exchange: Exchange {
+  shape: hexagon
+  style.fill: "#FFF8E1"
+  
+  routing: "Routing"
+  bindings: "Bindings"
+}
+
+queue: Queue {
+  shape: cylinder
+  style.fill: "#E8F5E9"
+  
+  storage: "Storage"
+  ordering: "Ordering"
+}
+
+consumer: Consumer {
+  shape: rectangle
+  style.fill: "#F3E5F5"
+  
+  consume: "Consume"
+  ack: "Ack/Nack"
+}
+
+bindings_detail: Bindings {
+  shape: rectangle
+  style.fill: "#FFF3E0"
+  label: "Exchange ──(routing_key)──► Queue"
+}
+
+producer -> exchange: message
+exchange -> queue: routing key match
+queue -> consumer: deliver
+exchange -> bindings_detail: route via
 ```
 
 ### Clustering Architecture
 
-```
-                         ┌─────────────────────────────────────────┐
-                         │         Load Balancer (HAProxy)          │
-                         │          :5672 (AMQP), :15672 (HTTP)     │
-                         └─────────────────────────────────────────┘
-                                            │
-            ┌───────────────────────────────┼───────────────────────────────┐
-            │                               │                               │
-            ▼                               ▼                               ▼
-    ┌───────────────┐               ┌───────────────┐               ┌───────────────┐
-    │   RabbitMQ 1  │               │   RabbitMQ 2  │               │   RabbitMQ 3  │
-    │  (Disk Node)  │◀─────────────▶│  (Disk Node)  │◀─────────────▶│   (RAM Node)  │
-    ├───────────────┤               ├───────────────┤               ├───────────────┤
-    │ Mnesia DB     │               │ Mnesia DB     │               │ Mnesia DB     │
-    │ (metadata)    │               │ (metadata)    │               │ (in-memory)   │
-    │               │               │               │               │               │
-    │ Queue Leader  │               │ Queue Follower│               │ Queue Follower│
-    │ (orders)      │               │ (orders)      │               │ (orders)      │
-    └───────────────┘               └───────────────┘               └───────────────┘
-            │                               │                               │
-            └───────────────────────────────┴───────────────────────────────┘
-                                    Erlang Distribution
-                                    (Port 25672)
+```d2
+direction: down
+
+lb: Load Balancer (HAProxy) {
+  shape: cloud
+  style.fill: "#E3F2FD"
+  label: ":5672 (AMQP), :15672 (HTTP)"
+}
+
+cluster: RabbitMQ Cluster {
+  style: {
+    fill: "#F5F5F5"
+    stroke: "#9E9E9E"
+  }
+  
+  rmq1: RabbitMQ 1 {
+    shape: rectangle
+    style.fill: "#E8F5E9"
+    
+    type1: "(Disk Node)"
+    mnesia1: "Mnesia DB (metadata)"
+    queue1: "Queue Leader (orders)"
+  }
+  
+  rmq2: RabbitMQ 2 {
+    shape: rectangle
+    style.fill: "#E8F5E9"
+    
+    type2: "(Disk Node)"
+    mnesia2: "Mnesia DB (metadata)"
+    queue2: "Queue Follower (orders)"
+  }
+  
+  rmq3: RabbitMQ 3 {
+    shape: rectangle
+    style.fill: "#FFF8E1"
+    
+    type3: "(RAM Node)"
+    mnesia3: "Mnesia DB (in-memory)"
+    queue3: "Queue Follower (orders)"
+  }
+  
+  rmq1 <-> rmq2: Erlang Distribution
+  rmq2 <-> rmq3: Erlang Distribution
+  rmq1 <-> rmq3: Erlang Distribution
+}
+
+erlang: "Erlang Distribution (Port 25672)" {
+  shape: text
+  style.font-size: 12
+}
+
+lb -> cluster.rmq1
+lb -> cluster.rmq2
+lb -> cluster.rmq3
 ```
 
 ### Quorum Queues
 
 Quorum queues use Raft consensus for replication:
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        Quorum Queue: orders                          │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐            │
-│  │   Leader    │     │  Follower   │     │  Follower   │            │
-│  │   (Node 1)  │────▶│   (Node 2)  │────▶│   (Node 3)  │            │
-│  │             │     │             │     │             │            │
-│  │ Log: [...] │     │ Log: [...] │     │ Log: [...] │            │
-│  └─────────────┘     └─────────────┘     └─────────────┘            │
-│                                                                      │
-│  Write Path:                                                         │
-│  1. Producer sends message to leader                                 │
-│  2. Leader appends to local log                                      │
-│  3. Leader replicates to followers                                   │
-│  4. Majority confirms → message committed                            │
-│  5. Leader acknowledges to producer                                  │
-│                                                                      │
-└─────────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+title: "Quorum Queue: orders" {
+  shape: text
+  near: top-center
+  style: {
+    font-size: 20
+    bold: true
+  }
+}
+
+quorum: Quorum Queue {
+  style: {
+    fill: "#E3F2FD"
+    stroke: "#1976D2"
+    stroke-width: 2
+  }
+  
+  leader: Leader (Node 1) {
+    shape: hexagon
+    style.fill: "#C8E6C9"
+    log1: "Log: [...]"
+  }
+  
+  follower1: Follower (Node 2) {
+    shape: hexagon
+    style.fill: "#DCEDC8"
+    log2: "Log: [...]"
+  }
+  
+  follower2: Follower (Node 3) {
+    shape: hexagon
+    style.fill: "#DCEDC8"
+    log3: "Log: [...]"
+  }
+  
+  leader -> follower1: replicate
+  leader -> follower2: replicate
+}
+
+write_path: Write Path {
+  style.fill: "#FFF8E1"
+  
+  step1: "1. Producer sends message to leader"
+  step2: "2. Leader appends to local log"
+  step3: "3. Leader replicates to followers"
+  step4: "4. Majority confirms → message committed"
+  step5: "5. Leader acknowledges to producer"
+  
+  step1 -> step2 -> step3 -> step4 -> step5
+}
 ```
 
 ## Configuration

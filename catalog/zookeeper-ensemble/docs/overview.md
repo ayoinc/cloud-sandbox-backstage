@@ -6,44 +6,53 @@
 
 ZooKeeper uses the ZooKeeper Atomic Broadcast (ZAB) protocol for consensus:
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Write Request Flow                           │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  Client ──────────────────────────────────────────────────►     │
-│     │                                                           │
-│     ▼                                                           │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │ 1. Client sends write to any server                     │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│     │                                                           │
-│     ▼                                                           │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │ 2. Follower forwards to Leader                          │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│     │                                                           │
-│     ▼                                                           │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │ 3. Leader proposes transaction (ZXID)                   │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│     │                                                           │
-│     ▼                                                           │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │ 4. Followers ACK after writing to disk                  │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│     │                                                           │
-│     ▼                                                           │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │ 5. Leader commits after quorum (majority) ACKs          │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│     │                                                           │
-│     ▼                                                           │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │ 6. Response returned to client                          │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+title: Write Request Flow {
+  shape: text
+  near: top-center
+  style: {
+    font-size: 20
+    bold: true
+  }
+}
+
+client: Client {
+  shape: person
+}
+
+step1: "1. Client sends write to any server" {
+  shape: rectangle
+  style.fill: "#E3F2FD"
+}
+
+step2: "2. Follower forwards to Leader" {
+  shape: rectangle
+  style.fill: "#E3F2FD"
+}
+
+step3: "3. Leader proposes transaction (ZXID)" {
+  shape: rectangle
+  style.fill: "#FFF8E1"
+}
+
+step4: "4. Followers ACK after writing to disk" {
+  shape: rectangle
+  style.fill: "#FFF8E1"
+}
+
+step5: "5. Leader commits after quorum (majority) ACKs" {
+  shape: rectangle
+  style.fill: "#E8F5E9"
+}
+
+step6: "6. Response returned to client" {
+  shape: rectangle
+  style.fill: "#E8F5E9"
+}
+
+client -> step1 -> step2 -> step3 -> step4 -> step5 -> step6
 ```
 
 ### Quorum Requirements
@@ -58,21 +67,49 @@ ZooKeeper uses the ZooKeeper Atomic Broadcast (ZAB) protocol for consensus:
 
 ### Session Management
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Session Lifecycle                            │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│    CONNECTING ────► CONNECTED ────► CLOSED                      │
-│         │               │               ▲                       │
-│         │               │               │                       │
-│         │               ▼               │                       │
-│         │          DISCONNECTED ────────┘                       │
-│         │               │                                       │
-│         │               ▼                                       │
-│         └────────► EXPIRED                                      │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+```d2
+direction: right
+
+title: Session Lifecycle {
+  shape: text
+  near: top-center
+  style: {
+    font-size: 18
+    bold: true
+  }
+}
+
+connecting: CONNECTING {
+  shape: rectangle
+  style.fill: "#FFF8E1"
+}
+
+connected: CONNECTED {
+  shape: rectangle
+  style.fill: "#E8F5E9"
+}
+
+disconnected: DISCONNECTED {
+  shape: rectangle
+  style.fill: "#FFECB3"
+}
+
+expired: EXPIRED {
+  shape: rectangle
+  style.fill: "#FFCDD2"
+}
+
+closed: CLOSED {
+  shape: rectangle
+  style.fill: "#E0E0E0"
+}
+
+connecting -> connected
+connecting -> expired: timeout
+connected -> disconnected
+disconnected -> connected: reconnect
+disconnected -> closed
+disconnected -> expired: session timeout
 ```
 
 ## Configuration
