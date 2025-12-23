@@ -1,0 +1,19 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: awx-operator
+  title: AWX Operator
+  description: Kubernetes operator for AWX deployment
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - awx
+    - kubernetes
+    - operator
+spec:
+  type: service
+  lifecycle: production
+  owner: platform-team
+  system: awx-automation-platform
+  providesApis:
+    - awx-operator-api

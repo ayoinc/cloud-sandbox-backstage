@@ -1,0 +1,10 @@
+site_name: Packer Image Builder
+site_description: HashiCorp Packer for building machine images
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

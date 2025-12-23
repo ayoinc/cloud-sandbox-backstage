@@ -1,0 +1,131 @@
+# Prometheus Alerting Rules - SLO-based Alerts
+# Generated for: ${{ values.name }}
+# 
+# These alerts implement multi-window, multi-burn-rate alerting
+# Based on Google SRE Workbook recommendations
+
+groups:
+  - name: slo
+    interval: 30s
+    rules:
+      # Recording rules for SLO calculations
+      - record: slo:request:error_ratio
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m])) by (service)
+          /
+          sum(rate(http_requests_total[5m])) by (service)
+
+      - record: slo:request:availability
+        expr: |
+          1 - slo:request:error_ratio
+
+      # Error budget burn rate alerts
+      # Target SLO: 99.9% availability (43.2 minutes/month error budget)
+
+      # Critical: 2% budget consumed in 1 hour (14.4x burn rate)
+      - alert: SLOBurnRateCritical
+        expr: |
+          (
+            sum(rate(http_requests_total{status=~"5.."}[1h])) by (service)
+            /
+            sum(rate(http_requests_total[1h])) by (service)
+          ) > (14.4 * 0.001)
+          and
+          (
+            sum(rate(http_requests_total{status=~"5.."}[5m])) by (service)
+            /
+            sum(rate(http_requests_total[5m])) by (service)
+          ) > (14.4 * 0.001)
+        for: 2m
+        labels:
+          severity: critical
+          team: ${{ values.owner }}
+          slo: availability
+        annotations:
+          summary: "SLO burn rate critical - immediate action required"
+          description: "Service {{ $labels.service }} is burning error budget at 14.4x rate. Will exhaust monthly budget in 2 days at this rate."
+          runbook_url: "https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}/blob/main/docs/runbooks.md#slo-burn-rate"
+
+      # Warning: 5% budget consumed in 6 hours (6x burn rate)
+      - alert: SLOBurnRateHigh
+        expr: |
+          (
+            sum(rate(http_requests_total{status=~"5.."}[6h])) by (service)
+            /
+            sum(rate(http_requests_total[6h])) by (service)
+          ) > (6 * 0.001)
+          and
+          (
+            sum(rate(http_requests_total{status=~"5.."}[30m])) by (service)
+            /
+            sum(rate(http_requests_total[30m])) by (service)
+          ) > (6 * 0.001)
+        for: 15m
+        labels:
+          severity: warning
+          team: ${{ values.owner }}
+          slo: availability
+        annotations:
+          summary: "SLO burn rate elevated"
+          description: "Service {{ $labels.service }} is burning error budget at 6x rate. Will exhaust monthly budget in 5 days at this rate."
+          runbook_url: "https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}/blob/main/docs/runbooks.md#slo-burn-rate"
+
+      # Slow burn: 10% budget consumed in 3 days (1x burn rate)
+      - alert: SLOBurnRateSlow
+        expr: |
+          (
+            sum(rate(http_requests_total{status=~"5.."}[1d])) by (service)
+            /
+            sum(rate(http_requests_total[1d])) by (service)
+          ) > (1 * 0.001)
+          and
+          (
+            sum(rate(http_requests_total{status=~"5.."}[2h])) by (service)
+            /
+            sum(rate(http_requests_total[2h])) by (service)
+          ) > (1 * 0.001)
+        for: 1h
+        labels:
+          severity: info
+          team: ${{ values.owner }}
+          slo: availability
+        annotations:
+          summary: "SLO burn rate - slow burn detected"
+          description: "Service {{ $labels.service }} is consistently burning error budget. Review during business hours."
+
+      # Latency SLO Alerts
+      # Target: 99% of requests complete in under 200ms
+      - alert: SLOLatencyBudgetBurn
+        expr: |
+          (
+            sum(rate(http_request_duration_seconds_bucket{le="0.2"}[1h])) by (service)
+            /
+            sum(rate(http_request_duration_seconds_count[1h])) by (service)
+          ) < 0.99
+        for: 5m
+        labels:
+          severity: warning
+          team: ${{ values.owner }}
+          slo: latency
+        annotations:
+          summary: "Latency SLO at risk"
+          description: "Service {{ $labels.service }} latency SLO is below 99% target. Less than 99% of requests completing in under 200ms."
+
+      # Error Budget Exhaustion Warning
+      - alert: ErrorBudgetExhaustionWarning
+        expr: |
+          (
+            1 - (
+              sum(increase(http_requests_total{status=~"5.."}[30d])) by (service)
+              /
+              sum(increase(http_requests_total[30d])) by (service)
+            )
+          ) < 0.999
+        for: 1h
+        labels:
+          severity: warning
+          team: ${{ values.owner }}
+          slo: availability
+        annotations:
+          summary: "Monthly error budget exhausted"
+          description: "Service {{ $labels.service }} has exhausted its monthly error budget. 30-day availability is below 99.9%."

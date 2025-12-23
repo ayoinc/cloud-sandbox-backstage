@@ -14,53 +14,105 @@
  * limitations under the License.
  */
 
-import { defineConfig } from '@playwright/test';
-import { generateProjects } from '@backstage/e2e-test-utils/playwright';
+import { defineConfig, devices } from '@playwright/test';
 
 /**
- * See https://playwright.dev/docs/test-configuration.
+ * Backstage E2E Test Configuration
+ * 
+ * Test Categories:
+ * - Smoke Tests: Quick health checks (yarn test:e2e --grep "Smoke")
+ * - Integration Tests: API integration (yarn test:e2e --grep "Integration")
+ * - E2E Tests: User workflows (yarn test:e2e --grep "E2E")
+ * - All Tests: Full suite (yarn test:e2e)
+ * 
+ * Environment Variables:
+ * - PLAYWRIGHT_URL: Base URL for tests (default: http://localhost:7007)
+ * - CI: Set in CI environments for stricter settings
  */
 export default defineConfig({
+  testDir: './packages/app/e2e-tests',
   timeout: 60_000,
-
+  
   expect: {
-    timeout: 5_000,
+    timeout: 10_000,
   },
 
-  // Run your local dev server before starting the tests
-  webServer: process.env.CI
-    ? []
-    : [
-        {
-          command: 'yarn start app',
-          port: 3000,
-          reuseExistingServer: true,
-          timeout: 60_000,
-        },
-        {
-          command: 'yarn start backend',
-          port: 7007,
-          reuseExistingServer: true,
-          timeout: 60_000,
-        },
-      ],
+  // Run tests in parallel
+  fullyParallel: true,
 
+  // Fail the build on CI if you accidentally left test.only in the source code
   forbidOnly: !!process.env.CI,
 
+  // Retry on CI only
   retries: process.env.CI ? 2 : 0,
 
-  reporter: [['html', { open: 'never', outputFolder: 'e2e-test-report' }]],
+  // Limit parallel workers on CI
+  workers: process.env.CI ? 2 : undefined,
 
+  // Reporter configuration
+  reporter: [
+    ['list'],
+    ['html', { 
+      open: 'never', 
+      outputFolder: 'e2e-test-report' 
+    }],
+    ['json', { 
+      outputFile: 'e2e-test-results.json' 
+    }],
+  ],
+
+  // Shared settings for all projects
   use: {
-    actionTimeout: 0,
-    baseURL:
-      process.env.PLAYWRIGHT_URL ??
-      (process.env.CI ? 'http://localhost:7007' : 'http://localhost:3000'),
-    screenshot: 'only-on-failure',
+    // Base URL for the tests
+    baseURL: process.env.PLAYWRIGHT_URL ?? 'http://localhost:7007',
+    
+    // Collect trace when retrying the failed test
     trace: 'on-first-retry',
+    
+    // Screenshot on failure
+    screenshot: 'only-on-failure',
+    
+    // Video on failure (useful for debugging)
+    video: 'on-first-retry',
+    
+    // Timeout for each action
+    actionTimeout: 15_000,
+    
+    // Timeout for navigation
+    navigationTimeout: 30_000,
   },
 
+  // Output directory for test artifacts
   outputDir: 'node_modules/.cache/e2e-test-results',
 
-  projects: generateProjects(), // Find all packages with e2e-test folders
+  // Projects for different browsers/configurations
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+    // Uncomment to test on other browsers
+    // {
+    //   name: 'firefox',
+    //   use: { ...devices['Desktop Firefox'] },
+    // },
+    // {
+    //   name: 'webkit',
+    //   use: { ...devices['Desktop Safari'] },
+    // },
+    // {
+    //   name: 'Mobile Chrome',
+    //   use: { ...devices['Pixel 5'] },
+    // },
+  ],
+
+  // Web server configuration (for local development)
+  webServer: process.env.CI
+    ? undefined // In CI, expect server to be running
+    : {
+        command: 'echo "Using existing server at PLAYWRIGHT_URL"',
+        url: process.env.PLAYWRIGHT_URL ?? 'http://localhost:7007',
+        reuseExistingServer: true,
+        timeout: 120_000,
+      },
 });

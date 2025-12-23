@@ -1,0 +1,10 @@
+site_name: MongoDB Cluster
+site_description: MongoDB database cluster configuration
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

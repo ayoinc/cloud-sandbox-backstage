@@ -1,0 +1,10 @@
+site_name: AWX Operator
+site_description: Kubernetes operator for AWX deployment
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

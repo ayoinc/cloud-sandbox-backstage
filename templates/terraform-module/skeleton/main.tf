@@ -16,7 +16,7 @@ resource "random_id" "suffix" {
   byte_length = 4
 }
 
-{%- if values.resource_type == 'compute' %}
+{%- if 'compute' in values.resource_type %}
 {%- if values.provider == 'aws' %}
 # Data sources
 data "aws_ami" "latest" {
@@ -251,7 +251,8 @@ resource "azurerm_linux_virtual_machine_scale_set" "main" {
 }
 {%- endif %}
 
-{%- elif values.resource_type == 'network' %}
+{%- endif %}
+{%- if 'network' in values.resource_type %}
 {%- if values.provider == 'aws' %}
 # VPC
 resource "aws_vpc" "main" {
@@ -376,7 +377,8 @@ resource "aws_route_table_association" "private" {
 }
 {%- endif %}
 
-{%- elif values.resource_type == 'database' %}
+{%- endif %}
+{%- if 'database' in values.resource_type %}
 {%- if values.provider == 'aws' %}
 # DB Subnet Group
 resource "aws_db_subnet_group" "main" {

@@ -1,0 +1,10 @@
+site_name: Apache Airflow
+site_description: Workflow orchestration platform
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

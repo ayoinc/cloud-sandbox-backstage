@@ -1,0 +1,21 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: ${{ values.name }}
+  description: ${{ values.description }}
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - gcp
+    - vpc
+    - networking
+    - ${{ values.environment }}
+  links:
+    - url: https://console.cloud.google.com/networking/networks
+      title: GCP Console
+      icon: cloud
+spec:
+  type: network
+  owner: ${{ values.owner }}
+  lifecycle: ${{ values.environment }}
+  system: cloud-infrastructure

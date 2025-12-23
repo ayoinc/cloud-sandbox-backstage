@@ -1,0 +1,16 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ansible-docker-host
+  title: Docker Host Playbook
+  description: Ansible playbook for setting up Docker on Linux hosts
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - ansible
+    - docker
+spec:
+  type: library
+  lifecycle: production
+  owner: platform-team
+  system: awx-automation-platform

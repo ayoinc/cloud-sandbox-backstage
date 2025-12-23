@@ -1,0 +1,14 @@
+site_name: Terraform Modules
+site_description: Reusable Terraform modules for infrastructure provisioning
+docs_dir: docs
+plugins:
+  - techdocs-core
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Modules:
+      - AWS VPC: modules/aws-vpc.md
+      - Azure VNet: modules/azure-vnet.md
+      - GCP VPC: modules/gcp-vpc.md
+  - Best Practices: best-practices.md

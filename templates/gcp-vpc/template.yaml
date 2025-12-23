@@ -1,0 +1,130 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: gcp-vpc
+  title: GCP VPC Network
+  description: Create a GCP VPC with subnets, firewall rules, Cloud NAT, and Cloud Router
+  tags:
+    - gcp
+    - vpc
+    - networking
+    - terraform
+    - devops
+    - platform
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: group:platform-team
+  type: infrastructure
+  
+  parameters:
+    - title: Project Information
+      required:
+        - name
+        - owner
+      properties:
+        name:
+          title: VPC Name
+          type: string
+          description: Name of the VPC Network
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Purpose of this VPC
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns this resource
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+              
+    - title: Network Configuration
+      required:
+        - environment
+        - region
+        - gcpProject
+      properties:
+        environment:
+          title: Environment
+          type: string
+          enum:
+            - development
+            - staging
+            - production
+          default: development
+        region:
+          title: GCP Region
+          type: string
+          enum:
+            - us-central1
+            - us-east1
+            - us-west1
+            - europe-west1
+            - europe-west2
+            - asia-east1
+          default: us-central1
+        gcpProject:
+          title: GCP Project ID
+          type: string
+          description: The GCP project to deploy to
+        cidrRange:
+          title: Primary CIDR Range
+          type: string
+          default: "10.0.0.0/16"
+          description: CIDR block for the VPC
+          
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          environment: ${{ parameters.environment }}
+          region: ${{ parameters.region }}
+          gcpProject: ${{ parameters.gcpProject }}
+          cidrRange: ${{ parameters.cidrRange }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        repoUrl: ${{ parameters.repoUrl }}
+        description: 'GCP VPC Network: ${{ parameters.name }}'
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

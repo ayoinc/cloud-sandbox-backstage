@@ -1,0 +1,110 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: aws-lambda
+  title: AWS Lambda Function
+  description: Create an AWS Lambda function with IAM role, CloudWatch logs, and optional VPC configuration
+  tags:
+    - terraform
+    - aws
+    - lambda
+    - serverless
+spec:
+  owner: platform-team
+  type: infrastructure
+
+  parameters:
+    - title: Lambda Configuration
+      required:
+        - name
+        - owner
+        - aws_region
+        - environment
+        - runtime
+      properties:
+        name:
+          title: Function Name
+          type: string
+          pattern: '^[a-z0-9-]+$'
+        owner:
+          title: Owner
+          type: string
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+        aws_region:
+          title: AWS Region
+          type: string
+          default: us-east-1
+          enum: [us-east-1, us-east-2, us-west-2, eu-west-1, eu-central-1]
+        environment:
+          title: Environment
+          type: string
+          default: dev
+          enum: [dev, staging, prod]
+        runtime:
+          title: Runtime
+          type: string
+          default: python3.11
+          enum: [python3.11, python3.10, nodejs18.x, nodejs20.x, go1.x, java17, java21]
+        memory_size:
+          title: Memory (MB)
+          type: integer
+          default: 256
+          enum: [128, 256, 512, 1024, 2048]
+        timeout:
+          title: Timeout (seconds)
+          type: integer
+          default: 30
+
+    - title: Repository
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch
+      name: Fetch Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          owner: ${{ parameters.owner }}
+          aws_region: ${{ parameters.aws_region }}
+          environment: ${{ parameters.environment }}
+          runtime: ${{ parameters.runtime }}
+          memory_size: ${{ parameters.memory_size }}
+          timeout: ${{ parameters.timeout }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        repoUrl: ${{ parameters.repoUrl }}
+        description: "AWS Lambda - ${{ parameters.name }}"
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

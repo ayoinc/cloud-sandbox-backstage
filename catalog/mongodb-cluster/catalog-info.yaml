@@ -1,0 +1,19 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: mongodb-cluster
+  title: MongoDB Cluster
+  description: MongoDB database cluster configuration
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - mongodb
+    - database
+    - nosql
+spec:
+  type: service
+  lifecycle: production
+  owner: data-team
+  system: data-services-platform
+  providesApis:
+    - mongodb-api

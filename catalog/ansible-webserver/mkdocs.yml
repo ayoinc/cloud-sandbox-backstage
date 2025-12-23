@@ -1,0 +1,10 @@
+site_name: Webserver Playbook
+site_description: Ansible playbook for configuring Nginx/Apache web servers
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

@@ -1,0 +1,40 @@
+---
+# tasks/main.yml - Main entry point for Nginx role
+
+- name: Include OS-specific variables
+  ansible.builtin.include_vars: "{{ item }}"
+  with_first_found:
+    - files:
+        - "{{ ansible_distribution | lower }}-{{ ansible_distribution_major_version }}.yml"
+        - "{{ ansible_distribution | lower }}.yml"
+        - "{{ ansible_os_family | lower }}.yml"
+      skip: true
+
+- name: Include setup tasks for Debian-based systems
+  ansible.builtin.include_tasks: setup-debian.yml
+  when: ansible_os_family == 'Debian'
+
+- name: Include setup tasks for RedHat-based systems
+  ansible.builtin.include_tasks: setup-redhat.yml
+  when: ansible_os_family == 'RedHat'
+
+- name: Ensure Nginx is installed
+  ansible.builtin.package:
+    name: "{{ nginx_package_name }}"
+    state: "{{ nginx_package_state }}"
+
+- name: Configure Nginx
+  ansible.builtin.include_tasks: configure.yml
+
+- name: Configure virtual hosts
+  ansible.builtin.include_tasks: vhosts.yml
+
+- name: Configure upstreams
+  ansible.builtin.include_tasks: upstreams.yml
+  when: nginx_upstreams | length > 0
+
+- name: Ensure Nginx service is in desired state
+  ansible.builtin.service:
+    name: nginx
+    state: "{{ nginx_service_state }}"
+    enabled: "{{ nginx_service_enabled }}"

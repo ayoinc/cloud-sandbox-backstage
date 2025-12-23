@@ -1,0 +1,16 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: packer
+  title: Packer Image Builder
+  description: HashiCorp Packer for building machine images
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - packer
+    - images
+spec:
+  type: library
+  lifecycle: production
+  owner: platform-team
+  system: infrastructure-as-code-platform

@@ -14,7 +14,7 @@ output "tags" {
   value       = local.common_tags
 }
 
-{%- if values.resource_type == 'compute' %}
+{%- if 'compute' in values.resource_type %}
 {%- if values.provider == 'aws' %}
 # Compute outputs
 output "security_group_id" {
@@ -64,7 +64,8 @@ output "vmss_name" {
 }
 {%- endif %}
 
-{%- elif values.resource_type == 'network' %}
+{%- endif %}
+{%- if 'network' in values.resource_type %}
 {%- if values.provider == 'aws' %}
 # Network outputs
 output "vpc_id" {
@@ -108,7 +109,8 @@ output "private_route_table_ids" {
 }
 {%- endif %}
 
-{%- elif values.resource_type == 'database' %}
+{%- endif %}
+{%- if 'database' in values.resource_type %}
 {%- if values.provider == 'aws' %}
 # Database outputs
 output "db_instance_id" {
@@ -160,7 +162,8 @@ output "db_password_secret_arn" {
 }
 {%- endif %}
 
-{%- elif values.resource_type == 'storage' %}
+{%- endif %}
+{%- if 'storage' in values.resource_type %}
 {%- if values.provider == 'aws' %}
 # Storage outputs
 output "s3_bucket_id" {

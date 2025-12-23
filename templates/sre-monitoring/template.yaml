@@ -1,0 +1,156 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: sre-monitoring-template
+  title: Prometheus/Grafana Monitoring Stack
+  description: Create a monitoring stack with Prometheus alerting rules and Grafana dashboards
+  tags:
+    - sre
+    - monitoring
+    - prometheus
+    - grafana
+    - observability
+spec:
+  owner: platform-team
+  type: monitoring
+
+  parameters:
+    - title: Monitoring Stack Configuration
+      required:
+        - name
+        - description
+        - owner
+      properties:
+        name:
+          title: Name
+          type: string
+          description: Unique name for this monitoring stack
+          ui:autofocus: true
+          ui:options:
+            rows: 5
+        description:
+          title: Description
+          type: string
+          description: Description of what this monitoring stack covers
+        owner:
+          title: Owner
+          type: string
+          description: Owner of this monitoring configuration
+          ui:field: OwnerPicker
+          ui:options:
+            allowedKinds:
+              - Group
+              - User
+
+    - title: Monitoring Targets
+      required:
+        - targetType
+      properties:
+        targetType:
+          title: Target Type
+          type: string
+          description: Type of service being monitored
+          enum:
+            - kubernetes
+            - application
+            - database
+            - infrastructure
+          enumNames:
+            - Kubernetes Cluster
+            - Application Services
+            - Database
+            - Infrastructure
+        prometheusUrl:
+          title: Prometheus URL
+          type: string
+          description: URL of the Prometheus server
+          default: http://prometheus:9090
+        grafanaUrl:
+          title: Grafana URL
+          type: string
+          description: URL of the Grafana server
+          default: http://grafana:3000
+        alertmanagerUrl:
+          title: Alertmanager URL
+          type: string
+          description: URL of the Alertmanager server
+          default: http://alertmanager:9093
+
+    - title: Alert Configuration
+      properties:
+        slackWebhook:
+          title: Slack Webhook URL
+          type: string
+          description: Slack webhook for alert notifications (optional)
+        pagerdutyKey:
+          title: PagerDuty Integration Key
+          type: string
+          description: PagerDuty integration key for critical alerts (optional)
+        criticalThreshold:
+          title: Critical Alert Threshold (%)
+          type: number
+          description: Threshold percentage for critical alerts
+          default: 90
+        warningThreshold:
+          title: Warning Alert Threshold (%)
+          type: number
+          description: Threshold percentage for warning alerts
+          default: 75
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: template
+      name: Fetch Skeleton
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          targetType: ${{ parameters.targetType }}
+          prometheusUrl: ${{ parameters.prometheusUrl }}
+          grafanaUrl: ${{ parameters.grafanaUrl }}
+          alertmanagerUrl: ${{ parameters.alertmanagerUrl }}
+          slackWebhook: ${{ parameters.slackWebhook }}
+          pagerdutyKey: ${{ parameters.pagerdutyKey }}
+          criticalThreshold: ${{ parameters.criticalThreshold }}
+          warningThreshold: ${{ parameters.warningThreshold }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish
+      action: publish:github
+      input:
+        allowedHosts:
+          - github.com
+        description: ${{ parameters.description }}
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: main
+        repoVisibility: private
+
+    - id: register
+      name: Register
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: /catalog-info.yaml
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}

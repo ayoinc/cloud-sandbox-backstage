@@ -84,28 +84,33 @@ spec:
             - '>= 1.3'
             - '>= 1.5'
         resource_type:
-          title: Primary Resource Type
-          type: string
-          description: Main type of resource this module creates
-          default: compute
-          enum:
+          title: Resource Types
+          type: array
+          description: Types of resources this module creates (select one or more)
+          uniqueItems: true
+          ui:widget: checkboxes
+          items:
+            type: string
+            enum:
+              - compute
+              - network
+              - storage
+              - database
+              - security
+              - observability
+              - serverless
+              - container
+            enumNames:
+              - Virtual Machines / Compute Instances
+              - Network Resources (VPC, Subnets, Load Balancers)
+              - Storage Accounts / Object Storage
+              - Databases (SQL, NoSQL, Cache)
+              - Security (IAM, Policies, Secrets)
+              - Observability (Monitoring, Logging, Alerts)
+              - Serverless Functions
+              - Container Orchestration (Kubernetes, etc.)
+          default:
             - compute
-            - network
-            - storage
-            - database
-            - security
-            - monitoring
-            - serverless
-            - container
-          enumNames:
-            - Compute (EC2, VM, etc.)
-            - Networking (VPC, Subnets, etc.)
-            - Storage (S3, Blob, etc.)
-            - Database (RDS, SQL, etc.)
-            - Security (IAM, Policies, etc.)
-            - Monitoring (CloudWatch, etc.)
-            - Serverless (Lambda, Functions, etc.)
-            - Container (ECS, AKS, etc.)
         include_examples:
           title: Include Usage Examples
           type: boolean
@@ -142,7 +147,6 @@ spec:
       name: Publish to Repository
       action: publish:github
       input:
-        allowedHosts: ['github.com']
         description: ${{ parameters.description }}
         repoUrl: ${{ parameters.repoUrl }}
         defaultBranch: main

@@ -82,13 +82,13 @@ output "db_instance_port" {
 
 {%- if values.provider == 'aws' %}
 - AWS CLI configured with appropriate credentials
-- Terraform >= ${{ values.terraform_version.replace('>=', '').strip() }}
+- Terraform ${{ values.terraform_version }}
 {%- elif values.provider == 'azure' %}
 - Azure CLI configured with appropriate credentials
-- Terraform >= ${{ values.terraform_version.replace('>=', '').strip() }}
+- Terraform ${{ values.terraform_version }}
 {%- elif values.provider == 'gcp' %}
 - Google Cloud SDK configured with appropriate credentials
-- Terraform >= ${{ values.terraform_version.replace('>=', '').strip() }}
+- Terraform ${{ values.terraform_version }}
 {%- endif %}
 
 ## Running the Example

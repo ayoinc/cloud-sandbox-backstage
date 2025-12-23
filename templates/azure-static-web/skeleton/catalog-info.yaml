@@ -1,0 +1,22 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.name }}
+  description: ${{ values.description }}
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - azure
+    - static-web-app
+    - frontend
+    - ${{ values.framework }}
+    - ${{ values.environment }}
+  links:
+    - url: https://portal.azure.com
+      title: Azure Portal
+      icon: cloud
+spec:
+  type: website
+  owner: ${{ values.owner }}
+  lifecycle: ${{ values.environment }}
+  system: marketing-platform

@@ -1,0 +1,15 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.name }}
+  description: AWS Lambda Function - ${{ values.environment }}
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - terraform
+    - aws
+    - lambda
+spec:
+  type: infrastructure
+  lifecycle: production
+  owner: ${{ values.owner }}

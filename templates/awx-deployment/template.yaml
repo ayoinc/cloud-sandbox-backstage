@@ -157,7 +157,6 @@ spec:
       name: Publish to GitHub
       action: publish:github
       input:
-        allowedHosts: ['github.com']
         description: AWX deployment configuration for ${{ parameters.environment }}
         repoUrl: ${{ parameters.repoUrl }}
         defaultBranch: main

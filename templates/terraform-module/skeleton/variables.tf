@@ -60,7 +60,7 @@ variable "default_tags" {
   }
 }
 
-{%- if values.resource_type == 'compute' %}
+{%- if 'compute' in values.resource_type %}
 # Compute-specific variables
 variable "instance_type" {
   description = "Instance type for compute resources"
@@ -95,7 +95,8 @@ variable "max_size" {
     error_message = "Maximum size must be greater than or equal to minimum size."
   }
 }
-{%- elif values.resource_type == 'network' %}
+{%- endif %}
+{%- if 'network' in values.resource_type %}
 # Network-specific variables
 variable "vpc_cidr" {
   description = "CIDR block for VPC"
@@ -125,7 +126,8 @@ variable "enable_nat_gateway" {
   type        = bool
   default     = true
 }
-{%- elif values.resource_type == 'storage' %}
+{%- endif %}
+{%- if 'storage' in values.resource_type %}
 # Storage-specific variables
 variable "storage_encrypted" {
   description = "Enable encryption for storage"
@@ -143,7 +145,8 @@ variable "backup_retention_days" {
     error_message = "Backup retention must be between 1 and 35 days."
   }
 }
-{%- elif values.resource_type == 'database' %}
+{%- endif %}
+{%- if 'database' in values.resource_type %}
 # Database-specific variables
 variable "engine_version" {
   description = "Database engine version"

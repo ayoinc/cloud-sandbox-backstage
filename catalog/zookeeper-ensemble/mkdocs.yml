@@ -1,0 +1,10 @@
+site_name: ZooKeeper Ensemble
+site_description: Distributed coordination service
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

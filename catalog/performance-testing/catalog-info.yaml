@@ -1,0 +1,16 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: performance-testing
+  title: Performance Testing Suite
+  description: Load testing, stress testing, and performance monitoring
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - performance-testing
+    - load-testing
+spec:
+  type: library
+  lifecycle: production
+  owner: quality-team
+  system: testing-automation-platform

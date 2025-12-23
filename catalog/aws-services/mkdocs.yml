@@ -1,0 +1,10 @@
+site_name: AWS Services Integration
+site_description: AWS cloud services and infrastructure management
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

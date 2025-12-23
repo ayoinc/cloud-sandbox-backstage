@@ -1,0 +1,120 @@
+# Prometheus Alerting Rules - Application Metrics
+# Generated for: ${{ values.name }}
+
+groups:
+  - name: application
+    interval: 30s
+    rules:
+      # Error Rate Alerts
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m])) by (service)
+          /
+          sum(rate(http_requests_total[5m])) by (service)
+          * 100 > 5
+        for: 2m
+        labels:
+          severity: critical
+          team: ${{ values.owner }}
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is above 5% for {{ $labels.service }} (current value: {{ $value }}%)"
+          runbook_url: "https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}/blob/main/docs/runbooks.md#high-error-rate"
+
+      - alert: HighErrorRateWarning
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m])) by (service)
+          /
+          sum(rate(http_requests_total[5m])) by (service)
+          * 100 > 1
+        for: 5m
+        labels:
+          severity: warning
+          team: ${{ values.owner }}
+        annotations:
+          summary: "Elevated error rate detected"
+          description: "Error rate is above 1% for {{ $labels.service }} (current value: {{ $value }}%)"
+
+      # Latency Alerts
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, service)) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          team: ${{ values.owner }}
+        annotations:
+          summary: "High latency detected"
+          description: "P99 latency is above 500ms for {{ $labels.service }} (current value: {{ $value }}s)"
+          runbook_url: "https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}/blob/main/docs/runbooks.md#high-latency"
+
+      - alert: HighLatencyCritical
+        expr: |
+          histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, service)) > 1
+        for: 5m
+        labels:
+          severity: critical
+          team: ${{ values.owner }}
+        annotations:
+          summary: "Critical latency detected"
+          description: "P99 latency is above 1s for {{ $labels.service }} (current value: {{ $value }}s)"
+          runbook_url: "https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}/blob/main/docs/runbooks.md#high-latency"
+
+      # Service Availability
+      - alert: ServiceDown
+        expr: |
+          up{job=~".*-service"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: ${{ values.owner }}
+        annotations:
+          summary: "Service is down"
+          description: "{{ $labels.job }} on {{ $labels.instance }} is unreachable"
+          runbook_url: "https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}/blob/main/docs/runbooks.md#service-down"
+
+      - alert: ServiceHealthCheckFailing
+        expr: |
+          probe_success == 0
+        for: 2m
+        labels:
+          severity: critical
+          team: ${{ values.owner }}
+        annotations:
+          summary: "Health check failing"
+          description: "Health check for {{ $labels.instance }} is failing"
+
+      # Request Volume
+      - alert: HighRequestRate
+        expr: |
+          sum(rate(http_requests_total[1m])) by (service) > 10000
+        for: 5m
+        labels:
+          severity: warning
+          team: ${{ values.owner }}
+        annotations:
+          summary: "High request rate detected"
+          description: "Request rate is above 10k/s for {{ $labels.service }} (current value: {{ $value }})"
+
+      - alert: LowRequestRate
+        expr: |
+          sum(rate(http_requests_total[5m])) by (service) < 1
+        for: 10m
+        labels:
+          severity: warning
+          team: ${{ values.owner }}
+        annotations:
+          summary: "Low request rate detected"
+          description: "Request rate is below 1/s for {{ $labels.service }} - possible issue or deployment problem"
+
+      # Connection Pool
+      - alert: ConnectionPoolExhausted
+        expr: |
+          db_pool_connections_active / db_pool_connections_max > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          team: ${{ values.owner }}
+        annotations:
+          summary: "Connection pool nearly exhausted"
+          description: "Database connection pool is above 90% capacity for {{ $labels.service }}"

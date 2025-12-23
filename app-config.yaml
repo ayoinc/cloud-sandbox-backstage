@@ -1,23 +1,42 @@
 app:
   title: Cloud Sandbox
-  baseUrl: http://localhost:3000
+  baseUrl: http://localhost
 
 organization:
   name: Platform Team
 
 backend:
-  baseUrl: http://localhost:7007
+  # Allow unauthenticated access to certain endpoints (TechDocs)
+  # This is required for public documentation access
+  auth:
+    dangerouslyDisableDefaultAuthPolicy: true
+  baseUrl: http://localhost
   listen:
     port: 7007
   csp:
     connect-src: ["'self'", 'http:', 'https:']
   cors:
-    origin: http://localhost:3000
+    origin: http://localhost
     methods: [GET, HEAD, PATCH, POST, PUT, DELETE]
     credentials: true
   database:
-    client: better-sqlite3
-    connection: ':memory:'
+    # Use PostgreSQL for persistence (tokens survive container restarts)
+    client: pg
+    connection:
+      host: ${POSTGRES_HOST:-postgres}
+      port: ${POSTGRES_PORT:-5432}
+      user: ${POSTGRES_USER:-backstage}
+      password: ${POSTGRES_PASSWORD:-backstage}
+      database: ${POSTGRES_DB:-backstage}
+    # Fallback to in-memory SQLite for local development without Docker
+    # client: better-sqlite3
+    # connection: ':memory:'
+  
+  # Redis cache - improves performance for catalog, auth, and plugin data
+  # See: https://backstage.io/docs/backend-system/core-services/cache
+  cache:
+    store: redis
+    connection: redis://${REDIS_HOST:-redis}:${REDIS_PORT:-6379}
 
 integrations:
   github:
@@ -29,12 +48,30 @@ techdocs:
   generator:
     runIn: 'local'
   publisher:
-    type: 'local'
+    type: 'awsS3'
+    awsS3:
+      bucketName: ${TECHDOCS_BUCKET:-techdocs}
+      endpoint: http://${MINIO_HOST:-minio}:${MINIO_PORT:-9000}
+      region: us-east-1
+      s3ForcePathStyle: true
+      credentials:
+        accessKeyId: ${MINIO_ACCESS_KEY:-backstage}
+        secretAccessKey: ${MINIO_SECRET_KEY:-backstage123}
 
 auth:
+  # Session configuration
+  session:
+    secret: ${AUTH_SESSION_SECRET}
   providers:
+    # Guest auth provider - allows unauthenticated access to TechDocs
     guest:
       dangerouslyAllowOutsideDevelopment: true
+    # GitHub OAuth for real GitHub users
+    github:
+      development:
+        clientId: ${GITHUB_CLIENT_ID}
+        clientSecret: ${GITHUB_CLIENT_SECRET}
+        callbackUrl: http://localhost/api/auth/github/handler/frame
 
 scaffolder: {}
 
@@ -89,6 +126,10 @@ catalog:
     - type: file
       target: ../../catalog/awx-operator.yaml
 
+    # Components with TechDocs (separate directories for proper mkdocs structure)
+    - type: file
+      target: ../../catalog/terraform-modules/catalog-info.yaml
+
     # Templates
     - type: file
       target: ../../templates/terraform-module/template.yaml
@@ -127,7 +168,242 @@ catalog:
       rules:
         - allow: [Template]
 
-kubernetes: {}
+    # AWS Cloud Templates
+    - type: file
+      target: ../../templates/aws-vpc/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/aws-lambda/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/aws-s3/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/aws-rds/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/aws-eks/template.yaml
+      rules:
+        - allow: [Template]
+
+    # Azure Cloud Templates
+    - type: file
+      target: ../../templates/azure-vnet/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/azure-aks/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/azure-static-web/template.yaml
+      rules:
+        - allow: [Template]
+
+    # GCP Cloud Templates
+    - type: file
+      target: ../../templates/gcp-vpc/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/gcp-gke/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/gcp-cloud-run/template.yaml
+      rules:
+        - allow: [Template]
+
+    # Data Engineering Templates
+    - type: file
+      target: ../../templates/data-airflow/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/data-dbt/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/data-superset/template.yaml
+      rules:
+        - allow: [Template]
+
+    # Application Templates
+    - type: file
+      target: ../../templates/app-nodejs-api/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/app-nextjs/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/app-springboot/template.yaml
+      rules:
+        - allow: [Template]
+
+    # SRE/Observability Templates
+    - type: file
+      target: ../../templates/sre-monitoring/template.yaml
+      rules:
+        - allow: [Template]
+
+    # Automation Templates
+    - type: file
+      target: ../../templates/ansible-docker/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/ansible-nginx/template.yaml
+      rules:
+        - allow: [Template]
+
+    # Marketing Templates
+    - type: file
+      target: ../../templates/marketing-static-site/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/marketing-landing-page/template.yaml
+      rules:
+        - allow: [Template]
+
+    # Testing Templates
+    - type: file
+      target: ../../templates/test-playwright/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/test-k6-load/template.yaml
+      rules:
+        - allow: [Template]
+
+    # Documentation Templates
+    - type: file
+      target: ../../templates/docs-project/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/docs-adr/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/docs-runbook/template.yaml
+      rules:
+        - allow: [Template]
+
+kubernetes:
+  serviceLocatorMethod:
+    type: 'multiTenant'
+  clusterLocatorMethods:
+    - type: 'config'
+      clusters: []
 
 permission:
-  enabled: false
+  enabled: true
+
+# =============================================================================
+# PLACEHOLDER: Enterprise Plugin Configuration
+# =============================================================================
+# Uncomment and configure these sections when ready to enable the plugins
+# Ensure corresponding environment variables are set in .env
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# ArgoCD - GitOps Continuous Delivery
+# -----------------------------------------------------------------------------
+# Requires frontend: @roadiehq/backstage-plugin-argo-cd
+# Requires backend: @roadiehq/scaffolder-backend-argocd
+# argocd:
+#   baseUrl: ${ARGOCD_BASE_URL}
+#   username: ${ARGOCD_USERNAME}
+#   password: ${ARGOCD_PASSWORD}
+#   # Optional: for multiple ArgoCD instances
+#   # appLocatorMethods:
+#   #   - type: 'config'
+#   #     instances:
+#   #       - name: main
+#   #         url: ${ARGOCD_BASE_URL}
+#   #         username: ${ARGOCD_USERNAME}
+#   #         password: ${ARGOCD_PASSWORD}
+
+# -----------------------------------------------------------------------------
+# Grafana - Monitoring Dashboards and Alerts
+# -----------------------------------------------------------------------------
+# Requires frontend: @k-phoen/backstage-plugin-grafana
+grafana:
+  domain: ${GRAFANA_DOMAIN:-localhost:3000}
+  unifiedAlerting: false
+
+# -----------------------------------------------------------------------------
+# SonarQube - Code Quality Analysis
+# -----------------------------------------------------------------------------
+# Requires frontend: @backstage/plugin-sonarqube
+# Requires backend: @backstage/plugin-sonarqube-backend
+# sonarqube:
+#   baseUrl: ${SONARQUBE_BASE_URL}
+#   apiKey: ${SONARQUBE_API_KEY}
+#   # For multiple SonarQube instances:
+#   # instances:
+#   #   - name: default
+#   #     baseUrl: ${SONARQUBE_BASE_URL}
+#   #     apiKey: ${SONARQUBE_API_KEY}
+
+# -----------------------------------------------------------------------------
+# Cost Insights - Cloud Cost Management
+# -----------------------------------------------------------------------------
+# Requires frontend: @backstage/plugin-cost-insights
+# Needs custom CostInsightsClient implementation
+costInsights:
+  engineerCost: 200000
+  products:
+    computeEngine:
+      name: Compute Engine
+      icon: compute
+    cloudStorage:
+      name: Cloud Storage
+      icon: storage
+    bigQuery:
+      name: BigQuery
+      icon: search
+
+# -----------------------------------------------------------------------------
+# AWX / Ansible Tower - Automation Platform (via Proxy)
+# -----------------------------------------------------------------------------
+# Uses HTTP Request scaffolder action to call AWX API
+# Requires backend: @roadiehq/scaffolder-backend-module-http-request
+# proxy:
+#   '/awx':
+#     target: ${AWX_BASE_URL}
+#     headers:
+#       Authorization: Bearer ${AWX_TOKEN}
+#       Content-Type: application/json
+#     changeOrigin: true
+#     secure: true
+
+# -----------------------------------------------------------------------------
+# Elasticsearch - Search Engine (Optional)
+# -----------------------------------------------------------------------------
+# For production deployments with large catalogs, Elasticsearch provides
+# better search performance. To enable:
+# 1. Uncomment this section
+# 2. Enable elasticsearch module in packages/backend/src/index.ts
+# 3. Disable the pg search module
+# 
+# search:
+#   elasticsearch:
+#     provider: elastic
+#     node: ${ELASTICSEARCH_NODE}
+#     # Authentication options:
+#     auth:
+#       # Option 1: API Key
+#       apiKey: ${ELASTICSEARCH_API_KEY}
+#       # Option 2: Username/Password
+#       # username: ${ELASTICSEARCH_USERNAME}
+#       # password: ${ELASTICSEARCH_PASSWORD}
+#     # Optional: Index prefix for multi-tenant deployments
+#     # indexPrefix: backstage_

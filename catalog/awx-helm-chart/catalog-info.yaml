@@ -1,0 +1,17 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: awx-helm-chart
+  title: AWX Helm Chart
+  description: Helm chart for AWX deployment
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - awx
+    - helm
+    - kubernetes
+spec:
+  type: library
+  lifecycle: production
+  owner: platform-team
+  system: awx-automation-platform

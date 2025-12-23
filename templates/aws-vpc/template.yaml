@@ -1,0 +1,103 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: aws-vpc
+  title: AWS VPC
+  description: Create an AWS VPC with public/private subnets, NAT gateways, and flow logs
+  tags:
+    - terraform
+    - aws
+    - vpc
+spec:
+  owner: platform-team
+  type: infrastructure
+
+  parameters:
+    - title: VPC Configuration
+      required:
+        - name
+        - owner
+        - aws_region
+        - environment
+        - vpc_cidr
+      properties:
+        name:
+          title: VPC Name
+          type: string
+          pattern: '^[a-z0-9-]+$'
+        owner:
+          title: Owner
+          type: string
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+        aws_region:
+          title: AWS Region
+          type: string
+          default: us-east-1
+          enum: [us-east-1, us-east-2, us-west-2, eu-west-1, eu-central-1]
+        environment:
+          title: Environment
+          type: string
+          default: dev
+          enum: [dev, staging, prod]
+        vpc_cidr:
+          title: VPC CIDR
+          type: string
+          default: "10.0.0.0/16"
+        azs:
+          title: Availability Zones
+          type: integer
+          default: 2
+          enum: [2, 3]
+
+    - title: Repository
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch
+      name: Fetch Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          owner: ${{ parameters.owner }}
+          aws_region: ${{ parameters.aws_region }}
+          environment: ${{ parameters.environment }}
+          vpc_cidr: ${{ parameters.vpc_cidr }}
+          azs: ${{ parameters.azs }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        repoUrl: ${{ parameters.repoUrl }}
+        description: "AWS VPC - ${{ parameters.name }}"
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

@@ -1,0 +1,10 @@
+site_name: Apache Spark
+site_description: Unified analytics engine for big data
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

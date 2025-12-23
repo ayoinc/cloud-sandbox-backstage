@@ -1,0 +1,10 @@
+site_name: Azure Services Integration
+site_description: Microsoft Azure cloud services and resources
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

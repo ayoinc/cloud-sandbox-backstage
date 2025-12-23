@@ -1,0 +1,139 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: azure-static-web-app
+  title: Azure Static Web App
+  description: Create an Azure Static Web App for hosting static sites, SPAs, and serverless APIs
+  tags:
+    - azure
+    - static-web-app
+    - frontend
+    - marketing
+    - terraform
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: group:platform-team
+  type: website
+  
+  parameters:
+    - title: Project Information
+      required:
+        - name
+        - owner
+      properties:
+        name:
+          title: App Name
+          type: string
+          description: Name of the Static Web App
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Purpose of this website
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns this resource
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+              
+    - title: App Configuration
+      required:
+        - environment
+        - location
+        - skuTier
+      properties:
+        environment:
+          title: Environment
+          type: string
+          enum:
+            - development
+            - staging
+            - production
+          default: development
+        location:
+          title: Azure Region
+          type: string
+          enum:
+            - eastus2
+            - westus2
+            - westeurope
+            - eastasia
+            - centralus
+          default: eastus2
+        skuTier:
+          title: SKU Tier
+          type: string
+          enum:
+            - Free
+            - Standard
+          default: Free
+          description: Free for personal/dev, Standard for custom domains and SLA
+        framework:
+          title: Frontend Framework
+          type: string
+          enum:
+            - react
+            - vue
+            - angular
+            - nextjs
+            - gatsby
+            - hugo
+            - static
+          default: react
+          
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          environment: ${{ parameters.environment }}
+          location: ${{ parameters.location }}
+          skuTier: ${{ parameters.skuTier }}
+          framework: ${{ parameters.framework }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        repoUrl: ${{ parameters.repoUrl }}
+        description: 'Azure Static Web App: ${{ parameters.name }}'
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

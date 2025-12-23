@@ -1,0 +1,18 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: postgresql-cluster
+  title: PostgreSQL Cluster
+  description: PostgreSQL database cluster configuration
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - postgresql
+    - database
+spec:
+  type: service
+  lifecycle: production
+  owner: data-team
+  system: data-services-platform
+  providesApis:
+    - postgresql-api

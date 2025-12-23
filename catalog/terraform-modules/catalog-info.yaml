@@ -1,0 +1,23 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: terraform-modules
+  title: Terraform Modules
+  description: Reusable Terraform modules for infrastructure provisioning
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - terraform
+    - infrastructure-as-code
+    - aws
+    - azure
+    - gcp
+  links:
+    - url: https://registry.terraform.io
+      title: Terraform Registry
+      icon: catalog
+spec:
+  type: library
+  lifecycle: production
+  owner: platform-team
+  system: infrastructure-as-code-platform

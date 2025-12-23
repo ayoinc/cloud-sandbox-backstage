@@ -1,0 +1,20 @@
+site_name: ${{ values.name }}
+site_description: ${{ values.description }}
+
+nav:
+  - Home: index.md
+  - ADR Process: process.md
+  - ADRs:
+      - Overview: adrs/index.md
+      - '001 - Use ADRs': adrs/001-use-adrs.md
+      - '002 - Example Decision': adrs/002-example-decision.md
+  - Templates: templates.md
+
+plugins:
+  - techdocs-core
+
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
+  - tables

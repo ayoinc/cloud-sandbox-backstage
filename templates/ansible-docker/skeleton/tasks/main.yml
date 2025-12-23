@@ -1,0 +1,40 @@
+---
+# tasks/main.yml - Main entry point for Docker role
+# Generated for: ${{ values.name }}
+
+- name: Include OS-specific variables
+  ansible.builtin.include_vars: "{{ item }}"
+  with_first_found:
+    - files:
+        - "{{ ansible_distribution | lower }}-{{ ansible_distribution_major_version }}.yml"
+        - "{{ ansible_distribution | lower }}.yml"
+        - "{{ ansible_os_family | lower }}.yml"
+      skip: true
+
+- name: Include setup tasks for Debian-based systems
+  ansible.builtin.include_tasks: setup-debian.yml
+  when: ansible_os_family == 'Debian'
+
+- name: Include setup tasks for RedHat-based systems
+  ansible.builtin.include_tasks: setup-redhat.yml
+  when: ansible_os_family == 'RedHat'
+
+- name: Install Docker packages
+  ansible.builtin.include_tasks: install.yml
+
+- name: Configure Docker daemon
+  ansible.builtin.include_tasks: configure.yml
+
+- name: Configure Docker users
+  ansible.builtin.include_tasks: users.yml
+  when: docker_users | length > 0
+
+- name: Install Docker Compose
+  ansible.builtin.include_tasks: compose.yml
+  when: docker_compose_install | bool
+
+- name: Ensure Docker service is in desired state
+  ansible.builtin.service:
+    name: docker
+    state: "{{ docker_service_state }}"
+    enabled: "{{ docker_service_enabled }}"

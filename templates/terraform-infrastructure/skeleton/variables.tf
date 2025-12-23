@@ -23,7 +23,7 @@ variable "cloud_provider" {
 }
 
 # AWS Variables
-{% if values.cloud_provider === 'aws' or values.cloud_provider === 'multi-cloud' %}
+{% if values.cloud_provider == 'aws' or values.cloud_provider == 'multi-cloud' %}
 variable "aws_region" {
   description = "AWS region"
   type        = string
@@ -38,7 +38,7 @@ variable "vpc_cidr" {
 {% endif %}
 
 # Azure Variables
-{% if values.cloud_provider === 'azure' or values.cloud_provider === 'multi-cloud' %}
+{% if values.cloud_provider == 'azure' or values.cloud_provider == 'multi-cloud' %}
 variable "azure_location" {
   description = "Azure region"
   type        = string
@@ -53,7 +53,7 @@ variable "vnet_cidr" {
 {% endif %}
 
 # GCP Variables
-{% if values.cloud_provider === 'gcp' or values.cloud_provider === 'multi-cloud' %}
+{% if values.cloud_provider == 'gcp' or values.cloud_provider == 'multi-cloud' %}
 variable "gcp_project_id" {
   description = "GCP project ID"
   type        = string

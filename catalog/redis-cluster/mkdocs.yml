@@ -1,0 +1,10 @@
+site_name: Redis Cluster
+site_description: Redis in-memory data store cluster
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

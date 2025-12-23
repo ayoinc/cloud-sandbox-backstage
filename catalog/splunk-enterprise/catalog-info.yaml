@@ -1,0 +1,19 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: splunk-enterprise
+  title: Splunk Enterprise
+  description: Machine data analytics and security monitoring
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - splunk
+    - analytics
+    - siem
+spec:
+  type: service
+  lifecycle: production
+  owner: security-team
+  system: observability-platform
+  providesApis:
+    - splunk-api

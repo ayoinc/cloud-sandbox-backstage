@@ -1,0 +1,10 @@
+site_name: Splunk Enterprise
+site_description: Machine data analytics and security monitoring
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

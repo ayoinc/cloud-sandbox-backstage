@@ -1,0 +1,31 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.name }}
+  description: ${{ values.description }}
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
+    prometheus.io/alert: ${{ values.name }}-alerts
+    grafana/dashboard-selector: ${{ values.name }}
+  tags:
+    - monitoring
+    - prometheus
+    - grafana
+    - ${{ values.targetType }}
+  links:
+    - url: ${{ values.prometheusUrl }}
+      title: Prometheus
+      icon: dashboard
+    - url: ${{ values.grafanaUrl }}
+      title: Grafana
+      icon: dashboard
+    - url: ${{ values.alertmanagerUrl }}
+      title: Alertmanager
+      icon: alert
+spec:
+  type: monitoring
+  lifecycle: production
+  owner: ${{ values.owner }}
+  providesApis: []
+  dependsOn: []

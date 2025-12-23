@@ -1,0 +1,28 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.name }}
+  title: ${{ values.name | title }}
+  description: ${{ values.description }}
+  annotations:
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - terraform
+    - infrastructure-as-code
+    - ${{ values.provider }}
+{%- for type in values.resource_type %}
+    - ${{ type }}
+{%- endfor %}
+  links:
+    - url: https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}
+      title: Repository
+      icon: github
+    - url: https://registry.terraform.io
+      title: Terraform Registry
+      icon: catalog
+spec:
+  type: library
+  lifecycle: experimental
+  owner: ${{ values.owner }}
+  system: cloud-infrastructure

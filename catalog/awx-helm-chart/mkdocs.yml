@@ -1,0 +1,10 @@
+site_name: AWX Helm Chart
+site_description: Helm chart for AWX deployment
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

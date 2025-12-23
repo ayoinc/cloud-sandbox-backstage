@@ -1,0 +1,10 @@
+site_name: Apache Kafka
+site_description: Distributed event streaming platform
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

@@ -1,0 +1,31 @@
+site_name: ${{ values.name }}
+site_description: ${{ values.description }}
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Overview: getting-started/overview.md
+      - On-Call Guide: getting-started/oncall-guide.md
+  - Incidents:
+      - Overview: incidents/index.md
+      - High CPU: incidents/high-cpu.md
+      - High Memory: incidents/high-memory.md
+      - Service Down: incidents/service-down.md
+      - Database Issues: incidents/database-issues.md
+  - Procedures:
+      - Overview: procedures/index.md
+      - Deployment: procedures/deployment.md
+      - Rollback: procedures/rollback.md
+      - Scaling: procedures/scaling.md
+  - Templates: templates/index.md
+
+plugins:
+  - techdocs-core
+
+markdown_extensions:
+  - admonition
+  - codehilite
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences

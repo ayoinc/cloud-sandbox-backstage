@@ -1,0 +1,18 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: jaeger-tracing
+  title: Jaeger Distributed Tracing
+  description: Distributed tracing and performance monitoring
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - jaeger
+    - tracing
+spec:
+  type: service
+  lifecycle: production
+  owner: sre-team
+  system: observability-platform
+  providesApis:
+    - jaeger-api

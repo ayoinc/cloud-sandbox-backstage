@@ -1,0 +1,4 @@
+site_name: Next.js Application
+docs_dir: docs
+plugins:
+  - techdocs-core

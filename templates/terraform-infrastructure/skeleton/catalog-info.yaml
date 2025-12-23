@@ -7,11 +7,11 @@ metadata:
     github.com/project-slug: ${{ values.destination.owner + "/" + values.destination.repo }}
     backstage.io/techdocs-ref: dir:.
     terraform.io/workspace: ${{ values.name }}
-    {% if values.cloud_provider === 'aws' %}
+    {% if values.cloud_provider == 'aws' %}
     aws.amazon.com/arn: arn:aws:cloudformation:us-west-2:123456789012:stack/${{ values.name }}/*
-    {% elif values.cloud_provider === 'azure' %}
+    {% elif values.cloud_provider == 'azure' %}
     azure.com/resource-group: ${{ values.name }}-rg
-    {% elif values.cloud_provider === 'gcp' %}
+    {% elif values.cloud_provider == 'gcp' %}
     gcp.google.com/project-id: ${{ values.name }}-project
     {% endif %}
     {% if values.enable_monitoring %}
@@ -34,15 +34,15 @@ metadata:
       title: Infrastructure Dashboard
       icon: dashboard
     {% endif %}
-    {% if values.cloud_provider === 'aws' %}
+    {% if values.cloud_provider == 'aws' %}
     - url: https://console.aws.amazon.com/cloudformation/home?region=us-west-2#/stacks
       title: AWS Console
       icon: cloud
-    {% elif values.cloud_provider === 'azure' %}
+    {% elif values.cloud_provider == 'azure' %}
     - url: https://portal.azure.com/#@tenant/resource/subscriptions/subscription-id/resourceGroups/${{ values.name }}-rg
       title: Azure Portal
       icon: cloud
-    {% elif values.cloud_provider === 'gcp' %}
+    {% elif values.cloud_provider == 'gcp' %}
     - url: https://console.cloud.google.com/home/dashboard?project=${{ values.name }}-project
       title: GCP Console
       icon: cloud

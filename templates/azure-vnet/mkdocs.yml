@@ -1,0 +1,4 @@
+site_name: Azure Virtual Network
+docs_dir: docs
+plugins:
+  - techdocs-core

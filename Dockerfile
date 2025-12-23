@@ -44,16 +44,29 @@ ENV PYTHON=/usr/bin/python3
 ENV NODE_ENV=production
 ENV NODE_OPTIONS="--no-node-snapshot"
 
-# Install runtime dependencies
+# Install runtime dependencies including Python pip for mkdocs
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         python3 \
+        python3-pip \
+        python3-venv \
         g++ \
         build-essential \
         libsqlite3-dev \
         curl \
         ca-certificates && \
     rm -rf /var/lib/apt/lists/*
+
+# Install mkdocs and plugins for TechDocs generation
+RUN pip3 install --break-system-packages \
+    mkdocs \
+    mkdocs-material \
+    mkdocs-techdocs-core \
+    mkdocs-monorepo-plugin
+
+# Install MinIO client for TechDocs upload
+RUN curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc && \
+    chmod +x /usr/local/bin/mc
 
 # Use the node user
 USER node
@@ -77,12 +90,29 @@ COPY --chown=node:node examples ./examples
 COPY --chown=node:node catalog ./catalog
 COPY --chown=node:node templates ./templates
 
+# Pre-build TechDocs for all components with mkdocs.yml
+RUN for dir in catalog/*/; do \
+      if [ -f "${dir}mkdocs.yml" ]; then \
+        echo "Building TechDocs for ${dir}"; \
+        cd "/app/${dir}" && mkdocs build -d /app/techdocs-output/$(basename ${dir}) && cd /app; \
+      fi; \
+    done && \
+    for dir in templates/*/; do \
+      if [ -f "${dir}mkdocs.yml" ]; then \
+        echo "Building TechDocs for ${dir}"; \
+        cd "/app/${dir}" && mkdocs build -d /app/techdocs-output/$(basename ${dir}) && cd /app; \
+      fi; \
+    done || true
+
 # Copy and extract the bundle
 COPY --from=build --chown=node:node /app/packages/backend/dist/bundle.tar.gz ./
 RUN tar xzf bundle.tar.gz && rm bundle.tar.gz
 
 # Copy configuration files
 COPY --chown=node:node app-config.yaml app-config.production.yaml ./
+
+# Copy entrypoint script
+COPY --chown=node:node docker/entrypoint.sh ./entrypoint.sh
 
 # Expose port
 EXPOSE 7007
@@ -91,5 +121,5 @@ EXPOSE 7007
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:7007/healthcheck || exit 1
 
-# Start the backend
-CMD ["node", "packages/backend", "--config", "app-config.yaml", "--config", "app-config.production.yaml"]
+# Start the backend via entrypoint script
+CMD ["./entrypoint.sh"]

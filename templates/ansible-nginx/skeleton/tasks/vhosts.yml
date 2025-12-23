@@ -1,0 +1,29 @@
+---
+# tasks/vhosts.yml
+
+- name: Configure virtual hosts
+  ansible.builtin.template:
+    src: vhost.conf.j2
+    dest: "{{ nginx_vhost_path }}/{{ item.server_name.split()[0] }}.conf"
+    owner: root
+    group: root
+    mode: '0644'
+  loop: "{{ nginx_vhosts }}"
+  notify: Reload Nginx
+
+- name: Enable virtual hosts (Debian)
+  ansible.builtin.file:
+    src: "{{ nginx_vhost_path }}/{{ item.server_name.split()[0] }}.conf"
+    dest: "{{ nginx_vhost_enabled_path }}/{{ item.server_name.split()[0] }}.conf"
+    state: link
+  loop: "{{ nginx_vhosts }}"
+  when: ansible_os_family == 'Debian'
+  notify: Reload Nginx
+
+- name: Ensure document roots exist
+  ansible.builtin.file:
+    path: "{{ item.root }}"
+    state: directory
+    mode: '0755'
+  loop: "{{ nginx_vhosts }}"
+  when: item.root is defined

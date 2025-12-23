@@ -1,0 +1,4 @@
+site_name: Playwright E2E Tests
+docs_dir: docs
+plugins:
+  - techdocs-core

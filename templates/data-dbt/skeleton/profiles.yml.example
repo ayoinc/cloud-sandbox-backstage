@@ -1,0 +1,25 @@
+${{ values.name }}:
+  target: ${{ values.environment }}
+  outputs:
+    development:
+      type: ${{ values.warehouse }}
+      # Configure your development connection here
+      # Example for Snowflake:
+      # account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      # user: "{{ env_var('SNOWFLAKE_USER') }}"
+      # password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
+      # role: DEVELOPER
+      # database: DEV_DB
+      # warehouse: DEV_WH
+      # schema: "{{ env_var('DBT_SCHEMA', 'dbt_' ~ env_var('USER')) }}"
+      threads: 4
+
+    staging:
+      type: ${{ values.warehouse }}
+      # Configure your staging connection here
+      threads: 8
+
+    production:
+      type: ${{ values.warehouse }}
+      # Configure your production connection here
+      threads: 16

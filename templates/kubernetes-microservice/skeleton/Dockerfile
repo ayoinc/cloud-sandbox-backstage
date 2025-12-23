@@ -1,5 +1,5 @@
 # Multi-stage build for ${{ values.language }} microservice
-{% if values.language === 'nodejs' %}
+{% if values.language == 'nodejs' %}
 FROM node:18-alpine AS builder
 
 WORKDIR /app
@@ -47,7 +47,7 @@ EXPOSE 3000
 
 CMD ["node", "dist/index.js"]
 
-{% elif values.language === 'python' %}
+{% elif values.language == 'python' %}
 FROM python:3.11-slim AS builder
 
 WORKDIR /app
@@ -97,7 +97,7 @@ EXPOSE 8000
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 
-{% elif values.language === 'java' %}
+{% elif values.language == 'java' %}
 FROM openjdk:17-jdk-slim AS builder
 
 WORKDIR /app
@@ -142,7 +142,7 @@ EXPOSE 8080
 
 CMD ["java", "-jar", "app.jar"]
 
-{% elif values.language === 'golang' %}
+{% elif values.language == 'golang' %}
 FROM golang:1.21-alpine AS builder
 
 WORKDIR /app
@@ -188,7 +188,7 @@ EXPOSE 8080
 
 CMD ["./main"]
 
-{% elif values.language === 'dotnet' %}
+{% elif values.language == 'dotnet' %}
 FROM mcr.microsoft.com/dotnet/sdk:7.0 AS builder
 
 WORKDIR /app

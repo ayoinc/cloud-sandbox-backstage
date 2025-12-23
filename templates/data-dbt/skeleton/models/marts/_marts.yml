@@ -1,0 +1,20 @@
+version: 2
+
+models:
+  - name: fct_example
+    description: Fact table for example metrics
+    columns:
+      - name: id
+        description: Primary key
+        tests:
+          - unique
+          - not_null
+
+  - name: dim_example
+    description: Dimension table for example attributes
+    columns:
+      - name: id
+        description: Primary key
+        tests:
+          - unique
+          - not_null

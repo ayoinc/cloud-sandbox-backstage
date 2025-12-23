@@ -1,0 +1,11 @@
+version: 2
+
+models:
+  - name: int_example_processed
+    description: Intermediate model with business logic applied
+    columns:
+      - name: id
+        description: Primary key
+        tests:
+          - unique
+          - not_null

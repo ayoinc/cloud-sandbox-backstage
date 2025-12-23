@@ -1,0 +1,67 @@
+---
+# molecule/default/verify.yml - Molecule verify playbook
+# Generated for: ${{ values.name }}
+
+- name: Verify
+  hosts: all
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Check Docker is installed
+      ansible.builtin.command: docker --version
+      register: docker_version
+      changed_when: false
+
+    - name: Display Docker version
+      ansible.builtin.debug:
+        var: docker_version.stdout
+
+    - name: Check Docker service is running
+      ansible.builtin.service:
+        name: docker
+        state: started
+      check_mode: true
+      register: docker_service
+
+    - name: Verify Docker service is running
+      ansible.builtin.assert:
+        that:
+          - not docker_service.changed
+        fail_msg: "Docker service is not running"
+        success_msg: "Docker service is running"
+
+    - name: Check Docker Compose is installed
+      ansible.builtin.command: docker compose version
+      register: compose_version
+      changed_when: false
+      failed_when: false
+
+    - name: Display Docker Compose version
+      ansible.builtin.debug:
+        var: compose_version.stdout
+      when: compose_version.rc == 0
+
+    - name: Check testuser is in docker group
+      ansible.builtin.command: groups testuser
+      register: user_groups
+      changed_when: false
+
+    - name: Verify testuser is in docker group
+      ansible.builtin.assert:
+        that:
+          - "'docker' in user_groups.stdout"
+        fail_msg: "testuser is not in docker group"
+        success_msg: "testuser is in docker group"
+
+    - name: Run hello-world container
+      ansible.builtin.command: docker run --rm hello-world
+      register: hello_world
+      changed_when: false
+
+    - name: Verify hello-world ran successfully
+      ansible.builtin.assert:
+        that:
+          - "'Hello from Docker!' in hello_world.stdout"
+        fail_msg: "hello-world container failed"
+        success_msg: "Docker is working correctly"

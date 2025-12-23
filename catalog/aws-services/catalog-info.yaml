@@ -1,0 +1,22 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: aws-services
+  title: AWS Services Integration
+  description: AWS cloud services and infrastructure management
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - aws
+    - cloud
+    - ec2
+    - s3
+    - rds
+    - lambda
+spec:
+  type: service
+  lifecycle: production
+  owner: cloud-team
+  system: cloud-services-platform
+  providesApis:
+    - aws-api

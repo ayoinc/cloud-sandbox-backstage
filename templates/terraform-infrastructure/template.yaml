@@ -340,7 +340,6 @@ spec:
       name: Publish to Repository
       action: publish:github
       input:
-        allowedHosts: ['github.com']
         description: ${{ parameters.description }}
         repoUrl: ${{ parameters.repoUrl }}
         defaultBranch: main
@@ -355,14 +354,6 @@ spec:
         repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
         catalogInfoPath: '/catalog-info.yaml'
 
-    - id: create-terraform-workspace
-      name: Create Terraform Cloud Workspace
-      action: terraform:create-workspace
-      input:
-        workspaceName: ${{ parameters.name }}
-        organization: company-terraform
-        repository: ${{ steps.publish.output.remoteUrl }}
-
   output:
     links:
       - title: Repository
@@ -370,8 +361,6 @@ spec:
       - title: Open in catalog
         icon: catalog
         entityRef: ${{ steps.register.output.entityRef }}
-      - title: Terraform Workspace
-        url: https://app.terraform.io/app/company-terraform/workspaces/${{ parameters.name }}
       - title: Infrastructure Documentation
         icon: docs
         url: ${{ steps.publish.output.remoteUrl }}/blob/main/README.md

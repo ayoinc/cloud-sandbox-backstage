@@ -1,0 +1,4 @@
+site_name: Node.js API
+docs_dir: docs
+plugins:
+  - techdocs-core

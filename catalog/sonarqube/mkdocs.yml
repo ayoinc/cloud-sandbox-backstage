@@ -1,0 +1,10 @@
+site_name: SonarQube Code Quality
+site_description: Static code analysis and quality gate enforcement
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

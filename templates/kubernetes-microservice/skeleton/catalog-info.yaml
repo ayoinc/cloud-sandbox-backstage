@@ -12,7 +12,7 @@ metadata:
     snyk.io/project-name: ${{ values.name }}
     sonarqube.org/project-key: ${{ values.name }}
     {% endif %}
-    {% if values.monitoring_stack === 'prometheus-grafana' %}
+    {% if values.monitoring_stack == 'prometheus-grafana' %}
     grafana/dashboard-selector: "app={{ values.name }}"
     prometheus.io/scrape: "true"
     {% endif %}
@@ -28,7 +28,7 @@ metadata:
     - url: https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}/actions
       title: CI/CD Pipeline
       icon: dashboard
-    {% if values.monitoring_stack === 'prometheus-grafana' %}
+    {% if values.monitoring_stack == 'prometheus-grafana' %}
     - url: https://grafana.company.com/d/${{ values.name }}
       title: Grafana Dashboard
       icon: dashboard

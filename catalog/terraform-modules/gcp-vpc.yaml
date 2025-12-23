@@ -1,0 +1,31 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: gcp-vpc
+  title: GCP VPC Module
+  description: Terraform module for creating Google Cloud VPCs with custom subnets, Cloud NAT, firewall rules, and Shared VPC support
+  annotations:
+    backstage.io/techdocs-ref: dir:./docs
+    backstage.io/source-location: url:https://github.com/company/terraform-modules
+    backstage.io/view-url: https://github.com/company/terraform-modules
+    backstage.io/edit-url: https://github.com/company/terraform-modules/edit/main/gcp-vpc.yaml
+  tags:
+    - terraform
+    - gcp
+    - vpc
+    - network
+    - infrastructure
+  links:
+    - url: https://cloud.google.com/vpc/docs/overview
+      title: GCP VPC Documentation
+      icon: docs
+    - url: https://registry.terraform.io
+      title: Terraform Registry
+      icon: code
+spec:
+  type: library
+  lifecycle: production
+  owner: platform-team
+  system: infrastructure-as-code-platform
+  dependsOn:
+    - component:terraform-modules

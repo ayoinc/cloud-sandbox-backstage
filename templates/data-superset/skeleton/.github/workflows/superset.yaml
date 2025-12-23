@@ -1,0 +1,76 @@
+name: Superset CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  validate:
+    name: Validate JSON
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Validate JSON files
+        run: |
+          for file in $(find . -name "*.json" -type f); do
+            echo "Validating: $file"
+            python -m json.tool "$file" > /dev/null || exit 1
+          done
+          echo "All JSON files are valid"
+
+  lint:
+    name: Lint Python
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install linters
+        run: pip install black flake8 isort
+
+      - name: Check formatting
+        run: |
+          black --check scripts/
+          isort --check-only scripts/
+          flake8 scripts/ --max-line-length=100
+
+  deploy:
+    name: Deploy to Superset
+    runs-on: ubuntu-latest
+    needs: [validate, lint]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: ${{ values.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Import to Superset
+        run: python scripts/import.py
+        env:
+          SUPERSET_URL: ${{ secrets.SUPERSET_URL }}
+          SUPERSET_USERNAME: ${{ secrets.SUPERSET_USERNAME }}
+          SUPERSET_PASSWORD: ${{ secrets.SUPERSET_PASSWORD }}

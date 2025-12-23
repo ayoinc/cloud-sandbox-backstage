@@ -1,0 +1,10 @@
+site_name: Elasticsearch Data
+site_description: Elasticsearch search and analytics engine
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

@@ -1,0 +1,10 @@
+site_name: AWX Core
+site_description: AWX automation controller core components
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

@@ -1,0 +1,125 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: docs-runbook
+  title: Operations Runbook
+  description: Create operational runbooks for incident response and procedures
+  tags:
+    - documentation
+    - runbook
+    - sre
+    - operations
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: group:sre
+  type: documentation
+
+  parameters:
+    - title: Project Information
+      required:
+        - name
+        - owner
+      properties:
+        name:
+          title: Project Name
+          type: string
+          description: Name of the runbook repository
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Purpose of these runbooks
+          default: Operational runbooks for incident response and standard procedures
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns this resource
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+    - title: Runbook Configuration
+      properties:
+        serviceName:
+          title: Service Name
+          type: string
+          description: Name of the service these runbooks cover
+        environment:
+          title: Environments
+          type: array
+          description: Environments covered by these runbooks
+          items:
+            type: string
+          default:
+            - production
+            - staging
+        oncallTool:
+          title: On-Call Tool
+          type: string
+          description: On-call management tool used
+          enum:
+            - pagerduty
+            - opsgenie
+            - victorops
+            - none
+          default: pagerduty
+        includeTemplates:
+          title: Include Templates
+          type: boolean
+          description: Include runbook templates
+          default: true
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          serviceName: ${{ parameters.serviceName }}
+          environment: ${{ parameters.environment }}
+          oncallTool: ${{ parameters.oncallTool }}
+          includeTemplates: ${{ parameters.includeTemplates }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        repoUrl: ${{ parameters.repoUrl }}
+        description: 'Runbook: ${{ parameters.name }}'
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

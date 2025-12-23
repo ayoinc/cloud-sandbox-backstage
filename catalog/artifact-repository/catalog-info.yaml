@@ -1,0 +1,17 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: artifact-repository
+  title: Artifact Repository
+  description: Maven, npm, Docker, and generic artifact storage
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - artifacts
+    - maven
+    - npm
+spec:
+  type: service
+  lifecycle: production
+  owner: platform-team
+  system: ci-cd-platform

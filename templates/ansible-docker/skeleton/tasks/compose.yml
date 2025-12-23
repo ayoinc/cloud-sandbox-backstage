@@ -1,0 +1,27 @@
+---
+# tasks/compose.yml - Install Docker Compose plugin
+# Generated for: ${{ values.name }}
+
+- name: Install Docker Compose plugin (Debian/Ubuntu)
+  ansible.builtin.apt:
+    name: docker-compose-plugin{{ docker_compose_version | ternary('=' + docker_compose_version + '*', '') }}
+    state: present
+    update_cache: true
+  when: ansible_os_family == 'Debian'
+
+- name: Install Docker Compose plugin (RedHat/CentOS)
+  ansible.builtin.yum:
+    name: docker-compose-plugin{{ docker_compose_version | ternary('-' + docker_compose_version, '') }}
+    state: present
+  when: ansible_os_family == 'RedHat'
+
+- name: Verify Docker Compose installation
+  ansible.builtin.command: docker compose version
+  register: compose_version
+  changed_when: false
+  failed_when: false
+
+- name: Display Docker Compose version
+  ansible.builtin.debug:
+    msg: "Docker Compose version: {{ compose_version.stdout }}"
+  when: compose_version.rc == 0

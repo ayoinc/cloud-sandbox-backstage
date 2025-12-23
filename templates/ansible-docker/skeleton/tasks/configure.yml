@@ -1,0 +1,46 @@
+---
+# tasks/configure.yml - Configure Docker daemon
+# Generated for: ${{ values.name }}
+
+- name: Ensure Docker configuration directory exists
+  ansible.builtin.file:
+    path: /etc/docker
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Build Docker daemon configuration
+  ansible.builtin.set_fact:
+    docker_daemon_config: >-
+      {{
+        docker_daemon_options |
+        combine({'storage-driver': docker_storage_driver} if docker_storage_driver else {}) |
+        combine({'data-root': docker_data_root} if docker_data_root else {}) |
+        combine({'insecure-registries': docker_insecure_registries} if docker_insecure_registries else {}) |
+        combine({'registry-mirrors': docker_registry_mirrors} if docker_registry_mirrors else {}) |
+        combine({'dns': docker_dns} if docker_dns else {}) |
+        combine({'dns-search': docker_dns_search} if docker_dns_search else {}) |
+        combine({'log-driver': docker_log_driver} if docker_log_driver else {}) |
+        combine({'log-opts': docker_log_options} if docker_log_options else {}) |
+        combine({'default-address-pools': docker_default_address_pool} if docker_default_address_pool else {})
+      }}
+
+- name: Configure Docker daemon
+  ansible.builtin.copy:
+    content: "{{ docker_daemon_config | to_nice_json }}\n"
+    dest: /etc/docker/daemon.json
+    mode: '0644'
+    owner: root
+    group: root
+  notify: Restart Docker
+  when: docker_daemon_config | length > 0
+
+- name: Ensure empty daemon.json if no configuration
+  ansible.builtin.copy:
+    content: "{}\n"
+    dest: /etc/docker/daemon.json
+    mode: '0644'
+    owner: root
+    group: root
+  when: docker_daemon_config | length == 0

@@ -1,0 +1,17 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: cloudformation-templates
+  title: CloudFormation Templates
+  description: AWS CloudFormation templates for infrastructure deployment
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - cloudformation
+    - aws
+    - iac
+spec:
+  type: library
+  lifecycle: production
+  owner: cloud-team
+  system: infrastructure-as-code-platform

@@ -1,0 +1,22 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.name }}
+  description: ${{ values.description }}
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
+  tags:
+    - data
+    - airflow
+    - etl
+    - python
+  links:
+    - url: https://airflow.apache.org/docs/
+      title: Apache Airflow Documentation
+      icon: docs
+spec:
+  type: service
+  lifecycle: ${{ values.environment }}
+  owner: ${{ values.owner }}
+  system: data-platform

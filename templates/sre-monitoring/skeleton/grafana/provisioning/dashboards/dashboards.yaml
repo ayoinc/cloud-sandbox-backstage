@@ -1,0 +1,15 @@
+# Grafana dashboards provisioning configuration
+
+apiVersion: 1
+
+providers:
+  - name: '${{ values.name }}'
+    orgId: 1
+    folder: '${{ values.name }}'
+    folderUid: ''
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/files

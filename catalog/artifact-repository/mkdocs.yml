@@ -1,0 +1,10 @@
+site_name: Artifact Repository
+site_description: Maven, npm, Docker, and generic artifact storage
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

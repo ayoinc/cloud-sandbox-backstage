@@ -1,0 +1,13 @@
+apiVersion: backstage.io/v1alpha1
+kind: Location
+metadata:
+  name: terraform-modules-complete
+  description: Complete Terraform modules catalog with all components
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  targets:
+    - ./catalog-info.yaml
+    - ./gcp-vpc.yaml
+    - ./aws-vpc.yaml
+    - ./azure-vnet.yaml

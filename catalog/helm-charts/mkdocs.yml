@@ -1,0 +1,10 @@
+site_name: Helm Charts Repository
+site_description: Kubernetes Helm charts for application deployment
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

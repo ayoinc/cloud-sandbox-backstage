@@ -1,0 +1,4 @@
+site_name: Superset Dashboard
+docs_dir: docs
+plugins:
+  - techdocs-core

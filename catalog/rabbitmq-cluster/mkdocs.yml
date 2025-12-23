@@ -1,0 +1,10 @@
+site_name: RabbitMQ Cluster
+site_description: Message broker for distributed systems
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

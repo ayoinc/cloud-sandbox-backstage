@@ -1,0 +1,13 @@
+{
+  "dashboard_title": "${{ values.name }}",
+  "description": "${{ values.description }}",
+  "slug": "${{ values.name }}",
+  "position_json": {},
+  "metadata": {
+    "owner": "${{ values.owner }}",
+    "environment": "${{ values.environment }}",
+    "data_source": "${{ values.dataSource }}",
+    "version": "1.0.0"
+  },
+  "charts": []
+}

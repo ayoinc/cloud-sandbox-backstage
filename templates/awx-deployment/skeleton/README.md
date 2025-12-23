@@ -27,8 +27,16 @@ This deployment was generated using the AWX Backstage platform and includes:
 {%- else %}
 | **Ingress Enabled** | No |
 {%- endif %}
-| **SSL/TLS** | ${{ values.ssl_enabled | yesno:"Enabled,Disabled" }} |
-| **LDAP** | ${{ values.ldap_enabled | yesno:"Enabled,Disabled" }} |
+{%- if values.ssl_enabled %}
+| **SSL/TLS** | Enabled |
+{%- else %}
+| **SSL/TLS** | Disabled |
+{%- endif %}
+{%- if values.ldap_enabled %}
+| **LDAP** | Enabled |
+{%- else %}
+| **LDAP** | Disabled |
+{%- endif %}
 | **Admin User** | ${{ values.admin_user }} |
 
 ## Prerequisites

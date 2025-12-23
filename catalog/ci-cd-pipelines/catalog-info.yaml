@@ -1,0 +1,19 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ci-cd-pipelines
+  title: CI/CD Pipeline Templates
+  description: Standardized CI/CD pipeline templates for various technologies
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - ci-cd
+    - jenkins
+    - github-actions
+spec:
+  type: library
+  lifecycle: production
+  owner: devops-team
+  system: ci-cd-platform
+  providesApis:
+    - pipeline-api

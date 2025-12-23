@@ -1,0 +1,35 @@
+---
+# tasks/setup-redhat.yml - Setup Docker repository for RHEL/CentOS
+# Generated for: ${{ values.name }}
+
+- name: Ensure old Docker packages are removed
+  ansible.builtin.yum:
+    name:
+      - docker
+      - docker-client
+      - docker-client-latest
+      - docker-common
+      - docker-latest
+      - docker-latest-logrotate
+      - docker-logrotate
+      - docker-engine
+    state: absent
+
+- name: Install required packages for Docker repository
+  ansible.builtin.yum:
+    name:
+      - yum-utils
+      - device-mapper-persistent-data
+      - lvm2
+    state: present
+
+- name: Add Docker YUM repository
+  ansible.builtin.get_url:
+    url: "{{ docker_yum_repo_url }}"
+    dest: /etc/yum.repos.d/docker-ce.repo
+    mode: '0644'
+
+- name: Enable Docker repository
+  ansible.builtin.command: yum-config-manager --enable docker-ce-{{ docker_channel }}
+  changed_when: false
+  when: docker_channel != 'stable'

@@ -1,0 +1,21 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.name }}
+  description: ${{ values.description }}
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - gcp
+    - cloud-run
+    - serverless
+    - ${{ values.environment }}
+  links:
+    - url: https://console.cloud.google.com/run
+      title: GCP Console
+      icon: cloud
+spec:
+  type: service
+  owner: ${{ values.owner }}
+  lifecycle: ${{ values.environment }}
+  system: backend-services

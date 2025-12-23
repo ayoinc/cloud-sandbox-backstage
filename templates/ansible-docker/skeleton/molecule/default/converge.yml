@@ -1,0 +1,22 @@
+---
+# molecule/default/converge.yml - Molecule converge playbook
+# Generated for: ${{ values.name }}
+
+- name: Converge
+  hosts: all
+  become: true
+
+  vars:
+    docker_edition: ce
+    docker_compose_install: true
+    docker_users:
+      - testuser
+
+  pre_tasks:
+    - name: Create test user
+      ansible.builtin.user:
+        name: testuser
+        state: present
+
+  roles:
+    - role: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"

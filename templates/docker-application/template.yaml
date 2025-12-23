@@ -93,18 +93,10 @@ spec:
           includeHealthcheck: ${{ parameters.includeHealthcheck }}
           destination: ${{ parameters.repoUrl | parseRepoUrl }}
     
-    - id: validate-yaml
-      name: Validate YAML Files
-      action: org:validate:yaml
-      input:
-        path: ./
-        recursive: true
-    
     - id: publish
       name: Publish to GitHub
       action: publish:github
       input:
-        allowedHosts: ['github.com']
         description: ${{ parameters.description }}
         repoUrl: ${{ parameters.repoUrl }}
         defaultBranch: main
@@ -116,58 +108,6 @@ spec:
       input:
         repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
         catalogInfoPath: '/catalog-info.yaml'
-    
-    - id: notify
-      name: Send Notification
-      action: org:notify
-      input:
-        title: New Docker Application Created
-        message: |
-          A new Docker application has been created:
-          
-          Name: ${{ parameters.name }}
-          Description: ${{ parameters.description }}
-          Owner: ${{ parameters.owner }}
-          Repository: ${{ parameters.repoUrl }}
-        notificationType: webhook
-        webhookUrl: https://example.com/webhook
-    
-    - id: update-docs
-      name: Update Documentation
-      action: org:docs:update
-      input:
-        repoUrl: ${{ parameters.repoUrl }}
-        path: docs/README.md
-        content: |
-          # ${{ parameters.name }}
-          
-          ${{ parameters.description }}
-          
-          ## Getting Started
-          
-          This application is containerized using Docker.
-          
-          ### Prerequisites
-          
-          - Docker
-          - Docker Compose (optional)
-          
-          ### Running Locally
-          
-          ```bash
-          docker build -t ${{ parameters.name }} .
-          docker run -p ${{ parameters.port }}:${{ parameters.port }} ${{ parameters.name }}
-          ```
-          
-          ## Configuration
-          
-          The application listens on port ${{ parameters.port }}.
-          
-          ## Deployment
-          
-          This application can be deployed using Kubernetes or Docker Compose.
-        commitMessage: Add initial documentation
-        branch: main
   output:
     links:
       - title: Repository

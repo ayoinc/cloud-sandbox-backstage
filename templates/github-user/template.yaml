@@ -1,0 +1,81 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: github-user-invite-template
+  title: Invite User to GitHub Organization
+  description: Invite a user to join the GitHub organization. The user will automatically sync to Backstage after accepting.
+  tags:
+    - github
+    - user
+    - organization
+    - management
+spec:
+  owner: platform-team
+  type: management
+  parameters:
+    - title: User Information
+      required:
+        - inviteeEmail
+        - role
+      properties:
+        inviteeEmail:
+          title: User Email
+          type: string
+          description: The email address of the person to invite
+          format: email
+          ui:autofocus: true
+          ui:help: 'The email address associated with their GitHub account'
+        role:
+          title: Organization Role
+          type: string
+          description: The role this user will have in the organization
+          default: direct_member
+          enum:
+            - direct_member
+            - admin
+            - billing_manager
+          enumNames:
+            - Member (standard access)
+            - Admin (full organization access)
+            - Billing Manager (billing access only)
+    - title: Team Assignment (Optional)
+      properties:
+        teamIds:
+          title: Add to Teams
+          type: string
+          description: Comma-separated team slugs to add the user to after they accept
+          ui:help: 'Example: engineering, devops, platform-team'
+
+  steps:
+    - id: log-start
+      name: Starting User Invitation
+      action: debug:log
+      input:
+        message: 'Inviting user: ${{ parameters.inviteeEmail }} with role: ${{ parameters.role }}'
+
+    - id: invite-user
+      name: Send Organization Invitation
+      action: http:backstage:request
+      input:
+        method: POST
+        path: /proxy/github-api/orgs/ContainerCode/invitations
+        headers:
+          Content-Type: application/json
+        body:
+          email: ${{ parameters.inviteeEmail }}
+          role: ${{ parameters.role }}
+
+    - id: log-complete
+      name: Invitation Sent
+      action: debug:log
+      input:
+        message: 'Invitation sent to ${{ parameters.inviteeEmail }}! They will appear in Backstage after accepting.'
+
+  output:
+    links:
+      - title: View Pending Invitations on GitHub
+        url: https://github.com/orgs/ContainerCode/people/pending_invitations
+      - title: View Organization Members
+        url: https://github.com/orgs/ContainerCode/people
+      - title: View Users in Backstage (after sync)
+        url: /catalog?filters[kind]=user

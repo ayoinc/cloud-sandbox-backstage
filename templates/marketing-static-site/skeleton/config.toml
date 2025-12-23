@@ -1,0 +1,39 @@
+baseURL = "${{ values.baseUrl }}"
+languageCode = "en-us"
+title = "${{ values.name }}"
+theme = "${{ values.hugoTheme }}"
+
+[params]
+  description = "${{ values.description }}"
+  author = "${{ values.owner }}"
+  
+[markup]
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = true
+  [markup.highlight]
+    style = "monokai"
+
+[menu]
+  [[menu.main]]
+    identifier = "home"
+    name = "Home"
+    url = "/"
+    weight = 1
+  [[menu.main]]
+    identifier = "about"
+    name = "About"
+    url = "/about/"
+    weight = 2
+  [[menu.main]]
+    identifier = "contact"
+    name = "Contact"
+    url = "/contact/"
+    weight = 3
+
+[outputs]
+  home = ["HTML", "RSS"]
+
+[sitemap]
+  changefreq = "weekly"
+  priority = 0.5

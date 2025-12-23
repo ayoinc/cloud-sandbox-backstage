@@ -1,0 +1,19 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: testing-frameworks
+  title: Testing Frameworks Suite
+  description: Comprehensive testing frameworks for unit, integration, and e2e testing
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - testing
+    - jest
+    - cypress
+spec:
+  type: library
+  lifecycle: production
+  owner: quality-team
+  system: testing-automation-platform
+  providesApis:
+    - testing-api

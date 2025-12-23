@@ -1,0 +1,10 @@
+site_name: PostgreSQL Cluster
+site_description: PostgreSQL database cluster configuration
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

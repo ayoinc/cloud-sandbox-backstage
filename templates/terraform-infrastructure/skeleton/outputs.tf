@@ -16,7 +16,7 @@ output "cloud_provider" {
   value       = var.cloud_provider
 }
 
-{% if values.cloud_provider === 'aws' or values.cloud_provider === 'multi-cloud' %}
+{% if values.cloud_provider == 'aws' or values.cloud_provider == 'multi-cloud' %}
 # AWS Outputs
 output "aws_vpc_id" {
   description = "ID of the AWS VPC"
@@ -92,7 +92,7 @@ output "rds_port" {
 {% endif %}
 {% endif %}
 
-{% if values.cloud_provider === 'azure' or values.cloud_provider === 'multi-cloud' %}
+{% if values.cloud_provider == 'azure' or values.cloud_provider == 'multi-cloud' %}
 # Azure Outputs
 output "azure_resource_group_name" {
   description = "Name of the Azure resource group"
@@ -139,7 +139,7 @@ output "azure_storage_account_primary_endpoint" {
 {% endif %}
 {% endif %}
 
-{% if values.cloud_provider === 'gcp' or values.cloud_provider === 'multi-cloud' %}
+{% if values.cloud_provider == 'gcp' or values.cloud_provider == 'multi-cloud' %}
 # GCP Outputs
 output "gcp_project_id" {
   description = "GCP project ID"
@@ -190,7 +190,7 @@ output "monitoring_namespace" {
   value       = var.enable_monitoring ? "monitoring" : null
 }
 
-{% if values.monitoring_solution === 'prometheus-grafana' %}
+{% if values.monitoring_solution == 'prometheus-grafana' %}
 output "prometheus_endpoint" {
   description = "Prometheus server endpoint"
   value       = var.enable_monitoring && var.monitoring_solution == "prometheus-grafana" ? module.monitoring[0].prometheus_endpoint : null
@@ -214,13 +214,13 @@ output "grafana_admin_password" {
 output "secrets_manager_arn" {
   description = "ARN of the secrets manager"
   value       = var.enable_secrets_manager ? (
-    {% if values.cloud_provider === 'aws' %}
+    {% if values.cloud_provider == 'aws' %}
     var.cloud_provider == "aws" ? module.aws_infrastructure[0].secrets_manager_arn :
     {% endif %}
-    {% if values.cloud_provider === 'azure' %}
+    {% if values.cloud_provider == 'azure' %}
     var.cloud_provider == "azure" ? module.azure_infrastructure[0].key_vault_id :
     {% endif %}
-    {% if values.cloud_provider === 'gcp' %}
+    {% if values.cloud_provider == 'gcp' %}
     var.cloud_provider == "gcp" ? module.gcp_infrastructure[0].secret_manager_id :
     {% endif %}
     null
@@ -232,13 +232,13 @@ output "secrets_manager_arn" {
 output "kms_key_id" {
   description = "ID of the KMS key"
   value       = var.enable_kms ? (
-    {% if values.cloud_provider === 'aws' %}
+    {% if values.cloud_provider == 'aws' %}
     var.cloud_provider == "aws" ? module.aws_infrastructure[0].kms_key_id :
     {% endif %}
-    {% if values.cloud_provider === 'azure' %}
+    {% if values.cloud_provider == 'azure' %}
     var.cloud_provider == "azure" ? module.azure_infrastructure[0].key_vault_key_id :
     {% endif %}
-    {% if values.cloud_provider === 'gcp' %}
+    {% if values.cloud_provider == 'gcp' %}
     var.cloud_provider == "gcp" ? module.gcp_infrastructure[0].kms_key_id :
     {% endif %}
     null
@@ -250,13 +250,13 @@ output "kms_key_id" {
 output "kubectl_config_command" {
   description = "Command to configure kubectl"
   value = var.enable_kubernetes ? (
-    {% if values.cloud_provider === 'aws' %}
+    {% if values.cloud_provider == 'aws' %}
     var.cloud_provider == "aws" ? "aws eks update-kubeconfig --region ${var.aws_region} --name ${module.aws_infrastructure[0].eks_cluster_name}" :
     {% endif %}
-    {% if values.cloud_provider === 'azure' %}
+    {% if values.cloud_provider == 'azure' %}
     var.cloud_provider == "azure" ? "az aks get-credentials --resource-group ${module.azure_infrastructure[0].resource_group_name} --name ${module.azure_infrastructure[0].aks_cluster_name}" :
     {% endif %}
-    {% if values.cloud_provider === 'gcp' %}
+    {% if values.cloud_provider == 'gcp' %}
     var.cloud_provider == "gcp" ? "gcloud container clusters get-credentials ${module.gcp_infrastructure[0].gke_cluster_name} --region ${var.gcp_region} --project ${var.gcp_project_id}" :
     {% endif %}
     null
@@ -272,13 +272,13 @@ output "dns_zone_name" {
 output "load_balancer_dns" {
   description = "Load balancer DNS name"
   value = var.enable_kubernetes ? (
-    {% if values.cloud_provider === 'aws' %}
+    {% if values.cloud_provider == 'aws' %}
     var.cloud_provider == "aws" ? module.aws_infrastructure[0].load_balancer_dns :
     {% endif %}
-    {% if values.cloud_provider === 'azure' %}
+    {% if values.cloud_provider == 'azure' %}
     var.cloud_provider == "azure" ? module.azure_infrastructure[0].load_balancer_ip :
     {% endif %}
-    {% if values.cloud_provider === 'gcp' %}
+    {% if values.cloud_provider == 'gcp' %}
     var.cloud_provider == "gcp" ? module.gcp_infrastructure[0].load_balancer_ip :
     {% endif %}
     null
@@ -310,19 +310,19 @@ output "estimated_monthly_cost" {
 output "quick_links" {
   description = "Quick access links for common operations"
   value = {
-    {% if values.cloud_provider === 'aws' %}
+    {% if values.cloud_provider == 'aws' %}
     aws_console = var.cloud_provider == "aws" ? "https://console.aws.amazon.com/" : null
     {% endif %}
-    {% if values.cloud_provider === 'azure' %}
+    {% if values.cloud_provider == 'azure' %}
     azure_portal = var.cloud_provider == "azure" ? "https://portal.azure.com/" : null
     {% endif %}
-    {% if values.cloud_provider === 'gcp' %}
+    {% if values.cloud_provider == 'gcp' %}
     gcp_console = var.cloud_provider == "gcp" ? "https://console.cloud.google.com/" : null
     {% endif %}
     {% if values.enable_kubernetes %}
     kubernetes_dashboard = var.enable_kubernetes ? "https://dashboard.${{ values.name }}.company.com" : null
     {% endif %}
-    {% if values.monitoring_solution === 'prometheus-grafana' %}
+    {% if values.monitoring_solution == 'prometheus-grafana' %}
     grafana_dashboard = var.enable_monitoring ? "https://grafana.${{ values.name }}.company.com" : null
     {% endif %}
     terraform_cloud = "https://app.terraform.io/app/company-terraform/workspaces/${{ values.name }}"

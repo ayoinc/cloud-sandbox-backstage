@@ -1,0 +1,10 @@
+site_name: Multi-Cloud Management
+site_description: Unified management across AWS, Azure, and GCP
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

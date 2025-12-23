@@ -22,8 +22,6 @@ volumes:
     driver: local
   redis_data:
     driver: local
-  rabbitmq_data:
-    driver: local
   minio_data:
     driver: local
   techdocs_data:
@@ -47,6 +45,7 @@ services:
     healthcheck:
       <<: *healthcheck-defaults
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      start_period: 10s
 
   # Backstage application
   backstage:
@@ -63,22 +62,20 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-backstage}
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: 5672
-      RABBITMQ_USER: backstage
-      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-backstage}
       MINIO_HOST: minio
       MINIO_PORT: 9000
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-backstage}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-backstage123}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      GITHUB_ORG: ${GITHUB_ORG}
+      AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:-supersecret}
       TECHDOCS_BUCKET: techdocs
     depends_on:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_healthy
-      rabbitmq:
         condition: service_healthy
       minio:
         condition: service_healthy

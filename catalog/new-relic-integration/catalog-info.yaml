@@ -1,0 +1,18 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: new-relic-integration
+  title: New Relic Monitoring
+  description: Application performance monitoring and observability
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - new-relic
+    - apm
+spec:
+  type: service
+  lifecycle: production
+  owner: sre-team
+  system: observability-platform
+  providesApis:
+    - newrelic-api

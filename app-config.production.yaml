@@ -3,18 +3,18 @@
 
 app:
   title: Cloud Sandbox
-  baseUrl: http://localhost:7007
+  baseUrl: http://localhost
 
 organization:
   name: Platform Team
 
 backend:
-  baseUrl: http://localhost:7007
+  baseUrl: http://localhost
   listen: ':7007'
   csp:
     connect-src: ["'self'", 'http:', 'https:']
   cors:
-    origin: http://localhost:7007
+    origin: '*'
     methods: [GET, HEAD, PATCH, POST, PUT, DELETE]
     credentials: true
 
@@ -64,9 +64,17 @@ techdocs:
         secretAccessKey: ${MINIO_SECRET_KEY}
 
 auth:
+  environment: production
   providers:
+    # Guest auth enabled as fallback
     guest:
       dangerouslyAllowOutsideDevelopment: true
+    # GitHub OAuth for real GitHub users
+    github:
+      production:
+        clientId: ${GITHUB_CLIENT_ID}
+        clientSecret: ${GITHUB_CLIENT_SECRET}
+        callbackUrl: http://localhost/api/auth/github/handler/frame
 
 scaffolder:
   defaultAuthor:
@@ -74,9 +82,37 @@ scaffolder:
     email: platform-team@company.com
   defaultCommitMessage: 'Initial commit from Cloud Sandbox template'
 
+# Proxy configuration for external API access
+proxy:
+  endpoints:
+    '/github-api':
+      target: https://api.github.com
+      headers:
+        Authorization: Bearer ${GITHUB_TOKEN}
+        Accept: application/vnd.github.v3+json
+      changeOrigin: true
+      # Prevent incoming Authorization header from overriding our configured token
+      allowedHeaders:
+        - Content-Type
+
 catalog:
+  # Refresh entities automatically - check every 30 seconds for changes
+  processingInterval: { seconds: 30 }
   rules:
     - allow: [Component, System, API, Resource, Location, Domain, Template, User, Group]
+
+  # GitHub Organization Entity Provider - syncs teams and members
+  providers:
+    githubOrg:
+      - id: production
+        githubUrl: https://github.com
+        orgs:
+          - ${GITHUB_ORG}
+        schedule:
+          initialDelay: { seconds: 10 }
+          frequency: { minutes: 5 }
+          timeout: { minutes: 3 }
+
   locations:
     # Users and Groups
     - type: file
@@ -104,23 +140,93 @@ catalog:
       rules:
         - allow: [System]
 
-    # Components
+    # Components with TechDocs
     - type: file
-      target: ./catalog/sample-components.yaml
+      target: ./catalog/aws-services/catalog-info.yaml
     - type: file
-      target: ./catalog/cloud-components.yaml
+      target: ./catalog/azure-services/catalog-info.yaml
     - type: file
-      target: ./catalog/data-components.yaml
+      target: ./catalog/gcp-services/catalog-info.yaml
     - type: file
-      target: ./catalog/infrastructure-components.yaml
+      target: ./catalog/multi-cloud-management/catalog-info.yaml
     - type: file
-      target: ./catalog/observability-components.yaml
+      target: ./catalog/ansible-webserver/catalog-info.yaml
     - type: file
-      target: ./catalog/testing-components.yaml
+      target: ./catalog/ansible-docker-host/catalog-info.yaml
     - type: file
-      target: ./catalog/awx-core.yaml
+      target: ./catalog/sample-nodejs-api/catalog-info.yaml
     - type: file
-      target: ./catalog/awx-operator.yaml
+      target: ./catalog/sample-react-frontend/catalog-info.yaml
+    - type: file
+      target: ./catalog/cloudformation-templates/catalog-info.yaml
+    - type: file
+      target: ./catalog/pulumi-projects/catalog-info.yaml
+    - type: file
+      target: ./catalog/helm-charts/catalog-info.yaml
+    - type: file
+      target: ./catalog/docker-images/catalog-info.yaml
+    - type: file
+      target: ./catalog/packer/catalog-info.yaml
+    - type: file
+      target: ./catalog/terraform-modules/catalog-info.yaml
+    - type: file
+      target: ./catalog/prometheus-stack/catalog-info.yaml
+    - type: file
+      target: ./catalog/elk-stack/catalog-info.yaml
+    - type: file
+      target: ./catalog/jaeger-tracing/catalog-info.yaml
+    - type: file
+      target: ./catalog/datadog-integration/catalog-info.yaml
+    - type: file
+      target: ./catalog/new-relic-integration/catalog-info.yaml
+    - type: file
+      target: ./catalog/splunk-enterprise/catalog-info.yaml
+    - type: file
+      target: ./catalog/pagerduty-integration/catalog-info.yaml
+    - type: file
+      target: ./catalog/testing-frameworks/catalog-info.yaml
+    - type: file
+      target: ./catalog/sonarqube/catalog-info.yaml
+    - type: file
+      target: ./catalog/security-scanning-suite/catalog-info.yaml
+    - type: file
+      target: ./catalog/performance-testing/catalog-info.yaml
+    - type: file
+      target: ./catalog/ci-cd-pipelines/catalog-info.yaml
+    - type: file
+      target: ./catalog/artifact-repository/catalog-info.yaml
+    - type: file
+      target: ./catalog/postgresql-cluster/catalog-info.yaml
+    - type: file
+      target: ./catalog/mongodb-cluster/catalog-info.yaml
+    - type: file
+      target: ./catalog/redis-cluster/catalog-info.yaml
+    - type: file
+      target: ./catalog/elasticsearch-data/catalog-info.yaml
+    - type: file
+      target: ./catalog/apache-kafka/catalog-info.yaml
+    - type: file
+      target: ./catalog/rabbitmq-cluster/catalog-info.yaml
+    - type: file
+      target: ./catalog/apache-spark/catalog-info.yaml
+    - type: file
+      target: ./catalog/apache-airflow/catalog-info.yaml
+    - type: file
+      target: ./catalog/zookeeper-ensemble/catalog-info.yaml
+    - type: file
+      target: ./catalog/minio-storage/catalog-info.yaml
+    - type: file
+      target: ./catalog/awx-core/catalog-info.yaml
+    - type: file
+      target: ./catalog/awx-operator/catalog-info.yaml
+    - type: file
+      target: ./catalog/awx-helm-chart/catalog-info.yaml
+
+    # APIs and Resources
+    - type: file
+      target: ./catalog/apis-and-resources.yaml
+      rules:
+        - allow: [API, Resource]
 
     # Templates
     - type: file
@@ -157,6 +263,20 @@ catalog:
         - allow: [Template]
     - type: file
       target: ./templates/cloud-sandbox/template.yaml
+      rules:
+        - allow: [Template]
+
+    # GitHub Organization Management Templates
+    - type: file
+      target: ./templates/github-team/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/github-user/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/github-team-member/template.yaml
       rules:
         - allow: [Template]
 

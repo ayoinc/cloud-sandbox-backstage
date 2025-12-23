@@ -1,0 +1,16 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: multi-cloud-management
+  title: Multi-Cloud Management
+  description: Unified management across AWS, Azure, and GCP
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - multi-cloud
+    - management
+spec:
+  type: service
+  lifecycle: production
+  owner: cloud-team
+  system: cloud-services-platform

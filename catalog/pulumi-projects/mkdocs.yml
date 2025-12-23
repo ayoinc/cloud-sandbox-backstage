@@ -1,0 +1,10 @@
+site_name: Pulumi Infrastructure Projects
+site_description: Pulumi infrastructure as code projects
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

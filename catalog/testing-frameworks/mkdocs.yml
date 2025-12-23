@@ -1,0 +1,10 @@
+site_name: Testing Frameworks Suite
+site_description: Comprehensive testing frameworks for unit, integration, and e2e testing
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

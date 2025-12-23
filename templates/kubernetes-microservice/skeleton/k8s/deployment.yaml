@@ -14,12 +14,12 @@ metadata:
 spec:
   replicas: 3
   strategy:
-    {% if values.deployment_strategy === 'rolling-update' %}
+    {% if values.deployment_strategy == 'rolling-update' %}
     type: RollingUpdate
     rollingUpdate:
       maxUnavailable: 1
       maxSurge: 1
-    {% elif values.deployment_strategy === 'blue-green' %}
+    {% elif values.deployment_strategy == 'blue-green' %}
     type: Recreate
     {% endif %}
   selector:
@@ -34,7 +34,7 @@ spec:
       annotations:
         {% if values.enable_tracing %}
         prometheus.io/scrape: "true"
-        prometheus.io/port: "{% if values.language === 'nodejs' %}3000{% elif values.language === 'python' %}8000{% elif values.language === 'java' %}8080{% elif values.language === 'golang' %}8080{% elif values.language === 'dotnet' %}5000{% endif %}"
+        prometheus.io/port: "{% if values.language == 'nodejs' %}3000{% elif values.language == 'python' %}8000{% elif values.language == 'java' %}8080{% elif values.language == 'golang' %}8080{% elif values.language == 'dotnet' %}5000{% endif %}"
         prometheus.io/path: "/metrics"
         {% endif %}
         sidecar.istio.io/inject: "true"
@@ -52,18 +52,18 @@ spec:
         imagePullPolicy: Always
         ports:
         - name: http
-          containerPort: {% if values.language === 'nodejs' %}3000{% elif values.language === 'python' %}8000{% elif values.language === 'java' %}8080{% elif values.language === 'golang' %}8080{% elif values.language === 'dotnet' %}5000{% endif %}
+          containerPort: {% if values.language == 'nodejs' %}3000{% elif values.language == 'python' %}8000{% elif values.language == 'java' %}8080{% elif values.language == 'golang' %}8080{% elif values.language == 'dotnet' %}5000{% endif %}
           protocol: TCP
         {% if values.enable_tracing %}
         - name: metrics
-          containerPort: {% if values.language === 'nodejs' %}9090{% elif values.language === 'python' %}9090{% elif values.language === 'java' %}8081{% elif values.language === 'golang' %}9090{% elif values.language === 'dotnet' %}9090{% endif %}
+          containerPort: {% if values.language == 'nodejs' %}9090{% elif values.language == 'python' %}9090{% elif values.language == 'java' %}8081{% elif values.language == 'golang' %}9090{% elif values.language == 'dotnet' %}9090{% endif %}
           protocol: TCP
         {% endif %}
         env:
         - name: NODE_ENV
           value: "production"
         - name: PORT
-          value: "{% if values.language === 'nodejs' %}3000{% elif values.language === 'python' %}8000{% elif values.language === 'java' %}8080{% elif values.language === 'golang' %}8080{% elif values.language === 'dotnet' %}5000{% endif %}"
+          value: "{% if values.language == 'nodejs' %}3000{% elif values.language == 'python' %}8000{% elif values.language == 'java' %}8080{% elif values.language == 'golang' %}8080{% elif values.language == 'dotnet' %}5000{% endif %}"
         - name: SERVICE_NAME
           value: ${{ values.name }}
         - name: SERVICE_VERSION

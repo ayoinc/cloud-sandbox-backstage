@@ -1,0 +1,20 @@
+---
+# tasks/users.yml - Add users to Docker group
+# Generated for: ${{ values.name }}
+
+- name: Ensure docker group exists
+  ansible.builtin.group:
+    name: docker
+    state: present
+
+- name: Add users to docker group
+  ansible.builtin.user:
+    name: "{{ item }}"
+    groups: docker
+    append: true
+  loop: "{{ docker_users }}"
+  when: docker_users | length > 0
+
+- name: Reset connection to apply group changes
+  ansible.builtin.meta: reset_connection
+  when: ansible_user in docker_users

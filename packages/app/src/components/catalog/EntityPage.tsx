@@ -49,14 +49,59 @@ import {
   RELATION_PART_OF,
   RELATION_PROVIDES_API,
 } from '@backstage/catalog-model';
+import { Entity } from '@backstage/catalog-model';
 
 import { TechDocsAddons } from '@backstage/plugin-techdocs-react';
 import { ReportIssue } from '@backstage/plugin-techdocs-module-addons-contrib';
+
+// GitHub Organization Actions Card
+import { GitHubOrgActionsCard } from '../github';
+
+// Helper to check if TechDocs is available for an entity
+const isTechDocsAvailable = (entity: Entity): boolean =>
+  Boolean(entity?.metadata?.annotations?.['backstage.io/techdocs-ref']);
 
 import {
   EntityKubernetesContent,
   isKubernetesAvailable,
 } from '@backstage/plugin-kubernetes';
+
+// GitHub Actions plugin
+import {
+  EntityGithubActionsContent,
+  isGithubActionsAvailable,
+} from '@backstage/plugin-github-actions';
+
+// =============================================================================
+// PLACEHOLDER: Enterprise Plugins (uncomment when configured)
+// =============================================================================
+// To enable these plugins, configure the corresponding settings in:
+// - app-config.yaml (plugin configuration)
+// - .env (environment variables)
+// - packages/backend/src/index.ts (backend plugins)
+// =============================================================================
+
+// ArgoCD plugin - GitOps deployments
+// Requires: ARGOCD_BASE_URL, ARGOCD_USERNAME, ARGOCD_PASSWORD in .env
+// import {
+//   EntityArgoCDOverviewCard,
+//   isArgocdAvailable,
+// } from '@roadiehq/backstage-plugin-argo-cd';
+
+// SonarQube plugin - Code quality metrics
+// Requires: SONARQUBE_BASE_URL, SONARQUBE_API_KEY in .env
+// import {
+//   EntitySonarQubeCard,
+//   isSonarQubeAvailable,
+// } from '@backstage/plugin-sonarqube';
+
+// Grafana plugin - Dashboards and alerts
+// Requires: GRAFANA_DOMAIN, GRAFANA_TOKEN in .env
+// import {
+//   EntityGrafanaDashboardsCard,
+//   EntityGrafanaAlertsCard,
+//   isGrafanaAvailable,
+// } from '@k-phoen/backstage-plugin-grafana';
 
 const techdocsContent = (
   <EntityTechdocsContent>
@@ -67,16 +112,12 @@ const techdocsContent = (
 );
 
 const cicdContent = (
-  // This is an example of how you can implement your company's logic in entity page.
-  // You can for example enforce that all components of type 'service' should use GitHubActions
+  // CI/CD content with GitHub Actions support
+  // Components need the annotation: github.com/project-slug: <owner>/<repo>
   <EntitySwitch>
-    {/*
-      Here you can add support for different CI/CD services, for example
-      using @backstage-community/plugin-github-actions as follows:
-      <EntitySwitch.Case if={isGithubActionsAvailable}>
-        <EntityGithubActionsContent />
-      </EntitySwitch.Case>
-     */}
+    <EntitySwitch.Case if={isGithubActionsAvailable}>
+      <EntityGithubActionsContent />
+    </EntitySwitch.Case>
     <EntitySwitch.Case>
       <EmptyState
         title="No CI/CD available for this entity"
@@ -183,7 +224,7 @@ const serviceEntityPage = (
       </Grid>
     </EntityLayout.Route>
 
-    <EntityLayout.Route path="/docs" title="Docs">
+    <EntityLayout.Route path="/docs" title="Docs" if={isTechDocsAvailable}>
       {techdocsContent}
     </EntityLayout.Route>
   </EntityLayout>
@@ -218,7 +259,7 @@ const websiteEntityPage = (
       </Grid>
     </EntityLayout.Route>
 
-    <EntityLayout.Route path="/docs" title="Docs">
+    <EntityLayout.Route path="/docs" title="Docs" if={isTechDocsAvailable}>
       {techdocsContent}
     </EntityLayout.Route>
   </EntityLayout>
@@ -237,7 +278,7 @@ const defaultEntityPage = (
       {overviewContent}
     </EntityLayout.Route>
 
-    <EntityLayout.Route path="/docs" title="Docs">
+    <EntityLayout.Route path="/docs" title="Docs" if={isTechDocsAvailable}>
       {techdocsContent}
     </EntityLayout.Route>
   </EntityLayout>
@@ -303,6 +344,9 @@ const userPage = (
         <Grid item xs={12} md={6}>
           <EntityOwnershipCard variant="gridItem" />
         </Grid>
+        <Grid item xs={12} md={6}>
+          <GitHubOrgActionsCard />
+        </Grid>
       </Grid>
     </EntityLayout.Route>
   </EntityLayout>
@@ -323,6 +367,9 @@ const groupPage = (
           <EntityMembersListCard />
         </Grid>
         <Grid item xs={12} md={6}>
+          <GitHubOrgActionsCard />
+        </Grid>
+        <Grid item xs={12}>
           <EntityLinksCard />
         </Grid>
       </Grid>

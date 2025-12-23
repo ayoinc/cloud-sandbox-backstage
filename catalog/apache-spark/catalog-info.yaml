@@ -1,0 +1,18 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: apache-spark
+  title: Apache Spark
+  description: Unified analytics engine for big data
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - spark
+    - big-data
+spec:
+  type: service
+  lifecycle: production
+  owner: data-team
+  system: data-services-platform
+  providesApis:
+    - spark-api

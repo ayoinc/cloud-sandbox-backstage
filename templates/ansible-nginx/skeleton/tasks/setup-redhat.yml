@@ -1,0 +1,13 @@
+---
+# tasks/setup-redhat.yml
+
+- name: Install EPEL repository (CentOS/RHEL 7)
+  ansible.builtin.yum:
+    name: epel-release
+    state: present
+  when: ansible_distribution_major_version | int == 7
+
+- name: Install Nginx
+  ansible.builtin.yum:
+    name: "{{ nginx_package_name }}"
+    state: "{{ nginx_package_state }}"

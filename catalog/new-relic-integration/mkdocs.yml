@@ -1,0 +1,10 @@
+site_name: New Relic Monitoring
+site_description: Application performance monitoring and observability
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

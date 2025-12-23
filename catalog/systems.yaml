@@ -1,6 +1,23 @@
 apiVersion: backstage.io/v1alpha1
 kind: System
 metadata:
+  name: cloud-infrastructure
+  title: Cloud Infrastructure
+  description: Terraform modules and infrastructure-as-code components for cloud providers
+  tags:
+    - terraform
+    - infrastructure-as-code
+    - aws
+    - azure
+    - gcp
+    - cloud
+spec:
+  owner: group:default/platform-team
+  domain: cloud-sandbox
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
   name: awx-automation-platform
   title: AWX Automation Platform
   description: Complete Ansible automation platform including AWX core and operator

@@ -1,0 +1,19 @@
+site_name: ${{ values.name }}
+site_description: ${{ values.description }}
+
+nav:
+  - Home: index.md
+  - Alerts: alerts.md
+  - Dashboards: dashboards.md
+  - Runbooks: runbooks.md
+
+plugins:
+  - techdocs-core
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables

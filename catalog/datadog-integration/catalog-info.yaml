@@ -1,0 +1,19 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: datadog-integration
+  title: Datadog Monitoring Integration
+  description: Datadog APM, infrastructure monitoring, and log management
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - datadog
+    - apm
+    - monitoring
+spec:
+  type: service
+  lifecycle: production
+  owner: sre-team
+  system: observability-platform
+  providesApis:
+    - datadog-api

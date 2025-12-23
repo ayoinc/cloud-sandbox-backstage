@@ -1,4 +1,4 @@
-{% if values.ci_cd_platform === 'github-actions' %}
+{% if values.ci_cd_platform == 'github-actions' %}
 name: CI/CD Pipeline
 
 on:
@@ -10,11 +10,11 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ values.destination.owner }}/${{ values.name }}
-  {% if values.cloud_provider === 'aws' %}
+  {% if values.cloud_provider == 'aws' %}
   AWS_REGION: us-west-2
-  {% elif values.cloud_provider === 'azure' %}
+  {% elif values.cloud_provider == 'azure' %}
   AZURE_REGION: eastus
-  {% elif values.cloud_provider === 'gcp' %}
+  {% elif values.cloud_provider == 'gcp' %}
   GCP_REGION: us-central1
   {% endif %}
 
@@ -29,15 +29,15 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        {% if values.language === 'nodejs' %}
+        {% if values.language == 'nodejs' %}
         node-version: [18.x, 20.x]
-        {% elif values.language === 'python' %}
+        {% elif values.language == 'python' %}
         python-version: ['3.9', '3.10', '3.11']
-        {% elif values.language === 'java' %}
+        {% elif values.language == 'java' %}
         java-version: ['11', '17', '21']
-        {% elif values.language === 'golang' %}
+        {% elif values.language == 'golang' %}
         go-version: ['1.20', '1.21']
-        {% elif values.language === 'dotnet' %}
+        {% elif values.language == 'dotnet' %}
         dotnet-version: ['6.0', '7.0', '8.0']
         {% endif %}
     
@@ -47,7 +47,7 @@ jobs:
       with:
         fetch-depth: 0
 
-    {% if values.language === 'nodejs' %}
+    {% if values.language == 'nodejs' %}
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
@@ -65,7 +65,7 @@ jobs:
       run: npm run test:coverage
     {% endif %}
     
-    {% elif values.language === 'python' %}
+    {% elif values.language == 'python' %}
     - name: Setup Python
       uses: actions/setup-python@v4
       with:
@@ -89,7 +89,7 @@ jobs:
         pytest --cov=app --cov-report=xml --cov-report=html
     {% endif %}
     
-    {% elif values.language === 'java' %}
+    {% elif values.language == 'java' %}
     - name: Setup JDK
       uses: actions/setup-java@v4
       with:
@@ -111,7 +111,7 @@ jobs:
       run: mvn clean test jacoco:report
     {% endif %}
     
-    {% elif values.language === 'golang' %}
+    {% elif values.language == 'golang' %}
     - name: Setup Go
       uses: actions/setup-go@v4
       with:
@@ -127,7 +127,7 @@ jobs:
       run: go test -v -race -coverprofile=coverage.out ./...
     {% endif %}
     
-    {% elif values.language === 'dotnet' %}
+    {% elif values.language == 'dotnet' %}
     - name: Setup .NET
       uses: actions/setup-dotnet@v3
       with:
@@ -256,7 +256,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    {% if values.cloud_provider === 'aws' %}
+    {% if values.cloud_provider == 'aws' %}
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
@@ -267,7 +267,7 @@ jobs:
     - name: Update kubeconfig
       run: aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name staging-cluster
     
-    {% elif values.cloud_provider === 'azure' %}
+    {% elif values.cloud_provider == 'azure' %}
     - name: Azure Login
       uses: azure/login@v1
       with:
@@ -279,7 +279,7 @@ jobs:
     - name: Get AKS credentials
       run: az aks get-credentials --resource-group staging-rg --name staging-aks
     
-    {% elif values.cloud_provider === 'gcp' %}
+    {% elif values.cloud_provider == 'gcp' %}
     - name: Setup Google Cloud CLI
       uses: google-github-actions/setup-gcloud@v1
       with:
@@ -310,7 +310,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    {% if values.cloud_provider === 'aws' %}
+    {% if values.cloud_provider == 'aws' %}
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
@@ -321,7 +321,7 @@ jobs:
     - name: Update kubeconfig
       run: aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name production-cluster
     
-    {% elif values.cloud_provider === 'azure' %}
+    {% elif values.cloud_provider == 'azure' %}
     - name: Azure Login
       uses: azure/login@v1
       with:
@@ -333,7 +333,7 @@ jobs:
     - name: Get AKS credentials
       run: az aks get-credentials --resource-group production-rg --name production-aks
     
-    {% elif values.cloud_provider === 'gcp' %}
+    {% elif values.cloud_provider == 'gcp' %}
     - name: Setup Google Cloud CLI
       uses: google-github-actions/setup-gcloud@v1
       with:
@@ -344,7 +344,7 @@ jobs:
       run: gcloud container clusters get-credentials production-cluster --zone ${{ env.GCP_REGION }}
     {% endif %}
     
-    {% if values.deployment_strategy === 'canary' %}
+    {% if values.deployment_strategy == 'canary' %}
     - name: Canary deployment
       run: |
         # Deploy canary version (10% traffic)
@@ -362,7 +362,7 @@ jobs:
         # Cleanup canary
         kubectl delete -f k8s/canary/
     
-    {% elif values.deployment_strategy === 'blue-green' %}
+    {% elif values.deployment_strategy == 'blue-green' %}
     - name: Blue-Green deployment
       run: |
         # Deploy to green environment

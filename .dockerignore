@@ -45,7 +45,6 @@ dist
 .prettierignore
 .prettierrc
 playwright.config.ts
-tsconfig.json
 
 # Docker development files
 docker-compose.dev.yaml

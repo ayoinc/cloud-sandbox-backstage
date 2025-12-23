@@ -1,0 +1,61 @@
+---
+# defaults/main.yml - Default variables for Docker role
+# Generated for: ${{ values.name }}
+
+# Docker edition: 'ce' (Community) or 'ee' (Enterprise)
+docker_edition: ${{ values.dockerEdition }}
+
+# Docker version (leave empty for latest)
+docker_version: "${{ values.dockerVersion }}"
+
+# Docker release channel: stable, edge, or test
+docker_channel: stable
+
+# Docker package name
+docker_package: "docker-{{ docker_edition }}"
+
+# Package state: present, latest, or absent
+docker_package_state: present
+
+# Docker Compose installation
+docker_compose_install: ${{ values.dockerComposeInstall }}
+docker_compose_version: ""
+
+# Users to add to the docker group
+docker_users: []
+
+# Docker service configuration
+docker_service_enabled: true
+docker_service_state: started
+docker_restart_handler_state: restarted
+
+# Docker daemon configuration (written to /etc/docker/daemon.json)
+docker_daemon_options: {}
+
+# Storage configuration
+docker_storage_driver: ""
+docker_data_root: ""
+
+# Network configuration
+docker_default_address_pool: []
+docker_dns: []
+docker_dns_search: []
+
+# Registry configuration
+docker_insecure_registries: []
+docker_registry_mirrors: []
+
+# Logging configuration
+docker_log_driver: "json-file"
+docker_log_options:
+  max-size: "10m"
+  max-file: "3"
+
+# APT/YUM repository configuration
+docker_apt_release_channel: stable
+docker_apt_arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
+docker_apt_repository: "deb [arch={{ docker_apt_arch }}] https://download.docker.com/linux/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} {{ docker_apt_release_channel }}"
+docker_apt_gpg_key: "https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg"
+
+docker_yum_repo_url: "https://download.docker.com/linux/{{ (ansible_distribution == 'Fedora') | ternary('fedora','centos') }}/docker-{{ docker_edition }}.repo"
+docker_yum_gpg_key: "https://download.docker.com/linux/{{ (ansible_distribution == 'Fedora') | ternary('fedora','centos') }}/gpg"

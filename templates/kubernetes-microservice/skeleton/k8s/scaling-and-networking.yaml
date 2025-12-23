@@ -137,8 +137,8 @@ spec:
           app: nginx-ingress
     ports:
     - protocol: TCP
-      port: {% if values.language === 'nodejs' %}3000{% elif values.language === 'python' %}8000{% elif values.language === 'java' %}8080{% elif values.language === 'golang' %}8080{% elif values.language === 'dotnet' %}5000{% endif %}
-  {% if values.monitoring_stack === 'prometheus-grafana' %}
+      port: {% if values.language == 'nodejs' %}3000{% elif values.language == 'python' %}8000{% elif values.language == 'java' %}8080{% elif values.language == 'golang' %}8080{% elif values.language == 'dotnet' %}5000{% endif %}
+  {% if values.monitoring_stack == 'prometheus-grafana' %}
   - from:
     - namespaceSelector:
         matchLabels:
@@ -166,7 +166,7 @@ spec:
           app: ${{ values.name }}-database
     ports:
     - protocol: TCP
-      port: {% if values.database_type === 'postgresql' %}5432{% elif values.database_type === 'mysql' %}3306{% elif values.database_type === 'mongodb' %}27017{% elif values.database_type === 'redis' %}6379{% endif %}
+      port: {% if values.database_type == 'postgresql' %}5432{% elif values.database_type == 'mysql' %}3306{% elif values.database_type == 'mongodb' %}27017{% elif values.database_type == 'redis' %}6379{% endif %}
   {% endif %}
   {% if values.message_queue !== 'none' %}
   # Allow message queue access
@@ -176,5 +176,5 @@ spec:
           app: ${{ values.name }}-messagequeue
     ports:
     - protocol: TCP
-      port: {% if values.message_queue === 'rabbitmq' %}5672{% elif values.message_queue === 'kafka' %}9092{% elif values.message_queue === 'redis-pub-sub' %}6379{% endif %}
+      port: {% if values.message_queue == 'rabbitmq' %}5672{% elif values.message_queue == 'kafka' %}9092{% elif values.message_queue == 'redis-pub-sub' %}6379{% endif %}
   {% endif %}

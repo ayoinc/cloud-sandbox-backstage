@@ -1,0 +1,151 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: aws-eks-cluster
+  title: AWS EKS Cluster
+  description: Create an EKS Kubernetes cluster with managed node groups and cluster autoscaler
+  tags:
+    - aws
+    - eks
+    - kubernetes
+    - terraform
+    - devops
+    - platform
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: group:platform-team
+  type: infrastructure
+  
+  parameters:
+    - title: Project Information
+      required:
+        - name
+        - owner
+      properties:
+        name:
+          title: Cluster Name
+          type: string
+          description: Name of the EKS cluster
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Purpose of this cluster
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns this resource
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+              
+    - title: Cluster Configuration
+      required:
+        - environment
+        - region
+        - kubernetesVersion
+      properties:
+        environment:
+          title: Environment
+          type: string
+          enum:
+            - development
+            - staging
+            - production
+          default: development
+        region:
+          title: AWS Region
+          type: string
+          enum:
+            - us-east-1
+            - us-west-2
+            - eu-west-1
+            - eu-central-1
+            - ap-southeast-1
+          default: us-east-1
+        kubernetesVersion:
+          title: Kubernetes Version
+          type: string
+          enum:
+            - "1.29"
+            - "1.28"
+            - "1.27"
+          default: "1.29"
+        nodeInstanceType:
+          title: Node Instance Type
+          type: string
+          enum:
+            - t3.medium
+            - t3.large
+            - m6i.large
+            - m6i.xlarge
+          default: t3.large
+        nodeDesiredSize:
+          title: Desired Node Count
+          type: integer
+          default: 2
+          minimum: 1
+          maximum: 10
+        nodeMaxSize:
+          title: Maximum Node Count
+          type: integer
+          default: 5
+          minimum: 1
+          maximum: 20
+          
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          environment: ${{ parameters.environment }}
+          region: ${{ parameters.region }}
+          kubernetesVersion: ${{ parameters.kubernetesVersion }}
+          nodeInstanceType: ${{ parameters.nodeInstanceType }}
+          nodeDesiredSize: ${{ parameters.nodeDesiredSize }}
+          nodeMaxSize: ${{ parameters.nodeMaxSize }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        repoUrl: ${{ parameters.repoUrl }}
+        description: 'AWS EKS Cluster: ${{ parameters.name }}'
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

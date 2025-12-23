@@ -1,0 +1,117 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: ansible-nginx-role-template
+  title: Ansible Nginx Role
+  description: Create an Ansible role for installing and configuring Nginx web server
+  tags:
+    - ansible
+    - nginx
+    - webserver
+    - automation
+spec:
+  owner: platform-team
+  type: ansible-role
+
+  parameters:
+    - title: Role Configuration
+      required:
+        - name
+        - description
+        - owner
+      properties:
+        name:
+          title: Role Name
+          type: string
+          description: Name for this Ansible role
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Description of what this role does
+        owner:
+          title: Owner
+          type: string
+          description: Owner of this role
+          ui:field: OwnerPicker
+          ui:options:
+            allowedKinds:
+              - Group
+              - User
+
+    - title: Nginx Configuration
+      properties:
+        nginxWorkerProcesses:
+          title: Worker Processes
+          type: string
+          description: Number of worker processes (auto for CPU count)
+          default: auto
+        nginxWorkerConnections:
+          title: Worker Connections
+          type: number
+          description: Maximum connections per worker
+          default: 1024
+        enableSsl:
+          title: Enable SSL/TLS Support
+          type: boolean
+          description: Configure SSL/TLS support
+          default: true
+        enableGzip:
+          title: Enable Gzip Compression
+          type: boolean
+          description: Enable response compression
+          default: true
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: template
+      name: Fetch Skeleton
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          nginxWorkerProcesses: ${{ parameters.nginxWorkerProcesses }}
+          nginxWorkerConnections: ${{ parameters.nginxWorkerConnections }}
+          enableSsl: ${{ parameters.enableSsl }}
+          enableGzip: ${{ parameters.enableGzip }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish
+      action: publish:github
+      input:
+        allowedHosts:
+          - github.com
+        description: ${{ parameters.description }}
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: main
+        repoVisibility: private
+
+    - id: register
+      name: Register
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: /catalog-info.yaml
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}

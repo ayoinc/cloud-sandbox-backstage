@@ -1,0 +1,137 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: data-airflow
+  title: Airflow DAG Project
+  description: Create an Apache Airflow DAG project with best practices, testing, and CI/CD
+  tags:
+    - data
+    - airflow
+    - etl
+    - python
+    - data-engineering
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: group:data-engineering
+  type: service
+
+  parameters:
+    - title: Project Information
+      required:
+        - name
+        - owner
+      properties:
+        name:
+          title: Project Name
+          type: string
+          description: Name of the Airflow DAG project
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Purpose of this DAG project
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns this resource
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+    - title: DAG Configuration
+      required:
+        - environment
+        - schedule
+      properties:
+        environment:
+          title: Environment
+          type: string
+          enum:
+            - development
+            - staging
+            - production
+          default: development
+        schedule:
+          title: Schedule Interval
+          type: string
+          enum:
+            - "@hourly"
+            - "@daily"
+            - "@weekly"
+            - "@monthly"
+            - "0 0 * * *"
+            - "0 */6 * * *"
+          default: "@daily"
+          description: Cron expression or preset for DAG scheduling
+        startDate:
+          title: Start Date
+          type: string
+          default: "2024-01-01"
+          description: DAG start date (YYYY-MM-DD)
+        catchup:
+          title: Enable Catchup
+          type: boolean
+          default: false
+          description: Whether to backfill missed DAG runs
+        maxActiveRuns:
+          title: Max Active Runs
+          type: integer
+          default: 1
+          minimum: 1
+          maximum: 10
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          environment: ${{ parameters.environment }}
+          schedule: ${{ parameters.schedule }}
+          startDate: ${{ parameters.startDate }}
+          catchup: ${{ parameters.catchup }}
+          maxActiveRuns: ${{ parameters.maxActiveRuns }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        repoUrl: ${{ parameters.repoUrl }}
+        description: 'Airflow DAG Project: ${{ parameters.name }}'
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

@@ -1,0 +1,21 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: elk-stack
+  title: ELK Stack
+  description: Centralized logging with Elasticsearch, Logstash, Kibana
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - elasticsearch
+    - logstash
+    - kibana
+    - logging
+spec:
+  type: service
+  lifecycle: production
+  owner: sre-team
+  system: observability-platform
+  providesApis:
+    - elasticsearch-api
+    - kibana-api

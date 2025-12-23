@@ -1,0 +1,10 @@
+site_name: Performance Testing Suite
+site_description: Load testing, stress testing, and performance monitoring
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

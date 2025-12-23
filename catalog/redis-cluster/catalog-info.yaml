@@ -1,0 +1,18 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: redis-cluster
+  title: Redis Cluster
+  description: Redis in-memory data store cluster
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - redis
+    - cache
+spec:
+  type: service
+  lifecycle: production
+  owner: data-team
+  system: data-services-platform
+  providesApis:
+    - redis-api

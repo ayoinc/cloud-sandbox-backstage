@@ -1,0 +1,87 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: github-team-template
+  title: Create GitHub Team
+  description: Create a new team in the GitHub organization. The team will automatically sync to Backstage.
+  tags:
+    - github
+    - team
+    - organization
+    - management
+spec:
+  owner: platform-team
+  type: management
+  parameters:
+    - title: Team Information
+      required:
+        - teamName
+        - description
+      properties:
+        teamName:
+          title: Team Name
+          type: string
+          description: The name of the team to create
+          pattern: '^[a-zA-Z][a-zA-Z0-9\-_ ]+$'
+          ui:autofocus: true
+          ui:help: 'Use letters, numbers, hyphens, underscores, or spaces'
+        description:
+          title: Description
+          type: string
+          description: A brief description of the team's purpose
+        privacy:
+          title: Team Privacy
+          type: string
+          description: The level of privacy for this team
+          default: closed
+          enum:
+            - closed
+            - secret
+          enumNames:
+            - Closed (visible to all org members)
+            - Secret (only visible to team members)
+        notificationSetting:
+          title: Notification Setting
+          type: string
+          description: How team members receive notifications
+          default: notifications_enabled
+          enum:
+            - notifications_enabled
+            - notifications_disabled
+          enumNames:
+            - Enabled
+            - Disabled
+
+  steps:
+    - id: log-start
+      name: Starting Team Creation
+      action: debug:log
+      input:
+        message: 'Creating GitHub team: ${{ parameters.teamName }}'
+
+    - id: create-team
+      name: Create GitHub Team
+      action: http:backstage:request
+      input:
+        method: POST
+        path: /proxy/github-api/orgs/ContainerCode/teams
+        headers:
+          Content-Type: application/json
+        body:
+          name: ${{ parameters.teamName }}
+          description: ${{ parameters.description }}
+          privacy: ${{ parameters.privacy }}
+          notification_setting: ${{ parameters.notificationSetting }}
+
+    - id: log-complete
+      name: Team Creation Complete
+      action: debug:log
+      input:
+        message: 'GitHub team "${{ parameters.teamName }}" created! It will sync to Backstage within 5 minutes.'
+
+  output:
+    links:
+      - title: View Team on GitHub
+        url: https://github.com/orgs/ContainerCode/teams
+      - title: View Groups in Backstage (after sync)
+        url: /catalog?filters[kind]=group

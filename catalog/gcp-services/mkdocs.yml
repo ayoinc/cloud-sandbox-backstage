@@ -1,0 +1,10 @@
+site_name: Google Cloud Platform Services
+site_description: GCP cloud services and infrastructure
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

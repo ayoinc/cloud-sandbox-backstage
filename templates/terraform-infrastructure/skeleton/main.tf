@@ -5,19 +5,19 @@ terraform {
   required_version = "${{ values.terraform_version }}"
   
   required_providers {
-    {% if values.cloud_provider === 'aws' or values.cloud_provider === 'multi-cloud' %}
+    {% if values.cloud_provider == 'aws' or values.cloud_provider == 'multi-cloud' %}
     aws = {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
     {% endif %}
-    {% if values.cloud_provider === 'azure' or values.cloud_provider === 'multi-cloud' %}
+    {% if values.cloud_provider == 'azure' or values.cloud_provider == 'multi-cloud' %}
     azurerm = {
       source  = "hashicorp/azurerm"
       version = "~> 3.0"
     }
     {% endif %}
-    {% if values.cloud_provider === 'gcp' or values.cloud_provider === 'multi-cloud' %}
+    {% if values.cloud_provider == 'gcp' or values.cloud_provider == 'multi-cloud' %}
     google = {
       source  = "hashicorp/google"
       version = "~> 5.0"
@@ -54,7 +54,7 @@ terraform {
 }
 
 # Provider configurations
-{% if values.cloud_provider === 'aws' or values.cloud_provider === 'multi-cloud' %}
+{% if values.cloud_provider == 'aws' or values.cloud_provider == 'multi-cloud' %}
 provider "aws" {
   region = var.aws_region
   
@@ -64,7 +64,7 @@ provider "aws" {
 }
 {% endif %}
 
-{% if values.cloud_provider === 'azure' or values.cloud_provider === 'multi-cloud' %}
+{% if values.cloud_provider == 'azure' or values.cloud_provider == 'multi-cloud' %}
 provider "azurerm" {
   features {
     resource_group {
@@ -74,7 +74,7 @@ provider "azurerm" {
 }
 {% endif %}
 
-{% if values.cloud_provider === 'gcp' or values.cloud_provider === 'multi-cloud' %}
+{% if values.cloud_provider == 'gcp' or values.cloud_provider == 'multi-cloud' %}
 provider "google" {
   project = var.gcp_project_id
   region  = var.gcp_region
@@ -84,16 +84,16 @@ provider "google" {
 {% if values.enable_kubernetes %}
 # Kubernetes provider configuration (configured after cluster creation)
 provider "kubernetes" {
-  {% if values.cloud_provider === 'aws' %}
+  {% if values.cloud_provider == 'aws' %}
   host                   = module.eks[0].cluster_endpoint
   cluster_ca_certificate = base64decode(module.eks[0].cluster_certificate_authority_data)
   token                  = data.aws_eks_cluster_auth.cluster[0].token
-  {% elif values.cloud_provider === 'azure' %}
+  {% elif values.cloud_provider == 'azure' %}
   host                   = module.aks[0].kube_config.0.host
   client_certificate     = base64decode(module.aks[0].kube_config.0.client_certificate)
   client_key             = base64decode(module.aks[0].kube_config.0.client_key)
   cluster_ca_certificate = base64decode(module.aks[0].kube_config.0.cluster_ca_certificate)
-  {% elif values.cloud_provider === 'gcp' %}
+  {% elif values.cloud_provider == 'gcp' %}
   host                   = "https://${module.gke[0].endpoint}"
   token                  = data.google_client_config.default.access_token
   cluster_ca_certificate = base64decode(module.gke[0].ca_certificate)
@@ -102,16 +102,16 @@ provider "kubernetes" {
 
 provider "helm" {
   kubernetes {
-    {% if values.cloud_provider === 'aws' %}
+    {% if values.cloud_provider == 'aws' %}
     host                   = module.eks[0].cluster_endpoint
     cluster_ca_certificate = base64decode(module.eks[0].cluster_certificate_authority_data)
     token                  = data.aws_eks_cluster_auth.cluster[0].token
-    {% elif values.cloud_provider === 'azure' %}
+    {% elif values.cloud_provider == 'azure' %}
     host                   = module.aks[0].kube_config.0.host
     client_certificate     = base64decode(module.aks[0].kube_config.0.client_certificate)
     client_key             = base64decode(module.aks[0].kube_config.0.client_key)
     cluster_ca_certificate = base64decode(module.aks[0].kube_config.0.cluster_ca_certificate)
-    {% elif values.cloud_provider === 'gcp' %}
+    {% elif values.cloud_provider == 'gcp' %}
     host                   = "https://${module.gke[0].endpoint}"
     token                  = data.google_client_config.default.access_token
     cluster_ca_certificate = base64decode(module.gke[0].ca_certificate)
@@ -150,7 +150,7 @@ locals {
 }
 
 # Data sources
-{% if values.cloud_provider === 'aws' or values.cloud_provider === 'multi-cloud' %}
+{% if values.cloud_provider == 'aws' or values.cloud_provider == 'multi-cloud' %}
 data "aws_availability_zones" "available" {
   count = var.cloud_provider == "aws" || var.cloud_provider == "multi-cloud" ? 1 : 0
   state = "available"
@@ -168,7 +168,7 @@ data "aws_eks_cluster_auth" "cluster" {
 {% endif %}
 {% endif %}
 
-{% if values.cloud_provider === 'gcp' or values.cloud_provider === 'multi-cloud' %}
+{% if values.cloud_provider == 'gcp' or values.cloud_provider == 'multi-cloud' %}
 data "google_client_config" "default" {
   count = var.cloud_provider == "gcp" || var.cloud_provider == "multi-cloud" ? 1 : 0
 }
@@ -186,7 +186,7 @@ resource "random_id" "suffix" {
 }
 
 # Infrastructure modules based on cloud provider
-{% if values.cloud_provider === 'aws' or values.cloud_provider === 'multi-cloud' %}
+{% if values.cloud_provider == 'aws' or values.cloud_provider == 'multi-cloud' %}
 module "aws_infrastructure" {
   count  = var.cloud_provider == "aws" || var.cloud_provider == "multi-cloud" ? 1 : 0
   source = "./modules/aws"
@@ -233,7 +233,7 @@ module "aws_infrastructure" {
 }
 {% endif %}
 
-{% if values.cloud_provider === 'azure' or values.cloud_provider === 'multi-cloud' %}
+{% if values.cloud_provider == 'azure' or values.cloud_provider == 'multi-cloud' %}
 module "azure_infrastructure" {
   count  = var.cloud_provider == "azure" || var.cloud_provider == "multi-cloud" ? 1 : 0
   source = "./modules/azure"
@@ -274,7 +274,7 @@ module "azure_infrastructure" {
 }
 {% endif %}
 
-{% if values.cloud_provider === 'gcp' or values.cloud_provider === 'multi-cloud' %}
+{% if values.cloud_provider == 'gcp' or values.cloud_provider == 'multi-cloud' %}
 module "gcp_infrastructure" {
   count  = var.cloud_provider == "gcp" || var.cloud_provider == "multi-cloud" ? 1 : 0
   source = "./modules/gcp"
@@ -317,19 +317,19 @@ module "gcp_infrastructure" {
 }
 {% endif %}
 
-{% if values.enable_monitoring and values.monitoring_solution === 'prometheus-grafana' %}
+{% if values.enable_monitoring and values.monitoring_solution == 'prometheus-grafana' %}
 # Monitoring stack deployment
 module "monitoring" {
   source = "./modules/monitoring"
   
   cluster_name     = var.enable_kubernetes ? (
-    {% if values.cloud_provider === 'aws' %}
+    {% if values.cloud_provider == 'aws' %}
     var.cloud_provider == "aws" ? module.eks[0].cluster_name :
     {% endif %}
-    {% if values.cloud_provider === 'azure' %}
+    {% if values.cloud_provider == 'azure' %}
     var.cloud_provider == "azure" ? module.aks[0].cluster_name :
     {% endif %}
-    {% if values.cloud_provider === 'gcp' %}
+    {% if values.cloud_provider == 'gcp' %}
     var.cloud_provider == "gcp" ? module.gke[0].cluster_name :
     {% endif %}
     ""
@@ -342,13 +342,13 @@ module "monitoring" {
   common_tags = local.common_tags
   
   depends_on = [
-    {% if values.cloud_provider === 'aws' %}
+    {% if values.cloud_provider == 'aws' %}
     module.eks,
     {% endif %}
-    {% if values.cloud_provider === 'azure' %}
+    {% if values.cloud_provider == 'azure' %}
     module.aks,
     {% endif %}
-    {% if values.cloud_provider === 'gcp' %}
+    {% if values.cloud_provider == 'gcp' %}
     module.gke,
     {% endif %}
   ]

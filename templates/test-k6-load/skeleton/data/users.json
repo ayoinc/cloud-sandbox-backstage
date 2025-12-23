@@ -1,0 +1,12 @@
+{
+  "users": [
+    { "username": "user1", "password": "pass123" },
+    { "username": "user2", "password": "pass456" },
+    { "username": "user3", "password": "pass789" }
+  ],
+  "products": [
+    { "id": 1, "name": "Product A" },
+    { "id": 2, "name": "Product B" },
+    { "id": 3, "name": "Product C" }
+  ]
+}

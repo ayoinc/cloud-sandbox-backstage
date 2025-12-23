@@ -1,0 +1,23 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: ${{ values.name }}
+  description: ${{ values.description }}
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: ${{ values.repoUrl | replace("https://github.com/", "") }}
+  tags:
+    - aws
+    - rds
+    - database
+    - ${{ values.engine }}
+    - ${{ values.environment }}
+  links:
+    - url: https://console.aws.amazon.com/rds/home
+      title: AWS Console
+      icon: cloud
+spec:
+  type: database
+  owner: ${{ values.owner }}
+  lifecycle: ${{ values.environment }}
+  system: cloud-infrastructure

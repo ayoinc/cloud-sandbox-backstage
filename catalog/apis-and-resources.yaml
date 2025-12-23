@@ -1,0 +1,1480 @@
+# =============================================================================
+# APIs and Resources for Cloud Sandbox Backstage
+# =============================================================================
+# This file contains all API and Resource definitions.
+# Component definitions have been moved to individual directories with TechDocs.
+# =============================================================================
+
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: aws-api
+  title: AWS Services API
+  description: AWS SDK and service integrations
+  tags:
+    - aws
+    - sdk
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: cloud-team
+  system: cloud-services-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: AWS Services API
+      version: 1.0.0
+      description: AWS SDK and service integrations
+    paths:
+      /ec2/instances:
+        get:
+          summary: List EC2 instances
+          responses:
+            '200':
+              description: List of instances
+      /s3/buckets:
+        get:
+          summary: List S3 buckets
+          responses:
+            '200':
+              description: List of buckets
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: azure-api
+  title: Azure Services API
+  description: Azure SDK and REST API integrations
+  tags:
+    - azure
+    - sdk
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: cloud-team
+  system: cloud-services-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Azure Services API
+      version: 1.0.0
+      description: Azure SDK and REST API integrations
+    paths:
+      /vms:
+        get:
+          summary: List Virtual Machines
+          responses:
+            '200':
+              description: List of VMs
+      /storage/accounts:
+        get:
+          summary: List Storage Accounts
+          responses:
+            '200':
+              description: List of storage accounts
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: gcp-api
+  title: Google Cloud API
+  description: GCP SDK and API integrations
+  tags:
+    - gcp
+    - sdk
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: cloud-team
+  system: cloud-services-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Google Cloud API
+      version: 1.0.0
+      description: GCP SDK and API integrations
+    paths:
+      /compute/instances:
+        get:
+          summary: List Compute instances
+          responses:
+            '200':
+              description: List of instances
+      /storage/buckets:
+        get:
+          summary: List Cloud Storage buckets
+          responses:
+            '200':
+              description: List of buckets
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: aws-account
+  title: AWS Production Account
+  description: Main AWS account for production workloads
+  tags:
+    - aws
+    - account
+    - production
+spec:
+  type: cloud-account
+  owner: cloud-team
+  system: cloud-services-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: azure-subscription
+  title: Azure Production Subscription
+  description: Azure subscription for production resources
+  tags:
+    - azure
+    - subscription
+    - production
+spec:
+  type: cloud-subscription
+  owner: cloud-team
+  system: cloud-services-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: gcp-project
+  title: GCP Production Project
+  description: Google Cloud project for production workloads
+  tags:
+    - gcp
+    - project
+    - production
+spec:
+  type: cloud-project
+  owner: cloud-team
+  system: cloud-services-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: postgresql-api
+  title: PostgreSQL API
+  description: PostgreSQL database connection and query interface
+  tags:
+    - postgresql
+    - sql
+    - database
+spec:
+  type: openapi
+  lifecycle: production
+  owner: data-team
+  system: data-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: PostgreSQL API
+      version: 1.0.0
+    paths:
+      /query:
+        post:
+          summary: Execute SQL query
+          responses:
+            '200':
+              description: Query results
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: mongodb-api
+  title: MongoDB API
+  description: MongoDB database driver and query API
+  tags:
+    - mongodb
+    - nosql
+    - database
+spec:
+  type: openapi
+  lifecycle: production
+  owner: data-team
+  system: data-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: MongoDB API
+      version: 1.0.0
+    paths:
+      /collections:
+        get:
+          summary: List collections
+          responses:
+            '200':
+              description: Collection list
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: redis-api
+  title: Redis API
+  description: Redis cache and data structure server API
+  tags:
+    - redis
+    - cache
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: data-team
+  system: data-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Redis API
+      version: 1.0.0
+    paths:
+      /keys:
+        get:
+          summary: List keys
+          responses:
+            '200':
+              description: Key list
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: kafka-api
+  title: Kafka API
+  description: Kafka producer and consumer API
+  tags:
+    - kafka
+    - streaming
+    - messaging
+spec:
+  type: asyncapi
+  lifecycle: production
+  owner: data-team
+  system: data-platform
+  definition: |
+    asyncapi: 2.0.0
+    info:
+      title: Kafka Streaming API
+      version: '1.0.0'
+    servers:
+      production:
+        url: kafka.company.com:9092
+        protocol: kafka
+    channels:
+      user.events:
+        subscribe:
+          message:
+            payload:
+              type: object
+              properties:
+                userId:
+                  type: string
+                event:
+                  type: string
+                timestamp:
+                  type: string
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: rabbitmq-api
+  title: RabbitMQ API
+  description: RabbitMQ AMQP messaging API
+  tags:
+    - rabbitmq
+    - amqp
+    - messaging
+spec:
+  type: asyncapi
+  lifecycle: production
+  owner: data-team
+  system: data-platform
+  definition: |
+    asyncapi: 2.0.0
+    info:
+      title: RabbitMQ AMQP API
+      version: '1.0.0'
+    servers:
+      production:
+        url: rabbitmq.company.com:5672
+        protocol: amqp
+    channels:
+      task.queue:
+        subscribe:
+          message:
+            payload:
+              type: object
+              properties:
+                taskId:
+                  type: string
+                payload:
+                  type: object
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: s3-api
+  title: S3 Compatible API
+  description: S3-compatible object storage API
+  tags:
+    - s3
+    - object-storage
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: data-team
+  system: data-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: S3 Compatible API
+      version: 1.0.0
+    paths:
+      /buckets:
+        get:
+          summary: List buckets
+          responses:
+            '200':
+              description: List of buckets
+      /buckets/{bucket}/objects:
+        get:
+          summary: List objects in bucket
+          parameters:
+            - name: bucket
+              in: path
+              required: true
+              schema:
+                type: string
+          responses:
+            '200':
+              description: List of objects
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: airflow-api
+  title: Airflow REST API
+  description: Apache Airflow workflow management API
+  tags:
+    - airflow
+    - workflow
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: data-team
+  system: data-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Apache Airflow API
+      version: 2.6.0
+    paths:
+      /dags:
+        get:
+          summary: List DAGs
+          responses:
+            '200':
+              description: List of DAGs
+      /dags/{dag_id}/dagRuns:
+        get:
+          summary: List DAG runs
+          parameters:
+            - name: dag_id
+              in: path
+              required: true
+              schema:
+                type: string
+          responses:
+            '200':
+              description: List of DAG runs
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: spark-api
+  title: Spark REST API
+  description: Apache Spark cluster management API
+  tags:
+    - spark
+    - api
+    - big-data
+spec:
+  type: openapi
+  lifecycle: production
+  owner: data-team
+  system: data-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Apache Spark API
+      version: 3.4.0
+    paths:
+      /applications:
+        get:
+          summary: List applications
+          responses:
+            '200':
+              description: List of Spark applications
+      /applications/{appId}/jobs:
+        get:
+          summary: List jobs for application
+          parameters:
+            - name: appId
+              in: path
+              required: true
+              schema:
+                type: string
+          responses:
+            '200':
+              description: List of jobs
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: elasticsearch-data-api
+  title: Elasticsearch Data API
+  description: Elasticsearch search and indexing API for data platform
+  tags:
+    - elasticsearch
+    - search
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: data-team
+  system: data-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Elasticsearch Data API
+      version: 8.8.0
+    paths:
+      /_search:
+        post:
+          summary: Search documents
+          responses:
+            '200':
+              description: Search results
+      /{index}/_doc:
+        post:
+          summary: Index document
+          parameters:
+            - name: index
+              in: path
+              required: true
+              schema:
+                type: string
+          responses:
+            '201':
+              description: Document indexed
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: postgresql-storage
+  title: PostgreSQL Storage
+  description: Persistent storage for PostgreSQL databases
+  tags:
+    - storage
+    - postgresql
+    - persistent
+spec:
+  type: storage
+  owner: platform-team
+  system: data-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: mongodb-storage
+  title: MongoDB Storage
+  description: Persistent storage for MongoDB data
+  tags:
+    - storage
+    - mongodb
+    - persistent
+spec:
+  type: storage
+  owner: platform-team
+  system: data-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: redis-storage
+  title: Redis Storage
+  description: Persistent storage for Redis data
+  tags:
+    - storage
+    - redis
+    - persistent
+spec:
+  type: storage
+  owner: platform-team
+  system: data-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: kafka-storage
+  title: Kafka Storage
+  description: Persistent storage for Kafka topics and logs
+  tags:
+    - storage
+    - kafka
+    - streaming
+spec:
+  type: storage
+  owner: platform-team
+  system: data-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: minio-storage-backend
+  title: MinIO Storage Backend
+  description: Backend storage for MinIO object storage
+  tags:
+    - storage
+    - minio
+    - object-storage
+spec:
+  type: storage
+  owner: platform-team
+  system: data-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: zookeeper-storage
+  title: ZooKeeper Storage
+  description: Persistent storage for ZooKeeper data
+  tags:
+    - storage
+    - zookeeper
+spec:
+  type: storage
+  owner: platform-team
+  system: data-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: elasticsearch-data-storage
+  title: Elasticsearch Data Storage
+  description: Persistent storage for Elasticsearch data platform
+  tags:
+    - storage
+    - elasticsearch
+spec:
+  type: storage
+  owner: platform-team
+  system: data-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: terraform-modules-api
+  title: Terraform Modules API
+  description: API for managing and discovering Terraform modules
+  tags:
+    - terraform
+    - infrastructure
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: platform-team
+  system: infrastructure-as-code-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Terraform Modules API
+      version: '1.0.0'
+      description: API for managing Terraform modules
+    paths:
+      /modules:
+        get:
+          summary: List available modules
+          responses:
+            '200':
+              description: List of modules
+      /modules/{name}:
+        get:
+          summary: Get module details
+          parameters:
+            - name: name
+              in: path
+              required: true
+              schema:
+                type: string
+          responses:
+            '200':
+              description: Module details
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: docker-registry
+  title: Docker Registry
+  description: Private Docker registry for container images
+  tags:
+    - docker
+    - registry
+    - containers
+spec:
+  type: container-registry
+  owner: platform-team
+  system: infrastructure-as-code-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: prometheus-api
+  title: Prometheus API
+  description: Prometheus query API for metrics retrieval
+  tags:
+    - prometheus
+    - metrics
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: sre-team
+  system: observability-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Prometheus API
+      version: '1.0.0'
+    paths:
+      /api/v1/query:
+        get:
+          summary: Execute instant query
+          parameters:
+            - name: query
+              in: query
+              required: true
+              schema:
+                type: string
+          responses:
+            '200':
+              description: Query result
+      /api/v1/query_range:
+        get:
+          summary: Execute range query
+          responses:
+            '200':
+              description: Range query result
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: grafana-api
+  title: Grafana API
+  description: Grafana dashboard and administration API
+  tags:
+    - grafana
+    - dashboards
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: sre-team
+  system: observability-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Grafana API
+      version: '10.0.0'
+    paths:
+      /api/dashboards:
+        get:
+          summary: List dashboards
+          responses:
+            '200':
+              description: Dashboard list
+      /api/dashboards/{uid}:
+        get:
+          summary: Get dashboard by UID
+          parameters:
+            - name: uid
+              in: path
+              required: true
+              schema:
+                type: string
+          responses:
+            '200':
+              description: Dashboard details
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: elasticsearch-api
+  title: Elasticsearch API
+  description: Elasticsearch search and indexing API
+  tags:
+    - elasticsearch
+    - search
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: sre-team
+  system: observability-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Elasticsearch API
+      version: '8.8.0'
+    paths:
+      /_search:
+        post:
+          summary: Search across indices
+          responses:
+            '200':
+              description: Search results
+      /{index}/_search:
+        post:
+          summary: Search within index
+          parameters:
+            - name: index
+              in: path
+              required: true
+              schema:
+                type: string
+          responses:
+            '200':
+              description: Search results
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: kibana-api
+  title: Kibana API
+  description: Kibana visualization and dashboard API
+  tags:
+    - kibana
+    - visualization
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: sre-team
+  system: observability-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Kibana API
+      version: '8.8.0'
+    paths:
+      /api/saved_objects/_find:
+        get:
+          summary: Find saved objects
+          responses:
+            '200':
+              description: Saved objects list
+      /api/dashboards/dashboard/{id}:
+        get:
+          summary: Get dashboard
+          parameters:
+            - name: id
+              in: path
+              required: true
+              schema:
+                type: string
+          responses:
+            '200':
+              description: Dashboard details
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: jaeger-api
+  title: Jaeger API
+  description: Jaeger tracing query API
+  tags:
+    - jaeger
+    - tracing
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: sre-team
+  system: observability-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Jaeger API
+      version: '1.0.0'
+    paths:
+      /api/traces:
+        get:
+          summary: Search traces
+          parameters:
+            - name: service
+              in: query
+              required: true
+              schema:
+                type: string
+          responses:
+            '200':
+              description: Trace list
+      /api/traces/{traceId}:
+        get:
+          summary: Get trace by ID
+          parameters:
+            - name: traceId
+              in: path
+              required: true
+              schema:
+                type: string
+          responses:
+            '200':
+              description: Trace details
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: datadog-api
+  title: Datadog API
+  description: Datadog monitoring and APM API
+  tags:
+    - datadog
+    - monitoring
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: sre-team
+  system: observability-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Datadog API
+      version: '1.0.0'
+    paths:
+      /api/v1/metrics:
+        get:
+          summary: Query metrics
+          responses:
+            '200':
+              description: Metrics data
+      /api/v1/events:
+        get:
+          summary: Query events
+          responses:
+            '200':
+              description: Events list
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: newrelic-api
+  title: New Relic API
+  description: New Relic monitoring API
+  tags:
+    - new-relic
+    - monitoring
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: sre-team
+  system: observability-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: New Relic API
+      version: '2.0.0'
+    paths:
+      /v2/applications.json:
+        get:
+          summary: List applications
+          responses:
+            '200':
+              description: Application list
+      /v2/applications/{id}/metrics.json:
+        get:
+          summary: Get application metrics
+          parameters:
+            - name: id
+              in: path
+              required: true
+              schema:
+                type: integer
+          responses:
+            '200':
+              description: Metrics data
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: splunk-api
+  title: Splunk API
+  description: Splunk search and data API
+  tags:
+    - splunk
+    - search
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: security-team
+  system: observability-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Splunk API
+      version: '9.0.0'
+    paths:
+      /services/search/jobs:
+        post:
+          summary: Create search job
+          responses:
+            '201':
+              description: Search job created
+      /services/search/jobs/{sid}/results:
+        get:
+          summary: Get search results
+          parameters:
+            - name: sid
+              in: path
+              required: true
+              schema:
+                type: string
+          responses:
+            '200':
+              description: Search results
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: pagerduty-api
+  title: PagerDuty API
+  description: PagerDuty incident management API
+  tags:
+    - pagerduty
+    - incident
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: sre-team
+  system: observability-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: PagerDuty API
+      version: '2.0.0'
+    paths:
+      /incidents:
+        get:
+          summary: List incidents
+          responses:
+            '200':
+              description: Incident list
+        post:
+          summary: Create incident
+          responses:
+            '201':
+              description: Incident created
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: prometheus-storage
+  title: Prometheus Storage
+  description: Time-series database storage for Prometheus
+  tags:
+    - storage
+    - time-series
+    - prometheus
+spec:
+  type: storage
+  owner: platform-team
+  system: observability-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: elasticsearch-cluster
+  title: Elasticsearch Cluster
+  description: Elasticsearch cluster for log storage and search
+  tags:
+    - elasticsearch
+    - cluster
+    - search
+spec:
+  type: cluster
+  owner: platform-team
+  system: observability-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: jaeger-storage
+  title: Jaeger Storage Backend
+  description: Storage backend for Jaeger traces
+  tags:
+    - jaeger
+    - storage
+    - tracing
+spec:
+  type: storage
+  owner: platform-team
+  system: observability-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: testing-api
+  title: Testing Framework API
+  description: API for test execution and result management
+  tags:
+    - testing
+    - api
+    - results
+spec:
+  type: openapi
+  lifecycle: production
+  owner: quality-team
+  system: testing-automation-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Testing Framework API
+      version: '1.0.0'
+    paths:
+      /tests:
+        get:
+          summary: List test suites
+          responses:
+            '200':
+              description: Test suites
+        post:
+          summary: Execute test suite
+          requestBody:
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    suite:
+                      type: string
+                    environment:
+                      type: string
+          responses:
+            '202':
+              description: Test execution started
+      /tests/{id}/results:
+        get:
+          summary: Get test results
+          parameters:
+            - name: id
+              in: path
+              required: true
+              schema:
+                type: string
+          responses:
+            '200':
+              description: Test results
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: security-api
+  title: Security Scanning API
+  description: API for security scans and vulnerability management
+  tags:
+    - security
+    - api
+    - vulnerabilities
+spec:
+  type: openapi
+  lifecycle: production
+  owner: security-team
+  system: security-compliance-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Security Scanning API
+      version: '1.0.0'
+    paths:
+      /scans:
+        get:
+          summary: List security scans
+          responses:
+            '200':
+              description: Scan list
+        post:
+          summary: Initiate security scan
+          requestBody:
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    target:
+                      type: string
+                    scanType:
+                      type: string
+                      enum: [sast, dast, dependency]
+          responses:
+            '202':
+              description: Scan initiated
+      /vulnerabilities:
+        get:
+          summary: List vulnerabilities
+          responses:
+            '200':
+              description: Vulnerability list
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: pipeline-api
+  title: CI/CD Pipeline API
+  description: API for pipeline management and execution
+  tags:
+    - ci-cd
+    - pipeline
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: devops-team
+  system: ci-cd-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: CI/CD Pipeline API
+      version: '1.0.0'
+    paths:
+      /pipelines:
+        get:
+          summary: List pipelines
+          responses:
+            '200':
+              description: Pipeline list
+      /pipelines/{id}/runs:
+        get:
+          summary: List pipeline runs
+          parameters:
+            - name: id
+              in: path
+              required: true
+              schema:
+                type: string
+          responses:
+            '200':
+              description: Pipeline runs
+        post:
+          summary: Trigger pipeline run
+          parameters:
+            - name: id
+              in: path
+              required: true
+              schema:
+                type: string
+          responses:
+            '201':
+              description: Pipeline run triggered
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: sonarqube-database
+  title: SonarQube Database
+  description: PostgreSQL database for SonarQube
+  tags:
+    - database
+    - postgresql
+    - sonarqube
+spec:
+  type: database
+  owner: platform-team
+  system: testing-automation-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: artifact-storage
+  title: Artifact Storage
+  description: S3-compatible storage for build artifacts
+  tags:
+    - storage
+    - artifacts
+    - s3
+spec:
+  type: storage
+  owner: platform-team
+  system: ci-cd-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: awx-rest-api
+  title: AWX REST API
+  description: RESTful API for AWX automation platform
+  annotations:
+    github.com/project-slug: ansible/awx
+  tags:
+    - rest
+    - api
+    - automation
+spec:
+  type: openapi
+  lifecycle: production
+  owner: awx-team
+  system: awx-automation-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: AWX REST API
+      version: '23.0.0'
+      description: REST API for AWX automation platform
+    servers:
+      - url: https://awx.example.com/api/v2
+        description: Production server
+    paths:
+      /jobs/:
+        get:
+          summary: List jobs
+          description: Retrieve a list of jobs
+          responses:
+            '200':
+              description: Successful response
+      /job_templates/:
+        get:
+          summary: List job templates
+          description: Retrieve a list of job templates
+          responses:
+            '200':
+              description: Successful response
+      /inventories/:
+        get:
+          summary: List inventories
+          description: Retrieve a list of inventories
+          responses:
+            '200':
+              description: Successful response
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: awx-websocket-api
+  title: AWX WebSocket API
+  description: Real-time WebSocket API for AWX events and notifications
+  annotations:
+    github.com/project-slug: ansible/awx
+  tags:
+    - websocket
+    - api
+    - real-time
+spec:
+  type: asyncapi
+  lifecycle: production
+  owner: awx-team
+  system: awx-automation-platform
+  definition: |
+    asyncapi: 2.0.0
+    info:
+      title: AWX WebSocket API
+      version: '1.0.0'
+      description: Real-time events and notifications from AWX
+    servers:
+      production:
+        url: wss://awx.example.com/websocket/
+        protocol: wss
+    channels:
+      /job_events/:
+        subscribe:
+          message:
+            payload:
+              type: object
+              properties:
+                job_id:
+                  type: integer
+                status:
+                  type: string
+                event:
+                  type: string
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: postgresql-database
+  title: PostgreSQL Database
+  description: PostgreSQL database for AWX data storage
+  tags:
+    - database
+    - postgresql
+    - storage
+spec:
+  type: database
+  owner: platform-team
+  system: awx-automation-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: redis-cache
+  title: Redis Cache
+  description: Redis cache for AWX session storage and task queuing
+  tags:
+    - cache
+    - redis
+    - storage
+spec:
+  type: cache
+  owner: platform-team
+  system: awx-automation-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: awx-operator
+  title: AWX Operator Resource
+  description: AWX Operator for Kubernetes deployment
+  tags:
+    - kubernetes
+    - operator
+    - awx
+spec:
+  type: operator
+  owner: platform-team
+  system: awx-automation-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: awx-operator-api
+  title: AWX Operator API
+  description: Custom Resource Definitions for AWX operator
+  annotations:
+    github.com/project-slug: ansible/awx-operator
+  tags:
+    - kubernetes
+    - crd
+    - operator
+spec:
+  type: openapi
+  lifecycle: production
+  owner: platform-team
+  system: kubernetes-operators
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: AWX Operator API
+      version: '2.8.0'
+      description: Custom Resource Definitions for AWX operator
+    components:
+      schemas:
+        AWX:
+          type: object
+          properties:
+            apiVersion:
+              type: string
+              enum: [awx.ansible.com/v1beta1]
+            kind:
+              type: string
+              enum: [AWX]
+            metadata:
+              type: object
+              properties:
+                name:
+                  type: string
+                namespace:
+                  type: string
+            spec:
+              type: object
+              properties:
+                service_type:
+                  type: string
+                  enum: [ClusterIP, NodePort, LoadBalancer]
+                ingress_type:
+                  type: string
+                  enum: [none, Ingress, Route]
+                hostname:
+                  type: string
+                admin_user:
+                  type: string
+                admin_password_secret:
+                  type: string
+                postgres_configuration_secret:
+                  type: string
+                old_postgres_configuration_secret:
+                  type: string
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: kubernetes-api
+  title: Kubernetes API
+  description: Standard Kubernetes API
+  tags:
+    - kubernetes
+    - api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: platform-team
+  system: kubernetes-operators
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Kubernetes API
+      version: '1.28.0'
+      description: Standard Kubernetes API for cluster management
+    paths:
+      /api/v1/namespaces:
+        get:
+          summary: List namespaces
+          responses:
+            '200':
+              description: Namespace list
+      /api/v1/namespaces/{namespace}/pods:
+        get:
+          summary: List pods in namespace
+          parameters:
+            - name: namespace
+              in: path
+              required: true
+              schema:
+                type: string
+          responses:
+            '200':
+              description: Pod list
+      /apis/apps/v1/namespaces/{namespace}/deployments:
+        get:
+          summary: List deployments in namespace
+          parameters:
+            - name: namespace
+              in: path
+              required: true
+              schema:
+                type: string
+          responses:
+            '200':
+              description: Deployment list
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: kubernetes-cluster
+  title: Kubernetes Cluster
+  description: Kubernetes cluster for running AWX operator and instances
+  tags:
+    - kubernetes
+    - infrastructure
+    - cluster
+spec:
+  type: cluster
+  owner: platform-team
+  system: kubernetes-operators

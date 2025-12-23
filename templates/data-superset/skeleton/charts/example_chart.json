@@ -1,0 +1,15 @@
+{
+  "slice_name": "Example Chart",
+  "viz_type": "echarts_timeseries_line",
+  "datasource_name": "example_dataset",
+  "params": {
+    "datasource": "example_dataset",
+    "viz_type": "echarts_timeseries_line",
+    "time_column": "created_at",
+    "time_grain_sqla": "P1D",
+    "metrics": ["sum_value"],
+    "groupby": [],
+    "adhoc_filters": [],
+    "row_limit": 10000
+  }
+}

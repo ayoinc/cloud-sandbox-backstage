@@ -1,0 +1,74 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: github-team-member-template
+  title: Add User to GitHub Team
+  description: Add an existing organization member to a GitHub team. Changes will sync to Backstage automatically.
+  tags:
+    - github
+    - team
+    - user
+    - management
+spec:
+  owner: platform-team
+  type: management
+  parameters:
+    - title: Team Membership
+      required:
+        - teamSlug
+        - username
+        - role
+      properties:
+        teamSlug:
+          title: Team Slug
+          type: string
+          description: The slug (URL-friendly name) of the team
+          ui:autofocus: true
+          ui:help: 'Example: engineering, devops-team, platform-team'
+        username:
+          title: GitHub Username
+          type: string
+          description: The GitHub username to add to the team
+          ui:help: 'Must be an existing member of the organization'
+        role:
+          title: Team Role
+          type: string
+          description: The role this user will have in the team
+          default: member
+          enum:
+            - member
+            - maintainer
+          enumNames:
+            - Member (regular team access)
+            - Maintainer (can manage team settings and members)
+
+  steps:
+    - id: log-start
+      name: Adding User to Team
+      action: debug:log
+      input:
+        message: 'Adding ${{ parameters.username }} to team ${{ parameters.teamSlug }} as ${{ parameters.role }}'
+
+    - id: add-member
+      name: Add Team Member
+      action: http:backstage:request
+      input:
+        method: PUT
+        path: /proxy/github-api/orgs/ContainerCode/teams/${{ parameters.teamSlug }}/memberships/${{ parameters.username }}
+        headers:
+          Content-Type: application/json
+        body:
+          role: ${{ parameters.role }}
+
+    - id: log-complete
+      name: Member Added
+      action: debug:log
+      input:
+        message: '${{ parameters.username }} added to team ${{ parameters.teamSlug }}!'
+
+  output:
+    links:
+      - title: View Team on GitHub
+        url: https://github.com/orgs/ContainerCode/teams/${{ parameters.teamSlug }}/members
+      - title: View Groups in Backstage
+        url: /catalog?filters[kind]=group

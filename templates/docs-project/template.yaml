@@ -1,0 +1,123 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: docs-project
+  title: Project Documentation
+  description: Create comprehensive project documentation with TechDocs
+  tags:
+    - documentation
+    - techdocs
+    - mkdocs
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: group:documentation
+  type: documentation
+
+  parameters:
+    - title: Project Information
+      required:
+        - name
+        - owner
+      properties:
+        name:
+          title: Project Name
+          type: string
+          description: Name of the documentation project
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Purpose of this documentation
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns this resource
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+    - title: Documentation Configuration
+      properties:
+        docType:
+          title: Documentation Type
+          type: string
+          description: Type of documentation
+          enum:
+            - project
+            - api
+            - architecture
+            - user-guide
+          default: project
+        includeApiDocs:
+          title: Include API Documentation
+          type: boolean
+          description: Add OpenAPI/Swagger documentation section
+          default: false
+        includeChangelog:
+          title: Include Changelog
+          type: boolean
+          description: Add changelog tracking
+          default: true
+        theme:
+          title: Theme
+          type: string
+          description: MkDocs theme
+          enum:
+            - material
+            - readthedocs
+          default: material
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          docType: ${{ parameters.docType }}
+          includeApiDocs: ${{ parameters.includeApiDocs }}
+          includeChangelog: ${{ parameters.includeChangelog }}
+          theme: ${{ parameters.theme }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        repoUrl: ${{ parameters.repoUrl }}
+        description: 'Documentation: ${{ parameters.name }}'
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

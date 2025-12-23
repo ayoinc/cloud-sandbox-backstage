@@ -1,0 +1,15 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: sample-react-frontend
+  title: React Frontend App
+  description: Sample React frontend with Material-UI
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - react
+    - frontend
+spec:
+  type: website
+  lifecycle: experimental
+  owner: platform-team

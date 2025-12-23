@@ -1,0 +1,56 @@
+# {{ ansible_managed }}
+# Virtual host configuration for {{ item.server_name }}
+
+{% if item.listen_ssl | default(false) and item.listen | default(80) == 80 %}
+server {
+    listen 80;
+    listen [::]:80;
+    server_name {{ item.server_name }};
+    return 301 https://$server_name$request_uri;
+}
+{% endif %}
+
+server {
+{% if item.listen is defined %}
+    listen {{ item.listen }}{% if item.listen_ssl | default(false) %} ssl http2{% endif %}{% if item.default_server | default(false) %} default_server{% endif %};
+    listen [::]:{{ item.listen }}{% if item.listen_ssl | default(false) %} ssl http2{% endif %}{% if item.default_server | default(false) %} default_server{% endif %};
+{% else %}
+    listen 80{% if item.default_server | default(false) %} default_server{% endif %};
+    listen [::]:80{% if item.default_server | default(false) %} default_server{% endif %};
+{% endif %}
+
+    server_name {{ item.server_name }};
+
+{% if item.root is defined %}
+    root {{ item.root }};
+{% endif %}
+
+{% if item.index is defined %}
+    index {{ item.index }};
+{% endif %}
+
+{% if item.ssl_certificate is defined %}
+    ssl_certificate {{ item.ssl_certificate }};
+    ssl_certificate_key {{ item.ssl_certificate_key }};
+{% endif %}
+
+{% if item.access_log is defined %}
+    access_log {{ item.access_log }};
+{% endif %}
+
+{% if item.error_log is defined %}
+    error_log {{ item.error_log }};
+{% endif %}
+
+    location / {
+{% if item.try_files is defined %}
+        try_files {{ item.try_files }};
+{% else %}
+        try_files $uri $uri/ =404;
+{% endif %}
+    }
+
+{% if item.extra_parameters is defined %}
+{{ item.extra_parameters | indent(4) }}
+{% endif %}
+}

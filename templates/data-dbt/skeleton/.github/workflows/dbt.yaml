@@ -1,0 +1,120 @@
+name: dbt CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  DBT_VERSION: '${{ values.dbtVersion }}'
+  DBT_PROFILES_DIR: ${{ github.workspace }}
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install sqlfluff
+        run: |
+          pip install sqlfluff sqlfluff-templater-dbt
+
+      - name: Lint SQL
+        run: sqlfluff lint models/ --dialect ${{ values.warehouse }}
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dbt
+        run: |
+          pip install dbt-${{ values.warehouse }}==${{ env.DBT_VERSION }}.*
+
+      - name: Install dbt packages
+        run: dbt deps
+
+      - name: Verify dbt project
+        run: dbt parse
+
+      - name: Run dbt compile
+        run: dbt compile --target development
+        env:
+          # Add your warehouse-specific environment variables
+          DBT_TARGET: development
+
+  docs:
+    name: Generate Docs
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dbt
+        run: |
+          pip install dbt-${{ values.warehouse }}==${{ env.DBT_VERSION }}.*
+
+      - name: Install dbt packages
+        run: dbt deps
+
+      - name: Generate docs
+        run: dbt docs generate
+
+      - name: Upload docs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dbt-docs
+          path: target/
+
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: ${{ values.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dbt
+        run: |
+          pip install dbt-${{ values.warehouse }}==${{ env.DBT_VERSION }}.*
+
+      - name: Install dbt packages
+        run: dbt deps
+
+      - name: Run dbt
+        run: |
+          dbt run --target ${{ values.environment }}
+          dbt test --target ${{ values.environment }}
+        env:
+          # Add your warehouse-specific environment variables
+          DBT_TARGET: ${{ values.environment }}

@@ -1,0 +1,10 @@
+site_name: Security Scanning Suite
+site_description: Vulnerability scanning, SAST, DAST, and dependency analysis
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

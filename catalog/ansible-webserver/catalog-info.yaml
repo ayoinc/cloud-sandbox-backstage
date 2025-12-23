@@ -1,0 +1,17 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ansible-webserver
+  title: Webserver Playbook
+  description: Ansible playbook for configuring Nginx/Apache web servers
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - ansible
+    - webserver
+    - nginx
+spec:
+  type: library
+  lifecycle: production
+  owner: platform-team
+  system: awx-automation-platform

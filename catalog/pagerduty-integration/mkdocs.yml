@@ -1,0 +1,10 @@
+site_name: PagerDuty Incident Management
+site_description: Incident response and on-call management
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

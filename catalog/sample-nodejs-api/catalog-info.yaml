@@ -1,0 +1,16 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: sample-nodejs-api
+  title: Node.js REST API
+  description: Sample Node.js Express API with PostgreSQL
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - nodejs
+    - api
+    - express
+spec:
+  type: service
+  lifecycle: experimental
+  owner: platform-team

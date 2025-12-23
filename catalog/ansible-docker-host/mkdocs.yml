@@ -1,0 +1,10 @@
+site_name: Docker Host Playbook
+site_description: Ansible playbook for setting up Docker on Linux hosts
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

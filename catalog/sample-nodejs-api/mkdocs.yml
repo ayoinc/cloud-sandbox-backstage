@@ -1,0 +1,10 @@
+site_name: Node.js REST API
+site_description: Sample Node.js Express API with PostgreSQL
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

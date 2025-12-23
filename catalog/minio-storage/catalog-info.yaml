@@ -1,0 +1,19 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: minio-storage
+  title: MinIO Storage
+  description: High-performance object storage
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - minio
+    - object-storage
+    - s3
+spec:
+  type: service
+  lifecycle: production
+  owner: data-team
+  system: data-services-platform
+  providesApis:
+    - s3-api

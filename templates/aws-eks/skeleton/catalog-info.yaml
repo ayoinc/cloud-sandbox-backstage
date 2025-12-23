@@ -1,0 +1,21 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: ${{ values.name }}
+  description: ${{ values.description }}
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - aws
+    - eks
+    - kubernetes
+    - ${{ values.environment }}
+  links:
+    - url: https://console.aws.amazon.com/eks/home
+      title: AWS Console
+      icon: cloud
+spec:
+  type: kubernetes-cluster
+  owner: ${{ values.owner }}
+  lifecycle: ${{ values.environment }}
+  system: cloud-infrastructure

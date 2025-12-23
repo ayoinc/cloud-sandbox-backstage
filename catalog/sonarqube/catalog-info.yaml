@@ -1,0 +1,16 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: sonarqube
+  title: SonarQube Code Quality
+  description: Static code analysis and quality gate enforcement
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - code-quality
+    - static-analysis
+spec:
+  type: service
+  lifecycle: production
+  owner: quality-team
+  system: testing-automation-platform

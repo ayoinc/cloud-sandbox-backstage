@@ -7,9 +7,9 @@ metadata:
     app: ${{ values.name }}
     service: ${{ values.name }}
   annotations:
-    {% if values.monitoring_stack === 'prometheus-grafana' %}
+    {% if values.monitoring_stack == 'prometheus-grafana' %}
     prometheus.io/scrape: "true"
-    prometheus.io/port: "{% if values.language === 'nodejs' %}3000{% elif values.language === 'python' %}8000{% elif values.language === 'java' %}8080{% elif values.language === 'golang' %}8080{% elif values.language === 'dotnet' %}5000{% endif %}"
+    prometheus.io/port: "{% if values.language == 'nodejs' %}3000{% elif values.language == 'python' %}8000{% elif values.language == 'java' %}8080{% elif values.language == 'golang' %}8080{% elif values.language == 'dotnet' %}5000{% endif %}"
     prometheus.io/path: "/metrics"
     {% endif %}
     backstage.io/kubernetes-id: ${{ values.name }}
@@ -55,9 +55,9 @@ data:
   LOG_LEVEL: "info"
   APP_NAME: "${{ values.name }}"
   APP_VERSION: "1.0.0"
-  {% if values.language === 'nodejs' %}
+  {% if values.language == 'nodejs' %}
   NODE_ENV: "production"
-  {% elif values.language === 'java' %}
+  {% elif values.language == 'java' %}
   SPRING_PROFILES_ACTIVE: "production"
   {% endif %}
   {% if values.enable_tracing %}
@@ -65,7 +65,7 @@ data:
   JAEGER_SERVICE_NAME: "${{ values.name }}"
   OTEL_SERVICE_NAME: "${{ values.name }}"
   {% endif %}
-  {% if values.monitoring_stack === 'prometheus-grafana' %}
+  {% if values.monitoring_stack == 'prometheus-grafana' %}
   ENABLE_METRICS: "true"
   METRICS_PORT: "9090"
   {% endif %}

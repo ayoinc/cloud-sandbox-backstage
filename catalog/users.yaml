@@ -1,41 +1,36 @@
-apiVersion: backstage.io/v1alpha1
-kind: User
-metadata:
-  name: admin
-  description: Admin user
-spec:
-  profile:
-    displayName: Admin User
-    email: admin@example.com
-  memberOf: [admins]
----
-apiVersion: backstage.io/v1alpha1
-kind: User
-metadata:
-  name: editor
-  description: Editor user
-spec:
-  profile:
-    displayName: Editor User
-    email: editor@example.com
-  memberOf: [editors]
----
-apiVersion: backstage.io/v1alpha1
-kind: User
-metadata:
-  name: viewer
-  description: Viewer user
-spec:
-  profile:
-    displayName: Viewer User
-    email: viewer@example.com
-  memberOf: [viewers]
----
+# =============================================================================
+# Cloud Sandbox Backstage - Groups and Roles Configuration
+# =============================================================================
+# 
+# IMPORTANT: Users are NOT defined in this file. Users are automatically
+# created when they sign in via GitHub OAuth. User group memberships are
+# determined by their GitHub organization teams.
+#
+# To configure user access:
+# 1. Set up GitHub OAuth App (GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET)
+# 2. Configure GitHub organization in app-config.yaml
+# 3. Map GitHub teams to Backstage groups using the catalog provider
+#
+# See: https://backstage.io/docs/integrations/github/org
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Core Access Control Groups
+# -----------------------------------------------------------------------------
+# These groups control access to Backstage features via the permission system.
+# Users are assigned to groups based on their GitHub organization team membership.
+# -----------------------------------------------------------------------------
+
 apiVersion: backstage.io/v1alpha1
 kind: Group
 metadata:
   name: admins
-  description: Administrators
+  description: |
+    Administrators with full access to all Backstage features.
+    Map this to your GitHub org admin team.
+  annotations:
+    # Uncomment and configure to sync with GitHub team:
+    # github.com/team-slug: your-org/admins
 spec:
   type: team
   profile:
@@ -46,7 +41,12 @@ apiVersion: backstage.io/v1alpha1
 kind: Group
 metadata:
   name: editors
-  description: Content editors
+  description: |
+    Content editors who can create and modify catalog entities.
+    Map this to your GitHub org editor team.
+  annotations:
+    # Uncomment and configure to sync with GitHub team:
+    # github.com/team-slug: your-org/editors
 spec:
   type: team
   profile:
@@ -57,9 +57,126 @@ apiVersion: backstage.io/v1alpha1
 kind: Group
 metadata:
   name: viewers
-  description: Viewers with read-only access
+  description: |
+    Viewers with read-only access to the catalog.
+    Default group for authenticated users without specific team membership.
+  annotations:
+    # Uncomment and configure to sync with GitHub team:
+    # github.com/team-slug: your-org/viewers
 spec:
   type: team
   profile:
     displayName: Viewers
+  children: []
+
+# -----------------------------------------------------------------------------
+# Functional Team Groups
+# -----------------------------------------------------------------------------
+# These groups represent functional teams in your organization.
+# Use these for ownership and component assignments.
+# -----------------------------------------------------------------------------
+
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: platform-team
+  description: Platform engineering team responsible for infrastructure and developer tools
+  annotations:
+    # github.com/team-slug: your-org/platform-team
+spec:
+  type: team
+  profile:
+    displayName: Platform Team
+  children: []
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: devops-team
+  description: DevOps team responsible for CI/CD pipelines and deployments
+  annotations:
+    # github.com/team-slug: your-org/devops
+spec:
+  type: team
+  profile:
+    displayName: DevOps Team
+  children: []
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: cloud-team
+  description: Cloud infrastructure team managing cloud resources across AWS, Azure, GCP
+  annotations:
+    # github.com/team-slug: your-org/cloud-team
+spec:
+  type: team
+  profile:
+    displayName: Cloud Team
+  children: []
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: data-team
+  description: Data engineering team responsible for data pipelines and analytics
+  annotations:
+    # github.com/team-slug: your-org/data-team
+spec:
+  type: team
+  profile:
+    displayName: Data Team
+  children: []
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: sre-team
+  description: Site Reliability Engineering team for observability and reliability
+  annotations:
+    # github.com/team-slug: your-org/sre
+spec:
+  type: team
+  profile:
+    displayName: SRE Team
+  children: []
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: security-team
+  description: Security team responsible for security policies and compliance
+  annotations:
+    # github.com/team-slug: your-org/security
+spec:
+  type: team
+  profile:
+    displayName: Security Team
+  children: []
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: quality-team
+  description: Quality assurance team for testing and quality standards
+  annotations:
+    # github.com/team-slug: your-org/qa
+spec:
+  type: team
+  profile:
+    displayName: Quality Team
+  children: []
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: awx-team
+  description: AWX/Ansible automation team
+  annotations:
+    # github.com/team-slug: your-org/automation
+spec:
+  type: team
+  profile:
+    displayName: AWX Team
   children: []

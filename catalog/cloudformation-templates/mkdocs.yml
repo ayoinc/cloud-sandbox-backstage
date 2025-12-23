@@ -1,0 +1,10 @@
+site_name: CloudFormation Templates
+site_description: AWS CloudFormation templates for infrastructure deployment
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

@@ -1,0 +1,10 @@
+site_name: React Frontend App
+site_description: Sample React frontend with Material-UI
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

@@ -1,0 +1,12 @@
+---
+# tasks/setup-debian.yml
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install Nginx
+  ansible.builtin.apt:
+    name: "{{ nginx_package_name }}"
+    state: "{{ nginx_package_state }}"

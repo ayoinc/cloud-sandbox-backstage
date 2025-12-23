@@ -1,0 +1,20 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: azure-services
+  title: Azure Services Integration
+  description: Microsoft Azure cloud services and resources
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - azure
+    - cloud
+    - vm
+    - storage
+spec:
+  type: service
+  lifecycle: production
+  owner: cloud-team
+  system: cloud-services-platform
+  providesApis:
+    - azure-api

@@ -51,17 +51,6 @@ services:
     # Remove port exposure in production
     ports: []
 
-  rabbitmq:
-    restart: always
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 512M
-    # Only expose management UI internally
-    ports:
-      - "127.0.0.1:15672:15672"
-
   minio:
     restart: always
     deploy:

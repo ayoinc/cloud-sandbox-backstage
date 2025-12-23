@@ -1,0 +1,65 @@
+# {{ ansible_managed }}
+# Nginx configuration file
+
+user {{ nginx_user | default('www-data') }};
+worker_processes {{ nginx_worker_processes }};
+pid /run/nginx.pid;
+include /etc/nginx/modules-enabled/*.conf;
+
+events {
+    worker_connections {{ nginx_worker_connections }};
+    multi_accept {{ nginx_multi_accept }};
+}
+
+http {
+    ##
+    # Basic Settings
+    ##
+    sendfile {{ nginx_sendfile }};
+    tcp_nopush {{ nginx_tcp_nopush }};
+    tcp_nodelay {{ nginx_tcp_nodelay }};
+    keepalive_timeout {{ nginx_keepalive_timeout }};
+    types_hash_max_size {{ nginx_types_hash_max_size }};
+    server_tokens {{ nginx_server_tokens }};
+
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    ##
+    # SSL Settings
+    ##
+    ssl_protocols {{ nginx_ssl_protocols }};
+    ssl_ciphers {{ nginx_ssl_ciphers }};
+    ssl_prefer_server_ciphers {{ nginx_ssl_prefer_server_ciphers }};
+    ssl_session_cache {{ nginx_ssl_session_cache }};
+    ssl_session_timeout {{ nginx_ssl_session_timeout }};
+    ssl_session_tickets {{ nginx_ssl_session_tickets }};
+
+    ##
+    # Logging Settings
+    ##
+    access_log {{ nginx_access_log }};
+    error_log {{ nginx_error_log }};
+
+    ##
+    # Gzip Settings
+    ##
+    gzip {{ nginx_gzip }};
+    gzip_vary {{ nginx_gzip_vary }};
+    gzip_proxied {{ nginx_gzip_proxied }};
+    gzip_comp_level {{ nginx_gzip_comp_level }};
+    gzip_min_length {{ nginx_gzip_min_length }};
+    gzip_types {{ nginx_gzip_types | join(' ') }};
+
+{{ nginx_extra_http_options | indent(4) if nginx_extra_http_options else '' }}
+
+    ##
+    # Virtual Host Configs
+    ##
+    include /etc/nginx/conf.d/*.conf;
+{% if ansible_os_family == 'Debian' %}
+    include /etc/nginx/sites-enabled/*;
+{% endif %}
+}
+
+{{ nginx_extra_conf_options if nginx_extra_conf_options else '' }}

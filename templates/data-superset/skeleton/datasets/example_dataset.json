@@ -1,0 +1,46 @@
+{
+  "table_name": "example_dataset",
+  "schema": "public",
+  "database_name": "${{ values.name }}_${{ values.environment }}",
+  "sql": null,
+  "columns": [
+    {
+      "column_name": "id",
+      "type": "INTEGER",
+      "is_dttm": false,
+      "filterable": true,
+      "groupby": true
+    },
+    {
+      "column_name": "created_at",
+      "type": "TIMESTAMP",
+      "is_dttm": true,
+      "filterable": true,
+      "groupby": true
+    },
+    {
+      "column_name": "value",
+      "type": "FLOAT",
+      "is_dttm": false,
+      "filterable": true,
+      "groupby": false
+    }
+  ],
+  "metrics": [
+    {
+      "metric_name": "count",
+      "expression": "COUNT(*)",
+      "metric_type": "count"
+    },
+    {
+      "metric_name": "sum_value",
+      "expression": "SUM(value)",
+      "metric_type": "sum"
+    },
+    {
+      "metric_name": "avg_value",
+      "expression": "AVG(value)",
+      "metric_type": "avg"
+    }
+  ]
+}

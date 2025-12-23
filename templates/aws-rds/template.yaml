@@ -1,0 +1,158 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: aws-rds-database
+  title: AWS RDS Database
+  description: Create an RDS PostgreSQL or MySQL database with Multi-AZ, encryption, and automated backups
+  tags:
+    - aws
+    - rds
+    - database
+    - terraform
+    - devops
+    - data
+    - backend
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: group:platform-team
+  type: infrastructure
+  
+  parameters:
+    - title: Project Information
+      required:
+        - name
+        - owner
+      properties:
+        name:
+          title: Database Name
+          type: string
+          description: Identifier for the RDS instance
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Purpose of this database
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns this resource
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+              
+    - title: Database Configuration
+      required:
+        - environment
+        - region
+        - engine
+        - instanceClass
+      properties:
+        environment:
+          title: Environment
+          type: string
+          enum:
+            - development
+            - staging
+            - production
+          default: development
+        region:
+          title: AWS Region
+          type: string
+          enum:
+            - us-east-1
+            - us-west-2
+            - eu-west-1
+            - eu-central-1
+            - ap-southeast-1
+          default: us-east-1
+        engine:
+          title: Database Engine
+          type: string
+          enum:
+            - postgres
+            - mysql
+          default: postgres
+        engineVersion:
+          title: Engine Version
+          type: string
+          default: "15"
+          description: Major version (e.g., 15 for PostgreSQL, 8.0 for MySQL)
+        instanceClass:
+          title: Instance Class
+          type: string
+          enum:
+            - db.t3.micro
+            - db.t3.small
+            - db.t3.medium
+            - db.r6g.large
+            - db.r6g.xlarge
+          default: db.t3.small
+        allocatedStorage:
+          title: Storage (GB)
+          type: integer
+          default: 20
+          minimum: 20
+          maximum: 1000
+        multiAz:
+          title: Multi-AZ Deployment
+          type: boolean
+          default: false
+          description: Enable for high availability (production recommended)
+          
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          environment: ${{ parameters.environment }}
+          region: ${{ parameters.region }}
+          engine: ${{ parameters.engine }}
+          engineVersion: ${{ parameters.engineVersion }}
+          instanceClass: ${{ parameters.instanceClass }}
+          allocatedStorage: ${{ parameters.allocatedStorage }}
+          multiAz: ${{ parameters.multiAz }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        repoUrl: ${{ parameters.repoUrl }}
+        description: 'AWS RDS Database: ${{ parameters.name }}'
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

@@ -1,0 +1,33 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Check Nginx is installed
+      ansible.builtin.command: nginx -v
+      register: nginx_version
+      changed_when: false
+
+    - name: Check Nginx service is running
+      ansible.builtin.service:
+        name: nginx
+        state: started
+      check_mode: true
+      register: nginx_service
+
+    - name: Verify Nginx service is running
+      ansible.builtin.assert:
+        that:
+          - not nginx_service.changed
+
+    - name: Check Nginx is listening on port 80
+      ansible.builtin.wait_for:
+        port: 80
+        timeout: 5
+
+    - name: Test Nginx responds
+      ansible.builtin.uri:
+        url: http://localhost/
+        status_code: [200, 404]

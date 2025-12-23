@@ -1,0 +1,19 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: gcp-services
+  title: Google Cloud Platform Services
+  description: GCP cloud services and infrastructure
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - gcp
+    - cloud
+    - compute-engine
+spec:
+  type: service
+  lifecycle: production
+  owner: cloud-team
+  system: cloud-services-platform
+  providesApis:
+    - gcp-api

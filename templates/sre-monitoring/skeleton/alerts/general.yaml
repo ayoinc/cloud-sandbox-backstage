@@ -1,0 +1,105 @@
+# Prometheus Alerting Rules - General Infrastructure
+# Generated for: ${{ values.name }}
+
+groups:
+  - name: infrastructure
+    interval: 30s
+    rules:
+      # CPU Alerts
+      - alert: HighCPUUsage
+        expr: |
+          100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > ${{ values.warningThreshold }}
+        for: 5m
+        labels:
+          severity: warning
+          team: ${{ values.owner }}
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is above ${{ values.warningThreshold }}% on {{ $labels.instance }} (current value: {{ $value }}%)"
+          runbook_url: "https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}/blob/main/docs/runbooks.md#high-cpu-usage"
+
+      - alert: HighCPUUsageCritical
+        expr: |
+          100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > ${{ values.criticalThreshold }}
+        for: 5m
+        labels:
+          severity: critical
+          team: ${{ values.owner }}
+        annotations:
+          summary: "Critical CPU usage detected"
+          description: "CPU usage is above ${{ values.criticalThreshold }}% on {{ $labels.instance }} (current value: {{ $value }}%)"
+          runbook_url: "https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}/blob/main/docs/runbooks.md#high-cpu-usage"
+
+      # Memory Alerts
+      - alert: HighMemoryUsage
+        expr: |
+          (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > ${{ values.warningThreshold }}
+        for: 5m
+        labels:
+          severity: warning
+          team: ${{ values.owner }}
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is above ${{ values.warningThreshold }}% on {{ $labels.instance }} (current value: {{ $value }}%)"
+          runbook_url: "https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}/blob/main/docs/runbooks.md#high-memory-usage"
+
+      - alert: HighMemoryUsageCritical
+        expr: |
+          (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > ${{ values.criticalThreshold }}
+        for: 5m
+        labels:
+          severity: critical
+          team: ${{ values.owner }}
+        annotations:
+          summary: "Critical memory usage detected"
+          description: "Memory usage is above ${{ values.criticalThreshold }}% on {{ $labels.instance }} (current value: {{ $value }}%)"
+          runbook_url: "https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}/blob/main/docs/runbooks.md#high-memory-usage"
+
+      # Disk Alerts
+      - alert: DiskSpaceLow
+        expr: |
+          (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"})) * 100 > ${{ values.warningThreshold }}
+        for: 10m
+        labels:
+          severity: warning
+          team: ${{ values.owner }}
+        annotations:
+          summary: "Low disk space detected"
+          description: "Disk usage is above ${{ values.warningThreshold }}% on {{ $labels.instance }} {{ $labels.mountpoint }} (current value: {{ $value }}%)"
+          runbook_url: "https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}/blob/main/docs/runbooks.md#disk-space-low"
+
+      - alert: DiskSpaceCritical
+        expr: |
+          (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"})) * 100 > ${{ values.criticalThreshold }}
+        for: 5m
+        labels:
+          severity: critical
+          team: ${{ values.owner }}
+        annotations:
+          summary: "Critical disk space detected"
+          description: "Disk usage is above ${{ values.criticalThreshold }}% on {{ $labels.instance }} {{ $labels.mountpoint }} (current value: {{ $value }}%)"
+          runbook_url: "https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}/blob/main/docs/runbooks.md#disk-space-low"
+
+      # Network Alerts
+      - alert: HighNetworkTraffic
+        expr: |
+          rate(node_network_receive_bytes_total[5m]) > 100000000
+        for: 10m
+        labels:
+          severity: warning
+          team: ${{ values.owner }}
+        annotations:
+          summary: "High network traffic detected"
+          description: "Network receive rate is above 100MB/s on {{ $labels.instance }} {{ $labels.device }}"
+
+      # Host Availability
+      - alert: HostDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: ${{ values.owner }}
+        annotations:
+          summary: "Host is down"
+          description: "{{ $labels.instance }} is unreachable"
+          runbook_url: "https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}/blob/main/docs/runbooks.md#service-down"

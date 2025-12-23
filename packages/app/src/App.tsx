@@ -24,6 +24,18 @@ import { apis } from './apis';
 import { entityPage } from './components/catalog/EntityPage';
 import { searchPage } from './components/search/SearchPage';
 import { Root } from './components/Root';
+import { IdleTimeoutMonitor } from './components/IdleTimeoutMonitor';
+import { GitHubOrgPage } from './components/github';
+
+// New plugins
+// import { EntityGithubActionsContent } from '@backstage/plugin-github-actions';
+
+// =============================================================================
+// PLACEHOLDER: Enterprise Plugin Imports (uncomment when configured)
+// =============================================================================
+// Cost Insights - Cloud cost management
+// Requires custom CostInsightsClient implementation or mock data
+// import { CostInsightsPage } from '@backstage/plugin-cost-insights';
 
 import {
   AlertDisplay,
@@ -37,6 +49,16 @@ import { RequirePermission } from '@backstage/plugin-permission-react';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
 import { NotificationsPage } from '@backstage/plugin-notifications';
 import { SignalsDisplay } from '@backstage/plugin-signals';
+import { githubAuthApiRef } from '@backstage/core-plugin-api';
+import { taskCreatePermission } from '@backstage/plugin-scaffolder-common/alpha';
+
+// GitHub auth provider for real GitHub users
+const githubProvider = {
+  id: 'github-auth-provider',
+  title: 'GitHub',
+  message: 'Sign in using GitHub',
+  apiRef: githubAuthApiRef,
+};
 
 const app = createApp({
   apis,
@@ -58,7 +80,14 @@ const app = createApp({
     });
   },
   components: {
-    SignInPage: props => <SignInPage {...props} auto providers={['guest']} />,
+    SignInPage: props => (
+      <SignInPage
+        {...props}
+        providers={[githubProvider]}
+        title="Welcome to Cloud Sandbox"
+        align="center"
+      />
+    ),
   },
 });
 
@@ -81,7 +110,14 @@ const routes = (
         <ReportIssue />
       </TechDocsAddons>
     </Route>
-    <Route path="/create" element={<ScaffolderPage />} />
+    <Route
+      path="/create"
+      element={
+        <RequirePermission permission={taskCreatePermission}>
+          <ScaffolderPage />
+        </RequirePermission>
+      }
+    />
     <Route path="/api-docs" element={<ApiExplorerPage />} />
     <Route
       path="/catalog-import"
@@ -97,6 +133,14 @@ const routes = (
     <Route path="/settings" element={<UserSettingsPage />} />
     <Route path="/catalog-graph" element={<CatalogGraphPage />} />
     <Route path="/notifications" element={<NotificationsPage />} />
+    <Route path="/github-org" element={<GitHubOrgPage />} />
+    {/* =============================================================================
+        PLACEHOLDER: Cost Insights Route (uncomment when CostInsightsClient is implemented)
+        =============================================================================
+        Requires: @backstage/plugin-cost-insights and custom CostInsightsClient
+        See: https://backstage.io/docs/features/cost-insights/
+        <Route path="/cost-insights" element={<CostInsightsPage />} />
+    */}
   </FlatRoutes>
 );
 
@@ -105,6 +149,7 @@ export default app.createRoot(
     <AlertDisplay />
     <OAuthRequestDialog />
     <SignalsDisplay />
+    <IdleTimeoutMonitor />
     <AppRouter>
       <Root>{routes}</Root>
     </AppRouter>

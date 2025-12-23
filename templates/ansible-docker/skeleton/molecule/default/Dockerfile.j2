@@ -1,0 +1,48 @@
+# Dockerfile template for Molecule testing
+# Generated for: ${{ values.name }}
+
+FROM {{ item.image }}
+
+ENV container=docker
+ENV DEBIAN_FRONTEND=noninteractive
+
+{% if item.image.startswith('ubuntu') or item.image.startswith('debian') %}
+RUN apt-get update && apt-get install -y \
+    systemd \
+    systemd-sysv \
+    python3 \
+    python3-apt \
+    sudo \
+    iproute2 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+RUN rm -f /lib/systemd/system/multi-user.target.wants/* \
+    /etc/systemd/system/*.wants/* \
+    /lib/systemd/system/local-fs.target.wants/* \
+    /lib/systemd/system/sockets.target.wants/*udev* \
+    /lib/systemd/system/sockets.target.wants/*initctl* \
+    /lib/systemd/system/sysinit.target.wants/systemd-tmpfiles-setup* \
+    /lib/systemd/system/systemd-update-utmp*
+{% endif %}
+
+{% if item.image.startswith('centos') or item.image.startswith('rockylinux') or item.image.startswith('almalinux') %}
+RUN yum -y install \
+    systemd \
+    python3 \
+    sudo \
+    iproute \
+    && yum clean all
+
+RUN (cd /lib/systemd/system/sysinit.target.wants/; for i in *; do [ $i == systemd-tmpfiles-setup.service ] || rm -f $i; done); \
+    rm -f /lib/systemd/system/multi-user.target.wants/*; \
+    rm -f /etc/systemd/system/*.wants/*; \
+    rm -f /lib/systemd/system/local-fs.target.wants/*; \
+    rm -f /lib/systemd/system/sockets.target.wants/*udev*; \
+    rm -f /lib/systemd/system/sockets.target.wants/*initctl*; \
+    rm -f /lib/systemd/system/basic.target.wants/*; \
+    rm -f /lib/systemd/system/anaconda.target.wants/*;
+{% endif %}
+
+VOLUME ["/sys/fs/cgroup"]
+CMD ["/lib/systemd/systemd"]

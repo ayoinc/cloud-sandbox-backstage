@@ -1,0 +1,10 @@
+site_name: Docker Images Registry
+site_description: Company Docker images and base images
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

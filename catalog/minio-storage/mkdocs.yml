@@ -1,0 +1,10 @@
+site_name: MinIO Storage
+site_description: High-performance object storage
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

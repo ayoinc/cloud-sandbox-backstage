@@ -1,0 +1,4 @@
+site_name: Spring Boot API
+docs_dir: docs
+plugins:
+  - techdocs-core

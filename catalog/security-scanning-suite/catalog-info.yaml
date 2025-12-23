@@ -1,0 +1,18 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: security-scanning-suite
+  title: Security Scanning Suite
+  description: Vulnerability scanning, SAST, DAST, and dependency analysis
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - security
+    - vulnerability-scanning
+spec:
+  type: service
+  lifecycle: production
+  owner: security-team
+  system: security-compliance-platform
+  providesApis:
+    - security-api

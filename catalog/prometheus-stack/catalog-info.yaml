@@ -1,0 +1,20 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: prometheus-stack
+  title: Prometheus Monitoring Stack
+  description: Prometheus, Grafana, and AlertManager for metrics and monitoring
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - prometheus
+    - grafana
+    - monitoring
+spec:
+  type: service
+  lifecycle: production
+  owner: sre-team
+  system: observability-platform
+  providesApis:
+    - prometheus-api
+    - grafana-api

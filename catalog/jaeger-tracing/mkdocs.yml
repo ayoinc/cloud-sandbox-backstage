@@ -1,0 +1,10 @@
+site_name: Jaeger Distributed Tracing
+site_description: Distributed tracing and performance monitoring
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

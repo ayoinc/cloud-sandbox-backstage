@@ -1,0 +1,16 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: zookeeper-ensemble
+  title: ZooKeeper Ensemble
+  description: Distributed coordination service
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - zookeeper
+    - coordination
+spec:
+  type: service
+  lifecycle: production
+  owner: data-team
+  system: data-services-platform

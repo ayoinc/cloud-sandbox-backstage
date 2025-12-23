@@ -1,0 +1,10 @@
+site_name: CI/CD Pipeline Templates
+site_description: Standardized CI/CD pipeline templates for various technologies
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

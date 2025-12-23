@@ -1,0 +1,16 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: helm-charts
+  title: Helm Charts Repository
+  description: Kubernetes Helm charts for application deployment
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - helm
+    - kubernetes
+spec:
+  type: library
+  lifecycle: production
+  owner: platform-team
+  system: kubernetes-operators

@@ -1,0 +1,16 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: docker-images
+  title: Docker Images Registry
+  description: Company Docker images and base images
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - docker
+    - containers
+spec:
+  type: library
+  lifecycle: production
+  owner: platform-team
+  system: infrastructure-as-code-platform

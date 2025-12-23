@@ -1,0 +1,8 @@
+site_name: ${{ values.name }}
+site_description: Azure Static Web App - ${{ values.description }}
+
+nav:
+  - Home: index.md
+
+plugins:
+  - techdocs-core

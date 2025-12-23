@@ -287,7 +287,6 @@ spec:
       name: Publish to Repository
       action: publish:github
       input:
-        allowedHosts: ['github.com']
         description: ${{ parameters.description }}
         repoUrl: ${{ parameters.repoUrl }}
         defaultBranch: main
@@ -305,7 +304,7 @@ spec:
     - id: create-argocd-app
       name: Create ArgoCD Application
       action: argocd:create-app
-      if: ${{ parameters.environment_strategy === 'gitops' }}
+      if: ${{ parameters.environment_strategy == 'gitops' }}
       input:
         appName: ${{ parameters.name }}
         argoInstance: default
@@ -321,4 +320,4 @@ spec:
         icon: catalog
         entityRef: ${{ steps.register.output.entityRef }}
       - title: CI/CD Pipeline
-        url: ${{ steps.publish.output.remoteUrl + '/actions' if parameters.ci_cd_platform === 'github-actions' else steps.publish.output.remoteUrl + '/-/pipelines' }}
+        url: ${{ steps.publish.output.remoteUrl + '/actions' if parameters.ci_cd_platform == 'github-actions' else steps.publish.output.remoteUrl + '/-/pipelines' }}

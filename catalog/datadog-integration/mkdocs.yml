@@ -1,0 +1,10 @@
+site_name: Datadog Monitoring Integration
+site_description: Datadog APM, infrastructure monitoring, and log management
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

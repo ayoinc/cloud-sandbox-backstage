@@ -1,0 +1,20 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: awx-core
+  title: AWX Core
+  description: AWX automation controller core components
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - awx
+    - ansible
+    - automation
+spec:
+  type: service
+  lifecycle: production
+  owner: platform-team
+  system: awx-automation-platform
+  providesApis:
+    - awx-rest-api
+    - awx-websocket-api

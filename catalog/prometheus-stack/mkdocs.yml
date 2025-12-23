@@ -1,0 +1,10 @@
+site_name: Prometheus Monitoring Stack
+site_description: Prometheus, Grafana, and AlertManager for metrics and monitoring
+
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core

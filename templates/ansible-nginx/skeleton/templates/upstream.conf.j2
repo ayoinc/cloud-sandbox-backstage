@@ -1,0 +1,14 @@
+# {{ ansible_managed }}
+# Upstream configuration for {{ item.name }}
+
+upstream {{ item.name }} {
+{% if item.strategy is defined %}
+    {{ item.strategy }};
+{% endif %}
+{% for server in item.servers %}
+    server {{ server }};
+{% endfor %}
+{% if item.keepalive is defined %}
+    keepalive {{ item.keepalive }};
+{% endif %}
+}

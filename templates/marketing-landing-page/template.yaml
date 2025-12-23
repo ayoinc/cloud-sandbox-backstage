@@ -1,0 +1,111 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: landing-page-template
+  title: Marketing Landing Page
+  description: Create a responsive marketing landing page
+  tags:
+    - landing-page
+    - marketing
+    - html
+    - website
+spec:
+  owner: platform-team
+  type: website
+
+  parameters:
+    - title: Page Configuration
+      required:
+        - name
+        - description
+        - owner
+      properties:
+        name:
+          title: Page Name
+          type: string
+          description: Name for the landing page
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Description of the landing page
+        owner:
+          title: Owner
+          type: string
+          description: Owner of this page
+          ui:field: OwnerPicker
+          ui:options:
+            allowedKinds:
+              - Group
+              - User
+
+    - title: Branding
+      properties:
+        companyName:
+          title: Company Name
+          type: string
+          description: Company or product name
+          default: My Company
+        primaryColor:
+          title: Primary Color
+          type: string
+          description: Primary brand color (hex)
+          default: "#0066cc"
+        tagline:
+          title: Tagline
+          type: string
+          description: Main tagline for the hero section
+          default: "Build something amazing"
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: template
+      name: Fetch Skeleton
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          companyName: ${{ parameters.companyName }}
+          primaryColor: ${{ parameters.primaryColor }}
+          tagline: ${{ parameters.tagline }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish
+      action: publish:github
+      input:
+        allowedHosts:
+          - github.com
+        description: ${{ parameters.description }}
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: main
+        repoVisibility: private
+
+    - id: register
+      name: Register
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: /catalog-info.yaml
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}

@@ -1,0 +1,39 @@
+---
+# meta/main.yml - Role metadata
+# Generated for: ${{ values.name }}
+
+galaxy_info:
+  role_name: ${{ values.name }}
+  author: ${{ values.owner }}
+  description: ${{ values.description }}
+  company: ""
+  license: MIT
+  min_ansible_version: "2.9"
+
+  platforms:
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+    - name: Debian
+      versions:
+        - buster
+        - bullseye
+        - bookworm
+    - name: EL
+      versions:
+        - "7"
+        - "8"
+        - "9"
+    - name: Amazon
+      versions:
+        - "2"
+        - "2023"
+
+  galaxy_tags:
+    - docker
+    - containers
+    - devops
+    - automation
+
+dependencies: []

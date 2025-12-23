@@ -1,0 +1,15 @@
+version: 2
+
+models:
+  - name: stg_example
+    description: Staged example data with basic cleaning and type casting
+    columns:
+      - name: id
+        description: Primary key
+        tests:
+          - unique
+          - not_null
+      - name: created_at
+        description: Timestamp when record was created
+      - name: updated_at
+        description: Timestamp when record was last updated

@@ -1,0 +1,9 @@
+---
+# handlers/main.yml - Handlers for Docker role
+# Generated for: ${{ values.name }}
+
+- name: Restart Docker
+  ansible.builtin.service:
+    name: docker
+    state: "{{ docker_restart_handler_state }}"
+  when: docker_service_state != 'stopped'

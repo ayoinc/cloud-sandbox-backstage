@@ -1,0 +1,134 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: test-playwright
+  title: Playwright E2E Tests
+  description: Create a Playwright end-to-end testing project with Page Object Model
+  tags:
+    - testing
+    - e2e
+    - playwright
+    - qa
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: group:qa-team
+  type: test-suite
+
+  parameters:
+    - title: Project Information
+      required:
+        - name
+        - owner
+      properties:
+        name:
+          title: Project Name
+          type: string
+          description: Name of the test project
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Purpose of this test suite
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns this resource
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+    - title: Test Configuration
+      required:
+        - baseUrl
+      properties:
+        baseUrl:
+          title: Base URL
+          type: string
+          description: Target application URL for testing
+          default: 'http://localhost:3000'
+        browsers:
+          title: Browsers
+          type: array
+          description: Browsers to test against
+          items:
+            type: string
+            enum:
+              - chromium
+              - firefox
+              - webkit
+          default:
+            - chromium
+          uniqueItems: true
+        parallelWorkers:
+          title: Parallel Workers
+          type: integer
+          description: Number of parallel test workers
+          default: 4
+          minimum: 1
+          maximum: 16
+        enableTracing:
+          title: Enable Tracing
+          type: boolean
+          description: Enable Playwright tracing for debugging
+          default: true
+        enableScreenshots:
+          title: Enable Screenshots
+          type: boolean
+          description: Capture screenshots on failure
+          default: true
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          baseUrl: ${{ parameters.baseUrl }}
+          browsers: ${{ parameters.browsers }}
+          parallelWorkers: ${{ parameters.parallelWorkers }}
+          enableTracing: ${{ parameters.enableTracing }}
+          enableScreenshots: ${{ parameters.enableScreenshots }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        repoUrl: ${{ parameters.repoUrl }}
+        description: 'Playwright E2E Tests: ${{ parameters.name }}'
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

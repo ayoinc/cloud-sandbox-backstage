@@ -1,0 +1,16 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: pulumi-projects
+  title: Pulumi Infrastructure Projects
+  description: Pulumi infrastructure as code projects
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - pulumi
+    - iac
+spec:
+  type: library
+  lifecycle: production
+  owner: platform-team
+  system: infrastructure-as-code-platform
