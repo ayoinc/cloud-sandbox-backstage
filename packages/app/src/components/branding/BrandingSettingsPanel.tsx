@@ -114,7 +114,15 @@ export const BrandingSettingsPanel: React.FC = () => {
   }, [settings]);
 
   if (!isAdmin) {
-    return null;
+    return (
+      <Card className={classes.root}>
+        <CardContent>
+          <Alert severity="warning">
+            You need to be a member of the <strong>admins</strong> group to access branding settings.
+          </Alert>
+        </CardContent>
+      </Card>
+    );
   }
 
   const handleSaveSettings = async () => {

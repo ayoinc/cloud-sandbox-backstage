@@ -5,6 +5,8 @@ import ExtensionIcon from '@material-ui/icons/Extension';
 import LibraryBooks from '@material-ui/icons/LibraryBooks';
 import CreateComponentIcon from '@material-ui/icons/AddCircleOutline';
 import CategoryIcon from '@material-ui/icons/Category';
+import BrushIcon from '@material-ui/icons/Brush';
+import SwapHorizIcon from '@material-ui/icons/SwapHoriz';
 import LogoFull from './LogoFull';
 import LogoIcon from './LogoIcon';
 import {
@@ -136,6 +138,9 @@ export const Root = ({ children }: PropsWithChildren<{}>) => {
           to="/settings"
         >
           <SidebarSettings />
+          <SidebarDivider />
+          <SidebarItem icon={BrushIcon} to="/admin/branding" text="Branding" />
+          <SidebarItem icon={SwapHorizIcon} to="/admin/ownership" text="Ownership" />
           <SidebarDivider />
           <SignOutButton />
         </SidebarGroup>

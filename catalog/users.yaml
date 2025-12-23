@@ -24,6 +24,22 @@
 apiVersion: backstage.io/v1alpha1
 kind: Group
 metadata:
+  name: unassigned
+  description: |
+    Default group for orphaned entities. When a team is deleted, any components,
+    APIs, or resources owned by that team are automatically reassigned to this group.
+    Admins should review and reassign these entities to appropriate teams.
+  annotations:
+    backstage.io/orphan-handler: "true"
+spec:
+  type: team
+  profile:
+    displayName: Unassigned
+  children: []
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
   name: admins
   description: |
     Administrators with full access to all Backstage features.
@@ -83,7 +99,8 @@ metadata:
   name: platform-team
   description: Platform engineering team responsible for infrastructure and developer tools
   annotations:
-    # github.com/team-slug: your-org/platform-team
+    github.com/sync: "true"
+    backstage.io/role: editors
 spec:
   type: team
   profile:

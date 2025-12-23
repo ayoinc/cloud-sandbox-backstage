@@ -5,6 +5,7 @@ import {
   CatalogIndexPage,
   catalogPlugin,
 } from '@backstage/plugin-catalog';
+import { customCatalogColumns } from './components/catalog/catalogColumns';
 import {
   CatalogImportPage,
   catalogImportPlugin,
@@ -19,7 +20,9 @@ import {
 } from '@backstage/plugin-techdocs';
 import { TechDocsAddons } from '@backstage/plugin-techdocs-react';
 import { ReportIssue } from '@backstage/plugin-techdocs-module-addons-contrib';
-import { CustomSettingsPage } from './components/settings';
+import { UserSettingsPage } from '@backstage/plugin-user-settings';
+import { BrandingAdminPage } from './components/branding';
+import { OwnershipManagementPage } from './components/ownership';
 import { apis } from './apis';
 import { entityPage } from './components/catalog/EntityPage';
 import { searchPage } from './components/search/SearchPage';
@@ -94,7 +97,7 @@ const app = createApp({
 const routes = (
   <FlatRoutes>
     <Route path="/" element={<Navigate to="catalog" />} />
-    <Route path="/catalog" element={<CatalogIndexPage />} />
+    <Route path="/catalog" element={<CatalogIndexPage columns={customCatalogColumns} />} />
     <Route
       path="/catalog/:namespace/:kind/:name"
       element={<CatalogEntityPage />}
@@ -130,7 +133,9 @@ const routes = (
     <Route path="/search" element={<SearchPage />}>
       {searchPage}
     </Route>
-    <Route path="/settings" element={<CustomSettingsPage />} />
+    <Route path="/settings" element={<UserSettingsPage />} />
+    <Route path="/admin/branding" element={<BrandingAdminPage />} />
+    <Route path="/admin/ownership" element={<OwnershipManagementPage />} />
     <Route path="/catalog-graph" element={<CatalogGraphPage />} />
     <Route path="/notifications" element={<NotificationsPage />} />
     <Route path="/github-org" element={<GitHubOrgPage />} />

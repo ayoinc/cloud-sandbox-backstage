@@ -54,6 +54,12 @@ backend.add(import('./permissionPolicy'));
 // Branding settings plugin - admin-only logo and org name customization
 backend.add(import('./brandingSettingsPlugin'));
 
+// GitHub Team Sync plugin - bi-directional sync between Backstage groups and GitHub teams
+backend.add(import('./githubTeamSyncPlugin'));
+
+// Ownership Management plugin - orphan detection and ownership reassignment
+backend.add(import('./ownershipManagementPlugin'));
+
 // search plugin
 backend.add(import('@backstage/plugin-search-backend'));
 

@@ -1,0 +1,1 @@
+export { OwnershipManagementPage } from './OwnershipManagementPage';

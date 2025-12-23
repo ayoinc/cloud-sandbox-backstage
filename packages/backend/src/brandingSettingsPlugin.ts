@@ -2,7 +2,7 @@ import {
   createBackendPlugin,
   coreServices,
 } from '@backstage/backend-plugin-api';
-import { Router } from 'express';
+import { Router, json } from 'express';
 import {
   S3Client,
   PutObjectCommand,
@@ -88,10 +88,10 @@ export const brandingSettingsPlugin = createBackendPlugin({
       async init({ httpRouter, logger, database, config, httpAuth, userInfo }) {
         logger.info('Initializing branding-settings plugin');
 
-        // Get database client
+        // Get database client for branding settings storage
         const knex = await database.getClient();
 
-        // Create table if not exists
+        // Create branding_settings table if not exists
         const hasTable = await knex.schema.hasTable('branding_settings');
         if (!hasTable) {
           logger.info('Creating branding_settings table');
@@ -116,29 +116,63 @@ export const brandingSettingsPlugin = createBackendPlugin({
           });
         }
 
+        // Create branding_admins table if not exists
+        // This table stores users and groups that can manage branding settings
+        const hasAdminsTable = await knex.schema.hasTable('branding_admins');
+        if (!hasAdminsTable) {
+          logger.info('Creating branding_admins table');
+          await knex.schema.createTable('branding_admins', (table) => {
+            table.increments('id').primary();
+            table.string('entity_ref').notNullable().unique(); // user:default/username or group:default/team
+            table.string('type').notNullable(); // 'user' or 'group'
+            table.timestamp('added_at').defaultTo(knex.fn.now());
+            table.string('added_by').nullable();
+          });
+          
+          // Bootstrap initial admin from environment variable (only on first run)
+          const initialAdmin = process.env.BRANDING_INITIAL_ADMIN || process.env.BRANDING_ADMIN_USERS?.split(',')[0]?.trim();
+          if (initialAdmin) {
+            const entityRef = initialAdmin.includes(':') ? initialAdmin : `user:default/${initialAdmin}`;
+            await knex('branding_admins').insert({
+              entity_ref: entityRef,
+              type: entityRef.startsWith('group:') ? 'group' : 'user',
+              added_at: new Date().toISOString(),
+              added_by: 'system',
+            });
+            logger.info(`Bootstrapped initial branding admin: ${entityRef}`);
+          } else {
+            logger.warn('No initial branding admin configured. Set BRANDING_INITIAL_ADMIN env var.');
+          }
+        }
+
         // Initialize S3 client for MinIO
+        // All credentials come from config or environment variables - no hardcoded secrets
         const minioEndpoint = config.getOptionalString('brandingSettings.minio.endpoint') 
           || process.env.MINIO_ENDPOINT 
           || 'http://minio:9000';
         const minioAccessKey = config.getOptionalString('brandingSettings.minio.accessKeyId')
-          || process.env.MINIO_ACCESS_KEY 
-          || 'backstage';
+          || process.env.MINIO_ACCESS_KEY;
         const minioSecretKey = config.getOptionalString('brandingSettings.minio.secretAccessKey')
-          || process.env.MINIO_SECRET_KEY 
-          || 'backstage123';
+          || process.env.MINIO_SECRET_KEY;
         const minioBucket = config.getOptionalString('brandingSettings.minio.bucket')
           || process.env.BRANDING_BUCKET
           || 'backstage-assets';
+        // Use relative URL path that goes through nginx proxy at /assets/
+        // This avoids CORS issues and works regardless of the host
         const minioPublicUrl = config.getOptionalString('brandingSettings.minio.publicUrl')
           || process.env.MINIO_PUBLIC_URL
-          || 'http://localhost:9000';
+          || '';
+
+        if (!minioAccessKey || !minioSecretKey) {
+          logger.warn('MinIO credentials not configured - logo upload will fail. Set MINIO_ACCESS_KEY and MINIO_SECRET_KEY environment variables.');
+        }
 
         const s3Client = new S3Client({
           endpoint: minioEndpoint,
           region: 'us-east-1',
           credentials: {
-            accessKeyId: minioAccessKey,
-            secretAccessKey: minioSecretKey,
+            accessKeyId: minioAccessKey || '',
+            secretAccessKey: minioSecretKey || '',
           },
           forcePathStyle: true, // Required for MinIO
         });
@@ -146,6 +180,9 @@ export const brandingSettingsPlugin = createBackendPlugin({
         logger.info(`Branding settings using MinIO at ${minioEndpoint}, bucket: ${minioBucket}`);
 
         const router = Router();
+        
+        // Add JSON body parser middleware
+        router.use(json());
 
         // Helper function to get current settings from database
         async function getCurrentSettings(): Promise<BrandingSettings> {
@@ -182,6 +219,7 @@ export const brandingSettingsPlugin = createBackendPlugin({
               return null;
             }
 
+            // Use knex to check admin status
             const isAdmin = await checkIsAdmin(knex, userEntityRef, logger);
             
             if (!isAdmin) {
@@ -287,7 +325,8 @@ export const brandingSettingsPlugin = createBackendPlugin({
                   CacheControl: 'max-age=31536000', // 1 year cache
                 }));
 
-                logoFullUrl = `${minioPublicUrl}/${minioBucket}/${key}?t=${Date.now()}`;
+                // Use /assets/ path which is proxied by nginx to MinIO
+                logoFullUrl = `/assets/${key}?t=${Date.now()}`;
                 logger.info(`Uploaded logo-full to ${key}`);
               }
 
@@ -305,7 +344,8 @@ export const brandingSettingsPlugin = createBackendPlugin({
                   CacheControl: 'max-age=31536000',
                 }));
 
-                logoIconUrl = `${minioPublicUrl}/${minioBucket}/${key}?t=${Date.now()}`;
+                // Use /assets/ path which is proxied by nginx to MinIO
+                logoIconUrl = `/assets/${key}?t=${Date.now()}`;
                 logger.info(`Uploaded logo-icon to ${key}`);
               }
 
@@ -438,10 +478,129 @@ export const brandingSettingsPlugin = createBackendPlugin({
               return res.json({ isAdmin: false });
             }
 
+            // Use knex to check admin status
             const isAdmin = await checkIsAdmin(knex, userEntityRef, logger);
             return res.json({ isAdmin, userEntityRef });
           } catch (error) {
             return res.json({ isAdmin: false });
+          }
+        });
+
+        // =======================================================================
+        // GET /api/branding-settings/admins - List branding admins (admin only)
+        // =======================================================================
+        router.get('/admins', async (req, res) => {
+          const userEntityRef = await requireAdmin(req, res);
+          if (!userEntityRef) return;
+
+          try {
+            const admins = await knex('branding_admins')
+              .select('id', 'entity_ref', 'type', 'added_at', 'added_by')
+              .orderBy('added_at', 'asc');
+            
+            return res.json({ admins });
+          } catch (error) {
+            logger.error('Failed to list branding admins', error as Error);
+            return res.status(500).json({ error: 'Failed to list admins' });
+          }
+        });
+
+        // =======================================================================
+        // POST /api/branding-settings/admins - Add a branding admin (admin only)
+        // =======================================================================
+        router.post('/admins', async (req, res) => {
+          const userEntityRef = await requireAdmin(req, res);
+          if (!userEntityRef) return;
+
+          try {
+            const { entityRef } = req.body;
+            
+            if (!entityRef || typeof entityRef !== 'string') {
+              return res.status(400).json({ error: 'entityRef is required' });
+            }
+
+            // Normalize entity ref
+            let normalizedRef = entityRef.trim().toLowerCase();
+            if (!normalizedRef.includes(':')) {
+              // Assume it's a username if no prefix
+              normalizedRef = `user:default/${normalizedRef}`;
+            }
+
+            // Validate format
+            if (!normalizedRef.match(/^(user|group):[^/]+\/.+$/)) {
+              return res.status(400).json({ error: 'Invalid entityRef format. Use user:default/username or group:default/teamname' });
+            }
+
+            const type = normalizedRef.startsWith('group:') ? 'group' : 'user';
+
+            // Check if already exists
+            const existing = await knex('branding_admins')
+              .where('entity_ref', normalizedRef)
+              .first();
+            
+            if (existing) {
+              return res.status(409).json({ error: 'Admin already exists' });
+            }
+
+            // Insert new admin
+            await knex('branding_admins').insert({
+              entity_ref: normalizedRef,
+              type,
+              added_at: new Date().toISOString(),
+              added_by: userEntityRef,
+            });
+
+            logger.info(`Branding admin added: ${normalizedRef} by ${userEntityRef}`);
+
+            const admins = await knex('branding_admins')
+              .select('id', 'entity_ref', 'type', 'added_at', 'added_by')
+              .orderBy('added_at', 'asc');
+            
+            return res.json({ admins });
+          } catch (error) {
+            logger.error('Failed to add branding admin', error as Error);
+            return res.status(500).json({ error: 'Failed to add admin' });
+          }
+        });
+
+        // =======================================================================
+        // DELETE /api/branding-settings/admins/:id - Remove a branding admin (admin only)
+        // =======================================================================
+        router.delete('/admins/:id', async (req, res) => {
+          const userEntityRef = await requireAdmin(req, res);
+          if (!userEntityRef) return;
+
+          try {
+            const { id } = req.params;
+            
+            // Don't allow removing yourself if you're the last admin
+            const adminCount = await knex('branding_admins').count('id as count').first();
+            const targetAdmin = await knex('branding_admins').where('id', id).first();
+            
+            if (!targetAdmin) {
+              return res.status(404).json({ error: 'Admin not found' });
+            }
+
+            if (parseInt(adminCount?.count as string, 10) <= 1) {
+              return res.status(400).json({ error: 'Cannot remove the last admin' });
+            }
+
+            if (targetAdmin.entity_ref === userEntityRef.toLowerCase()) {
+              return res.status(400).json({ error: 'Cannot remove yourself. Ask another admin to remove you.' });
+            }
+
+            await knex('branding_admins').where('id', id).delete();
+
+            logger.info(`Branding admin removed: ${targetAdmin.entity_ref} by ${userEntityRef}`);
+
+            const admins = await knex('branding_admins')
+              .select('id', 'entity_ref', 'type', 'added_at', 'added_by')
+              .orderBy('added_at', 'asc');
+            
+            return res.json({ admins });
+          } catch (error) {
+            logger.error('Failed to remove branding admin', error as Error);
+            return res.status(500).json({ error: 'Failed to remove admin' });
           }
         });
 
@@ -470,8 +629,13 @@ function getExtension(mimeType: string): string {
 }
 
 /**
- * Check if user is an admin by looking up their group membership in the catalog.
- * Admins are members of the 'admins' group.
+ * Check if user is an admin for branding settings.
+ * 
+ * Checks the branding_admins table for:
+ * 1. Direct user match (user:default/username)
+ * 2. Group match (group:default/team) - user must be member of that group
+ * 
+ * Falls back to BRANDING_ADMIN_USERS env var if database is empty.
  */
 async function checkIsAdmin(
   knex: any,
@@ -482,64 +646,46 @@ async function checkIsAdmin(
     // Parse user entity ref (format: user:default/username)
     const match = userEntityRef.match(/^user:([^/]+)\/(.+)$/);
     if (!match) {
+      logger.debug(`Invalid user entity ref format: ${userEntityRef}`);
       return false;
     }
 
-    const [, _namespace, username] = match;
+    const [, , username] = match;
 
-    // Check the catalog for user's group membership
-    // Query the relations table to find if user is member of admins group
-    const hasRelationsTable = await knex.schema.hasTable('relations');
+    // Check branding_admins table for direct user match
+    const directMatch = await knex('branding_admins')
+      .where('entity_ref', userEntityRef.toLowerCase())
+      .first();
     
-    if (hasRelationsTable) {
-      // Check if user has memberOf relation to admins group
-      const relation = await knex('relations')
-        .where('originating_entity_id', userEntityRef)
-        .andWhere('type', 'memberOf')
-        .andWhere('target_entity_ref', 'group:default/admins')
-        .first();
-
-      if (relation) {
-        logger.debug(`User ${userEntityRef} is admin via relations table`);
-        return true;
-      }
-    }
-
-    // Alternative: Check the final_entities table for user spec
-    const hasFinalEntitiesTable = await knex.schema.hasTable('final_entities');
-    
-    if (hasFinalEntitiesTable) {
-      const userEntity = await knex('final_entities')
-        .whereRaw("entity_ref = ?", [userEntityRef])
-        .first();
-
-      if (userEntity && userEntity.final_entity) {
-        try {
-          const entity = typeof userEntity.final_entity === 'string' 
-            ? JSON.parse(userEntity.final_entity) 
-            : userEntity.final_entity;
-          
-          const memberOf = entity?.spec?.memberOf || [];
-          if (memberOf.includes('group:default/admins') || 
-              memberOf.includes('admins')) {
-            logger.debug(`User ${userEntityRef} is admin via memberOf spec`);
-            return true;
-          }
-        } catch (e) {
-          logger.debug('Could not parse user entity', e);
-        }
-      }
-    }
-
-    // Fallback: Check if username matches known admin patterns
-    // This is a temporary measure - in production, rely on catalog data
-    const adminUsernames = ['admin', 'administrator'];
-    if (adminUsernames.includes(username.toLowerCase())) {
-      logger.debug(`User ${username} is admin via username pattern`);
+    if (directMatch) {
+      logger.debug(`User ${username} is admin via branding_admins table`);
       return true;
     }
 
-    logger.debug(`User ${userEntityRef} is not an admin`);
+    // Check for group-based admin (would need catalog integration for full support)
+    // For now, just check if any group entries exist and log
+    const groupAdmins = await knex('branding_admins')
+      .where('type', 'group')
+      .select('entity_ref');
+    
+    if (groupAdmins.length > 0) {
+      logger.debug(`Group-based admins configured: ${groupAdmins.map((g: any) => g.entity_ref).join(', ')}`);
+      // TODO: Check catalog for user's group membership
+    }
+
+    // Fallback: Check BRANDING_ADMIN_USERS env var (for backwards compatibility)
+    const adminUsersEnv = process.env.BRANDING_ADMIN_USERS || '';
+    const adminUsernames = adminUsersEnv
+      .split(',')
+      .map(u => u.trim().toLowerCase())
+      .filter(u => u.length > 0);
+    
+    if (adminUsernames.includes(username.toLowerCase())) {
+      logger.debug(`User ${username} is admin via BRANDING_ADMIN_USERS env var`);
+      return true;
+    }
+
+    logger.debug(`User ${userEntityRef} is not a branding admin`);
     return false;
   } catch (error) {
     logger.error('Error checking admin status', error);

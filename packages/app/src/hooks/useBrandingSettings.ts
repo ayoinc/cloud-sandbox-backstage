@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useApi, fetchApiRef } from '@backstage/core-plugin-api';
 
 /**
  * =============================================================================
  * Branding Settings Hook
  * =============================================================================
  * 
- * A simple hook to fetch branding settings without requiring a provider.
- * Suitable for components that render before the full app context is available.
+ * A simple hook to fetch branding settings using native fetch.
+ * Does NOT use Backstage APIs to avoid context issues during early render.
  * 
  * =============================================================================
  */
@@ -38,7 +37,6 @@ export function useBrandingSettings(): {
   settings: BrandingSettings;
   isLoading: boolean;
 } {
-  const fetchApi = useApi(fetchApiRef);
   const [settings, setSettings] = useState<BrandingSettings>(cachedSettings || DEFAULT_SETTINGS);
   const [isLoading, setIsLoading] = useState(!cachedSettings);
 
@@ -59,9 +57,8 @@ export function useBrandingSettings(): {
       return;
     }
 
-    // Start fetching
-    fetchPromise = fetchApi
-      .fetch('/api/branding-settings')
+    // Start fetching using native fetch (no Backstage API context required)
+    fetchPromise = fetch('/api/branding-settings')
       .then(async (response) => {
         if (response.ok) {
           const data = await response.json();
@@ -79,7 +76,7 @@ export function useBrandingSettings(): {
       setSettings(data);
       setIsLoading(false);
     });
-  }, [fetchApi]);
+  }, []);
 
   return { settings, isLoading };
 }
