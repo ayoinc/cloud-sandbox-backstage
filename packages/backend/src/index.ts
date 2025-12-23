@@ -51,6 +51,9 @@ backend.add(import('@backstage/plugin-permission-backend'));
 // Custom permission policy that restricts guest users
 backend.add(import('./permissionPolicy'));
 
+// Branding settings plugin - admin-only logo and org name customization
+backend.add(import('./brandingSettingsPlugin'));
+
 // search plugin
 backend.add(import('@backstage/plugin-search-backend'));
 

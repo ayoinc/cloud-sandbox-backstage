@@ -1,5 +1,4 @@
-import React from 'react';
-import { Button, Card, CardContent, CardHeader, Grid, Typography, makeStyles } from '@material-ui/core';
+import { Button, Card, CardContent, CardHeader, Typography, makeStyles } from '@material-ui/core';
 import GroupAddIcon from '@material-ui/icons/GroupAdd';
 import PersonAddIcon from '@material-ui/icons/PersonAdd';
 import GroupIcon from '@material-ui/icons/Group';

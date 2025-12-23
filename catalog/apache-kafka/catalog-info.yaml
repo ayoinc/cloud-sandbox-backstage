@@ -13,6 +13,6 @@ spec:
   type: service
   lifecycle: production
   owner: data-team
-  system: data-services-platform
+  system: data-platform
   providesApis:
     - kafka-api

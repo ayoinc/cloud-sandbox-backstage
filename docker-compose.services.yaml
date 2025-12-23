@@ -85,6 +85,7 @@ services:
       mc mb --ignore-existing local/scaffolder;
       mc mb --ignore-existing local/backstage-assets;
       mc anonymous set download local/techdocs;
+      mc anonymous set download local/backstage-assets;
       echo 'MinIO buckets initialized successfully';
       exit 0;
       "
