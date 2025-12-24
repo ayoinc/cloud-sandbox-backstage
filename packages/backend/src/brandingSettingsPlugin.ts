@@ -157,12 +157,6 @@ export const brandingSettingsPlugin = createBackendPlugin({
         const minioBucket = config.getOptionalString('brandingSettings.minio.bucket')
           || process.env.BRANDING_BUCKET
           || 'backstage-assets';
-        // Use relative URL path that goes through nginx proxy at /assets/
-        // This avoids CORS issues and works regardless of the host
-        const minioPublicUrl = config.getOptionalString('brandingSettings.minio.publicUrl')
-          || process.env.MINIO_PUBLIC_URL
-          || '';
-
         if (!minioAccessKey || !minioSecretKey) {
           logger.warn('MinIO credentials not configured - logo upload will fail. Set MINIO_ACCESS_KEY and MINIO_SECRET_KEY environment variables.');
         }

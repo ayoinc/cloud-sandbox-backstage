@@ -151,7 +151,7 @@ export const githubTeamSyncPlugin = createBackendPlugin({
           const teams = new Map<string, GitHubTeam>();
           try {
             const response = await octokit.paginate(octokit.teams.list, {
-              org: githubOrg,
+              org: githubOrg!,
               per_page: 100,
             });
             for (const team of response) {
@@ -226,7 +226,7 @@ export const githubTeamSyncPlugin = createBackendPlugin({
           try {
             logger.info(`Creating GitHub team: ${name}`);
             await octokit.teams.create({
-              org: githubOrg,
+              org: githubOrg!,
               name: name,
               description: description || `Team synced from Backstage`,
               privacy: 'closed',
@@ -248,7 +248,7 @@ export const githubTeamSyncPlugin = createBackendPlugin({
           try {
             logger.info(`Deleting GitHub team: ${slug}`);
             await octokit.teams.deleteInOrg({
-              org: githubOrg,
+              org: githubOrg!,
               team_slug: slug,
             });
             logger.info(`Successfully deleted GitHub team: ${slug}`);
@@ -274,11 +274,11 @@ export const githubTeamSyncPlugin = createBackendPlugin({
             const githubMembers = new Set<string>();
             try {
               const members = await octokit.paginate(octokit.teams.listMembersInOrg, {
-                org: githubOrg,
+                org: githubOrg!,
                 team_slug: teamSlug,
                 per_page: 100,
               });
-              for (const member of members) {
+              for (const member of members as Array<{ login?: string }>) {
                 if (member.login) {
                   githubMembers.add(member.login.toLowerCase());
                 }
@@ -296,7 +296,7 @@ export const githubTeamSyncPlugin = createBackendPlugin({
               if (!githubMembers.has(member.toLowerCase())) {
                 try {
                   await octokit.teams.addOrUpdateMembershipForUserInOrg({
-                    org: githubOrg,
+                    org: githubOrg!,
                     team_slug: teamSlug,
                     username: member,
                     role: 'member',
@@ -315,7 +315,7 @@ export const githubTeamSyncPlugin = createBackendPlugin({
                 if (!backstageMemberSet.has(member)) {
                   try {
                     await octokit.teams.removeMembershipForUserInOrg({
-                      org: githubOrg,
+                      org: githubOrg!,
                       team_slug: teamSlug,
                       username: member,
                     });

@@ -60,7 +60,7 @@ export const ownershipManagementPlugin = createBackendPlugin({
         catalog: catalogServiceRef,
         httpRouter: coreServices.httpRouter,
       },
-      async init({ logger, config, scheduler, catalog, httpRouter }) {
+      async init({ logger, scheduler, catalog, httpRouter }) {
         const DEFAULT_ORPHAN_GROUP = 'unassigned';
         
         // Track last orphan count to avoid duplicate log spam
@@ -199,7 +199,7 @@ export const ownershipManagementPlugin = createBackendPlugin({
         router.use(express.json());
 
         // GET /api/ownership/orphans - List orphaned entities
-        router.get('/orphans', async (req, res) => {
+        router.get('/orphans', async (_req, res) => {
           try {
             const orphans = await findOrphanedEntities();
             res.json({
@@ -213,7 +213,7 @@ export const ownershipManagementPlugin = createBackendPlugin({
         });
 
         // GET /api/ownership/groups - List all groups
-        router.get('/groups', async (req, res) => {
+        router.get('/groups', async (_req, res) => {
           try {
             const groups = await getAllGroups();
             const groupList = Array.from(groups.values()).sort((a, b) => 
@@ -230,7 +230,7 @@ export const ownershipManagementPlugin = createBackendPlugin({
         });
 
         // GET /api/ownership/entities - List all ownable entities with their owners
-        router.get('/entities', async (req, res) => {
+        router.get('/entities', async (_req, res) => {
           try {
             const entities = await getOwnableEntities();
             const groups = await getAllGroups();

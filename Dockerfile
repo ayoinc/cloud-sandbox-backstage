@@ -77,8 +77,10 @@ RUN pip3 install --break-system-packages \
     mkdocs-monorepo-plugin \
     mkdocs-d2-plugin
 
-# Install MinIO client for TechDocs upload
-RUN curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc && \
+# Install MinIO client for TechDocs upload (multi-arch support)
+RUN ARCH=$(dpkg --print-architecture) && \
+    if [ "$ARCH" = "arm64" ]; then MC_ARCH="linux-arm64"; else MC_ARCH="linux-amd64"; fi && \
+    curl -fsSL "https://dl.min.io/client/mc/release/${MC_ARCH}/mc" -o /usr/local/bin/mc && \
     chmod +x /usr/local/bin/mc
 
 # Use the node user

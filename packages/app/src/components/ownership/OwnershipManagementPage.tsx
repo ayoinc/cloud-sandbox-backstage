@@ -5,7 +5,6 @@ import {
   Page,
   Table,
   TableColumn,
-  Select,
   Progress,
   WarningPanel,
   InfoCard,
