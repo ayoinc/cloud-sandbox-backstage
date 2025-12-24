@@ -1,0 +1,171 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: azure-functions
+  title: Azure Functions
+  description: Create an Azure Functions App for serverless event-driven compute
+  tags:
+    - azure
+    - functions
+    - serverless
+    - faas
+    - terraform
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: group:platform-team
+  type: service
+
+  parameters:
+    - title: Project Information
+      required:
+        - name
+        - owner
+      properties:
+        name:
+          title: Function App Name
+          type: string
+          description: Name of the Azure Function App
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Purpose of this Function App
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns this resource
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+    - title: Environment Configuration
+      required:
+        - environment
+        - location
+      properties:
+        environment:
+          title: Environment
+          type: string
+          enum:
+            - development
+            - staging
+            - production
+          default: development
+        location:
+          title: Azure Region
+          type: string
+          enum:
+            - eastus2
+            - westus2
+            - westeurope
+            - eastasia
+            - centralus
+            - australiaeast
+          default: eastus2
+
+    - title: Runtime Configuration
+      required:
+        - runtimeStack
+        - runtimeVersion
+      properties:
+        runtimeStack:
+          title: Runtime Stack
+          type: string
+          enum:
+            - dotnet
+            - node
+            - python
+            - java
+          default: node
+          description: Programming language runtime for your functions
+        runtimeVersion:
+          title: Runtime Version
+          type: string
+          description: Version of the runtime (e.g., 18 for Node.js, 3.11 for Python)
+          default: '18'
+
+    - title: Hosting Configuration
+      required:
+        - skuTier
+        - storageAccountTier
+      properties:
+        skuTier:
+          title: Hosting Plan
+          type: string
+          enum:
+            - Consumption
+            - Premium
+            - Dedicated
+          default: Consumption
+          description: Consumption for pay-per-use, Premium for VNET and pre-warmed instances, Dedicated for App Service plan
+        storageAccountTier:
+          title: Storage Account Tier
+          type: string
+          enum:
+            - Standard
+            - Premium
+          default: Standard
+          description: Storage tier for Function App state and triggers
+        enableAppInsights:
+          title: Enable Application Insights
+          type: boolean
+          default: true
+          description: Enable Application Insights for monitoring and telemetry
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          environment: ${{ parameters.environment }}
+          location: ${{ parameters.location }}
+          runtimeStack: ${{ parameters.runtimeStack }}
+          runtimeVersion: ${{ parameters.runtimeVersion }}
+          skuTier: ${{ parameters.skuTier }}
+          storageAccountTier: ${{ parameters.storageAccountTier }}
+          enableAppInsights: ${{ parameters.enableAppInsights }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        repoUrl: ${{ parameters.repoUrl }}
+        description: 'Azure Functions App: ${{ parameters.name }}'
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

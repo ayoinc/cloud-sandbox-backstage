@@ -1,0 +1,199 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: gcp-cloud-sql
+  title: GCP Cloud SQL Instance
+  description: Create a managed Cloud SQL database instance with high availability, automated backups, and private networking
+  tags:
+    - gcp
+    - cloud-sql
+    - database
+    - terraform
+    - infrastructure
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: group:platform-team
+  type: resource
+
+  parameters:
+    - title: Project Information
+      required:
+        - name
+        - owner
+      properties:
+        name:
+          title: Instance Name
+          type: string
+          description: Name of the Cloud SQL instance
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Purpose of this database instance
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns this resource
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+    - title: Database Configuration
+      required:
+        - environment
+        - region
+        - gcpProject
+        - database_version
+      properties:
+        environment:
+          title: Environment
+          type: string
+          enum:
+            - development
+            - staging
+            - production
+          default: development
+        region:
+          title: GCP Region
+          type: string
+          enum:
+            - us-central1
+            - us-east1
+            - us-west1
+            - europe-west1
+            - asia-east1
+          default: us-central1
+        gcpProject:
+          title: GCP Project ID
+          type: string
+          description: The GCP project to deploy to
+        database_version:
+          title: Database Version
+          type: string
+          enum:
+            - MYSQL_8_0
+            - POSTGRES_15
+            - SQLSERVER_2019_STANDARD
+          default: POSTGRES_15
+          description: Database engine and version
+        tier:
+          title: Machine Tier
+          type: string
+          enum:
+            - db-f1-micro
+            - db-g1-small
+            - db-custom-1-3840
+            - db-custom-2-7680
+            - db-custom-4-15360
+            - db-custom-8-30720
+          default: db-f1-micro
+          description: Machine type for the instance
+        disk_size:
+          title: Disk Size (GB)
+          type: integer
+          default: 10
+          minimum: 10
+          maximum: 65536
+        disk_type:
+          title: Disk Type
+          type: string
+          enum:
+            - PD_SSD
+            - PD_HDD
+          default: PD_SSD
+
+    - title: High Availability & Backup
+      properties:
+        availability_type:
+          title: Availability Type
+          type: string
+          enum:
+            - ZONAL
+            - REGIONAL
+          default: ZONAL
+          description: REGIONAL enables automatic failover to a standby
+        enable_backups:
+          title: Enable Automated Backups
+          type: boolean
+          default: true
+        backup_retention_days:
+          title: Backup Retention (Days)
+          type: integer
+          default: 7
+          minimum: 1
+          maximum: 365
+
+    - title: Network Configuration
+      properties:
+        enable_private_ip:
+          title: Enable Private IP
+          type: boolean
+          default: false
+          description: Use private IP for connections (requires VPC)
+        network_id:
+          title: VPC Network ID
+          type: string
+          description: Full network ID (projects/PROJECT/global/networks/NETWORK)
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          environment: ${{ parameters.environment }}
+          region: ${{ parameters.region }}
+          gcpProject: ${{ parameters.gcpProject }}
+          database_version: ${{ parameters.database_version }}
+          tier: ${{ parameters.tier }}
+          disk_size: ${{ parameters.disk_size }}
+          disk_type: ${{ parameters.disk_type }}
+          availability_type: ${{ parameters.availability_type }}
+          enable_backups: ${{ parameters.enable_backups }}
+          backup_retention_days: ${{ parameters.backup_retention_days }}
+          enable_private_ip: ${{ parameters.enable_private_ip }}
+          network_id: ${{ parameters.network_id }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        repoUrl: ${{ parameters.repoUrl }}
+        description: 'GCP Cloud SQL Instance: ${{ parameters.name }}'
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

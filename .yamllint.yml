@@ -1,0 +1,106 @@
+# YAML Lint configuration
+# See https://yamllint.readthedocs.io/en/stable/rules.html
+
+extends: default
+
+rules:
+  # Line length - allow longer lines for readability
+  line-length:
+    max: 200
+    allow-non-breakable-words: true
+    allow-non-breakable-inline-mappings: true
+
+  # Truthy values - allow various boolean representations
+  truthy:
+    allowed-values: ['true', 'false', 'yes', 'no', 'on', 'off']
+    check-keys: false
+
+  # Comments - require space after #
+  comments:
+    require-starting-space: true
+    ignore-shebangs: true
+    min-spaces-from-content: 1
+
+  # Indentation - 2 spaces
+  indentation:
+    spaces: 2
+    indent-sequences: true
+    check-multi-line-strings: false
+
+  # Braces - allow inline for short content
+  braces:
+    forbid: false
+    min-spaces-inside: 0
+    max-spaces-inside: 1
+    min-spaces-inside-empty: 0
+    max-spaces-inside-empty: 0
+
+  # Brackets - allow inline for short content
+  brackets:
+    forbid: false
+    min-spaces-inside: 0
+    max-spaces-inside: 0
+    min-spaces-inside-empty: 0
+    max-spaces-inside-empty: 0
+
+  # Colons - standard spacing
+  colons:
+    max-spaces-before: 0
+    max-spaces-after: 1
+
+  # Commas - standard spacing
+  commas:
+    max-spaces-before: 0
+    min-spaces-after: 1
+    max-spaces-after: 1
+
+  # Document markers - don't require
+  document-start: disable
+  document-end: disable
+
+  # Empty lines
+  empty-lines:
+    max: 2
+    max-start: 0
+    max-end: 1
+
+  # Empty values - allow
+  empty-values:
+    forbid-in-block-mappings: false
+    forbid-in-flow-mappings: false
+
+  # Hyphens - standard spacing
+  hyphens:
+    max-spaces-after: 1
+
+  # Key duplicates - disallow
+  key-duplicates: enable
+
+  # Key ordering - don't enforce
+  key-ordering: disable
+
+  # New line at end of file
+  new-line-at-end-of-file: enable
+
+  # New lines - unix style
+  new-lines:
+    type: unix
+
+  # Octal values - allow
+  octal-values:
+    forbid-implicit-octal: true
+    forbid-explicit-octal: false
+
+  # Quoted strings - don't enforce
+  quoted-strings: disable
+
+  # Trailing spaces
+  trailing-spaces: enable
+
+# Ignore patterns
+ignore: |
+  node_modules/
+  .yarn/
+  dist/
+  templates/**/skeleton/**/*.yaml
+  templates/**/skeleton/**/*.yml

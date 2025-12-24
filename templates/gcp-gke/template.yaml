@@ -16,7 +16,7 @@ metadata:
 spec:
   owner: group:platform-team
   type: infrastructure
-  
+
   parameters:
     - title: Project Information
       required:
@@ -41,12 +41,14 @@ spec:
           ui:options:
             catalogFilter:
               kind: Group
-              
+
     - title: Cluster Configuration
       required:
         - environment
         - region
         - gcpProject
+        - networkId
+        - subnetId
       properties:
         environment:
           title: Environment
@@ -71,6 +73,14 @@ spec:
           title: GCP Project ID
           type: string
           description: The GCP project to deploy to
+        networkId:
+          title: VPC Network ID
+          type: string
+          description: VPC Network self_link or name for the GKE cluster
+        subnetId:
+          title: Subnet ID
+          type: string
+          description: Subnet self_link or name for the GKE cluster nodes
         clusterMode:
           title: Cluster Mode
           type: string
@@ -95,7 +105,7 @@ spec:
           default: 3
           minimum: 1
           maximum: 10
-          
+
     - title: Repository Configuration
       required:
         - repoUrl
@@ -121,6 +131,8 @@ spec:
           environment: ${{ parameters.environment }}
           region: ${{ parameters.region }}
           gcpProject: ${{ parameters.gcpProject }}
+          networkId: ${{ parameters.networkId }}
+          subnetId: ${{ parameters.subnetId }}
           clusterMode: ${{ parameters.clusterMode }}
           machineType: ${{ parameters.machineType }}
           nodeCount: ${{ parameters.nodeCount }}

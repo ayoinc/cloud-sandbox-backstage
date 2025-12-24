@@ -9,6 +9,8 @@ metadata:
     - aws
     - lambda
     - serverless
+  annotations:
+    backstage.io/techdocs-ref: dir:.
 spec:
   owner: platform-team
   type: infrastructure
@@ -26,6 +28,10 @@ spec:
           title: Function Name
           type: string
           pattern: '^[a-z0-9-]+$'
+        description:
+          title: Description
+          type: string
+          description: Description of the Lambda function
         owner:
           title: Owner
           type: string
@@ -46,8 +52,22 @@ spec:
         runtime:
           title: Runtime
           type: string
-          default: python3.11
-          enum: [python3.11, python3.10, nodejs18.x, nodejs20.x, go1.x, java17, java21]
+          default: python3.12
+          enum:
+            [
+              python3.12,
+              python3.11,
+              nodejs20.x,
+              nodejs18.x,
+              go1.x,
+              java21,
+              java17,
+            ]
+        handler:
+          title: Handler
+          type: string
+          description: Lambda function handler (e.g., main.handler)
+          default: 'main.handler'
         memory_size:
           title: Memory (MB)
           type: integer
@@ -78,10 +98,12 @@ spec:
         url: ./skeleton
         values:
           name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
           owner: ${{ parameters.owner }}
           aws_region: ${{ parameters.aws_region }}
           environment: ${{ parameters.environment }}
           runtime: ${{ parameters.runtime }}
+          handler: ${{ parameters.handler }}
           memory_size: ${{ parameters.memory_size }}
           timeout: ${{ parameters.timeout }}
 
@@ -91,7 +113,7 @@ spec:
       input:
         allowedHosts: ['github.com']
         repoUrl: ${{ parameters.repoUrl }}
-        description: "AWS Lambda - ${{ parameters.name }}"
+        description: 'AWS Lambda - ${{ parameters.name }}'
         defaultBranch: main
 
     - id: register

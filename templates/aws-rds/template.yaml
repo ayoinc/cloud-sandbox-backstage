@@ -17,7 +17,7 @@ metadata:
 spec:
   owner: group:platform-team
   type: infrastructure
-  
+
   parameters:
     - title: Project Information
       required:
@@ -42,13 +42,15 @@ spec:
           ui:options:
             catalogFilter:
               kind: Group
-              
+
     - title: Database Configuration
       required:
         - environment
         - region
         - engine
         - instanceClass
+        - vpcId
+        - privateSubnetIds
       properties:
         environment:
           title: Environment
@@ -68,6 +70,25 @@ spec:
             - eu-central-1
             - ap-southeast-1
           default: us-east-1
+        vpcId:
+          title: VPC ID
+          type: string
+          description: ID of the VPC where the database will be deployed
+          pattern: '^vpc-[a-f0-9]+$'
+        privateSubnetIds:
+          title: Private Subnet IDs
+          type: array
+          description: List of private subnet IDs for the DB subnet group
+          items:
+            type: string
+            pattern: '^subnet-[a-f0-9]+$'
+          minItems: 2
+        vpcCidrBlock:
+          title: VPC CIDR Block
+          type: string
+          description: CIDR block of the VPC for security group rules
+          default: '10.0.0.0/16'
+          pattern: '^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}$'
         engine:
           title: Database Engine
           type: string
@@ -78,8 +99,19 @@ spec:
         engineVersion:
           title: Engine Version
           type: string
-          default: "15"
-          description: Major version (e.g., 15 for PostgreSQL, 8.0 for MySQL)
+          default: '16'
+          description: Major version (e.g., 16 for PostgreSQL, 8.0 for MySQL)
+        engineFamily:
+          title: Parameter Group Family
+          type: string
+          description: Database parameter group family (e.g., postgres16, mysql8.0)
+          default: 'postgres16'
+        databaseName:
+          title: Database Name
+          type: string
+          description: Name of the default database
+          default: 'app'
+          pattern: '^[a-z][a-z0-9_]*$'
         instanceClass:
           title: Instance Class
           type: string
@@ -101,7 +133,7 @@ spec:
           type: boolean
           default: false
           description: Enable for high availability (production recommended)
-          
+
     - title: Repository Configuration
       required:
         - repoUrl
@@ -126,8 +158,13 @@ spec:
           owner: ${{ parameters.owner }}
           environment: ${{ parameters.environment }}
           region: ${{ parameters.region }}
+          vpcId: ${{ parameters.vpcId }}
+          privateSubnetIds: ${{ parameters.privateSubnetIds }}
+          vpcCidrBlock: ${{ parameters.vpcCidrBlock }}
           engine: ${{ parameters.engine }}
           engineVersion: ${{ parameters.engineVersion }}
+          engineFamily: ${{ parameters.engineFamily }}
+          databaseName: ${{ parameters.databaseName }}
           instanceClass: ${{ parameters.instanceClass }}
           allocatedStorage: ${{ parameters.allocatedStorage }}
           multiAz: ${{ parameters.multiAz }}

@@ -1,0 +1,8 @@
+site_name: GCP Cloud SQL Template
+site_description: Documentation for the GCP Cloud SQL Backstage template
+
+nav:
+  - Home: index.md
+
+plugins:
+  - techdocs-core

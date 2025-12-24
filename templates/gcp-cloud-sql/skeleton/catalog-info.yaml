@@ -1,0 +1,21 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.name }}
+  description: ${{ values.description }}
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - gcp
+    - cloud-sql
+    - database
+    - ${{ values.environment }}
+  links:
+    - url: https://console.cloud.google.com/sql/instances
+      title: GCP Console
+      icon: cloud
+spec:
+  type: resource
+  owner: ${{ values.owner }}
+  lifecycle: ${{ values.environment }}
+  system: database-services

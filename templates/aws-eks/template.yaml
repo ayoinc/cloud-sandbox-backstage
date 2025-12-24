@@ -16,7 +16,7 @@ metadata:
 spec:
   owner: group:platform-team
   type: infrastructure
-  
+
   parameters:
     - title: Project Information
       required:
@@ -41,12 +41,14 @@ spec:
           ui:options:
             catalogFilter:
               kind: Group
-              
+
     - title: Cluster Configuration
       required:
         - environment
         - region
         - kubernetesVersion
+        - vpcId
+        - privateSubnetIds
       properties:
         environment:
           title: Environment
@@ -70,10 +72,24 @@ spec:
           title: Kubernetes Version
           type: string
           enum:
-            - "1.29"
-            - "1.28"
-            - "1.27"
-          default: "1.29"
+            - '1.31'
+            - '1.30'
+            - '1.29'
+          default: '1.31'
+        vpcId:
+          title: VPC ID
+          type: string
+          description: ID of the VPC where the cluster will be deployed (e.g., vpc-0123456789abcdef0)
+          pattern: '^vpc-[a-f0-9]+$'
+        privateSubnetIds:
+          title: Private Subnet IDs
+          type: array
+          description: List of private subnet IDs for the EKS cluster nodes
+          items:
+            type: string
+            pattern: '^subnet-[a-f0-9]+$'
+          minItems: 2
+          ui:help: Select at least 2 subnets in different availability zones
         nodeInstanceType:
           title: Node Instance Type
           type: string
@@ -95,7 +111,7 @@ spec:
           default: 5
           minimum: 1
           maximum: 20
-          
+
     - title: Repository Configuration
       required:
         - repoUrl
@@ -121,6 +137,8 @@ spec:
           environment: ${{ parameters.environment }}
           region: ${{ parameters.region }}
           kubernetesVersion: ${{ parameters.kubernetesVersion }}
+          vpcId: ${{ parameters.vpcId }}
+          privateSubnetIds: ${{ parameters.privateSubnetIds }}
           nodeInstanceType: ${{ parameters.nodeInstanceType }}
           nodeDesiredSize: ${{ parameters.nodeDesiredSize }}
           nodeMaxSize: ${{ parameters.nodeMaxSize }}

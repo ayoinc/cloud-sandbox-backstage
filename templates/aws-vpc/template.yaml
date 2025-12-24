@@ -8,6 +8,8 @@ metadata:
     - terraform
     - aws
     - vpc
+  annotations:
+    backstage.io/techdocs-ref: dir:.
 spec:
   owner: platform-team
   type: infrastructure
@@ -25,6 +27,10 @@ spec:
           title: VPC Name
           type: string
           pattern: '^[a-z0-9-]+$'
+        description:
+          title: Description
+          type: string
+          description: Purpose of this VPC
         owner:
           title: Owner
           type: string
@@ -45,7 +51,7 @@ spec:
         vpc_cidr:
           title: VPC CIDR
           type: string
-          default: "10.0.0.0/16"
+          default: '10.0.0.0/16'
         azs:
           title: Availability Zones
           type: integer
@@ -72,6 +78,7 @@ spec:
         url: ./skeleton
         values:
           name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
           owner: ${{ parameters.owner }}
           aws_region: ${{ parameters.aws_region }}
           environment: ${{ parameters.environment }}
@@ -84,7 +91,7 @@ spec:
       input:
         allowedHosts: ['github.com']
         repoUrl: ${{ parameters.repoUrl }}
-        description: "AWS VPC - ${{ parameters.name }}"
+        description: 'AWS VPC - ${{ parameters.name }}'
         defaultBranch: main
 
     - id: register

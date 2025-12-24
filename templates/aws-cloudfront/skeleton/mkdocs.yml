@@ -1,0 +1,8 @@
+site_name: ${{ values.name }}
+site_description: AWS CloudFront Distribution - ${{ values.description }}
+
+nav:
+  - Home: index.md
+
+plugins:
+  - techdocs-core

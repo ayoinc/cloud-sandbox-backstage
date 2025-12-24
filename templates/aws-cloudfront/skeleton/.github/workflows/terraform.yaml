@@ -1,0 +1,887 @@
+# =============================================================================
+# AWS CloudFront Infrastructure Pipeline
+# =============================================================================
+# This workflow manages the complete lifecycle of AWS CloudFront distribution
+# infrastructure.
+#
+# REQUIRED SETUP:
+# 1. GitHub Environments: Create 'dev', 'staging', 'prod' environments
+# 2. Environment Protection Rules:
+#    - staging: Require reviewers (optional)
+#    - prod: Require reviewers, restrict to main branch only
+# 3. Repository Secrets (per environment or repo-wide):
+#    - AWS_ROLE_ARN: IAM role ARN for OIDC authentication
+#    - TF_STATE_BUCKET: S3 bucket for Terraform state
+#    - TF_STATE_LOCK_TABLE: DynamoDB table for state locking (optional)
+#    - INFRACOST_API_KEY: For cost estimation (optional)
+# 4. Repository Variables:
+#    - AWS_REGION: Default AWS region (defaults to us-east-1)
+#
+# MANUAL APPROVAL:
+# - Apply and Destroy actions require manual approval via GitHub Environments
+# - Production deployments require additional reviewer approval
+# =============================================================================
+
+name: AWS CloudFront Infrastructure
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '*.tf'
+      - '*.tfvars'
+      - 'environments/**'
+      - '.github/workflows/terraform.yaml'
+  pull_request:
+    branches: [main]
+    paths:
+      - '*.tf'
+      - '*.tfvars'
+      - 'environments/**'
+      - '.github/workflows/terraform.yaml'
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Terraform action to perform'
+        required: true
+        default: 'plan'
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      confirm_destroy:
+        description: 'Type "DESTROY" to confirm destruction (required for destroy action)'
+        required: false
+        type: string
+        default: ''
+
+# Cancel in-progress runs for the same branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.inputs.environment || 'default' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
+  id-token: write # Required for OIDC authentication with AWS
+  actions: read
+
+env:
+  TF_VERSION: '1.9.8'
+  TOFU_VERSION: '1.8.4'
+  TFLINT_VERSION: 'v0.53.0'
+  TF_LOG: INFO
+  TF_INPUT: false
+  TF_IN_AUTOMATION: true
+  AWS_REGION: ${{ vars.AWS_REGION || '${{ values.region }}' }}
+
+jobs:
+  # ============================================================================
+  # PREFLIGHT CHECKS - Validate AWS connectivity and prerequisites
+  # ============================================================================
+  preflight:
+    name: Preflight Checks
+    runs-on: ubuntu-latest
+    outputs:
+      aws_account_id: ${{ steps.aws.outputs.account_id }}
+      aws_region: ${{ steps.aws.outputs.region }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials (OIDC)
+        id: aws-creds
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: cloudfront-preflight-${{ github.run_id }}
+        continue-on-error: true
+
+      - name: Verify AWS Connectivity
+        id: aws
+        run: |
+          if [ "${{ steps.aws-creds.outcome }}" == "failure" ]; then
+            echo "::error::AWS authentication failed. Please verify:"
+            echo "::error::1. AWS_ROLE_ARN secret is configured correctly"
+            echo "::error::2. OIDC provider is set up in AWS IAM"
+            echo "::error::3. Trust policy allows this repository"
+            exit 1
+          fi
+
+          # Get account info
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          REGION="${{ env.AWS_REGION }}"
+
+          echo "account_id=${ACCOUNT_ID}" >> $GITHUB_OUTPUT
+          echo "region=${REGION}" >> $GITHUB_OUTPUT
+
+          echo "## AWS Preflight Check" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Authentication | Passed |" >> $GITHUB_STEP_SUMMARY
+          echo "| Account ID | \`${ACCOUNT_ID}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Region | \`${REGION}\` |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Check State Backend
+        run: |
+          if [ -z "${{ secrets.TF_STATE_BUCKET }}" ]; then
+            echo "::warning::TF_STATE_BUCKET secret not set. Using local state (not recommended for production)."
+          else
+            # Verify bucket exists and is accessible
+            aws s3api head-bucket --bucket "${{ secrets.TF_STATE_BUCKET }}" 2>/dev/null || {
+              echo "::error::Cannot access state bucket: ${{ secrets.TF_STATE_BUCKET }}"
+              echo "::error::Ensure the bucket exists and the IAM role has access"
+              exit 1
+            }
+            echo "State bucket verified: ${{ secrets.TF_STATE_BUCKET }}"
+          fi
+
+      - name: Verify CloudFront Prerequisites
+        run: |
+          echo "## CloudFront Prerequisites Check" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Check if we can access CloudFront API
+          aws cloudfront list-distributions --max-items 1 > /dev/null 2>&1 && {
+            echo "| CloudFront API Access | Passed |" >> $GITHUB_STEP_SUMMARY
+          } || {
+            echo "| CloudFront API Access | Failed - Check IAM permissions |" >> $GITHUB_STEP_SUMMARY
+          }
+
+  # ============================================================================
+  # VALIDATION - Format, Lint, Validate
+  # ============================================================================
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    needs: preflight
+    outputs:
+      fmt_outcome: ${{ steps.fmt.outcome }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Check Terraform formatting
+        id: fmt
+        run: terraform fmt -check -recursive -diff
+        continue-on-error: true
+
+      - name: Initialize Terraform (validation only)
+        run: terraform init -backend=false
+
+      - name: Validate Terraform configuration
+        run: terraform validate
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: ${{ env.TFLINT_VERSION }}
+
+      - name: Initialize TFLint
+        run: |
+          cat > .tflint.hcl << 'EOF'
+          plugin "aws" {
+            enabled = true
+            version = "0.32.0"
+            source  = "github.com/terraform-linters/tflint-ruleset-aws"
+          }
+          EOF
+          tflint --init
+
+      - name: Run TFLint
+        run: tflint --recursive --format=compact
+
+      - name: Comment on PR - Format Issues
+        if: steps.fmt.outcome == 'failure' && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `### Terraform Format Check Failed
+              
+              Please run the following command locally and commit the changes:
+              
+              \`\`\`bash
+              terraform fmt -recursive
+              \`\`\`
+              
+              Or use the OpenTofu equivalent:
+              \`\`\`bash
+              tofu fmt -recursive
+              \`\`\``
+            })
+
+  # ============================================================================
+  # TERRAFORM TESTS - Run terraform test for validation
+  # ============================================================================
+  test:
+    name: Terraform Tests
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Initialize Terraform
+        run: terraform init -backend=false
+
+      - name: Run Terraform Tests
+        id: test
+        run: |
+          set +e
+          terraform test -no-color 2>&1 | tee test-output.txt
+          EXITCODE=${PIPESTATUS[0]}
+          echo "exitcode=${EXITCODE}" >> $GITHUB_OUTPUT
+
+          # Parse test results for summary
+          PASSED=$(grep -c "Pass" test-output.txt || echo "0")
+          FAILED=$(grep -c "Fail" test-output.txt || echo "0")
+          SKIPPED=$(grep -c "Skip" test-output.txt || echo "0")
+
+          echo "passed=${PASSED}" >> $GITHUB_OUTPUT
+          echo "failed=${FAILED}" >> $GITHUB_OUTPUT
+          echo "skipped=${SKIPPED}" >> $GITHUB_OUTPUT
+
+          exit $EXITCODE
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-test-results
+          path: test-output.txt
+          retention-days: 30
+
+      - name: Test Results Summary
+        if: always()
+        run: |
+          echo "## Terraform Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Passed | ${{ steps.test.outputs.passed || 0 }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Failed | ${{ steps.test.outputs.failed || 0 }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Skipped | ${{ steps.test.outputs.skipped || 0 }} |" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================================
+  # SECURITY SCANNING - tfsec, Checkov, Trivy
+  # ============================================================================
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: [validate, test]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run tfsec
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          soft_fail: false
+          format: sarif
+          out: tfsec-results.sarif
+
+      - name: Upload tfsec SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: tfsec-results.sarif
+          category: tfsec
+
+      - name: Run Checkov
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: .
+          framework: terraform
+          output_format: cli,sarif
+          output_file_path: console,checkov-results.sarif
+          soft_fail: false
+          skip_check: CKV_TF_1,CKV_AWS_68,CKV_AWS_174 # Skip module source version, CloudFront logging, WAF
+
+      - name: Upload Checkov SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: checkov-results.sarif
+          category: checkov
+
+      - name: Run Trivy IaC Scanner
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: 'config'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+          exit-code: '1'
+
+      - name: Upload Trivy SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy
+
+      - name: Security Summary
+        if: always()
+        run: |
+          echo "## Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Scanner | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| tfsec | Completed |" >> $GITHUB_STEP_SUMMARY
+          echo "| Checkov | Completed |" >> $GITHUB_STEP_SUMMARY
+          echo "| Trivy | Completed |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Review the Security tab for detailed findings." >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================================
+  # COST ESTIMATION - Infracost analysis
+  # ============================================================================
+  cost:
+    name: Cost Estimation
+    runs-on: ubuntu-latest
+    needs: [validate, security]
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Infracost
+        if: ${{ secrets.INFRACOST_API_KEY != '' }}
+        uses: infracost/actions/setup@v3
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+      - name: Generate Infracost breakdown
+        if: ${{ secrets.INFRACOST_API_KEY != '' }}
+        run: |
+          infracost breakdown --path=. \
+            --format=json \
+            --out-file=/tmp/infracost.json
+        continue-on-error: true
+
+      - name: Post Infracost comment
+        if: ${{ secrets.INFRACOST_API_KEY != '' }}
+        uses: infracost/actions/comment@v1
+        with:
+          path: /tmp/infracost.json
+          behavior: update
+        continue-on-error: true
+
+      - name: Cost estimation note
+        if: ${{ secrets.INFRACOST_API_KEY == '' }}
+        run: |
+          echo "## Cost Estimation Skipped" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "INFRACOST_API_KEY secret not configured." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**CloudFront Pricing:**" >> $GITHUB_STEP_SUMMARY
+          echo "- PriceClass_100: ~\$0.085/GB (US, Canada, Europe)" >> $GITHUB_STEP_SUMMARY
+          echo "- PriceClass_200: ~\$0.110/GB (+ Asia, Middle East, Africa)" >> $GITHUB_STEP_SUMMARY
+          echo "- PriceClass_All: ~\$0.170/GB (All regions)" >> $GITHUB_STEP_SUMMARY
+          echo "- Requests: ~\$0.0075-0.016 per 10,000 HTTPS requests" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================================
+  # PLAN - Generate execution plan for each environment
+  # ============================================================================
+  plan-dev:
+    name: Plan (dev)
+    runs-on: ubuntu-latest
+    needs: [validate, security]
+    environment: dev
+    outputs:
+      plan_exit_code: ${{ steps.plan.outputs.exitcode }}
+      has_changes: ${{ steps.plan.outputs.has_changes }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: cloudfront-plan-dev-${{ github.run_id }}
+
+      - name: Terraform Init
+        id: init
+        run: |
+          if [ -n "${{ secrets.TF_STATE_BUCKET }}" ]; then
+            terraform init \
+              -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+              -backend-config="key=${{ github.repository }}/cloudfront/dev/terraform.tfstate" \
+              -backend-config="region=${{ env.AWS_REGION }}" \
+              -backend-config="encrypt=true" \
+              -backend-config="dynamodb_table=${{ secrets.TF_STATE_LOCK_TABLE || '' }}"
+          else
+            terraform init
+          fi
+
+      - name: Select/Create Workspace
+        run: terraform workspace select dev || terraform workspace new dev
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          set +e
+          terraform plan \
+            -var-file=environments/dev.tfvars \
+            -out=tfplan-dev \
+            -detailed-exitcode \
+            -no-color 2>&1 | tee plan-output.txt
+
+          EXITCODE=${PIPESTATUS[0]}
+          echo "exitcode=${EXITCODE}" >> $GITHUB_OUTPUT
+
+          # Exit code 2 means changes present
+          if [ $EXITCODE -eq 2 ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            exit 0
+          elif [ $EXITCODE -eq 0 ]; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            exit 0
+          else
+            exit $EXITCODE
+          fi
+
+      - name: Upload Plan Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-dev
+          path: tfplan-dev
+          retention-days: 5
+
+      - name: Comment Plan on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('plan-output.txt', 'utf8');
+            const hasChanges = '${{ steps.plan.outputs.has_changes }}' === 'true';
+
+            // Truncate if too long
+            const maxLength = 60000;
+            const truncatedPlan = plan.length > maxLength 
+              ? plan.substring(0, maxLength) + '\n\n... (truncated, see workflow logs for full output)'
+              : plan;
+
+            const icon = hasChanges ? '!' : '';
+            const status = hasChanges ? 'Changes detected' : 'No changes';
+
+            const body = `### Terraform Plan - dev (CloudFront) ${icon}
+
+            **Status:** ${status}
+
+            <details>
+            <summary>Show Plan Output</summary>
+
+            \`\`\`hcl
+            ${truncatedPlan}
+            \`\`\`
+
+            </details>
+
+            > To apply these changes, merge this PR and then manually trigger the Apply workflow.
+            `;
+
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(c => 
+              c.user.type === 'Bot' && c.body.includes('Terraform Plan - dev (CloudFront)')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
+
+  plan-staging:
+    name: Plan (staging)
+    runs-on: ubuntu-latest
+    needs: [validate, security]
+    if: github.ref == 'refs/heads/main' || github.event.inputs.environment == 'staging'
+    environment: staging
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: cloudfront-plan-staging-${{ github.run_id }}
+
+      - name: Terraform Init
+        run: |
+          if [ -n "${{ secrets.TF_STATE_BUCKET }}" ]; then
+            terraform init \
+              -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+              -backend-config="key=${{ github.repository }}/cloudfront/staging/terraform.tfstate" \
+              -backend-config="region=${{ env.AWS_REGION }}" \
+              -backend-config="encrypt=true"
+          else
+            terraform init
+          fi
+
+      - name: Select/Create Workspace
+        run: terraform workspace select staging || terraform workspace new staging
+
+      - name: Terraform Plan
+        run: |
+          terraform plan \
+            -var-file=environments/staging.tfvars \
+            -out=tfplan-staging
+
+      - name: Upload Plan Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-staging
+          path: tfplan-staging
+          retention-days: 5
+
+  plan-prod:
+    name: Plan (prod)
+    runs-on: ubuntu-latest
+    needs: [validate, security]
+    if: github.ref == 'refs/heads/main' || github.event.inputs.environment == 'prod'
+    environment: prod
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: cloudfront-plan-prod-${{ github.run_id }}
+
+      - name: Terraform Init
+        run: |
+          if [ -n "${{ secrets.TF_STATE_BUCKET }}" ]; then
+            terraform init \
+              -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+              -backend-config="key=${{ github.repository }}/cloudfront/prod/terraform.tfstate" \
+              -backend-config="region=${{ env.AWS_REGION }}" \
+              -backend-config="encrypt=true"
+          else
+            terraform init
+          fi
+
+      - name: Select/Create Workspace
+        run: terraform workspace select prod || terraform workspace new prod
+
+      - name: Terraform Plan
+        run: |
+          terraform plan \
+            -var-file=environments/prod.tfvars \
+            -out=tfplan-prod
+
+      - name: Upload Plan Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-prod
+          path: tfplan-prod
+          retention-days: 5
+
+  # ============================================================================
+  # APPLY - Apply infrastructure changes (manual trigger only)
+  # ============================================================================
+  apply:
+    name: Apply (${{ github.event.inputs.environment }})
+    runs-on: ubuntu-latest
+    needs: [plan-dev]
+    if: |
+      github.event_name == 'workflow_dispatch' && 
+      github.event.inputs.action == 'apply'
+    environment: ${{ github.event.inputs.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: cloudfront-apply-${{ github.event.inputs.environment }}-${{ github.run_id }}
+
+      - name: Download Plan Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-${{ github.event.inputs.environment }}
+        continue-on-error: true
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="key=${{ github.repository }}/cloudfront/${{ github.event.inputs.environment }}/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}" \
+            -backend-config="encrypt=true"
+
+      - name: Select Workspace
+        run: terraform workspace select ${{ github.event.inputs.environment }}
+
+      - name: Terraform Apply
+        id: apply
+        run: |
+          if [ -f "tfplan-${{ github.event.inputs.environment }}" ]; then
+            echo "Applying saved plan..."
+            terraform apply -auto-approve "tfplan-${{ github.event.inputs.environment }}"
+          else
+            echo "No saved plan found, creating new plan and applying..."
+            terraform apply \
+              -var-file=environments/${{ github.event.inputs.environment }}.tfvars \
+              -auto-approve
+          fi
+
+      - name: Capture Outputs
+        if: success()
+        run: |
+          echo "## Terraform Outputs" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          terraform output -no-color >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: CloudFront Usage Info
+        if: success()
+        run: |
+          DISTRIBUTION_ID=$(terraform output -raw distribution_id 2>/dev/null || echo "")
+          DOMAIN_NAME=$(terraform output -raw domain_name 2>/dev/null || echo "")
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## CloudFront Distribution Access" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Distribution ID:** \`${DISTRIBUTION_ID}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Domain Name:** \`${DOMAIN_NAME}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### AWS CLI Examples" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "# Get distribution details" >> $GITHUB_STEP_SUMMARY
+          echo "aws cloudfront get-distribution --id ${DISTRIBUTION_ID}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# Create cache invalidation" >> $GITHUB_STEP_SUMMARY
+          echo "aws cloudfront create-invalidation --distribution-id ${DISTRIBUTION_ID} --paths '/*'" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# Access your content" >> $GITHUB_STEP_SUMMARY
+          echo "curl https://${DOMAIN_NAME}/" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Post Apply Summary
+        if: success()
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Apply Completed Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Applied by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Timestamp:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================================
+  # DESTROY - Destroy infrastructure (manual trigger with confirmation)
+  # ============================================================================
+  destroy:
+    name: Destroy (${{ github.event.inputs.environment }})
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_dispatch' && 
+      github.event.inputs.action == 'destroy' &&
+      github.event.inputs.confirm_destroy == 'DESTROY'
+    environment: ${{ github.event.inputs.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify Destruction Confirmation
+        run: |
+          if [ "${{ github.event.inputs.confirm_destroy }}" != "DESTROY" ]; then
+            echo "::error::Destruction not confirmed. You must type 'DESTROY' in the confirm_destroy input."
+            exit 1
+          fi
+
+          echo "## DESTRUCTION CONFIRMED" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Initiated by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Timestamp:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**WARNING:** This will destroy the CloudFront distribution and all associated resources:" >> $GITHUB_STEP_SUMMARY
+          echo "- CloudFront Distribution" >> $GITHUB_STEP_SUMMARY
+          echo "- Origin Access Control" >> $GITHUB_STEP_SUMMARY
+          echo "- Cache invalidations will be terminated" >> $GITHUB_STEP_SUMMARY
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: cloudfront-destroy-${{ github.event.inputs.environment }}-${{ github.run_id }}
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="key=${{ github.repository }}/cloudfront/${{ github.event.inputs.environment }}/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}" \
+            -backend-config="encrypt=true"
+
+      - name: Select Workspace
+        run: terraform workspace select ${{ github.event.inputs.environment }}
+
+      - name: Pre-Destroy State Check
+        run: |
+          echo "Current resources to be destroyed:"
+          terraform state list || echo "No resources in state"
+
+      - name: Disable Distribution Before Destroy
+        run: |
+          DISTRIBUTION_ID=$(terraform output -raw distribution_id 2>/dev/null || echo "")
+          if [ -n "$DISTRIBUTION_ID" ]; then
+            echo "Disabling distribution: ${DISTRIBUTION_ID}"
+            # Note: CloudFront distributions must be disabled before deletion
+            # This is handled by Terraform, but may take 15-20 minutes
+          fi
+
+      - name: Terraform Destroy
+        run: |
+          terraform destroy \
+            -var-file=environments/${{ github.event.inputs.environment }}.tfvars \
+            -auto-approve
+
+      - name: Post Destroy Summary
+        if: success()
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Infrastructure Destroyed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All CloudFront resources in the **${{ github.event.inputs.environment }}** environment have been destroyed." >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================================
+  # SUMMARY - Pipeline summary
+  # ============================================================================
+  summary:
+    name: Pipeline Summary
+    runs-on: ubuntu-latest
+    needs: [preflight, validate, test, security, plan-dev]
+    if: always()
+    steps:
+      - name: Generate Summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const jobs = {
+              preflight: '${{ needs.preflight.result }}',
+              validate: '${{ needs.validate.result }}',
+              test: '${{ needs.test.result }}',
+              security: '${{ needs.security.result }}',
+              'plan-dev': '${{ needs.plan-dev.result }}'
+            };
+
+            let summary = '## AWS CloudFront Pipeline Summary\n\n';
+            summary += '| Stage | Status |\n';
+            summary += '|-------|--------|\n';
+
+            const statusEmoji = {
+              success: 'Passed',
+              failure: 'Failed',
+              cancelled: 'Cancelled',
+              skipped: 'Skipped'
+            };
+
+            for (const [job, status] of Object.entries(jobs)) {
+              summary += `| ${job} | ${statusEmoji[status] || status} |\n`;
+            }
+
+            summary += '\n### CloudFront Distribution Information\n\n';
+            summary += '- **Distribution Name:** ${{ values.name }}\n';
+            summary += '- **Price Class:** ${{ values.price_class }}\n';
+            summary += '- **Compression:** ${{ values.enable_compression }}\n';
+            summary += '- **Viewer Protocol:** ${{ values.viewer_protocol_policy }}\n';
+            summary += '\n### Next Steps\n\n';
+
+            if (jobs.validate === 'success' && jobs.security === 'success') {
+              summary += '1. Review the plan output in the PR comments\n';
+              summary += '2. Merge the PR to main branch\n';
+              summary += '3. Manually trigger the Apply workflow from Actions tab\n';
+              summary += '4. Access content via the CloudFront domain\n';
+            } else {
+              summary += 'Fix the failing checks before proceeding.\n';
+            }
+
+            await core.summary.addRaw(summary).write();
+
+            const failed = Object.values(jobs).some(s => s === 'failure');
+            if (failed) {
+              core.setFailed('One or more pipeline stages failed');
+            }

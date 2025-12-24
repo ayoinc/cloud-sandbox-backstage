@@ -1,0 +1,168 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: aws-cloudfront-distribution
+  title: AWS CloudFront Distribution
+  description: Create a CloudFront CDN distribution with Origin Access Control and caching configuration
+  tags:
+    - aws
+    - cloudfront
+    - cdn
+    - terraform
+    - devops
+    - networking
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: group:platform-team
+  type: infrastructure
+
+  parameters:
+    - title: Project Information
+      required:
+        - name
+        - owner
+      properties:
+        name:
+          title: Distribution Name
+          type: string
+          description: Name identifier for the CloudFront distribution
+          pattern: '^[a-z0-9][a-z0-9-]*[a-z0-9]$'
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Purpose of this CloudFront distribution
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns this resource
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+    - title: Distribution Configuration
+      required:
+        - environment
+        - region
+        - origin_domain_name
+      properties:
+        environment:
+          title: Environment
+          type: string
+          enum:
+            - development
+            - staging
+            - production
+          default: development
+        region:
+          title: AWS Region
+          type: string
+          enum:
+            - us-east-1
+            - us-west-2
+            - eu-west-1
+            - eu-central-1
+            - ap-southeast-1
+          default: us-east-1
+          description: Region for the S3 origin bucket (CloudFront is global)
+        origin_domain_name:
+          title: Origin Domain Name
+          type: string
+          description: S3 bucket regional domain name or custom origin domain
+        price_class:
+          title: Price Class
+          type: string
+          enum:
+            - PriceClass_100
+            - PriceClass_200
+            - PriceClass_All
+          default: PriceClass_100
+          description: CloudFront edge location price class
+        default_ttl:
+          title: Default TTL (seconds)
+          type: integer
+          default: 86400
+          description: Default cache TTL in seconds
+        viewer_protocol_policy:
+          title: Viewer Protocol Policy
+          type: string
+          enum:
+            - redirect-to-https
+            - https-only
+            - allow-all
+          default: redirect-to-https
+        enable_compression:
+          title: Enable Compression
+          type: boolean
+          default: true
+          description: Enable automatic compression of content
+
+    - title: Custom Domain (Optional)
+      properties:
+        custom_domain:
+          title: Custom Domain
+          type: string
+          description: Custom domain name (e.g., cdn.example.com)
+        acm_certificate_arn:
+          title: ACM Certificate ARN
+          type: string
+          description: ARN of ACM certificate for custom domain (required if custom domain is set)
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          environment: ${{ parameters.environment }}
+          region: ${{ parameters.region }}
+          origin_domain_name: ${{ parameters.origin_domain_name }}
+          price_class: ${{ parameters.price_class }}
+          default_ttl: ${{ parameters.default_ttl }}
+          viewer_protocol_policy: ${{ parameters.viewer_protocol_policy }}
+          enable_compression: ${{ parameters.enable_compression }}
+          custom_domain: ${{ parameters.custom_domain }}
+          acm_certificate_arn: ${{ parameters.acm_certificate_arn }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        repoUrl: ${{ parameters.repoUrl }}
+        description: 'AWS CloudFront Distribution: ${{ parameters.name }}'
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}
