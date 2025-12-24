@@ -54,45 +54,111 @@ k6 run --vus 10 --duration 30s script.js
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    Performance Testing Pipeline                          │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                     Test Generation                              │    │
-│  │  ┌───────────────┐  ┌───────────────┐  ┌───────────────────┐   │    │
-│  │  │ k6 Scripts    │  │ Locustfiles   │  │ Artillery YAML    │   │    │
-│  │  │ (JavaScript)  │  │ (Python)      │  │ (Scenarios)       │   │    │
-│  │  └───────────────┘  └───────────────┘  └───────────────────┘   │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-│                                    │                                     │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                     Load Generation                              │    │
-│  │  ┌───────────────┐  ┌───────────────┐  ┌───────────────────┐   │    │
-│  │  │ k6 Runner     │  │ Locust Master │  │ Artillery Engine  │   │    │
-│  │  │               │  │ + Workers     │  │                   │   │    │
-│  │  └───────────────┘  └───────────────┘  └───────────────────┘   │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-│                                    │                                     │
-│                                    ▼                                     │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                     Target System                                │    │
-│  │  ┌───────────────┐  ┌───────────────┐  ┌───────────────────┐   │    │
-│  │  │ Load Balancer │  │ Application   │  │ Database          │   │    │
-│  │  │               │  │ Servers       │  │                   │   │    │
-│  │  └───────────────┘  └───────────────┘  └───────────────────┘   │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-│                                    │                                     │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                     Metrics & Reporting                          │    │
-│  │  ┌───────────────┐  ┌───────────────┐  ┌───────────────────┐   │    │
-│  │  │ Prometheus    │  │ Grafana       │  │ Test Reports      │   │    │
-│  │  │ (Metrics)     │  │ (Dashboards)  │  │ (HTML/JSON)       │   │    │
-│  │  └───────────────┘  └───────────────┘  └───────────────────┘   │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+title: Performance Testing Pipeline {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+test_gen: Test Generation {
+  style.fill: "#E3F2FD"
+  
+  k6: k6 Scripts\n(JavaScript) {
+    shape: document
+    style.fill: "#2196F3"
+    style.font-color: white
+  }
+  
+  locust: Locustfiles\n(Python) {
+    shape: document
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+  
+  artillery: Artillery YAML\n(Scenarios) {
+    shape: document
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+}
+
+load_gen: Load Generation {
+  style.fill: "#E8F5E9"
+  
+  k6_runner: k6 Runner {
+    shape: hexagon
+    style.fill: "#2196F3"
+    style.font-color: white
+  }
+  
+  locust_master: Locust Master\n+ Workers {
+    shape: hexagon
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+  
+  artillery_engine: Artillery Engine {
+    shape: hexagon
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+}
+
+target: Target System {
+  style.fill: "#FFF3E0"
+  
+  lb: Load Balancer {
+    shape: rectangle
+    style.fill: "#9C27B0"
+    style.font-color: white
+  }
+  
+  app: Application\nServers {
+    shape: rectangle
+    style.fill: "#9C27B0"
+    style.font-color: white
+  }
+  
+  db: Database {
+    shape: cylinder
+    style.fill: "#9C27B0"
+    style.font-color: white
+  }
+  
+  lb -> app -> db
+}
+
+metrics: Metrics & Reporting {
+  style.fill: "#FCE4EC"
+  
+  prometheus: Prometheus\n(Metrics) {
+    shape: hexagon
+    style.fill: "#E91E63"
+    style.font-color: white
+  }
+  
+  grafana: Grafana\n(Dashboards) {
+    shape: rectangle
+    style.fill: "#E91E63"
+    style.font-color: white
+  }
+  
+  reports: Test Reports\n(HTML/JSON) {
+    shape: document
+    style.fill: "#E91E63"
+    style.font-color: white
+  }
+  
+  prometheus -> grafana
+}
+
+test_gen -> load_gen: Configure
+load_gen -> target: Generate Load
+target -> metrics: Collect Metrics
+load_gen -> metrics: Export Results {style.stroke-dash: 3}
 ```
 
 ## Test Types

@@ -9,4 +9,5 @@ nav:
 
 plugins:
   - techdocs-core
-  - d2
+  - d2:
+      theme: 4

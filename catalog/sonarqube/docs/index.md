@@ -56,31 +56,47 @@ sonar-scanner \
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        Developer Workflow                            │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│  ┌──────────┐    ┌──────────────┐    ┌─────────────────────────┐   │
-│  │   IDE    │───▶│ SonarLint    │◀──▶│   SonarQube Server      │   │
-│  │          │    │ (Real-time)  │    │                         │   │
-│  └──────────┘    └──────────────┘    │  ┌─────────────────┐    │   │
-│                                       │  │ Compute Engine  │    │   │
-│  ┌──────────┐    ┌──────────────┐    │  │ (Analysis)      │    │   │
-│  │   Git    │───▶│ CI/CD        │───▶│  └─────────────────┘    │   │
-│  │  Push    │    │ Pipeline     │    │                         │   │
-│  └──────────┘    └──────────────┘    │  ┌─────────────────┐    │   │
-│                                       │  │ Elasticsearch   │    │   │
-│  ┌──────────┐    ┌──────────────┐    │  │ (Search)        │    │   │
-│  │ Scanner  │───▶│ Analysis     │───▶│  └─────────────────┘    │   │
-│  │  CLI     │    │ Report       │    │                         │   │
-│  └──────────┘    └──────────────┘    │  ┌─────────────────┐    │   │
-│                                       │  │ PostgreSQL      │    │   │
-│                                       │  │ (Persistence)   │    │   │
-│                                       │  └─────────────────┘    │   │
-│                                       └─────────────────────────┘   │
-│                                                                      │
-└─────────────────────────────────────────────────────────────────────┘
+```d2
+direction: right
+
+developer: Developer Environment {
+  ide: IDE
+  sonarlint: SonarLint (Real-time) {
+    shape: hexagon
+  }
+  ide -> sonarlint: analyze
+}
+
+cicd: CI/CD Pipeline {
+  git: Git Push
+  pipeline: CI/CD Pipeline {
+    shape: hexagon
+  }
+  scanner: Scanner CLI
+  report: Analysis Report {
+    shape: document
+  }
+  git -> pipeline: trigger
+  scanner -> report: generate
+}
+
+server: SonarQube Server {
+  compute: Compute Engine (Analysis) {
+    shape: hexagon
+  }
+  elastic: Elasticsearch (Search) {
+    shape: cylinder
+  }
+  postgres: PostgreSQL (Persistence) {
+    shape: cylinder
+  }
+  compute -> elastic: index
+  compute -> postgres: store
+}
+
+developer.sonarlint <-> server: sync rules
+cicd.pipeline -> server: submit
+cicd.report -> server: upload
 ```
 
 ## Quality Gate Configuration

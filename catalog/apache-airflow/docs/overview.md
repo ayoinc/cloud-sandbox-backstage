@@ -4,57 +4,198 @@
 
 ### Component Interaction
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                                DAG File (.py)                                    │
-│                                  /dags/                                          │
-└─────────────────────────────────────────────────────────────────────────────────┘
-                                        │
-                                        │ Parse
-                                        ▼
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                                  Scheduler                                       │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐                  │
-│  │   DAG Parser    │  │  Task Instance  │  │   Executor      │                  │
-│  │                 │──│   Scheduler     │──│   Interface     │                  │
-│  │ • Parse DAGs    │  │                 │  │                 │                  │
-│  │ • Serialize     │  │ • Check deps    │  │ • Queue tasks   │                  │
-│  │ • Store in DB   │  │ • Update state  │  │ • Track status  │                  │
-│  └─────────────────┘  └─────────────────┘  └─────────────────┘                  │
-└─────────────────────────────────────────────────────────────────────────────────┘
-                                        │
-                    ┌───────────────────┴───────────────────┐
-                    │                                       │
-                    ▼                                       ▼
-┌───────────────────────────────────┐   ┌───────────────────────────────────┐
-│         Celery Workers            │   │       Kubernetes Pods             │
-│  ┌─────────┐ ┌─────────┐         │   │   ┌─────────┐ ┌─────────┐         │
-│  │ Worker 1│ │ Worker 2│ ...     │   │   │  Pod 1  │ │  Pod 2  │ ...     │
-│  │         │ │         │         │   │   │  (task) │ │  (task) │         │
-│  └─────────┘ └─────────┘         │   │   └─────────┘ └─────────┘         │
-└───────────────────────────────────┘   └───────────────────────────────────┘
+```d2
+direction: down
+
+dag_file: DAG File (.py) {
+  shape: document
+  style: {
+    fill: "#fff9c4"
+    stroke: "#f9a825"
+  }
+  label: "DAG File (.py)\n/dags/"
+}
+
+scheduler: Scheduler {
+  style: {
+    fill: "#e3f2fd"
+    stroke: "#1976d2"
+    border-radius: 8
+  }
+
+  dag_parser: DAG Parser {
+    shape: rectangle
+    style: {
+      fill: "#bbdefb"
+      stroke: "#1565c0"
+    }
+    desc: |md
+      - Parse DAGs
+      - Serialize
+      - Store in DB
+    |
+  }
+
+  task_scheduler: Task Instance Scheduler {
+    shape: rectangle
+    style: {
+      fill: "#c8e6c9"
+      stroke: "#388e3c"
+    }
+    desc: |md
+      - Check deps
+      - Update state
+    |
+  }
+
+  executor: Executor Interface {
+    shape: rectangle
+    style: {
+      fill: "#fff3e0"
+      stroke: "#ef6c00"
+    }
+    desc: |md
+      - Queue tasks
+      - Track status
+    |
+  }
+
+  dag_parser -> task_scheduler: parsed DAGs
+  task_scheduler -> executor: ready tasks
+}
+
+celery_workers: Celery Workers {
+  style: {
+    fill: "#fce4ec"
+    stroke: "#c2185b"
+    border-radius: 8
+  }
+
+  worker1: Worker 1 {
+    shape: rectangle
+    style.fill: "#f8bbd9"
+  }
+  worker2: Worker 2 {
+    shape: rectangle
+    style.fill: "#f8bbd9"
+  }
+  worker_n: "..." {
+    shape: rectangle
+    style.fill: "#f8bbd9"
+  }
+}
+
+k8s_pods: Kubernetes Pods {
+  style: {
+    fill: "#e8eaf6"
+    stroke: "#3f51b5"
+    border-radius: 8
+  }
+
+  pod1: Pod 1 (task) {
+    shape: rectangle
+    style.fill: "#c5cae9"
+  }
+  pod2: Pod 2 (task) {
+    shape: rectangle
+    style.fill: "#c5cae9"
+  }
+  pod_n: "..." {
+    shape: rectangle
+    style.fill: "#c5cae9"
+  }
+}
+
+dag_file -> scheduler: Parse
+scheduler.executor -> celery_workers: CeleryExecutor
+scheduler.executor -> k8s_pods: KubernetesExecutor
 ```
 
 ### DAG Execution Lifecycle
 
-```
-┌────────────┐    ┌────────────┐    ┌────────────┐    ┌────────────┐    ┌────────────┐
-│    None    │───▶│  Scheduled │───▶│   Queued   │───▶│  Running   │───▶│  Success   │
-│            │    │            │    │            │    │            │    │            │
-└────────────┘    └────────────┘    └────────────┘    └────────────┘    └────────────┘
-                         │                                   │
-                         │                                   │
-                         ▼                                   ▼
-                  ┌────────────┐                      ┌────────────┐
-                  │  Upstream  │                      │   Failed   │
-                  │   Failed   │                      │            │
-                  └────────────┘                      └────────────┘
-                                                             │
-                                                             ▼
-                                                      ┌────────────┐
-                                                      │  Up for    │
-                                                      │   Retry    │
-                                                      └────────────┘
+```d2
+direction: right
+
+none: None {
+  shape: rectangle
+  style: {
+    fill: "#eceff1"
+    stroke: "#607d8b"
+    border-radius: 4
+  }
+}
+
+scheduled: Scheduled {
+  shape: rectangle
+  style: {
+    fill: "#e3f2fd"
+    stroke: "#1976d2"
+    border-radius: 4
+  }
+}
+
+queued: Queued {
+  shape: rectangle
+  style: {
+    fill: "#fff3e0"
+    stroke: "#f57c00"
+    border-radius: 4
+  }
+}
+
+running: Running {
+  shape: rectangle
+  style: {
+    fill: "#e1f5fe"
+    stroke: "#0288d1"
+    border-radius: 4
+  }
+}
+
+success: Success {
+  shape: rectangle
+  style: {
+    fill: "#c8e6c9"
+    stroke: "#388e3c"
+    border-radius: 4
+  }
+}
+
+upstream_failed: Upstream Failed {
+  shape: rectangle
+  style: {
+    fill: "#ffccbc"
+    stroke: "#e64a19"
+    border-radius: 4
+  }
+}
+
+failed: Failed {
+  shape: rectangle
+  style: {
+    fill: "#ffcdd2"
+    stroke: "#d32f2f"
+    border-radius: 4
+  }
+}
+
+up_for_retry: Up for Retry {
+  shape: rectangle
+  style: {
+    fill: "#fff9c4"
+    stroke: "#fbc02d"
+    border-radius: 4
+  }
+}
+
+none -> scheduled: trigger
+scheduled -> queued: executor ready
+scheduled -> upstream_failed: dependency failed
+queued -> running: worker picks up
+running -> success: task completes
+running -> failed: task errors
+failed -> up_for_retry: retries remaining
+up_for_retry -> queued: retry attempt
 ```
 
 ## Configuration

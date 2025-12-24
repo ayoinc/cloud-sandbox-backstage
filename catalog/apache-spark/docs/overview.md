@@ -4,43 +4,64 @@
 
 ### Job Execution Flow
 
-```
-                              ┌─────────────────────────────────────────────────────────────┐
-                              │                        User Code                             │
-                              │            df.filter().groupBy().agg().show()                │
-                              └─────────────────────────────────────────────────────────────┘
-                                                          │
-                                                          ▼
-                              ┌─────────────────────────────────────────────────────────────┐
-                              │                     Logical Plan                             │
-                              │          (Unoptimized query representation)                  │
-                              └─────────────────────────────────────────────────────────────┘
-                                                          │
-                                                          ▼
-                              ┌─────────────────────────────────────────────────────────────┐
-                              │                   Catalyst Optimizer                         │
-                              │      (Predicate pushdown, column pruning, etc.)             │
-                              └─────────────────────────────────────────────────────────────┘
-                                                          │
-                                                          ▼
-                              ┌─────────────────────────────────────────────────────────────┐
-                              │                    Physical Plan                             │
-                              │           (Optimized execution strategy)                     │
-                              └─────────────────────────────────────────────────────────────┘
-                                                          │
-                                                          ▼
-                              ┌─────────────────────────────────────────────────────────────┐
-                              │                      DAG Scheduler                           │
-                              │              (Stages based on shuffles)                      │
-                              │                                                              │
-                              │     Stage 1          Stage 2          Stage 3               │
-                              │   ┌─────────┐      ┌─────────┐      ┌─────────┐            │
-                              │   │ Task 1  │      │ Task 1  │      │ Task 1  │            │
-                              │   │ Task 2  │─────▶│ Task 2  │─────▶│ Task 2  │            │
-                              │   │ Task 3  │      │ Task 3  │      │         │            │
-                              │   └─────────┘      └─────────┘      └─────────┘            │
-                              │                   (Shuffle)        (Shuffle)                │
-                              └─────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+user_code: User Code {
+  style.fill: "#E8F5E9"
+  code: "df.filter().groupBy().agg().show()"
+}
+
+logical_plan: Logical Plan {
+  style.fill: "#FFF3E0"
+  desc: Unoptimized query representation
+}
+
+catalyst: Catalyst Optimizer {
+  style.fill: "#E3F2FD"
+  desc: Predicate pushdown, column pruning, etc.
+}
+
+physical_plan: Physical Plan {
+  style.fill: "#F3E5F5"
+  desc: Optimized execution strategy
+}
+
+dag_scheduler: DAG Scheduler {
+  style.fill: "#FFEBEE"
+  
+  stages: Stages (based on shuffles) {
+    direction: right
+    
+    stage1: Stage 1 {
+      style.fill: "#FFCDD2"
+      t1: Task 1
+      t2: Task 2
+      t3: Task 3
+    }
+    
+    stage2: Stage 2 {
+      style.fill: "#FFCDD2"
+      t1: Task 1
+      t2: Task 2
+      t3: Task 3
+    }
+    
+    stage3: Stage 3 {
+      style.fill: "#FFCDD2"
+      t1: Task 1
+      t2: Task 2
+    }
+    
+    stage1 -> stage2: Shuffle
+    stage2 -> stage3: Shuffle
+  }
+}
+
+user_code -> logical_plan: parse
+logical_plan -> catalyst: optimize
+catalyst -> physical_plan: generate
+physical_plan -> dag_scheduler: schedule
 ```
 
 ### RDD vs DataFrame vs Dataset
@@ -56,33 +77,24 @@
 
 ### Memory Management
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      Executor Memory                             │
-│                    (spark.executor.memory)                       │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │              Unified Memory (60% default)                 │   │
-│  │                                                           │   │
-│  │  ┌─────────────────────┐  ┌─────────────────────┐        │   │
-│  │  │   Storage Memory    │  │  Execution Memory   │        │   │
-│  │  │   (Cached RDDs)     │◀─▶│   (Shuffles, Joins) │        │   │
-│  │  │                     │  │                     │        │   │
-│  │  └─────────────────────┘  └─────────────────────┘        │   │
-│  │         Can borrow from each other dynamically            │   │
-│  └──────────────────────────────────────────────────────────┘   │
-│                                                                  │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │                Reserved Memory (300MB)                    │   │
-│  └──────────────────────────────────────────────────────────┘   │
-│                                                                  │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │              User Memory (40% - reserved)                 │   │
-│  │              (User data structures, UDFs)                 │   │
-│  └──────────────────────────────────────────────────────────┘   │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+executor: Executor Memory (spark.executor.memory) {
+  unified: Unified Memory (60% default) {
+    storage: Storage Memory (Cached RDDs) {
+      shape: rectangle
+    }
+    execution: Execution Memory (Shuffles, Joins) {
+      shape: rectangle
+    }
+    storage <-> execution: Can borrow from each other dynamically
+  }
+  
+  reserved: Reserved Memory (300MB)
+  
+  user: User Memory (40% - reserved) - User data structures, UDFs
+}
 ```
 
 ## Configuration

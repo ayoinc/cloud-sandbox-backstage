@@ -1,5 +1,85 @@
 # Ansible Docker Host Usage Guide
 
+## Architecture Overview
+
+```d2
+direction: right
+
+title: Ansible Docker Host Deployment Flow {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+control: Control Node {
+  shape: rectangle
+  style.fill: "#E3F2FD"
+  
+  ansible: Ansible {
+    shape: hexagon
+    style.fill: "#2196F3"
+    style.font-color: white
+  }
+  
+  playbooks: Playbooks {
+    shape: document
+    style.fill: "#BBDEFB"
+  }
+  
+  inventory: Inventory {
+    shape: document
+    style.fill: "#BBDEFB"
+  }
+}
+
+targets: Target Hosts {
+  shape: rectangle
+  style.fill: "#C8E6C9"
+  
+  docker1: docker01 {
+    shape: rectangle
+    style.fill: "#81C784"
+    
+    engine: Docker Engine
+    compose: Docker Compose
+    containers: Containers
+  }
+  
+  docker2: docker02 {
+    shape: rectangle
+    style.fill: "#81C784"
+    
+    engine: Docker Engine
+    compose: Docker Compose
+    containers: Containers
+  }
+  
+  docker3: docker03 {
+    shape: rectangle
+    style.fill: "#81C784"
+    
+    engine: Docker Engine
+    compose: Docker Compose
+    containers: Containers
+  }
+}
+
+swarm: Docker Swarm Cluster {
+  shape: rectangle
+  style.fill: "#E1BEE7"
+  style.stroke-dash: 3
+  
+  manager: Manager Node
+  workers: Worker Nodes
+  overlay: Overlay Networks
+}
+
+control.ansible -> targets: SSH
+targets.docker1 -> swarm: optional
+targets.docker2 -> swarm: optional
+targets.docker3 -> swarm: optional
+```
+
 ## Installation
 
 ### Requirements File

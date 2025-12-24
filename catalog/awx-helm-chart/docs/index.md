@@ -49,51 +49,52 @@ kubectl port-forward svc/awx-service 8080:80 -n awx
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                            Kubernetes Cluster                                │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                        AWX Helm Chart                                │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │                                                                      │    │
-│  │  ┌──────────────────┐    ┌───────────────────────────────────────┐  │    │
-│  │  │  AWX Operator    │───▶│           AWX Instance                │  │    │
-│  │  │  (Deployment)    │    │                                       │  │    │
-│  │  │                  │    │  ┌─────────┐  ┌─────────┐            │  │    │
-│  │  │  • Watch AWX CRs │    │  │   Web   │  │  Task   │            │  │    │
-│  │  │  • Reconcile     │    │  │  Pods   │  │  Pods   │            │  │    │
-│  │  │  • Manage deps   │    │  │ (nginx) │  │(celery) │            │  │    │
-│  │  └──────────────────┘    │  └────┬────┘  └────┬────┘            │  │    │
-│  │                          │       │            │                  │  │    │
-│  │                          │       ▼            ▼                  │  │    │
-│  │                          │  ┌─────────────────────┐              │  │    │
-│  │                          │  │       Redis         │              │  │    │
-│  │                          │  │   (Task Queue)      │              │  │    │
-│  │                          │  └─────────────────────┘              │  │    │
-│  │                          │            │                          │  │    │
-│  │                          └────────────┼──────────────────────────┘  │    │
-│  │                                       │                              │    │
-│  └───────────────────────────────────────┼──────────────────────────────┘    │
-│                                          │                                    │
-│  ┌───────────────────────────────────────┼──────────────────────────────┐    │
-│  │                         Data Layer    │                              │    │
-│  │                                       ▼                              │    │
-│  │  ┌──────────────────┐    ┌──────────────────┐    ┌───────────────┐  │    │
-│  │  │   PostgreSQL     │    │   PVC: Projects  │    │  PVC: EE      │  │    │
-│  │  │   (StatefulSet)  │    │   (ReadWriteMany)│    │  Images Cache │  │    │
-│  │  └──────────────────┘    └──────────────────┘    └───────────────┘  │    │
-│  └──────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │                         Ingress Layer                                 │   │
-│  │  ┌──────────────────┐    ┌──────────────────┐                        │   │
-│  │  │  Ingress/Route   │───▶│  AWX Service     │                        │   │
-│  │  │  (TLS termination)│    │  (ClusterIP)     │                        │   │
-│  │  └──────────────────┘    └──────────────────┘                        │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+cluster: Kubernetes Cluster {
+  helm: AWX Helm Chart {
+    operator: AWX Operator (Deployment) {
+      shape: hexagon
+      watch: Watch AWX CRs
+      reconcile: Reconcile
+      manage: Manage deps
+    }
+    
+    awx: AWX Instance {
+      web: Web Pods (nginx)
+      task: Task Pods (celery)
+      redis: Redis (Task Queue) {
+        shape: cylinder
+      }
+      web -> redis
+      task -> redis
+    }
+    
+    operator -> awx: manages
+  }
+  
+  data: Data Layer {
+    postgres: PostgreSQL (StatefulSet) {
+      shape: cylinder
+    }
+    projects: PVC Projects (ReadWriteMany) {
+      shape: cylinder
+    }
+    ee: PVC EE Images Cache {
+      shape: cylinder
+    }
+  }
+  
+  ingress_layer: Ingress Layer {
+    ingress: Ingress/Route (TLS termination)
+    service: AWX Service (ClusterIP)
+    ingress -> service
+  }
+  
+  helm.awx -> data
+  ingress_layer.service -> helm.awx
+}
 ```
 
 ## Chart Structure

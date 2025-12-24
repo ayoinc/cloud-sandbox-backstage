@@ -4,38 +4,87 @@
 
 ### Role Dependencies
 
-```
-site.yml
-├── common (base system)
-│   ├── Update packages
-│   ├── Install prerequisites
-│   ├── Configure firewall
-│   ├── Set timezone/NTP
-│   └── Configure sysctl
-│
-├── docker (Docker Engine)
-│   ├── Add Docker repository
-│   ├── Install Docker CE
-│   ├── Configure daemon.json
-│   ├── Configure storage driver
-│   └── Start Docker service
-│
-├── compose (Docker Compose)
-│   ├── Install Compose plugin
-│   ├── Install standalone (optional)
-│   └── Configure aliases
-│
-├── security (hardening)
-│   ├── Docker daemon security
-│   ├── User namespace remapping
-│   ├── Content trust
-│   └── Audit logging
-│
-└── swarm (optional)
-    ├── Initialize Swarm
-    ├── Join managers
-    ├── Join workers
-    └── Configure overlay network
+```d2
+direction: down
+
+title: Ansible Docker Host Role Architecture {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+site: site.yml {
+  shape: document
+  style.fill: "#E3F2FD"
+}
+
+common: Common Role {
+  shape: rectangle
+  style.fill: "#C8E6C9"
+  
+  tasks: |md
+    - Update packages
+    - Install prerequisites
+    - Configure firewall
+    - Set timezone/NTP
+    - Configure sysctl
+  |
+}
+
+docker: Docker Role {
+  shape: rectangle
+  style.fill: "#BBDEFB"
+  
+  tasks: |md
+    - Add Docker repository
+    - Install Docker CE
+    - Configure daemon.json
+    - Configure storage driver
+    - Start Docker service
+  |
+}
+
+compose: Compose Role {
+  shape: rectangle
+  style.fill: "#B3E5FC"
+  
+  tasks: |md
+    - Install Compose plugin
+    - Install standalone (optional)
+    - Configure aliases
+  |
+}
+
+security: Security Role {
+  shape: rectangle
+  style.fill: "#FFCDD2"
+  
+  tasks: |md
+    - Docker daemon security
+    - User namespace remapping
+    - Content trust
+    - Audit logging
+  |
+}
+
+swarm: Swarm Role (Optional) {
+  shape: rectangle
+  style.fill: "#E1BEE7"
+  style.stroke-dash: 3
+  
+  tasks: |md
+    - Initialize Swarm
+    - Join managers
+    - Join workers
+    - Configure overlay network
+  |
+}
+
+site -> common: includes
+common -> docker: depends
+docker -> compose: depends
+docker -> security: depends
+docker -> swarm: optional
 ```
 
 ## Docker Role

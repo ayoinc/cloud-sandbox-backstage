@@ -43,35 +43,81 @@ gcloud config list
 
 ## Architecture Overview
 
-```
-                         ┌─────────────────┐
-                         │   Cloud DNS     │
-                         └────────┬────────┘
-                                  │
-                         ┌────────▼────────┐
-                         │  Cloud CDN      │
-                         └────────┬────────┘
-                                  │
-                         ┌────────▼────────┐
-                         │  Cloud Load     │
-                         │  Balancer       │
-                         └────────┬────────┘
-                                  │
-              ┌───────────────────┼───────────────────┐
-              │                   │                   │
-     ┌────────▼────────┐ ┌────────▼────────┐ ┌────────▼────────┐
-     │      GKE        │ │ Cloud Functions │ │  Compute        │
-     │   Cluster       │ │  / Cloud Run    │ │  Engine         │
-     └────────┬────────┘ └────────┬────────┘ └────────┬────────┘
-              │                   │                   │
-              └───────────────────┼───────────────────┘
-                                  │
-              ┌───────────────────┼───────────────────┐
-              │                   │                   │
-     ┌────────▼────────┐ ┌────────▼────────┐ ┌────────▼────────┐
-     │   Cloud SQL     │ │   Memorystore   │ │ Cloud Storage   │
-     │                 │ │   (Redis)       │ │                 │
-     └─────────────────┘ └─────────────────┘ └─────────────────┘
+```d2
+direction: down
+
+title: GCP Architecture {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+dns: Cloud DNS {
+  shape: rectangle
+  style.fill: "#2196F3"
+  style.font-color: white
+}
+
+cdn: Cloud CDN {
+  shape: hexagon
+  style.fill: "#64B5F6"
+  style.font-color: white
+}
+
+lb: Cloud Load Balancer {
+  shape: hexagon
+  style.fill: "#64B5F6"
+  style.font-color: white
+}
+
+compute: Compute Tier {
+  style.fill: "#E8F5E9"
+  
+  gke: GKE Cluster {
+    shape: hexagon
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+  functions: Cloud Functions\n/ Cloud Run {
+    shape: hexagon
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+  gce: Compute Engine {
+    shape: hexagon
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+}
+
+data: Data Tier {
+  style.fill: "#FFF3E0"
+  
+  sql: Cloud SQL {
+    shape: cylinder
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+  redis: Memorystore\n(Redis) {
+    shape: cylinder
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+  storage: Cloud Storage {
+    shape: cylinder
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+}
+
+dns -> cdn
+cdn -> lb
+lb -> compute.gke
+lb -> compute.functions
+lb -> compute.gce
+compute.gke -> data
+compute.functions -> data
+compute.gce -> data
 ```
 
 ## Related Documentation

@@ -42,36 +42,81 @@ az account show
 
 ## Architecture Overview
 
-```
-                         ┌─────────────────┐
-                         │   Azure DNS     │
-                         └────────┬────────┘
-                                  │
-                         ┌────────▼────────┐
-                         │  Front Door     │
-                         │  (Global LB)    │
-                         └────────┬────────┘
-                                  │
-                         ┌────────▼────────┐
-                         │  App Gateway    │
-                         │  (Regional LB)  │
-                         └────────┬────────┘
-                                  │
-              ┌───────────────────┼───────────────────┐
-              │                   │                   │
-     ┌────────▼────────┐ ┌────────▼────────┐ ┌────────▼────────┐
-     │      AKS        │ │ Azure Functions │ │  Virtual        │
-     │   Cluster       │ │                 │ │  Machines       │
-     └────────┬────────┘ └────────┬────────┘ └────────┬────────┘
-              │                   │                   │
-              └───────────────────┼───────────────────┘
-                                  │
-              ┌───────────────────┼───────────────────┐
-              │                   │                   │
-     ┌────────▼────────┐ ┌────────▼────────┐ ┌────────▼────────┐
-     │   Azure SQL     │ │  Azure Cache    │ │  Blob Storage   │
-     │   Database      │ │  for Redis      │ │                 │
-     └─────────────────┘ └─────────────────┘ └─────────────────┘
+```d2
+direction: down
+
+title: Azure Architecture {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+dns: Azure DNS {
+  shape: rectangle
+  style.fill: "#2196F3"
+  style.font-color: white
+}
+
+frontdoor: Front Door\n(Global LB) {
+  shape: hexagon
+  style.fill: "#64B5F6"
+  style.font-color: white
+}
+
+appgw: App Gateway\n(Regional LB) {
+  shape: hexagon
+  style.fill: "#64B5F6"
+  style.font-color: white
+}
+
+compute: Compute Tier {
+  style.fill: "#E8F5E9"
+  
+  aks: AKS Cluster {
+    shape: hexagon
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+  functions: Azure Functions {
+    shape: hexagon
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+  vms: Virtual Machines {
+    shape: hexagon
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+}
+
+data: Data Tier {
+  style.fill: "#FFF3E0"
+  
+  sql: Azure SQL\nDatabase {
+    shape: cylinder
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+  redis: Azure Cache\nfor Redis {
+    shape: cylinder
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+  blob: Blob Storage {
+    shape: cylinder
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+}
+
+dns -> frontdoor
+frontdoor -> appgw
+appgw -> compute.aks
+appgw -> compute.functions
+appgw -> compute.vms
+compute.aks -> data
+compute.functions -> data
+compute.vms -> data
 ```
 
 ## Related Documentation

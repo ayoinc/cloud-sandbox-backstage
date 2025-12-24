@@ -1,5 +1,80 @@
 # ZooKeeper Ensemble Usage Guide
 
+## Deployment Architecture
+
+```d2
+direction: right
+
+title: ZooKeeper Deployment Options {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+docker: Docker Compose {
+  style.fill: "#E3F2FD"
+  
+  single: Single Node\n(Development) {
+    shape: rectangle
+    style.fill: "#2196F3"
+    style.font-color: white
+  }
+  
+  cluster: 3-Node Ensemble\n(Production) {
+    shape: rectangle
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+}
+
+k8s: Kubernetes {
+  style.fill: "#E8F5E9"
+  
+  helm: Helm Chart\n(Bitnami) {
+    shape: hexagon
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+  
+  statefulset: StatefulSet\n(Manual) {
+    shape: hexagon
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+}
+
+clients: Client Libraries {
+  style.fill: "#FFF3E0"
+  
+  python: kazoo\n(Python) {
+    shape: rectangle
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+  
+  java: Curator\n(Java) {
+    shape: rectangle
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+  
+  go: go-zookeeper\n(Go) {
+    shape: rectangle
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+  
+  node: node-zookeeper\n(Node.js) {
+    shape: rectangle
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+}
+
+docker -> k8s: Scale Up {style.stroke-dash: 3}
+k8s -> clients: Connect
+```
+
 ## Docker Compose Deployment
 
 ### Development (Single Node)

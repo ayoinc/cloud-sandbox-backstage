@@ -1,5 +1,75 @@
 # Usage Guide
 
+## Architecture Overview
+
+```d2
+direction: right
+
+title: Artifact Repository CI/CD Integration {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+cicd: CI/CD Pipeline {
+  shape: rectangle
+  style.fill: "#E3F2FD"
+  
+  build: Build {
+    shape: rectangle
+    style.fill: "#2196F3"
+    style.font-color: white
+  }
+  
+  test: Test {
+    shape: rectangle
+    style.fill: "#2196F3"
+    style.font-color: white
+  }
+  
+  publish: Publish {
+    shape: rectangle
+    style.fill: "#2196F3"
+    style.font-color: white
+  }
+}
+
+nexus: Nexus Repository {
+  shape: rectangle
+  style.fill: "#FFF3E0"
+  
+  proxy: Proxy Repos {
+    shape: cylinder
+    style.fill: "#4FC3F7"
+    maven_central: Maven Central
+    npmjs: npmjs.org
+    dockerhub: Docker Hub
+  }
+  
+  hosted: Hosted Repos {
+    shape: cylinder
+    style.fill: "#81C784"
+    releases: Releases
+    snapshots: Snapshots
+    docker_private: Docker Private
+  }
+}
+
+deploy: Deployment {
+  shape: rectangle
+  style.fill: "#C8E6C9"
+  
+  k8s: Kubernetes
+  ecs: ECS
+  vms: VMs
+}
+
+cicd.build -> nexus.proxy: fetch deps
+cicd.test -> cicd.publish
+cicd.publish -> nexus.hosted: push artifacts
+nexus.hosted -> deploy: pull for deploy
+```
+
 ## Docker Compose Deployment
 
 ### Development Setup

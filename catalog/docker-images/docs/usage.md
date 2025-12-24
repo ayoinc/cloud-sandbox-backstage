@@ -1,5 +1,100 @@
 # Usage Guide
 
+## Docker Image Build Pipeline
+
+```d2
+direction: right
+
+title: Docker Image Lifecycle {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+build: Build Phase {
+  style.fill: "#E3F2FD"
+  
+  dockerfile: Dockerfile {
+    shape: document
+    style.fill: "#2196F3"
+    style.font-color: white
+  }
+  
+  buildx: Docker Buildx {
+    shape: hexagon
+    style.fill: "#2196F3"
+    style.font-color: white
+  }
+  
+  cache: Build Cache {
+    shape: cylinder
+    style.fill: "#64B5F6"
+    style.font-color: white
+  }
+  
+  dockerfile -> buildx
+  buildx -> cache
+}
+
+security: Security Phase {
+  style.fill: "#FFCDD2"
+  
+  trivy: Trivy Scan {
+    shape: hexagon
+    style.fill: "#F44336"
+    style.font-color: white
+  }
+  
+  cosign: Cosign Sign {
+    shape: hexagon
+    style.fill: "#F44336"
+    style.font-color: white
+  }
+  
+  sbom: SBOM Generate {
+    shape: document
+    style.fill: "#EF5350"
+    style.font-color: white
+  }
+}
+
+registry: Registry {
+  style.fill: "#E8F5E9"
+  
+  push: Push Image {
+    shape: hexagon
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+  
+  tags: Multi-arch\nManifest {
+    shape: rectangle
+    style.fill: "#81C784"
+    style.font-color: white
+  }
+}
+
+deploy: Deploy {
+  style.fill: "#FFF3E0"
+  
+  k8s: Kubernetes {
+    shape: hexagon
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+  
+  compose: Docker\nCompose {
+    shape: hexagon
+    style.fill: "#FFB74D"
+    style.font-color: white
+  }
+}
+
+build -> security: Image Built
+security -> registry: Verified
+registry -> deploy: Pull & Run
+```
+
 ## Getting Started
 
 ### Prerequisites

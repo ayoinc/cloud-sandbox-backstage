@@ -171,6 +171,112 @@ pg_ctl start -D /var/lib/postgresql/data
 
 ### Backup and Recovery
 
+#### Backup/Restore Workflow
+
+```d2
+direction: down
+
+production: Production Database {
+  style.fill: "#e8f5e9"
+  
+  primary: PostgreSQL Primary {
+    shape: cylinder
+    style.fill: "#c8e6c9"
+  }
+  
+  wal: WAL Files {
+    shape: document
+    style.fill: "#fff9c4"
+  }
+  
+  primary -> wal: Generate
+}
+
+backup_methods: Backup Methods {
+  style.fill: "#e3f2fd"
+  
+  pg_dump: pg_dump {
+    shape: rectangle
+    style.fill: "#bbdefb"
+    label: "pg_dump\n(Logical Backup)"
+  }
+  
+  pg_basebackup: pg_basebackup {
+    shape: rectangle
+    style.fill: "#b3e5fc"
+    label: "pg_basebackup\n(Physical Backup)"
+  }
+  
+  wal_archive: WAL Archiving {
+    shape: rectangle
+    style.fill: "#b2ebf2"
+    label: "WAL Archive\n(Continuous)"
+  }
+}
+
+storage: Backup Storage {
+  style.fill: "#fff3e0"
+  
+  dump_files: Dump Files {
+    shape: document
+    style.fill: "#ffe0b2"
+    label: ".dump / .sql"
+  }
+  
+  base_backup: Base Backup {
+    shape: folder
+    style.fill: "#ffccbc"
+    label: "Data Directory\nSnapshot"
+  }
+  
+  wal_files: Archived WAL {
+    shape: document
+    style.fill: "#d7ccc8"
+    label: "WAL Segments"
+  }
+}
+
+restore: Restore Options {
+  style.fill: "#fce4ec"
+  
+  pg_restore: pg_restore {
+    shape: rectangle
+    style.fill: "#f8bbd9"
+    label: "pg_restore\n(From Dump)"
+  }
+  
+  pitr: PITR {
+    shape: rectangle
+    style.fill: "#f48fb1"
+    label: "Point-in-Time\nRecovery"
+  }
+}
+
+target: Target Database {
+  style.fill: "#f3e5f5"
+  
+  restored_db: Restored DB {
+    shape: cylinder
+    style.fill: "#ce93d8"
+  }
+}
+
+production.primary -> backup_methods.pg_dump: Logical
+production.primary -> backup_methods.pg_basebackup: Physical
+production.wal -> backup_methods.wal_archive: Archive
+
+backup_methods.pg_dump -> storage.dump_files
+backup_methods.pg_basebackup -> storage.base_backup
+backup_methods.wal_archive -> storage.wal_files
+
+storage.dump_files -> restore.pg_restore
+storage.base_backup -> restore.pitr
+storage.wal_files -> restore.pitr: Replay
+
+restore.pg_restore -> target.restored_db
+restore.pitr -> target.restored_db
+```
+
 ```bash
 # pg_dump - Logical backup
 pg_dump -h localhost -U admin -d myapp -F c -f myapp.dump

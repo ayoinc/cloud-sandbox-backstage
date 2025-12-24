@@ -6,84 +6,176 @@ Nexus Repository Manager provides a flexible architecture for managing artifacts
 
 ### Component Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                      Nexus Repository Manager                            │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  ┌────────────────────────────────────────────────────────────────┐     │
-│  │                    Application Layer                            │     │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐    │     │
-│  │  │ REST API    │  │ Web UI      │  │ Format Plugins      │    │     │
-│  │  │ /service/   │  │ React       │  │ Maven, npm, Docker  │    │     │
-│  │  └─────────────┘  └─────────────┘  └─────────────────────┘    │     │
-│  └────────────────────────────────────────────────────────────────┘     │
-│                                    │                                     │
-│  ┌────────────────────────────────────────────────────────────────┐     │
-│  │                    Core Services                                │     │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐    │     │
-│  │  │ Repository  │  │ Security    │  │ Scheduler           │    │     │
-│  │  │ Manager     │  │ Manager     │  │ (Tasks)             │    │     │
-│  │  └─────────────┘  └─────────────┘  └─────────────────────┘    │     │
-│  └────────────────────────────────────────────────────────────────┘     │
-│                                    │                                     │
-│  ┌────────────────────────────────────────────────────────────────┐     │
-│  │                    Data Layer                                   │     │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐    │     │
-│  │  │ OrientDB    │  │ Blob Store  │  │ Elasticsearch       │    │     │
-│  │  │ (Metadata)  │  │ (Artifacts) │  │ (Search) - Pro      │    │     │
-│  │  └─────────────┘  └─────────────┘  └─────────────────────┘    │     │
-│  └────────────────────────────────────────────────────────────────┘     │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+title: Nexus Repository Manager Components {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+nexus: Nexus Repository Manager {
+  shape: rectangle
+  style.fill: "#FAFAFA"
+  
+  app_layer: Application Layer {
+    shape: rectangle
+    style.fill: "#E3F2FD"
+    
+    rest_api: REST API {
+      shape: rectangle
+      style.fill: "#2196F3"
+      style.font-color: white
+      label: "/service/rest/*"
+    }
+    
+    web_ui: Web UI {
+      shape: rectangle
+      style.fill: "#2196F3"
+      style.font-color: white
+      label: "React Frontend"
+    }
+    
+    plugins: Format Plugins {
+      shape: rectangle
+      style.fill: "#2196F3"
+      style.font-color: white
+      label: "Maven, npm, Docker, PyPI..."
+    }
+  }
+  
+  core_layer: Core Services {
+    shape: rectangle
+    style.fill: "#C8E6C9"
+    
+    repo_mgr: Repository Manager {
+      shape: rectangle
+      style.fill: "#4CAF50"
+      style.font-color: white
+    }
+    
+    security_mgr: Security Manager {
+      shape: rectangle
+      style.fill: "#4CAF50"
+      style.font-color: white
+      label: "LDAP/SAML/RBAC"
+    }
+    
+    scheduler: Scheduler {
+      shape: rectangle
+      style.fill: "#4CAF50"
+      style.font-color: white
+      label: "Tasks & Cleanup"
+    }
+  }
+  
+  data_layer: Data Layer {
+    shape: rectangle
+    style.fill: "#E1BEE7"
+    
+    orientdb: OrientDB {
+      shape: cylinder
+      style.fill: "#9C27B0"
+      style.font-color: white
+      label: "Metadata"
+    }
+    
+    blobstore: Blob Store {
+      shape: cylinder
+      style.fill: "#9C27B0"
+      style.font-color: white
+      label: "Artifacts"
+    }
+    
+    elasticsearch: Elasticsearch {
+      shape: cylinder
+      style.fill: "#9C27B0"
+      style.font-color: white
+      label: "Search (Pro)"
+    }
+  }
+}
+
+nexus.app_layer -> nexus.core_layer
+nexus.core_layer -> nexus.data_layer
 ```
 
 ### Request Flow
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                        Client Request Flow                        │
-├──────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│   Client (Maven/npm/Docker)                                       │
-│           │                                                       │
-│           ▼                                                       │
-│   ┌───────────────┐                                               │
-│   │ Load Balancer │ (optional)                                    │
-│   └───────┬───────┘                                               │
-│           │                                                       │
-│           ▼                                                       │
-│   ┌───────────────────────────────────────────────────────┐      │
-│   │              Nexus Repository Manager                  │      │
-│   │  ┌─────────────────────────────────────────────────┐  │      │
-│   │  │              Request Handler                     │  │      │
-│   │  │  - Authentication check                         │  │      │
-│   │  │  - Authorization check                          │  │      │
-│   │  │  - Route to repository                          │  │      │
-│   │  └─────────────────────────────────────────────────┘  │      │
-│   │                         │                              │      │
-│   │     ┌───────────────────┼───────────────────┐         │      │
-│   │     ▼                   ▼                   ▼         │      │
-│   │  ┌──────┐          ┌──────┐          ┌──────────┐    │      │
-│   │  │Hosted│          │Proxy │          │  Group   │    │      │
-│   │  │Repo  │          │Repo  │          │  Repo    │    │      │
-│   │  └──┬───┘          └──┬───┘          └────┬─────┘    │      │
-│   │     │                 │                    │          │      │
-│   │     │        ┌────────┴────────┐          │          │      │
-│   │     │        │  Remote Check   │          │          │      │
-│   │     │        │  (if not cached)│          │          │      │
-│   │     │        └────────┬────────┘          │          │      │
-│   │     │                 │                    │          │      │
-│   │     └─────────────────┴────────────────────┘          │      │
-│   │                         │                              │      │
-│   │                         ▼                              │      │
-│   │              ┌─────────────────────┐                  │      │
-│   │              │     Blob Store      │                  │      │
-│   │              │  (Return Artifact)  │                  │      │
-│   │              └─────────────────────┘                  │      │
-│   └───────────────────────────────────────────────────────┘      │
-│                                                                   │
-└──────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+title: Client Request Flow {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+client: Client (Maven/npm/Docker) {
+  shape: rectangle
+  style.fill: "#E3F2FD"
+}
+
+lb: Load Balancer {
+  shape: hexagon
+  style.fill: "#FF9800"
+  style.font-color: white
+  label: "(optional)"
+}
+
+nexus: Nexus Repository Manager {
+  shape: rectangle
+  style.fill: "#FAFAFA"
+  
+  handler: Request Handler {
+    shape: rectangle
+    style.fill: "#C8E6C9"
+    
+    auth: Authentication Check
+    authz: Authorization Check
+    route: Route to Repository
+  }
+  
+  repos: Repository Types {
+    shape: rectangle
+    style.fill: "#E1BEE7"
+    
+    hosted: Hosted Repo {
+      shape: cylinder
+      style.fill: "#81C784"
+    }
+    
+    proxy: Proxy Repo {
+      shape: cylinder
+      style.fill: "#4FC3F7"
+    }
+    
+    group: Group Repo {
+      shape: cylinder
+      style.fill: "#FFB74D"
+    }
+  }
+  
+  blobstore: Blob Store {
+    shape: cylinder
+    style.fill: "#9C27B0"
+    style.font-color: white
+    label: "Return Artifact"
+  }
+}
+
+remote: Remote Repository {
+  shape: cloud
+  style.fill: "#B3E5FC"
+  label: "(if not cached)"
+}
+
+client -> lb: Request
+lb -> nexus.handler: Forward
+nexus.handler -> nexus.repos: Route
+nexus.repos.proxy -> remote: Fetch if miss
+nexus.repos -> nexus.blobstore: Retrieve
 ```
 
 ## Configuration

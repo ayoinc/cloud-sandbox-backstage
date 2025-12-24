@@ -4,60 +4,106 @@
 
 ### Indexer Cluster
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Indexer Cluster                              │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │                   Cluster Manager                         │  │
-│  │              (manages cluster state)                      │  │
-│  └───────────────────────────────────────────────────────────┘  │
-│                             │                                   │
-│         ┌───────────────────┼───────────────────┐               │
-│         │                   │                   │               │
-│         ▼                   ▼                   ▼               │
-│  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐        │
-│  │  Indexer 1  │     │  Indexer 2  │     │  Indexer 3  │        │
-│  │             │     │             │     │             │        │
-│  │  Bucket A   │     │  Bucket A   │     │  Bucket B   │        │
-│  │  (Primary)  │     │  (Replica)  │     │  (Primary)  │        │
-│  │  Bucket B   │     │  Bucket C   │     │  Bucket C   │        │
-│  │  (Replica)  │     │  (Primary)  │     │  (Replica)  │        │
-│  └─────────────┘     └─────────────┘     └─────────────┘        │
-│                                                                 │
-│  Replication Factor: 2 (each bucket has 2 copies)               │
-│  Search Factor: 2 (searchable copies)                           │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+title: Indexer Cluster {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+manager: Cluster Manager {
+  shape: hexagon
+  style.fill: "#9C27B0"
+  style.font-color: white
+}
+
+indexers: Indexers {
+  style.fill: "#FFF3E0"
+  
+  idx1: Indexer 1 {
+    style.fill: "#FF9800"
+    style.font-color: white
+    
+    bucket_a: Bucket A (Primary) {shape: cylinder}
+    bucket_b: Bucket B (Replica) {shape: cylinder}
+  }
+  
+  idx2: Indexer 2 {
+    style.fill: "#FF9800"
+    style.font-color: white
+    
+    bucket_a: Bucket A (Replica) {shape: cylinder}
+    bucket_c: Bucket C (Primary) {shape: cylinder}
+  }
+  
+  idx3: Indexer 3 {
+    style.fill: "#FF9800"
+    style.font-color: white
+    
+    bucket_b: Bucket B (Primary) {shape: cylinder}
+    bucket_c: Bucket C (Replica) {shape: cylinder}
+  }
+}
+
+config: Replication Factor: 2\nSearch Factor: 2 {
+  shape: text
+  style.font-size: 12
+}
+
+manager -> indexers.idx1: Manage
+manager -> indexers.idx2: Manage
+manager -> indexers.idx3: Manage
 ```
 
 ### Search Head Cluster
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                  Search Head Cluster                            │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │                      Deployer                             │  │
-│  │           (pushes apps to search heads)                   │  │
-│  └───────────────────────────────────────────────────────────┘  │
-│                             │                                   │
-│         ┌───────────────────┼───────────────────┐               │
-│         │                   │                   │               │
-│         ▼                   ▼                   ▼               │
-│  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐        │
-│  │ Search Head │     │ Search Head │     │ Search Head │        │
-│  │     1       │     │     2       │     │     3       │        │
-│  │  (Captain)  │     │  (Member)   │     │  (Member)   │        │
-│  └─────────────┘     └─────────────┘     └─────────────┘        │
-│         │                   │                   │               │
-│         └───────────────────┼───────────────────┘               │
-│                             │                                   │
-│              Load Balancer (Round Robin)                        │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+title: Search Head Cluster {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+deployer: Deployer {
+  shape: hexagon
+  style.fill: "#9C27B0"
+  style.font-color: white
+}
+
+searchheads: Search Heads {
+  style.fill: "#FCE4EC"
+  
+  sh1: Search Head 1\n(Captain) {
+    shape: hexagon
+    style.fill: "#E91E63"
+    style.font-color: white
+  }
+  
+  sh2: Search Head 2\n(Member) {
+    shape: hexagon
+    style.fill: "#E91E63"
+    style.font-color: white
+  }
+  
+  sh3: Search Head 3\n(Member) {
+    shape: hexagon
+    style.fill: "#E91E63"
+    style.font-color: white
+  }
+}
+
+lb: Load Balancer (Round Robin) {
+  shape: rectangle
+  style.fill: "#4CAF50"
+  style.font-color: white
+}
+
+deployer -> searchheads: Push Apps
+searchheads -> lb: Serve
 ```
 
 ## Configuration

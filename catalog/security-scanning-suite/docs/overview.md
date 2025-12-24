@@ -6,81 +6,194 @@ The Security Scanning Suite provides a comprehensive security testing framework 
 
 ### Scanning Pipeline Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        CI/CD Security Pipeline                           │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  ┌────────────────────────────────────────────────────────────────┐     │
-│  │                     Pre-Commit Hooks                            │     │
-│  │  ┌───────────┐  ┌───────────────┐  ┌─────────────────────┐    │     │
-│  │  │ Gitleaks  │  │ Pre-commit    │  │ Local Semgrep       │    │     │
-│  │  │ (Secrets) │  │ Hooks         │  │ (Quick SAST)        │    │     │
-│  │  └───────────┘  └───────────────┘  └─────────────────────┘    │     │
-│  └────────────────────────────────────────────────────────────────┘     │
-│                                    │                                     │
-│  ┌────────────────────────────────────────────────────────────────┐     │
-│  │                     Pull Request Scans                          │     │
-│  │  ┌───────────┐  ┌───────────────┐  ┌─────────────────────┐    │     │
-│  │  │ Semgrep   │  │ Dependency    │  │ IaC Scanning        │    │     │
-│  │  │ SAST      │  │ Scanning      │  │ (Checkov/tfsec)     │    │     │
-│  │  └───────────┘  └───────────────┘  └─────────────────────┘    │     │
-│  └────────────────────────────────────────────────────────────────┘     │
-│                                    │                                     │
-│  ┌────────────────────────────────────────────────────────────────┐     │
-│  │                       Build Stage                               │     │
-│  │  ┌───────────┐  ┌───────────────┐  ┌─────────────────────┐    │     │
-│  │  │ Container │  │ SBOM          │  │ License             │    │     │
-│  │  │ Scanning  │  │ Generation    │  │ Compliance          │    │     │
-│  │  └───────────┘  └───────────────┘  └─────────────────────┘    │     │
-│  └────────────────────────────────────────────────────────────────┘     │
-│                                    │                                     │
-│  ┌────────────────────────────────────────────────────────────────┐     │
-│  │                     Post-Deploy Scans                           │     │
-│  │  ┌───────────┐  ┌───────────────┐  ┌─────────────────────┐    │     │
-│  │  │ DAST      │  │ API Security  │  │ Continuous          │    │     │
-│  │  │ (ZAP)     │  │ Testing       │  │ Monitoring          │    │     │
-│  │  └───────────┘  └───────────────┘  └─────────────────────┘    │     │
-│  └────────────────────────────────────────────────────────────────┘     │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+title: CI/CD Security Pipeline {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+precommit: Pre-Commit Hooks {
+  style.fill: "#E3F2FD"
+  
+  gitleaks: Gitleaks\n(Secrets) {
+    shape: hexagon
+    style.fill: "#2196F3"
+    style.font-color: white
+  }
+  
+  hooks: Pre-commit\nHooks {
+    shape: hexagon
+    style.fill: "#2196F3"
+    style.font-color: white
+  }
+  
+  semgrep_local: Local Semgrep\n(Quick SAST) {
+    shape: hexagon
+    style.fill: "#2196F3"
+    style.font-color: white
+  }
+}
+
+pr: Pull Request Scans {
+  style.fill: "#E8F5E9"
+  
+  semgrep: Semgrep\nSAST {
+    shape: hexagon
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+  
+  deps: Dependency\nScanning {
+    shape: hexagon
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+  
+  iac: IaC Scanning\n(Checkov/tfsec) {
+    shape: hexagon
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+}
+
+build: Build Stage {
+  style.fill: "#FFF3E0"
+  
+  container: Container\nScanning {
+    shape: hexagon
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+  
+  sbom: SBOM\nGeneration {
+    shape: document
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+  
+  license: License\nCompliance {
+    shape: hexagon
+    style.fill: "#FFB74D"
+    style.font-color: white
+  }
+}
+
+postdeploy: Post-Deploy Scans {
+  style.fill: "#FFCDD2"
+  
+  dast: DAST\n(ZAP) {
+    shape: hexagon
+    style.fill: "#F44336"
+    style.font-color: white
+  }
+  
+  api: API Security\nTesting {
+    shape: hexagon
+    style.fill: "#F44336"
+    style.font-color: white
+  }
+  
+  monitoring: Continuous\nMonitoring {
+    shape: hexagon
+    style.fill: "#EF5350"
+    style.font-color: white
+  }
+}
+
+precommit -> pr: Commit
+pr -> build: Merge
+build -> postdeploy: Deploy
 ```
 
 ### Tool Integration Flow
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                    Results Aggregation                            │
-├──────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│   ┌─────────┐   ┌─────────┐   ┌─────────┐   ┌─────────┐        │
-│   │ Trivy   │   │ Semgrep │   │ ZAP     │   │ Grype   │        │
-│   │ Results │   │ Results │   │ Results │   │ Results │        │
-│   └────┬────┘   └────┬────┘   └────┬────┘   └────┬────┘        │
-│        │             │             │             │              │
-│        └──────────┬──┴─────────────┴──┬──────────┘              │
-│                   │                   │                          │
-│                   ▼                   ▼                          │
-│        ┌──────────────────┐  ┌──────────────────┐               │
-│        │   SARIF Format   │  │   JSON/XML       │               │
-│        │   (Unified)      │  │   (Native)       │               │
-│        └────────┬─────────┘  └────────┬─────────┘               │
-│                 │                     │                          │
-│                 └──────────┬──────────┘                          │
-│                            ▼                                     │
-│           ┌────────────────────────────────┐                     │
-│           │         DefectDojo             │                     │
-│           │    (Vulnerability Mgmt)        │                     │
-│           └────────────────────────────────┘                     │
-│                            │                                     │
-│           ┌────────────────┼────────────────┐                    │
-│           ▼                ▼                ▼                    │
-│   ┌───────────┐    ┌───────────┐    ┌───────────────┐           │
-│   │  Jira     │    │  Slack    │    │  Dashboards   │           │
-│   │  Tickets  │    │  Alerts   │    │  (Grafana)    │           │
-│   └───────────┘    └───────────┘    └───────────────┘           │
-│                                                                   │
-└──────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+title: Results Aggregation {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+scanners: Scanner Results {
+  style.fill: "#E3F2FD"
+  
+  trivy: Trivy\nResults {
+    shape: document
+    style.fill: "#2196F3"
+    style.font-color: white
+  }
+  
+  semgrep: Semgrep\nResults {
+    shape: document
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+  
+  zap: ZAP\nResults {
+    shape: document
+    style.fill: "#F44336"
+    style.font-color: white
+  }
+  
+  grype: Grype\nResults {
+    shape: document
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+}
+
+formats: Output Formats {
+  style.fill: "#E8F5E9"
+  
+  sarif: SARIF Format\n(Unified) {
+    shape: document
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+  
+  native: JSON/XML\n(Native) {
+    shape: document
+    style.fill: "#81C784"
+    style.font-color: white
+  }
+}
+
+defectdojo: DefectDojo {
+  shape: hexagon
+  style.fill: "#9C27B0"
+  style.font-color: white
+}
+
+outputs: Integrations {
+  style.fill: "#FCE4EC"
+  
+  jira: Jira\nTickets {
+    shape: rectangle
+    style.fill: "#0052CC"
+    style.font-color: white
+  }
+  
+  slack: Slack\nAlerts {
+    shape: rectangle
+    style.fill: "#4A154B"
+    style.font-color: white
+  }
+  
+  grafana: Dashboards\n(Grafana) {
+    shape: rectangle
+    style.fill: "#F46800"
+    style.font-color: white
+  }
+}
+
+scanners -> formats: Convert
+formats -> defectdojo: Import
+defectdojo -> outputs: Notify
 ```
 
 ## Configuration

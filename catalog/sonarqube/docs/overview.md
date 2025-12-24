@@ -6,73 +6,97 @@ SonarQube uses a 3-tier architecture with the Web Server, Compute Engine, and El
 
 ### Component Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         SonarQube Server                                 │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  ┌────────────────────────────────────────────────────────────────┐     │
-│  │                        Web Server                               │     │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐    │     │
-│  │  │   REST API  │  │   Web UI    │  │  Authentication     │    │     │
-│  │  │   /api/*    │  │   React     │  │  SAML/LDAP/OAuth    │    │     │
-│  │  └─────────────┘  └─────────────┘  └─────────────────────┘    │     │
-│  └────────────────────────────────────────────────────────────────┘     │
-│                                    │                                     │
-│  ┌────────────────────────────────────────────────────────────────┐     │
-│  │                      Compute Engine                             │     │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐    │     │
-│  │  │  Analyzers  │  │   Rules     │  │  Issue Detection    │    │     │
-│  │  │  (Per Lang) │  │   Engine    │  │  Quality Gate Eval  │    │     │
-│  │  └─────────────┘  └─────────────┘  └─────────────────────┘    │     │
-│  └────────────────────────────────────────────────────────────────┘     │
-│                                    │                                     │
-│  ┌─────────────────────────────┐  ┌─────────────────────────────┐      │
-│  │      Elasticsearch         │  │        PostgreSQL            │      │
-│  │  - Full-text search        │  │  - Projects & issues         │      │
-│  │  - Issue indexing          │  │  - Rules & profiles          │      │
-│  │  - Fast retrieval          │  │  - Quality gates             │      │
-│  └─────────────────────────────┘  └─────────────────────────────┘      │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+web: Web Server {
+  api: REST API (/api/*) {
+    shape: hexagon
+  }
+  ui: Web UI (React)
+  auth: Authentication (SAML/LDAP/OAuth) {
+    shape: hexagon
+  }
+}
+
+compute: Compute Engine {
+  analyzers: Analyzers (Per Lang) {
+    shape: hexagon
+  }
+  rules: Rules Engine {
+    shape: hexagon
+  }
+  issues: Issue Detection & Quality Gate Eval {
+    shape: hexagon
+  }
+  analyzers -> rules: apply
+  rules -> issues: detect
+}
+
+storage: Data Storage {
+  elastic: Elasticsearch {
+    shape: cylinder
+  }
+  postgres: PostgreSQL {
+    shape: cylinder
+  }
+}
+
+web -> compute: submit analysis
+compute -> storage: persist results
 ```
 
 ### Analysis Flow
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                        Analysis Pipeline                          │
-├──────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│  1. Scanner Phase                                                 │
-│  ┌─────────┐    ┌──────────────┐    ┌─────────────────────┐     │
-│  │ Source  │───▶│ SonarScanner │───▶│ Analysis Report     │     │
-│  │ Code    │    │              │    │ (.scannerwork/)     │     │
-│  └─────────┘    └──────────────┘    └─────────────────────┘     │
-│                                               │                   │
-│  2. Submission Phase                          ▼                   │
-│  ┌─────────────────────────────────────────────────────────┐     │
-│  │              HTTP Upload to SonarQube Server             │     │
-│  │              POST /api/ce/submit                         │     │
-│  └─────────────────────────────────────────────────────────┘     │
-│                                               │                   │
-│  3. Compute Engine Processing                 ▼                   │
-│  ┌─────────────────────────────────────────────────────────┐     │
-│  │  ┌───────────┐  ┌───────────┐  ┌───────────────────┐   │     │
-│  │  │ Unzip &   │─▶│ Run Rules │─▶│ Evaluate Quality  │   │     │
-│  │  │ Parse     │  │ Engine    │  │ Gate              │   │     │
-│  │  └───────────┘  └───────────┘  └───────────────────┘   │     │
-│  └─────────────────────────────────────────────────────────┘     │
-│                                               │                   │
-│  4. Results                                   ▼                   │
-│  ┌─────────────────────────────────────────────────────────┐     │
-│  │  - Issues stored in PostgreSQL                          │     │
-│  │  - Metrics calculated and stored                        │     │
-│  │  - Quality Gate status updated                          │     │
-│  │  - Webhooks triggered                                   │     │
-│  └─────────────────────────────────────────────────────────┘     │
-│                                                                   │
-└──────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+scanner_phase: 1. Scanner Phase {
+  source: Source Code {
+    shape: document
+  }
+  scanner: SonarScanner {
+    shape: hexagon
+  }
+  report: Analysis Report (.scannerwork/) {
+    shape: document
+  }
+  source -> scanner -> report
+}
+
+submission: 2. Submission Phase {
+  upload: HTTP Upload to SonarQube Server {
+    shape: rectangle
+  }
+  api: POST /api/ce/submit {
+    shape: rectangle
+  }
+  upload -> api
+}
+
+processing: 3. Compute Engine Processing {
+  unzip: Unzip & Parse {
+    shape: hexagon
+  }
+  rules: Run Rules Engine {
+    shape: hexagon
+  }
+  evaluate: Evaluate Quality Gate {
+    shape: hexagon
+  }
+  unzip -> rules -> evaluate
+}
+
+results: 4. Results {
+  issues: Issues stored in PostgreSQL {
+    shape: cylinder
+  }
+  metrics: Metrics calculated
+  gate: Quality Gate status updated
+  webhooks: Webhooks triggered
+}
+
+scanner_phase -> submission -> processing -> results
 ```
 
 ## Configuration

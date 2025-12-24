@@ -4,41 +4,159 @@
 
 ### Agent Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Datadog Agent 7                              │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                    Core Agent                           │    │
-│  │  ┌───────────┐  ┌───────────┐  ┌───────────┐            │    │
-│  │  │ Collector │  │ Forwarder │  │ Aggregator│            │    │
-│  │  └───────────┘  └───────────┘  └───────────┘            │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                                                                 │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐           │
-│  │ Trace Agent  │  │ Process Agent│  │ Security Agt │           │
-│  │   :8126      │  │              │  │              │           │
-│  └──────────────┘  └──────────────┘  └──────────────┘           │
-│                                                                 │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                   Integrations                          │    │
-│  │  ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐        │    │
-│  │  │nginx│ │redis│ │mysql│ │kafka│ │k8s  │ │docker│       │    │
-│  │  └─────┘ └─────┘ └─────┘ └─────┘ └─────┘ └─────┘        │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+```d2
+direction: right
+
+title: Datadog Agent 7 Architecture {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+agent: Datadog Agent 7 {
+  style.fill: "#E3F2FD"
+  
+  core: Core Agent {
+    style.fill: "#BBDEFB"
+    
+    collector: Collector {
+      shape: hexagon
+      style.fill: "#2196F3"
+      style.font-color: white
+    }
+    forwarder: Forwarder {
+      shape: hexagon
+      style.fill: "#2196F3"
+      style.font-color: white
+    }
+    aggregator: Aggregator {
+      shape: hexagon
+      style.fill: "#2196F3"
+      style.font-color: white
+    }
+  }
+  
+  agents: Sub-Agents {
+    style.fill: "#E8F5E9"
+    
+    trace: Trace Agent\n:8126 {
+      shape: hexagon
+      style.fill: "#4CAF50"
+      style.font-color: white
+    }
+    process: Process Agent {
+      shape: hexagon
+      style.fill: "#4CAF50"
+      style.font-color: white
+    }
+    security: Security Agent {
+      shape: hexagon
+      style.fill: "#4CAF50"
+      style.font-color: white
+    }
+  }
+  
+  integrations: Integrations {
+    style.fill: "#FFF3E0"
+    
+    nginx: nginx {
+      shape: rectangle
+      style.fill: "#FF9800"
+      style.font-color: white
+    }
+    redis: redis {
+      shape: rectangle
+      style.fill: "#FF9800"
+      style.font-color: white
+    }
+    mysql: mysql {
+      shape: rectangle
+      style.fill: "#FF9800"
+      style.font-color: white
+    }
+    kafka: kafka {
+      shape: rectangle
+      style.fill: "#FF9800"
+      style.font-color: white
+    }
+    k8s: k8s {
+      shape: rectangle
+      style.fill: "#FF9800"
+      style.font-color: white
+    }
+    docker: docker {
+      shape: rectangle
+      style.fill: "#FF9800"
+      style.font-color: white
+    }
+  }
+}
+
+agent.core -> agent.agents: processes
+agent.integrations -> agent.core.collector: collects metrics
 ```
 
 ### Data Flow
 
-```
-Application ──► APM Library ──► Trace Agent ──► Datadog
-     │                              │
-     ├──► StatsD ─────────────────►─┤
-     │                              │
-     └──► Log Files ──► Logs Agent ─┘
+```d2
+direction: right
+
+title: Datadog Data Flow {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+app: Application {
+  shape: rectangle
+  style.fill: "#E3F2FD"
+}
+
+apm: APM Library {
+  shape: hexagon
+  style.fill: "#64B5F6"
+  style.font-color: white
+}
+
+statsd: StatsD {
+  shape: hexagon
+  style.fill: "#64B5F6"
+  style.font-color: white
+}
+
+logs: Log Files {
+  shape: document
+  style.fill: "#FFF3E0"
+}
+
+trace_agent: Trace Agent {
+  shape: hexagon
+  style.fill: "#4CAF50"
+  style.font-color: white
+}
+
+logs_agent: Logs Agent {
+  shape: hexagon
+  style.fill: "#4CAF50"
+  style.font-color: white
+}
+
+datadog: Datadog Cloud {
+  shape: cloud
+  style.fill: "#9C27B0"
+  style.font-color: white
+}
+
+app -> apm: traces
+app -> statsd: metrics
+app -> logs: writes
+
+apm -> trace_agent
+statsd -> trace_agent
+logs -> logs_agent
+
+trace_agent -> datadog: sends data
+logs_agent -> datadog: sends logs
 ```
 
 ## Configuration

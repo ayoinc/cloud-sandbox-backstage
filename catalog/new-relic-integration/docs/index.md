@@ -48,39 +48,102 @@ curl -X POST "https://insights-collector.newrelic.com/v1/accounts/<ACCOUNT_ID>/e
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                   New Relic Architecture                        │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  Your Infrastructure                                            │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐     │    │
-│  │  │   APM   │  │  Infra  │  │  Logs   │  │ Browser │     │    │
-│  │  │  Agent  │  │  Agent  │  │Forwarder│  │  Agent  │     │    │
-│  │  └────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘     │    │
-│  │       │            │            │            │          │    │
-│  └───────┴────────────┴────────────┴────────────┴──────────┘    │
-│                             │                                   │
-│                             ▼ HTTPS                             │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                  New Relic Platform                     │    │
-│  │  ┌─────────────────────────────────────────────────┐    │    │
-│  │  │              Telemetry Data Platform            │    │    │
-│  │  │  (NRDB - New Relic Database)                    │    │    │
-│  │  └─────────────────────────────────────────────────┘    │    │
-│  │                          │                              │    │
-│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐        │    │
-│  │  │   APM   │ │ Infra   │ │  Logs   │ │ Alerts  │        │    │
-│  │  │   UI    │ │   UI    │ │   UI    │ │   UI    │        │    │
-│  │  └─────────┘ └─────────┘ └─────────┘ └─────────┘        │    │
-│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐        │    │
-│  │  │Dashboard│ │ Service │ │Workloads│ │ Errors  │        │    │
-│  │  │ Builder │ │  Maps   │ │         │ │  Inbox  │        │    │
-│  │  └─────────┘ └─────────┘ └─────────┘ └─────────┘        │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+title: New Relic Architecture {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+infrastructure: Your Infrastructure {
+  style.fill: "#E3F2FD"
+  
+  agents: Agents {
+    style.fill: "#BBDEFB"
+    
+    apm: APM Agent {
+      shape: hexagon
+      style.fill: "#2196F3"
+      style.font-color: white
+    }
+    infra: Infra Agent {
+      shape: hexagon
+      style.fill: "#2196F3"
+      style.font-color: white
+    }
+    logs: Logs Forwarder {
+      shape: hexagon
+      style.fill: "#2196F3"
+      style.font-color: white
+    }
+    browser: Browser Agent {
+      shape: hexagon
+      style.fill: "#2196F3"
+      style.font-color: white
+    }
+  }
+}
+
+platform: New Relic Platform {
+  style.fill: "#E8F5E9"
+  
+  nrdb: Telemetry Data Platform\n(NRDB) {
+    shape: cylinder
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+  
+  ui_row1: UI Components {
+    style.fill: "#C8E6C9"
+    
+    apm_ui: APM UI {
+      shape: rectangle
+      style.fill: "#81C784"
+    }
+    infra_ui: Infra UI {
+      shape: rectangle
+      style.fill: "#81C784"
+    }
+    logs_ui: Logs UI {
+      shape: rectangle
+      style.fill: "#81C784"
+    }
+    alerts_ui: Alerts UI {
+      shape: rectangle
+      style.fill: "#81C784"
+    }
+  }
+  
+  ui_row2: Advanced Features {
+    style.fill: "#C8E6C9"
+    
+    dashboards: Dashboard Builder {
+      shape: rectangle
+      style.fill: "#81C784"
+    }
+    service_maps: Service Maps {
+      shape: rectangle
+      style.fill: "#81C784"
+    }
+    workloads: Workloads {
+      shape: rectangle
+      style.fill: "#81C784"
+    }
+    errors: Errors Inbox {
+      shape: rectangle
+      style.fill: "#81C784"
+    }
+  }
+  
+  nrdb -> ui_row1
+  nrdb -> ui_row2
+}
+
+infrastructure.agents -> platform.nrdb: HTTPS {
+  style.stroke: "#4CAF50"
+}
 ```
 
 ## Data Types

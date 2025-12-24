@@ -1,28 +1,173 @@
 # Redis Cluster Overview
 
+## Redis Replication Architecture
+
+```d2
+direction: down
+
+title: Redis Replication Model {
+  shape: text
+  near: top-center
+  style.font-size: 24
+  style.bold: true
+}
+
+# Master Node
+master: Master Node {
+  style.fill: "#e3f2fd"
+  style.stroke: "#1565c2"
+  style.stroke-width: 2
+  
+  server: Redis Server {
+    shape: hexagon
+    style.fill: "#1976d2"
+    style.font-color: white
+    icon: https://icons.terrastruct.com/essentials%2F112-server.svg
+  }
+  
+  data: In-Memory Data {
+    style.fill: "#bbdefb"
+    
+    strings: Strings {shape: cylinder; style.fill: "#64b5f6"}
+    hashes: Hashes {shape: cylinder; style.fill: "#42a5f5"}
+    lists: Lists {shape: cylinder; style.fill: "#2196f3"; style.font-color: white}
+    sets: Sets {shape: cylinder; style.fill: "#1e88e5"; style.font-color: white}
+  }
+  
+  aof: AOF Log {
+    shape: document
+    style.fill: "#90caf9"
+  }
+  
+  rdb: RDB Snapshot {
+    shape: document
+    style.fill: "#64b5f6"
+  }
+  
+  backlog: Replication Backlog {
+    shape: queue
+    style.fill: "#e3f2fd"
+    style.stroke: "#1976d2"
+  }
+}
+
+# Replication Stream
+stream: Replication Stream {
+  style.fill: "#fff3e0"
+  style.stroke: "#ef6c00"
+  
+  sync: Sync Process {
+    style.fill: "#ffe0b2"
+    
+    full: "1. Full Sync (RDB)" {shape: step; style.fill: "#ffb74d"}
+    partial: "2. Partial Sync" {shape: step; style.fill: "#ffa726"}
+    commands: "3. Command Stream" {shape: step; style.fill: "#ff9800"; style.font-color: white}
+    
+    full -> partial -> commands
+  }
+}
+
+# Replica Nodes
+replicas: Replica Nodes {
+  style.fill: "#e8f5e9"
+  style.stroke: "#2e7d32"
+  
+  r1: Replica 1 {
+    style.fill: "#4caf50"
+    style.font-color: white
+    icon: https://icons.terrastruct.com/essentials%2F112-server.svg
+    
+    state: "Read-Only" {
+      style.fill: "#81c784"
+      style.font-size: 11
+    }
+    offset: "Offset: 12345678" {
+      style.fill: "#a5d6a7"
+      style.font-size: 10
+    }
+  }
+  
+  r2: Replica 2 {
+    style.fill: "#43a047"
+    style.font-color: white
+    icon: https://icons.terrastruct.com/essentials%2F112-server.svg
+    
+    state: "Read-Only" {
+      style.fill: "#81c784"
+      style.font-size: 11
+    }
+    offset: "Offset: 12345670" {
+      style.fill: "#a5d6a7"
+      style.font-size: 10
+    }
+  }
+  
+  r3: Replica 3 {
+    style.fill: "#388e3c"
+    style.font-color: white
+    icon: https://icons.terrastruct.com/essentials%2F112-server.svg
+    
+    state: "Read-Only" {
+      style.fill: "#81c784"
+      style.font-size: 11
+    }
+    offset: "Offset: 12345665" {
+      style.fill: "#a5d6a7"
+      style.font-size: 10
+    }
+  }
+}
+
+# Failover
+failover: Automatic Failover {
+  style.fill: "#fce4ec"
+  style.stroke: "#c2185b"
+  
+  detect: "1. Detect Failure" {shape: diamond; style.fill: "#f48fb1"}
+  elect: "2. Elect Leader" {shape: diamond; style.fill: "#ec407a"; style.font-color: white}
+  promote: "3. Promote Replica" {shape: diamond; style.fill: "#e91e63"; style.font-color: white}
+  
+  detect -> elect -> promote
+}
+
+# Connections
+master.server -> master.backlog: "Write to backlog"
+master.backlog -> stream: "Replication"
+stream -> replicas.r1: "Async" {style.stroke: "#4caf50"; style.stroke-width: 2}
+stream -> replicas.r2: "Async" {style.stroke: "#43a047"; style.stroke-width: 2}
+stream -> replicas.r3: "Async" {style.stroke: "#388e3c"; style.stroke-width: 2}
+
+replicas -> failover: "On master failure" {style.stroke: "#c2185b"; style.stroke-dash: 3}
+failover.promote -> master: "New Master" {style.stroke: "#c2185b"; style.stroke-dash: 5}
+```
+
 ## Architecture Deep Dive
 
 ### Cluster Data Distribution
 
 Redis Cluster uses hash slots for data partitioning:
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                             Hash Slot Distribution                               │
-│                                 (16384 slots)                                    │
-├─────────────────────┬─────────────────────┬─────────────────────────────────────┤
-│    Slots 0-5460     │   Slots 5461-10922  │         Slots 10923-16383           │
-│     (Master 1)      │      (Master 2)     │            (Master 3)               │
-├─────────────────────┼─────────────────────┼─────────────────────────────────────┤
-│   Replica 1a        │    Replica 2a       │          Replica 3a                 │
-│   Replica 1b        │    Replica 2b       │          Replica 3b                 │
-└─────────────────────┴─────────────────────┴─────────────────────────────────────┘
+```d2
+direction: down
 
-Key Assignment:
-  key = "user:1234"
-  slot = CRC16(key) mod 16384
-  slot = CRC16("user:1234") mod 16384 = 6789
-  → Routes to Master 2 (handles slots 5461-10922)
+slots: Hash Slot Distribution (16384 slots) {
+  master1: Master 1 - Slots 0-5460 {
+    r1a: Replica 1a
+    r1b: Replica 1b
+  }
+  
+  master2: Master 2 - Slots 5461-10922 {
+    r2a: Replica 2a
+    r2b: Replica 2b
+  }
+  
+  master3: Master 3 - Slots 10923-16383 {
+    r3a: Replica 3a
+    r3b: Replica 3b
+  }
+}
+
+key_assignment: "Key Assignment: key='user:1234' → slot=CRC16(key) mod 16384 = 6789 → Routes to Master 2"
 ```
 
 ### Hash Tags for Co-location
@@ -40,33 +185,39 @@ SET {user:1000}.sessions "..."
 
 ### Sentinel Architecture (HA without Sharding)
 
-```
-                    ┌─────────────────────────────────────────┐
-                    │            Sentinel Quorum              │
-                    │         (Monitors & Failover)           │
-                    └─────────────────────────────────────────┘
-                                        │
-            ┌───────────────────────────┼───────────────────────────┐
-            │                           │                           │
-    ┌───────▼───────┐           ┌───────▼───────┐           ┌───────▼───────┐
-    │  Sentinel 1   │           │  Sentinel 2   │           │  Sentinel 3   │
-    │  Port 26379   │           │  Port 26380   │           │  Port 26381   │
-    └───────┬───────┘           └───────┬───────┘           └───────┬───────┘
-            │                           │                           │
-            └───────────────────────────┼───────────────────────────┘
-                                        │ Monitors
-                                        ▼
-                              ┌─────────────────┐
-                              │     Master      │
-                              │   Port 6379     │
-                              └────────┬────────┘
-                                       │ Replication
-                        ┌──────────────┴──────────────┐
-                        ▼                              ▼
-               ┌─────────────────┐            ┌─────────────────┐
-               │    Replica 1    │            │    Replica 2    │
-               │   Port 6380     │            │   Port 6381     │
-               └─────────────────┘            └─────────────────┘
+```d2
+direction: down
+
+sentinel_quorum: Sentinel Quorum (Monitors & Failover) {
+  s1: Sentinel 1 (Port 26379) {
+    shape: hexagon
+  }
+  s2: Sentinel 2 (Port 26380) {
+    shape: hexagon
+  }
+  s3: Sentinel 3 (Port 26381) {
+    shape: hexagon
+  }
+}
+
+master: Master (Port 6379) {
+  shape: cylinder
+}
+
+replicas: {
+  r1: Replica 1 (Port 6380) {
+    shape: cylinder
+  }
+  r2: Replica 2 (Port 6381) {
+    shape: cylinder
+  }
+}
+
+sentinel_quorum.s1 -> master: monitors
+sentinel_quorum.s2 -> master: monitors
+sentinel_quorum.s3 -> master: monitors
+master -> replicas.r1: Replication
+master -> replicas.r2: Replication
 ```
 
 ## Configuration

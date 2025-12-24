@@ -47,52 +47,60 @@ curl http://localhost:8080/dispatch?customer=123
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Jaeger Architecture                          │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  Instrumented Applications                                      │
-│  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐            │
-│  │Service A│  │Service B│  │Service C│  │Service D│            │
-│  │  + SDK  │  │  + SDK  │  │  + SDK  │  │  + SDK  │            │
-│  └────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘            │
-│       │            │            │            │                  │
-│       └────────────┼────────────┼────────────┘                  │
-│                    │            │                               │
-│                    ▼            ▼                               │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                    Jaeger Collector                     │    │
-│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐                  │    │
-│  │  │  OTLP   │  │ Jaeger  │  │Zipkin   │   Receivers      │    │
-│  │  │ :4317/8 │  │ :14250  │  │ :9411   │                  │    │
-│  │  └─────────┘  └─────────┘  └─────────┘                  │    │
-│  │                     │                                   │    │
-│  │              ┌──────┴──────┐                            │    │
-│  │              │  Sampling   │                            │    │
-│  │              │   Engine    │                            │    │
-│  │              └──────┬──────┘                            │    │
-│  └─────────────────────┼───────────────────────────────────┘    │
-│                        │                                        │
-│                        ▼                                        │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                   Storage Backend                       │    │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐      │    │
-│  │  │Elasticsearch│  │  Cassandra  │  │   Badger    │      │    │
-│  │  │   Kafka     │  │  ClickHouse │  │   Memory    │      │    │
-│  │  └─────────────┘  └─────────────┘  └─────────────┘      │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                        │                                        │
-│                        ▼                                        │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                    Jaeger Query                         │    │
-│  │              ┌─────────────────┐                        │    │
-│  │              │   Jaeger UI     │ :16686                 │    │
-│  │              │   Query API     │ :16685                 │    │
-│  │              └─────────────────┘                        │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+services: Instrumented Applications {
+  direction: right
+  service-a: Service A\n+ OTEL SDK
+  service-b: Service B\n+ OTEL SDK
+  service-c: Service C\n+ OTEL SDK
+  service-d: Service D\n+ OTEL SDK
+}
+
+collector: Jaeger Collector {
+  receivers: Receivers {
+    direction: right
+    otlp: OTLP\n:4317/4318
+    jaeger: Jaeger\n:14250
+    zipkin: Zipkin\n:9411
+  }
+  
+  sampling: Sampling Engine
+  
+  receivers.otlp -> sampling
+  receivers.jaeger -> sampling
+  receivers.zipkin -> sampling
+}
+
+storage: Storage Backend {
+  direction: right
+  elasticsearch: Elasticsearch
+  cassandra: Cassandra
+  kafka: Kafka
+  badger: Badger
+}
+
+query: Jaeger Query {
+  ui: Jaeger UI\n:16686
+  api: Query API\n:16685
+}
+
+services.service-a -> collector.receivers.otlp: OTLP/gRPC
+services.service-b -> collector.receivers.otlp: OTLP/gRPC
+services.service-c -> collector.receivers.otlp: OTLP/gRPC
+services.service-d -> collector.receivers.otlp: OTLP/gRPC
+
+collector.sampling -> storage.elasticsearch: Write Spans
+collector.sampling -> storage.cassandra: Write Spans {
+  style.stroke-dash: 3
+}
+collector.sampling -> storage.kafka: Buffer {
+  style.stroke-dash: 3
+}
+
+storage.elasticsearch -> query.api: Read Spans
+query.api -> query.ui
 ```
 
 ## Trace Anatomy

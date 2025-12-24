@@ -43,30 +43,77 @@ docker exec rabbitmq1 rabbitmqctl cluster_status
 
 ## Architecture
 
-```
-                                    ┌──────────────────────────────────────────────┐
-                                    │              RabbitMQ Cluster                 │
-                                    └──────────────────────────────────────────────┘
-                                                         │
-        ┌────────────────────────────────────────────────┼────────────────────────────────────────────────┐
-        │                                                │                                                │
-┌───────▼───────┐                               ┌───────▼───────┐                               ┌───────▼───────┐
-│   Node 1      │                               │   Node 2      │                               │   Node 3      │
-│  (rabbit@n1)  │◀─────────────────────────────▶│  (rabbit@n2)  │◀─────────────────────────────▶│  (rabbit@n3)  │
-├───────────────┤     Erlang Distribution       ├───────────────┤     Erlang Distribution       ├───────────────┤
-│ • Exchanges   │                               │ • Exchanges   │                               │ • Exchanges   │
-│ • Bindings    │                               │ • Bindings    │                               │ • Bindings    │
-│ • Queues      │                               │ • Queues      │                               │ • Queues      │
-│ • Connections │                               │ • Connections │                               │ • Connections │
-└───────────────┘                               └───────────────┘                               └───────────────┘
+```d2
+direction: right
 
-                              ┌─────────────────────────────────────────┐
-                              │            Quorum Queue                  │
-                              │     (Replicated across nodes)            │
-                              ├─────────────────────────────────────────┤
-                              │  Leader: Node 1  │  Follower: Node 2,3  │
-                              │  Raft consensus for replication          │
-                              └─────────────────────────────────────────┘
+title: RabbitMQ Cluster Architecture {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+cluster: RabbitMQ Cluster {
+  style.fill: "#E3F2FD"
+  
+  node1: Node 1\n(rabbit@n1) {
+    style.fill: "#FF6F00"
+    style.font-color: white
+    
+    exchanges: Exchanges {shape: rectangle}
+    bindings: Bindings {shape: rectangle}
+    queues: Queues {shape: cylinder}
+    conns: Connections {shape: rectangle}
+  }
+  
+  node2: Node 2\n(rabbit@n2) {
+    style.fill: "#FF6F00"
+    style.font-color: white
+    
+    exchanges: Exchanges {shape: rectangle}
+    bindings: Bindings {shape: rectangle}
+    queues: Queues {shape: cylinder}
+    conns: Connections {shape: rectangle}
+  }
+  
+  node3: Node 3\n(rabbit@n3) {
+    style.fill: "#FF6F00"
+    style.font-color: white
+    
+    exchanges: Exchanges {shape: rectangle}
+    bindings: Bindings {shape: rectangle}
+    queues: Queues {shape: cylinder}
+    conns: Connections {shape: rectangle}
+  }
+  
+  node1 <-> node2: Erlang Distribution
+  node2 <-> node3: Erlang Distribution
+  node1 <-> node3: Erlang Distribution {style.stroke-dash: 3}
+}
+
+quorum: Quorum Queue {
+  style.fill: "#E8F5E9"
+  
+  leader: Leader: Node 1 {
+    shape: hexagon
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+  
+  followers: Follower: Node 2, 3 {
+    shape: hexagon
+    style.fill: "#81C784"
+    style.font-color: white
+  }
+  
+  raft: Raft consensus\nfor replication {
+    shape: text
+    style.font-size: 12
+  }
+  
+  leader -> followers: Replicate
+}
+
+cluster -> quorum: Quorum Queues
 ```
 
 ## Queue Types

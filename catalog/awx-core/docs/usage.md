@@ -1,5 +1,138 @@
 # Usage Guide
 
+## Job Execution Workflow
+
+```d2
+direction: down
+
+title: AWX Job Execution Workflow {
+  shape: text
+  near: top-center
+  style: {
+    font-size: 24
+    bold: true
+  }
+}
+
+trigger: Job Trigger {
+  style.fill: "#e3f2fd"
+  
+  user: User\n(UI/CLI) {
+    shape: person
+  }
+  api: API Request {
+    shape: rectangle
+  }
+  schedule: Scheduled Job {
+    shape: rectangle
+  }
+  webhook: Webhook {
+    shape: rectangle
+  }
+}
+
+launch: 1. Job Launch {
+  style.fill: "#fff3e0"
+  
+  create_job: Create Job Record {
+    shape: rectangle
+    style.fill: "#ffe0b2"
+  }
+  queue: Queue to Celery {
+    shape: queue
+    style.fill: "#ffe0b2"
+  }
+  
+  create_job -> queue
+}
+
+prerun: 2. Pre-run Tasks {
+  style.fill: "#f3e5f5"
+  
+  decrypt: Decrypt Credentials {
+    shape: rectangle
+    style.fill: "#e1bee7"
+  }
+  sync_project: Sync Project\n(if needed) {
+    shape: rectangle
+    style.fill: "#e1bee7"
+  }
+  sync_inventory: Sync Inventory\n(if dynamic) {
+    shape: rectangle
+    style.fill: "#e1bee7"
+  }
+  prepare_ee: Prepare Execution\nEnvironment {
+    shape: rectangle
+    style.fill: "#e1bee7"
+  }
+  
+  decrypt -> sync_project -> sync_inventory -> prepare_ee
+}
+
+execution: 3. Execution {
+  style.fill: "#e8f5e9"
+  
+  receptor: Receptor {
+    shape: hexagon
+    style.fill: "#a5d6a7"
+  }
+  runner: ansible-runner {
+    shape: rectangle
+    style.fill: "#a5d6a7"
+  }
+  playbook: Ansible Playbook {
+    shape: document
+    style.fill: "#a5d6a7"
+  }
+  websocket: Stream Output\n(WebSocket) {
+    shape: rectangle
+    style.fill: "#81c784"
+  }
+  
+  receptor -> runner -> playbook
+  playbook -> websocket
+}
+
+postrun: 4. Post-run Tasks {
+  style.fill: "#e0f7fa"
+  
+  store_output: Store Job Output {
+    shape: cylinder
+    style.fill: "#80deea"
+  }
+  notifications: Send Notifications\n(Slack/Email/Webhook) {
+    shape: rectangle
+    style.fill: "#80deea"
+  }
+  trigger_workflow: Trigger Dependent\nWorkflows {
+    shape: rectangle
+    style.fill: "#80deea"
+  }
+  update_status: Update Job Status {
+    shape: rectangle
+    style.fill: "#4dd0e1"
+  }
+  
+  store_output -> notifications -> trigger_workflow -> update_status
+}
+
+complete: Job Complete {
+  style.fill: "#c8e6c9"
+  status: "Success / Failed / Canceled" {
+    shape: rectangle
+  }
+}
+
+trigger.user -> launch
+trigger.api -> launch
+trigger.schedule -> launch
+trigger.webhook -> launch
+launch -> prerun
+prerun -> execution
+execution -> postrun
+postrun -> complete
+```
+
 ## Docker Compose Deployment (Development)
 
 ```yaml

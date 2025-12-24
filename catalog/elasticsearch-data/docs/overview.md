@@ -1,46 +1,174 @@
 # Elasticsearch Overview
 
+## Data Flow Architecture
+
+```d2
+direction: right
+
+title: Elasticsearch Data Flow {
+  shape: text
+  near: top-center
+  style.font-size: 24
+  style.bold: true
+}
+
+# Data Sources
+sources: Data Sources {
+  style.fill: "#e3f2fd"
+  style.stroke: "#1565c2"
+  
+  apps: Applications {
+    shape: rectangle
+    style.fill: "#42a5f5"
+    style.font-color: white
+  }
+  logs: Log Files {
+    shape: document
+    style.fill: "#64b5f6"
+  }
+  beats: Beats Agents {
+    shape: hexagon
+    style.fill: "#90caf9"
+  }
+}
+
+# Ingest Layer
+ingest: Ingest Layer {
+  style.fill: "#fff3e0"
+  style.stroke: "#ef6c00"
+  
+  logstash: Logstash {
+    shape: hexagon
+    style.fill: "#ff9800"
+    style.font-color: white
+    icon: https://icons.terrastruct.com/aws%2FAnalytics%2FAmazon-Kinesis-Data-Firehose.svg
+  }
+  
+  pipeline: Ingest Pipeline {
+    style.fill: "#ffe0b2"
+    
+    grok: Grok Parser {shape: rectangle}
+    date: Date Processor {shape: rectangle}
+    enrich: Enrichment {shape: rectangle}
+    
+    grok -> date -> enrich
+  }
+}
+
+# Elasticsearch Cluster
+cluster: Elasticsearch Cluster {
+  style.fill: "#e8f5e9"
+  style.stroke: "#2e7d32"
+  
+  coord: Coordinating Node {
+    shape: diamond
+    style.fill: "#66bb6a"
+    style.font-color: white
+  }
+  
+  hot: Hot Tier {
+    style.fill: "#c8e6c9"
+    h1: Hot Node 1 {style.fill: "#4caf50"; style.font-color: white}
+    h2: Hot Node 2 {style.fill: "#4caf50"; style.font-color: white}
+  }
+  
+  warm: Warm Tier {
+    style.fill: "#fff9c4"
+    w1: Warm Node 1 {style.fill: "#ffeb3b"}
+    w2: Warm Node 2 {style.fill: "#ffeb3b"}
+  }
+  
+  cold: Cold Tier {
+    style.fill: "#e0e0e0"
+    c1: Cold Node {style.fill: "#9e9e9e"; style.font-color: white}
+  }
+  
+  coord -> hot
+  hot -> warm: "ILM\n7 days" {style.stroke: "#ff9800"; style.stroke-dash: 3}
+  warm -> cold: "ILM\n30 days" {style.stroke: "#ff9800"; style.stroke-dash: 3}
+}
+
+# Output Layer
+output: Consumers {
+  style.fill: "#fce4ec"
+  style.stroke: "#c2185b"
+  
+  kibana: Kibana {
+    shape: rectangle
+    style.fill: "#e91e63"
+    style.font-color: white
+  }
+  api: REST API Clients {
+    shape: rectangle
+    style.fill: "#f48fb1"
+  }
+  alerts: Alerting {
+    shape: rectangle
+    style.fill: "#f8bbd9"
+  }
+}
+
+# Connections
+sources.apps -> ingest.logstash: "JSON/HTTP"
+sources.logs -> ingest.logstash: "File input"
+sources.beats -> cluster.coord: "Direct ingest"
+
+ingest.logstash -> ingest.pipeline
+ingest.pipeline -> cluster.coord: "Bulk API"
+
+cluster -> output.kibana: "Query"
+cluster -> output.api: "Search API"
+cluster -> output.alerts: "Watcher"
+```
+
 ## Architecture Deep Dive
 
 ### Cluster Topology
 
-```
-                              ┌─────────────────────────────────────────────────────────────┐
-                              │                    Production Cluster                       │
-                              └─────────────────────────────────────────────────────────────┘
-                                                          │
-        ┌─────────────────────────────────────────────────┼─────────────────────────────────────────────────┐
-        │                                                 │                                                 │
-        ▼                                                 ▼                                                 ▼
-┌───────────────┐                               ┌───────────────┐                               ┌───────────────┐
-│ Master Node 1 │                               │ Master Node 2 │                               │ Master Node 3 │
-│  (Dedicated)  │◀─────────────────────────────▶│  (Dedicated)  │◀─────────────────────────────▶│  (Dedicated)  │
-│ 2 CPU, 4GB RAM│                               │ 2 CPU, 4GB RAM│                               │ 2 CPU, 4GB RAM│
-└───────────────┘                               └───────────────┘                               └───────────────┘
-        │                                                 │                                                 │
-        └─────────────────────────────────────────────────┼─────────────────────────────────────────────────┘
-                                                          │
-        ┌─────────────────────────────────────────────────┼─────────────────────────────────────────────────┐
-        │                                                 │                                                 │
-        ▼                                                 ▼                                                 ▼
-┌───────────────┐                               ┌───────────────┐                               ┌───────────────┐
-│  Hot Node 1   │                               │  Hot Node 2   │                               │  Hot Node 3   │
-│   (NVMe SSD)  │                               │   (NVMe SSD)  │                               │   (NVMe SSD)  │
-│ 16 CPU, 64GB  │                               │ 16 CPU, 64GB  │                               │ 16 CPU, 64GB  │
-│    1TB SSD    │                               │    1TB SSD    │                               │    1TB SSD    │
-└───────────────┘                               └───────────────┘                               └───────────────┘
-        │                                                 │                                                 │
-        └─────────────────────────────────────────────────┼─────────────────────────────────────────────────┘
-                                                          │
-        ┌─────────────────────────────────────────────────┼─────────────────────────────────────────────────┐
-        │                                                 │                                                 │
-        ▼                                                 ▼                                                 ▼
-┌───────────────┐                               ┌───────────────┐                               ┌───────────────┐
-│  Warm Node 1  │                               │  Warm Node 2  │                               │  Warm Node 3  │
-│   (SATA SSD)  │                               │   (SATA SSD)  │                               │   (SATA SSD)  │
-│ 8 CPU, 32GB   │                               │ 8 CPU, 32GB   │                               │ 8 CPU, 32GB   │
-│    4TB SSD    │                               │    4TB SSD    │                               │    4TB SSD    │
-└───────────────┘                               └───────────────┘                               └───────────────┘
+```d2
+direction: down
+
+cluster: Production Cluster {
+  masters: Master Nodes {
+    m1: Master Node 1 (Dedicated, 2 CPU, 4GB RAM) {
+      shape: hexagon
+    }
+    m2: Master Node 2 (Dedicated, 2 CPU, 4GB RAM) {
+      shape: hexagon
+    }
+    m3: Master Node 3 (Dedicated, 2 CPU, 4GB RAM) {
+      shape: hexagon
+    }
+    m1 <-> m2 <-> m3
+  }
+  
+  hot: Hot Tier (NVMe SSD) {
+    h1: Hot Node 1 (16 CPU, 64GB, 1TB SSD) {
+      shape: cylinder
+    }
+    h2: Hot Node 2 (16 CPU, 64GB, 1TB SSD) {
+      shape: cylinder
+    }
+    h3: Hot Node 3 (16 CPU, 64GB, 1TB SSD) {
+      shape: cylinder
+    }
+  }
+  
+  warm: Warm Tier (SATA SSD) {
+    w1: Warm Node 1 (8 CPU, 32GB, 4TB SSD) {
+      shape: cylinder
+    }
+    w2: Warm Node 2 (8 CPU, 32GB, 4TB SSD) {
+      shape: cylinder
+    }
+    w3: Warm Node 3 (8 CPU, 32GB, 4TB SSD) {
+      shape: cylinder
+    }
+  }
+  
+  masters -> hot: manages
+  hot -> warm: ILM migration
+}
 ```
 
 ### Sharding Strategy

@@ -1,5 +1,173 @@
 # Redis Cluster Usage Guide
 
+## Caching Patterns
+
+```d2
+direction: right
+
+title: Redis Caching Patterns {
+  shape: text
+  near: top-center
+  style.font-size: 24
+  style.bold: true
+}
+
+# Cache-Aside Pattern
+cache_aside: Cache-Aside Pattern {
+  style.fill: "#e3f2fd"
+  style.stroke: "#1565c2"
+  style.stroke-width: 2
+  
+  app: Application {
+    shape: rectangle
+    style.fill: "#1976d2"
+    style.font-color: white
+  }
+  
+  cache: Redis Cache {
+    shape: cylinder
+    style.fill: "#42a5f5"
+    style.font-color: white
+  }
+  
+  db: Database {
+    shape: cylinder
+    style.fill: "#0d47a1"
+    style.font-color: white
+  }
+  
+  flow: Flow {
+    style.fill: "#bbdefb"
+    s1: "1. Check Cache" {shape: step; style.fill: "#64b5f6"}
+    s2: "2. Cache Miss → Query DB" {shape: step; style.fill: "#42a5f5"; style.font-color: white}
+    s3: "3. Store in Cache" {shape: step; style.fill: "#1e88e5"; style.font-color: white}
+    s4: "4. Return Data" {shape: step; style.fill: "#1565c2"; style.font-color: white}
+    
+    s1 -> s2 -> s3 -> s4
+  }
+  
+  app -> cache: "GET key" {style.stroke: "#4caf50"}
+  cache -> app: "Cache Hit" {style.stroke: "#4caf50"; style.stroke-dash: 3}
+  app -> db: "SELECT ..." {style.stroke: "#f44336"}
+  app -> cache: "SETEX key TTL" {style.stroke: "#ff9800"}
+}
+
+# Write-Through Pattern  
+write_through: Write-Through Pattern {
+  style.fill: "#fff3e0"
+  style.stroke: "#ef6c00"
+  style.stroke-width: 2
+  
+  app: Application {
+    shape: rectangle
+    style.fill: "#ff9800"
+    style.font-color: white
+  }
+  
+  cache: Redis Cache {
+    shape: cylinder
+    style.fill: "#ffb74d"
+  }
+  
+  db: Database {
+    shape: cylinder
+    style.fill: "#e65100"
+    style.font-color: white
+  }
+  
+  flow: Flow {
+    style.fill: "#ffe0b2"
+    s1: "1. Write to Cache" {shape: step; style.fill: "#ffcc80"}
+    s2: "2. Sync Write to DB" {shape: step; style.fill: "#ffb74d"}
+    s3: "3. Confirm Write" {shape: step; style.fill: "#ffa726"}
+    
+    s1 -> s2 -> s3
+  }
+  
+  app -> cache: "SET key value" {style.stroke: "#4caf50"; style.stroke-width: 2}
+  cache -> db: "INSERT/UPDATE" {style.stroke: "#1976d2"; style.stroke-width: 2}
+}
+
+# Read-Through with TTL
+read_through: Read-Through + TTL {
+  style.fill: "#e8f5e9"
+  style.stroke: "#2e7d32"
+  style.stroke-width: 2
+  
+  client: Client {
+    shape: rectangle
+    style.fill: "#4caf50"
+    style.font-color: white
+  }
+  
+  service: Cache Service {
+    shape: hexagon
+    style.fill: "#66bb6a"
+    style.font-color: white
+  }
+  
+  redis: Redis {
+    shape: cylinder
+    style.fill: "#81c784"
+  }
+  
+  source: Data Source {
+    shape: cylinder
+    style.fill: "#2e7d32"
+    style.font-color: white
+  }
+  
+  ttl: TTL Strategy {
+    style.fill: "#c8e6c9"
+    
+    active: "Active: 1 hour" {shape: text; style.font-size: 11}
+    stale: "Stale-while-revalidate" {shape: text; style.font-size: 11}
+    refresh: "Background refresh" {shape: text; style.font-size: 11}
+  }
+  
+  client -> service: "Request"
+  service -> redis: "GET"
+  redis -> service: "Hit/Miss"
+  service -> source: "Fetch on miss"
+  service -> redis: "SET with TTL"
+}
+
+# Distributed Lock
+lock: Distributed Lock (Redlock) {
+  style.fill: "#fce4ec"
+  style.stroke: "#c2185b"
+  style.stroke-width: 2
+  
+  worker: Worker Process {
+    shape: rectangle
+    style.fill: "#e91e63"
+    style.font-color: white
+  }
+  
+  nodes: Redis Nodes {
+    style.fill: "#f8bbd9"
+    
+    n1: Node 1 {shape: cylinder; style.fill: "#f48fb1"}
+    n2: Node 2 {shape: cylinder; style.fill: "#f48fb1"}
+    n3: Node 3 {shape: cylinder; style.fill: "#f48fb1"}
+  }
+  
+  lock_flow: Lock Flow {
+    style.fill: "#fce4ec"
+    
+    acquire: "SET lock:resource NX PX 30000" {shape: step; style.fill: "#ec407a"; style.font-color: white}
+    work: "Do Critical Work" {shape: step; style.fill: "#e91e63"; style.font-color: white}
+    release: "DEL lock:resource (Lua)" {shape: step; style.fill: "#c2185b"; style.font-color: white}
+    
+    acquire -> work -> release
+  }
+  
+  worker -> nodes.n1: "Lock" {style.stroke: "#c2185b"}
+  worker -> nodes.n2: "Lock" {style.stroke: "#c2185b"}
+  worker -> nodes.n3: "Lock" {style.stroke: "#c2185b"}
+}
+```
+
 ## Prerequisites
 
 - Docker and Docker Compose (for containerized deployment)

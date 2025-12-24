@@ -58,28 +58,45 @@ kafka-console-consumer.sh \
 
 ## Architecture Overview
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     Kafka Cluster                            │
-├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
-│  │  Broker 1   │  │  Broker 2   │  │  Broker 3   │         │
-│  │  (Leader)   │  │  (Follower) │  │  (Follower) │         │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘         │
-│         │                │                │                 │
-│  ┌──────▼────────────────▼────────────────▼──────┐         │
-│  │              Topic: orders                     │         │
-│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐       │         │
-│  │  │ Part 0  │  │ Part 1  │  │ Part 2  │       │         │
-│  │  └─────────┘  └─────────┘  └─────────┘       │         │
-│  └───────────────────────────────────────────────┘         │
-└─────────────────────────────────────────────────────────────┘
-        ▲                                       │
-        │                                       ▼
-┌───────┴───────┐                     ┌─────────────────┐
-│   Producers   │                     │    Consumers    │
-│  (Microservices)                    │  (Consumer Group)
-└───────────────┘                     └─────────────────┘
+```d2
+direction: down
+
+kafka_cluster: Kafka Cluster {
+  style.fill: "#f5f5f5"
+  
+  brokers: Brokers {
+    direction: right
+    broker1: Broker 1 (Leader) {
+      style.fill: "#4CAF50"
+    }
+    broker2: Broker 2 (Follower) {
+      style.fill: "#2196F3"
+    }
+    broker3: Broker 3 (Follower) {
+      style.fill: "#2196F3"
+    }
+  }
+  
+  topic: "Topic: orders" {
+    direction: right
+    part0: Partition 0
+    part1: Partition 1
+    part2: Partition 2
+  }
+  
+  brokers -> topic: manages
+}
+
+producers: Producers (Microservices) {
+  style.fill: "#FF9800"
+}
+
+consumers: Consumers (Consumer Group) {
+  style.fill: "#9C27B0"
+}
+
+producers -> kafka_cluster: publish
+kafka_cluster -> consumers: subscribe
 ```
 
 ## Related Documentation

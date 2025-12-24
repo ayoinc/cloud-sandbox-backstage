@@ -6,21 +6,62 @@ Azure Services Integration provides a comprehensive framework for managing Micro
 
 ### Resource Organization
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Azure Tenant (Entra ID)                  │
-├─────────────────────────────────────────────────────────────┤
-│                    Management Groups                         │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
-│  │ Production  │  │ Development │  │  Sandbox    │         │
-│  │    MG       │  │     MG      │  │     MG      │         │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘         │
-│         │                │                │                 │
-│  ┌──────▼──────┐  ┌──────▼──────┐  ┌──────▼──────┐         │
-│  │ Prod Subs   │  │  Dev Subs   │  │ Sandbox     │         │
-│  │             │  │             │  │ Subs        │         │
-│  └─────────────┘  └─────────────┘  └─────────────┘         │
-└─────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+title: Azure Tenant (Entra ID) {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+tenant: Azure Tenant {
+  style.fill: "#E3F2FD"
+  
+  mgs: Management Groups {
+    style.fill: "#BBDEFB"
+    
+    prod: Production MG {
+      shape: rectangle
+      style.fill: "#2196F3"
+      style.font-color: white
+    }
+    dev: Development MG {
+      shape: rectangle
+      style.fill: "#2196F3"
+      style.font-color: white
+    }
+    sandbox: Sandbox MG {
+      shape: rectangle
+      style.fill: "#2196F3"
+      style.font-color: white
+    }
+  }
+  
+  subs: Subscriptions {
+    style.fill: "#E8F5E9"
+    
+    prod_subs: Prod Subs {
+      shape: rectangle
+      style.fill: "#4CAF50"
+      style.font-color: white
+    }
+    dev_subs: Dev Subs {
+      shape: rectangle
+      style.fill: "#4CAF50"
+      style.font-color: white
+    }
+    sandbox_subs: Sandbox Subs {
+      shape: rectangle
+      style.fill: "#4CAF50"
+      style.font-color: white
+    }
+  }
+  
+  mgs.prod -> subs.prod_subs
+  mgs.dev -> subs.dev_subs
+  mgs.sandbox -> subs.sandbox_subs
+}
 ```
 
 ## Core Components

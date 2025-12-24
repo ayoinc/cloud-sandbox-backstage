@@ -4,31 +4,121 @@
 
 ### Agent Types
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    New Relic Agent Ecosystem                    │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  │
-│  │ Infrastructure  │  │      APM        │  │    Browser      │  │
-│  │     Agent       │  │     Agent       │  │     Agent       │  │
-│  │                 │  │                 │  │                 │  │
-│  │ • Host metrics  │  │ • Transactions  │  │ • Page loads    │  │
-│  │ • Processes     │  │ • Errors        │  │ • Ajax calls    │  │
-│  │ • Containers    │  │ • DB queries    │  │ • JS errors     │  │
-│  │ • Integrations  │  │ • External calls│  │ • User sessions │  │
-│  └─────────────────┘  └─────────────────┘  └─────────────────┘  │
-│                                                                 │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  │
-│  │     Mobile      │  │   Synthetics    │  │  OpenTelemetry  │  │
-│  │     Agent       │  │    Monitors     │  │    Collector    │  │
-│  │                 │  │                 │  │                 │  │
-│  │ • Crashes       │  │ • API tests     │  │ • OTLP traces   │  │
-│  │ • HTTP errors   │  │ • Browser tests │  │ • OTLP metrics  │  │
-│  │ • Interactions  │  │ • Scripted      │  │ • OTLP logs     │  │
-│  └─────────────────┘  └─────────────────┘  └─────────────────┘  │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+```d2
+direction: right
+
+title: New Relic Agent Ecosystem {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+agents: New Relic Agents {
+  style.fill: "#E3F2FD"
+  
+  row1: Infrastructure & APM {
+    style.fill: "#BBDEFB"
+    
+    infra: Infrastructure Agent {
+      shape: hexagon
+      style.fill: "#2196F3"
+      style.font-color: white
+    }
+    infra_desc: |md
+      - Host metrics
+      - Processes
+      - Containers
+      - Integrations
+    | {
+      shape: document
+      style.fill: "#E3F2FD"
+    }
+    
+    apm: APM Agent {
+      shape: hexagon
+      style.fill: "#2196F3"
+      style.font-color: white
+    }
+    apm_desc: |md
+      - Transactions
+      - Errors
+      - DB queries
+      - External calls
+    | {
+      shape: document
+      style.fill: "#E3F2FD"
+    }
+    
+    browser: Browser Agent {
+      shape: hexagon
+      style.fill: "#2196F3"
+      style.font-color: white
+    }
+    browser_desc: |md
+      - Page loads
+      - Ajax calls
+      - JS errors
+      - User sessions
+    | {
+      shape: document
+      style.fill: "#E3F2FD"
+    }
+    
+    infra -> infra_desc
+    apm -> apm_desc
+    browser -> browser_desc
+  }
+  
+  row2: Mobile & Synthetics {
+    style.fill: "#E8F5E9"
+    
+    mobile: Mobile Agent {
+      shape: hexagon
+      style.fill: "#4CAF50"
+      style.font-color: white
+    }
+    mobile_desc: |md
+      - Crashes
+      - HTTP errors
+      - Interactions
+    | {
+      shape: document
+      style.fill: "#E8F5E9"
+    }
+    
+    synthetics: Synthetics Monitors {
+      shape: hexagon
+      style.fill: "#4CAF50"
+      style.font-color: white
+    }
+    synth_desc: |md
+      - API tests
+      - Browser tests
+      - Scripted
+    | {
+      shape: document
+      style.fill: "#E8F5E9"
+    }
+    
+    otel: OpenTelemetry Collector {
+      shape: hexagon
+      style.fill: "#4CAF50"
+      style.font-color: white
+    }
+    otel_desc: |md
+      - OTLP traces
+      - OTLP metrics
+      - OTLP logs
+    | {
+      shape: document
+      style.fill: "#E8F5E9"
+    }
+    
+    mobile -> mobile_desc
+    synthetics -> synth_desc
+    otel -> otel_desc
+  }
+}
 ```
 
 ## Configuration

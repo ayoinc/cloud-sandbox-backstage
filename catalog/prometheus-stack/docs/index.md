@@ -48,40 +48,47 @@ docker run -d \
 
 ## Architecture Overview
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     Monitoring Stack                         │
-├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │                     Grafana                          │   │
-│  │                  (Visualization)                     │   │
-│  └──────────────────────┬──────────────────────────────┘   │
-│                         │                                   │
-│  ┌──────────────────────▼──────────────────────────────┐   │
-│  │                    Prometheus                        │   │
-│  │            (Metrics Storage & Query)                 │   │
-│  └──────┬────────────────┬────────────────┬────────────┘   │
-│         │                │                │                 │
-│  ┌──────▼──────┐  ┌──────▼──────┐  ┌──────▼──────┐        │
-│  │   Scrape    │  │   Scrape    │  │   Scrape    │        │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘        │
-│         │                │                │                 │
-│  ┌──────▼──────┐  ┌──────▼──────┐  ┌──────▼──────┐        │
-│  │    Node     │  │  App        │  │  Blackbox   │        │
-│  │  Exporter   │  │  Metrics    │  │  Exporter   │        │
-│  └─────────────┘  └─────────────┘  └─────────────┘        │
-└─────────────────────────────────────────────────────────────┘
-                         │
-              ┌──────────▼──────────┐
-              │    Alertmanager     │
-              │  (Alert Routing)    │
-              └──────────┬──────────┘
-                         │
-         ┌───────────────┼───────────────┐
-         │               │               │
-    ┌────▼────┐    ┌─────▼────┐   ┌──────▼─────┐
-    │  Slack  │    │  Email   │   │ PagerDuty  │
-    └─────────┘    └──────────┘   └────────────┘
+```d2
+direction: down
+
+monitoring-stack: Monitoring Stack {
+  grafana: Grafana {
+    shape: rectangle
+    label: "Grafana\n(Visualization)"
+  }
+
+  prometheus: Prometheus {
+    shape: rectangle
+    label: "Prometheus\n(Metrics Storage & Query)"
+  }
+
+  exporters: Exporters {
+    node: Node Exporter
+    app: App Metrics
+    blackbox: Blackbox Exporter
+  }
+
+  grafana -> prometheus: Query
+  prometheus -> exporters.node: Scrape
+  prometheus -> exporters.app: Scrape
+  prometheus -> exporters.blackbox: Scrape
+}
+
+alertmanager: Alertmanager {
+  shape: rectangle
+  label: "Alertmanager\n(Alert Routing)"
+}
+
+notifications: Notification Channels {
+  slack: Slack
+  email: Email
+  pagerduty: PagerDuty
+}
+
+monitoring-stack.prometheus -> alertmanager: Alerts
+alertmanager -> notifications.slack
+alertmanager -> notifications.email
+alertmanager -> notifications.pagerduty
 ```
 
 ## Related Documentation

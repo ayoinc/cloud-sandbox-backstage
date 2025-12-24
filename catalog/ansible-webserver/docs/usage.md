@@ -1,5 +1,81 @@
 # Ansible Webserver Usage Guide
 
+## Architecture Overview
+
+```d2
+direction: right
+
+title: Web Server Deployment Architecture {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+clients: Clients {
+  shape: rectangle
+  style.fill: "#E3F2FD"
+  
+  browser: Browser
+  mobile: Mobile App
+  api: API Client
+}
+
+lb: Load Balancer {
+  shape: hexagon
+  style.fill: "#FF9800"
+  style.font-color: white
+}
+
+webservers: Web Server Cluster {
+  shape: rectangle
+  style.fill: "#C8E6C9"
+  
+  web1: web01 {
+    shape: rectangle
+    style.fill: "#81C784"
+    nginx1: Nginx
+    php1: PHP-FPM
+  }
+  
+  web2: web02 {
+    shape: rectangle
+    style.fill: "#81C784"
+    nginx2: Nginx
+    php2: PHP-FPM
+  }
+  
+  web3: web03 {
+    shape: rectangle
+    style.fill: "#81C784"
+    nginx3: Nginx
+    php3: PHP-FPM
+  }
+}
+
+backends: Backend Services {
+  shape: rectangle
+  style.fill: "#E1BEE7"
+  
+  api_servers: API Servers
+  database: Database
+  cache: Redis Cache
+}
+
+ssl: SSL/TLS {
+  shape: rectangle
+  style.fill: "#FFF9C4"
+  
+  letsencrypt: Let's Encrypt
+  certs: Certificates
+}
+
+clients -> lb: HTTPS
+lb -> webservers: HTTP/2
+webservers -> backends: Internal
+ssl -> lb: Terminates TLS
+ssl -> webservers: End-to-end TLS
+```
+
 ## Installation
 
 ### Requirements File

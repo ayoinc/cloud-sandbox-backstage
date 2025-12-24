@@ -15,15 +15,90 @@ PostgreSQL clusters provide high availability through streaming replication and 
 
 ### Cluster Topologies
 
-```
-# Single Primary, Multiple Replicas
-Primary ──WAL──> Replica 1 (sync)
-        └──WAL──> Replica 2 (async)
-        └──WAL──> Replica 3 (async)
+#### Single Primary, Multiple Replicas
 
-# Cascading Replication
-Primary ──WAL──> Replica 1 ──WAL──> Replica 2
-                           └──WAL──> Replica 3
+```d2
+direction: right
+
+primary: Primary {
+  shape: cylinder
+  style.fill: "#c8e6c9"
+  label: "Primary\n(Read/Write)"
+}
+
+replica1: Replica 1 {
+  shape: cylinder
+  style.fill: "#bbdefb"
+  label: "Replica 1\n(Synchronous)"
+}
+
+replica2: Replica 2 {
+  shape: cylinder
+  style.fill: "#b3e5fc"
+  label: "Replica 2\n(Asynchronous)"
+}
+
+replica3: Replica 3 {
+  shape: cylinder
+  style.fill: "#b3e5fc"
+  label: "Replica 3\n(Asynchronous)"
+}
+
+primary -> replica1: WAL Stream {
+  style.stroke: "#4caf50"
+  style.stroke-width: 2
+}
+primary -> replica2: WAL Stream {
+  style.stroke: "#2196f3"
+  style.stroke-dash: 3
+}
+primary -> replica3: WAL Stream {
+  style.stroke: "#2196f3"
+  style.stroke-dash: 3
+}
+```
+
+#### Cascading Replication
+
+```d2
+direction: right
+
+primary: Primary {
+  shape: cylinder
+  style.fill: "#c8e6c9"
+  label: "Primary\n(Read/Write)"
+}
+
+replica1: Replica 1 {
+  shape: cylinder
+  style.fill: "#bbdefb"
+  label: "Replica 1\n(Cascade Source)"
+}
+
+replica2: Replica 2 {
+  shape: cylinder
+  style.fill: "#b3e5fc"
+  label: "Replica 2\n(Downstream)"
+}
+
+replica3: Replica 3 {
+  shape: cylinder
+  style.fill: "#b3e5fc"
+  label: "Replica 3\n(Downstream)"
+}
+
+primary -> replica1: WAL Stream {
+  style.stroke: "#4caf50"
+  style.stroke-width: 2
+}
+replica1 -> replica2: Cascaded WAL {
+  style.stroke: "#ff9800"
+  style.stroke-dash: 3
+}
+replica1 -> replica3: Cascaded WAL {
+  style.stroke: "#ff9800"
+  style.stroke-dash: 3
+}
 ```
 
 ## Components

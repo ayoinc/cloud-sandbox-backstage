@@ -156,6 +156,108 @@ volumes:
 
 ### ETL Pipeline
 
+The following diagram illustrates a typical ETL pipeline flow in Airflow:
+
+```d2
+direction: right
+
+title: ETL Pipeline Flow {
+  shape: text
+  near: top-center
+  style: {
+    font-size: 20
+    bold: true
+  }
+}
+
+s3_source: S3 Data Source {
+  shape: cylinder
+  style: {
+    fill: "#fff3e0"
+    stroke: "#ff9800"
+  }
+  label: "S3 Bucket\n(Raw Data)"
+}
+
+sensor: S3 Key Sensor {
+  shape: hexagon
+  style: {
+    fill: "#e3f2fd"
+    stroke: "#1976d2"
+  }
+  label: "Wait for File\n(S3KeySensor)"
+}
+
+extract: Extract {
+  shape: rectangle
+  style: {
+    fill: "#e8f5e9"
+    stroke: "#4caf50"
+    border-radius: 8
+  }
+  desc: |md
+    - Read from S3
+    - Parse CSV/JSON
+    - Push to XCom
+  |
+}
+
+transform: Transform {
+  shape: rectangle
+  style: {
+    fill: "#f3e5f5"
+    stroke: "#9c27b0"
+    border-radius: 8
+  }
+  desc: |md
+    - Clean data
+    - Apply business logic
+    - Deduplication
+  |
+}
+
+create_table: Create Table {
+  shape: rectangle
+  style: {
+    fill: "#e0f2f1"
+    stroke: "#009688"
+    border-radius: 8
+  }
+  label: "Create Table\n(PostgresOperator)"
+}
+
+load: Load {
+  shape: rectangle
+  style: {
+    fill: "#fce4ec"
+    stroke: "#e91e63"
+    border-radius: 8
+  }
+  desc: |md
+    - Write to PostgreSQL
+    - Batch inserts
+    - Verify row count
+  |
+}
+
+postgres_db: PostgreSQL {
+  shape: cylinder
+  style: {
+    fill: "#e8eaf6"
+    stroke: "#3f51b5"
+  }
+  label: "PostgreSQL\n(Data Warehouse)"
+}
+
+s3_source -> sensor: poll for file
+sensor -> extract: file ready
+extract -> transform: raw data
+transform -> create_table: prepare schema
+transform -> load: transformed data
+create_table -> load: table ready
+load -> postgres_db: insert records
+```
+
 ```python
 from datetime import datetime, timedelta
 from airflow import DAG

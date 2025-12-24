@@ -220,6 +220,98 @@ kubectl get pods -n mongodb
 
 ### CRUD Operations
 
+```d2
+direction: right
+
+title: MongoDB CRUD Operations Flow {
+  shape: text
+  near: top-center
+  style: {
+    font-size: 22
+    bold: true
+  }
+}
+
+client: Application {
+  shape: rectangle
+  style.fill: "#e3f2fd"
+}
+
+driver: MongoDB Driver {
+  shape: rectangle
+  style.fill: "#fff3e0"
+}
+
+operations: CRUD Operations {
+  style.fill: "#f3e5f5"
+  
+  create: Create {
+    shape: rectangle
+    style.fill: "#c8e6c9"
+    label: "insertOne()\ninsertMany()"
+  }
+  
+  read: Read {
+    shape: rectangle
+    style.fill: "#bbdefb"
+    label: "find()\nfindOne()\naggregate()"
+  }
+  
+  update: Update {
+    shape: rectangle
+    style.fill: "#fff9c4"
+    label: "updateOne()\nupdateMany()\nreplaceOne()"
+  }
+  
+  delete: Delete {
+    shape: rectangle
+    style.fill: "#ffcdd2"
+    label: "deleteOne()\ndeleteMany()"
+  }
+}
+
+replica_set: Replica Set {
+  style.fill: "#e8eaf6"
+  
+  primary: Primary {
+    shape: cylinder
+    style.fill: "#a5d6a7"
+    label: "Writes + Reads"
+  }
+  
+  secondary1: Secondary {
+    shape: cylinder
+    style.fill: "#90caf9"
+    label: "Reads (optional)"
+  }
+  
+  secondary2: Secondary {
+    shape: cylinder
+    style.fill: "#90caf9"
+    label: "Reads (optional)"
+  }
+  
+  primary -> secondary1: Replication
+  primary -> secondary2: Replication
+}
+
+response: Response {
+  shape: rectangle
+  style.fill: "#c8e6c9"
+  label: "Acknowledged\nDocument(s)\nModified Count"
+}
+
+client -> driver: Request
+driver -> operations
+operations.create -> replica_set.primary: Write
+operations.read -> replica_set.primary: Read (default)
+operations.read -> replica_set.secondary1: Read (secondaryPreferred) {style.stroke-dash: 3}
+operations.update -> replica_set.primary: Write
+operations.delete -> replica_set.primary: Write
+replica_set.primary -> response: Result
+response -> client: Return
+```
+
 ```javascript
 // Connect to MongoDB
 mongosh "mongodb://admin:password@localhost:27017/?replicaSet=rs0"

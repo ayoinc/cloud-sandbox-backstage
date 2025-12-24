@@ -63,38 +63,77 @@ spark-submit \
 
 ## Architecture
 
-```
-                                    ┌──────────────────────────────────────────────┐
-                                    │              Spark Application               │
-                                    └──────────────────────────────────────────────┘
-                                                         │
-                                    ┌────────────────────▼────────────────────┐
-                                    │              Driver Program              │
-                                    │         (SparkContext/SparkSession)      │
-                                    │                                          │
-                                    │  ┌────────────┐    ┌─────────────────┐  │
-                                    │  │    DAG     │    │ Task Scheduler  │  │
-                                    │  │ Scheduler  │───▶│                 │  │
-                                    │  └────────────┘    └─────────────────┘  │
-                                    └────────────────────┬────────────────────┘
-                                                         │
-                              ┌──────────────────────────┼──────────────────────────┐
-                              │                          │                          │
-                      ┌───────▼───────┐          ┌───────▼───────┐          ┌───────▼───────┐
-                      │   Executor 1  │          │   Executor 2  │          │   Executor 3  │
-                      │   (Worker 1)  │          │   (Worker 2)  │          │   (Worker 3)  │
-                      ├───────────────┤          ├───────────────┤          ├───────────────┤
-                      │ Task │ Task   │          │ Task │ Task   │          │ Task │ Task   │
-                      │ Task │ Task   │          │ Task │ Task   │          │ Task │ Task   │
-                      ├───────────────┤          ├───────────────┤          ├───────────────┤
-                      │    Cache      │          │    Cache      │          │    Cache      │
-                      │  (In-Memory)  │          │  (In-Memory)  │          │  (In-Memory)  │
-                      └───────────────┘          └───────────────┘          └───────────────┘
+```d2
+direction: down
 
-                                    ┌──────────────────────────────────────────────┐
-                                    │            Cluster Manager                    │
-                                    │   (Standalone / YARN / Kubernetes / Mesos)   │
-                                    └──────────────────────────────────────────────┘
+app: Spark Application {
+  style.fill: "#E3F2FD"
+}
+
+driver: Driver Program {
+  style.fill: "#BBDEFB"
+  
+  context: SparkContext/SparkSession
+  
+  schedulers: Schedulers {
+    direction: right
+    dag: DAG Scheduler
+    task: Task Scheduler
+    dag -> task
+  }
+}
+
+workers: Workers {
+  direction: right
+  
+  executor1: Executor 1 (Worker 1) {
+    style.fill: "#C8E6C9"
+    tasks1: Tasks {
+      t1: Task
+      t2: Task
+      t3: Task
+      t4: Task
+    }
+    cache1: Cache (In-Memory) {
+      style.fill: "#A5D6A7"
+    }
+  }
+  
+  executor2: Executor 2 (Worker 2) {
+    style.fill: "#C8E6C9"
+    tasks2: Tasks {
+      t1: Task
+      t2: Task
+      t3: Task
+      t4: Task
+    }
+    cache2: Cache (In-Memory) {
+      style.fill: "#A5D6A7"
+    }
+  }
+  
+  executor3: Executor 3 (Worker 3) {
+    style.fill: "#C8E6C9"
+    tasks3: Tasks {
+      t1: Task
+      t2: Task
+      t3: Task
+      t4: Task
+    }
+    cache3: Cache (In-Memory) {
+      style.fill: "#A5D6A7"
+    }
+  }
+}
+
+cluster_manager: Cluster Manager (Standalone/YARN/K8s/Mesos) {
+  style.fill: "#FFE0B2"
+}
+
+app -> driver
+driver -> workers: distribute tasks
+cluster_manager -> workers: manage resources
+cluster_manager -> driver: allocate resources
 ```
 
 ## Deployment Modes

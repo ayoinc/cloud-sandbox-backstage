@@ -6,70 +6,101 @@
 
 The AWX Helm Chart leverages the Kubernetes Operator pattern, using the AWX Operator to manage the complete lifecycle of AWX instances:
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    AWX Operator Reconciliation Loop                      │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  ┌──────────────┐     ┌──────────────┐     ┌──────────────────────────┐ │
-│  │   Watch      │────▶│   Compare    │────▶│   Create/Update/Delete   │ │
-│  │   AWX CRs    │     │   Desired vs │     │   Kubernetes Resources   │ │
-│  │              │     │   Actual     │     │                          │ │
-│  └──────────────┘     └──────────────┘     └──────────────────────────┘ │
-│         ▲                                              │                 │
-│         │                                              │                 │
-│         └──────────────────────────────────────────────┘                 │
-│                         Continuous Loop                                  │
-└─────────────────────────────────────────────────────────────────────────┘
+```d2
+direction: right
 
-Resources Managed by Operator:
-┌─────────────────┬─────────────────┬─────────────────┬─────────────────┐
-│   Deployments   │    Services     │     Secrets     │      PVCs       │
-├─────────────────┼─────────────────┼─────────────────┼─────────────────┤
-│ • awx-web       │ • awx-service   │ • admin-password│ • projects      │
-│ • awx-task      │ • awx-receptor  │ • db-credentials│ • receptor-ca   │
-│ • awx-ee        │ • postgres      │ • receptor-tls  │ • ee-cache      │
-└─────────────────┴─────────────────┴─────────────────┴─────────────────┘
+reconciliation: AWX Operator Reconciliation Loop {
+  watch: Watch AWX CRs {
+    shape: hexagon
+  }
+  compare: Compare Desired vs Actual {
+    shape: hexagon
+  }
+  manage: Create/Update/Delete Kubernetes Resources {
+    shape: hexagon
+  }
+  
+  watch -> compare -> manage
+  manage -> watch: Continuous Loop {
+    style.stroke-dash: 3
+  }
+}
+
+resources: Resources Managed by Operator {
+  deployments: Deployments {
+    web: awx-web
+    task: awx-task
+    ee: awx-ee
+  }
+  services: Services {
+    svc: awx-service
+    receptor: awx-receptor
+    postgres: postgres
+  }
+  secrets: Secrets {
+    admin: admin-password
+    db: db-credentials
+    tls: receptor-tls
+  }
+  pvcs: PVCs {
+    projects: projects
+    ca: receptor-ca
+    cache: ee-cache
+  }
+}
+
+reconciliation -> resources: manages
 ```
 
 ### Component Interactions
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         AWX Request Flow                                 │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  User Request                                                            │
-│       │                                                                  │
-│       ▼                                                                  │
-│  ┌─────────┐    ┌─────────┐    ┌─────────────────────────────────────┐  │
-│  │ Ingress │───▶│  NGINX  │───▶│            AWX Web Pod              │  │
-│  │         │    │ (proxy) │    │  ┌─────────────────────────────────┐│  │
-│  └─────────┘    └─────────┘    │  │     Django Application         ││  │
-│                                │  │  • REST API (/api/v2/)         ││  │
-│                                │  │  • WebSocket (/websocket/)     ││  │
-│                                │  │  • Static files                ││  │
-│                                │  └─────────────────────────────────┘│  │
-│                                └──────────────┬──────────────────────┘  │
-│                                               │                          │
-│       ┌───────────────────────────────────────┼───────────────────┐     │
-│       │                                       │                   │     │
-│       ▼                                       ▼                   ▼     │
-│  ┌─────────┐                           ┌──────────┐        ┌─────────┐  │
-│  │  Redis  │◀──────────────────────────│PostgreSQL│        │ AWX Task│  │
-│  │ (Queue) │                           │ Database │        │   Pod   │  │
-│  └────┬────┘                           └──────────┘        └────┬────┘  │
-│       │                                                         │       │
-│       │              Job Dispatch via Redis                     │       │
-│       └─────────────────────────────────────────────────────────┘       │
-│                                    │                                     │
-│                                    ▼                                     │
-│                           ┌───────────────┐                              │
-│                           │ Execution Env │                              │
-│                           │   Container   │                              │
-│                           │ (ansible-run) │                              │
-│                           └───────────────┘                              │
-└─────────────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+user: User Request {
+  shape: person
+}
+
+ingress_layer: {
+  ingress: Ingress
+  nginx: NGINX (proxy) {
+    shape: hexagon
+  }
+  ingress -> nginx
+}
+
+web: AWX Web Pod {
+  django: Django Application {
+    api: REST API (/api/v2/)
+    ws: WebSocket (/websocket/)
+    static: Static files
+  }
+}
+
+data_layer: {
+  redis: Redis (Queue) {
+    shape: cylinder
+  }
+  postgres: PostgreSQL Database {
+    shape: cylinder
+  }
+}
+
+task: AWX Task Pod {
+  shape: hexagon
+}
+
+ee: Execution Env Container (ansible-run) {
+  shape: hexagon
+}
+
+user -> ingress_layer.ingress
+ingress_layer.nginx -> web
+web -> data_layer.redis
+web -> data_layer.postgres
+web -> task
+data_layer.redis -> task: Job Dispatch via Redis
+task -> ee
 ```
 
 ## Configuration Reference

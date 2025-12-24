@@ -6,20 +6,58 @@ AWS Services Integration provides a comprehensive framework for managing AWS clo
 
 ### Multi-Account Strategy
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    AWS Organizations                         │
-├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
-│  │ Management  │  │ Production  │  │ Development │         │
-│  │  Account    │  │  Account    │  │  Account    │         │
-│  └─────────────┘  └─────────────┘  └─────────────┘         │
-│                                                             │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
-│  │  Staging    │  │  Security   │  │  Shared     │         │
-│  │  Account    │  │  Account    │  │  Services   │         │
-│  └─────────────┘  └─────────────┘  └─────────────┘         │
-└─────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+title: AWS Organizations {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+org: AWS Organizations {
+  style.fill: "#E3F2FD"
+  
+  row1: Management & Production {
+    style.fill: "#BBDEFB"
+    
+    mgmt: Management Account {
+      shape: rectangle
+      style.fill: "#2196F3"
+      style.font-color: white
+    }
+    prod: Production Account {
+      shape: rectangle
+      style.fill: "#2196F3"
+      style.font-color: white
+    }
+    dev: Development Account {
+      shape: rectangle
+      style.fill: "#2196F3"
+      style.font-color: white
+    }
+  }
+  
+  row2: Supporting Accounts {
+    style.fill: "#E8F5E9"
+    
+    staging: Staging Account {
+      shape: rectangle
+      style.fill: "#4CAF50"
+      style.font-color: white
+    }
+    security: Security Account {
+      shape: rectangle
+      style.fill: "#4CAF50"
+      style.font-color: white
+    }
+    shared: Shared Services {
+      shape: rectangle
+      style.fill: "#4CAF50"
+      style.font-color: white
+    }
+  }
+}
 ```
 
 ## Core Components

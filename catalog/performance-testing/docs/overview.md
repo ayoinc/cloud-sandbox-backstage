@@ -6,79 +6,167 @@ The Performance Testing Suite provides a scalable, multi-tool framework for vali
 
 ### Distributed Testing Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                   Distributed Load Generation                            │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  ┌────────────────────────────────────────────────────────────────┐     │
-│  │                    Orchestration Layer                          │     │
-│  │  ┌─────────────────────────────────────────────────────────┐   │     │
-│  │  │              CI/CD Pipeline (GitHub Actions/Jenkins)     │   │     │
-│  │  │  - Triggers tests on deployment                         │   │     │
-│  │  │  - Manages test configuration                           │   │     │
-│  │  │  - Evaluates pass/fail thresholds                       │   │     │
-│  │  └─────────────────────────────────────────────────────────┘   │     │
-│  └────────────────────────────────────────────────────────────────┘     │
-│                                    │                                     │
-│  ┌────────────────────────────────────────────────────────────────┐     │
-│  │                    Load Generator Cluster                       │     │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐    │     │
-│  │  │   Node 1    │  │   Node 2    │  │      Node N         │    │     │
-│  │  │  k6/Locust  │  │  k6/Locust  │  │    k6/Locust        │    │     │
-│  │  │  Workers    │  │  Workers    │  │    Workers          │    │     │
-│  │  └─────────────┘  └─────────────┘  └─────────────────────┘    │     │
-│  └────────────────────────────────────────────────────────────────┘     │
-│                                    │                                     │
-│  ┌────────────────────────────────────────────────────────────────┐     │
-│  │                    Metrics Collection                           │     │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐    │     │
-│  │  │ Prometheus  │◀─│ StatsD/     │◀─│ Test Metrics        │    │     │
-│  │  │             │  │ InfluxDB    │  │ (k6/Locust)         │    │     │
-│  │  └──────┬──────┘  └─────────────┘  └─────────────────────┘    │     │
-│  │         │                                                       │     │
-│  │         ▼                                                       │     │
-│  │  ┌─────────────────────────────────────────────────────────┐   │     │
-│  │  │              Grafana Dashboards                          │   │     │
-│  │  │  - Real-time test progress                              │   │     │
-│  │  │  - Historical comparison                                │   │     │
-│  │  │  - SLO tracking                                         │   │     │
-│  │  └─────────────────────────────────────────────────────────┘   │     │
-│  └────────────────────────────────────────────────────────────────┘     │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+title: Distributed Load Generation {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+orchestration: Orchestration Layer {
+  style.fill: "#E3F2FD"
+  
+  cicd: CI/CD Pipeline\n(GitHub Actions/Jenkins) {
+    shape: rectangle
+    style.fill: "#2196F3"
+    style.font-color: white
+  }
+  
+  features: {
+    shape: text
+    style.font-size: 12
+    near: bottom-center
+  }
+}
+
+load_gen: Load Generator Cluster {
+  style.fill: "#E8F5E9"
+  
+  node1: Node 1\nk6/Locust Workers {
+    shape: hexagon
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+  
+  node2: Node 2\nk6/Locust Workers {
+    shape: hexagon
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+  
+  nodeN: Node N\nk6/Locust Workers {
+    shape: hexagon
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+}
+
+metrics: Metrics Collection {
+  style.fill: "#FFF3E0"
+  
+  test_metrics: Test Metrics\n(k6/Locust) {
+    shape: document
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+  
+  statsd: StatsD/InfluxDB {
+    shape: cylinder
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+  
+  prometheus: Prometheus {
+    shape: hexagon
+    style.fill: "#E91E63"
+    style.font-color: white
+  }
+  
+  test_metrics -> statsd -> prometheus
+}
+
+dashboards: Grafana Dashboards {
+  style.fill: "#FCE4EC"
+  
+  grafana: Grafana {
+    shape: rectangle
+    style.fill: "#E91E63"
+    style.font-color: white
+  }
+  
+  features: Real-time progress\nHistorical comparison\nSLO tracking {
+    shape: text
+    style.font-size: 12
+  }
+}
+
+orchestration -> load_gen: Trigger Tests
+load_gen -> metrics: Export Metrics
+metrics.prometheus -> dashboards: Visualize
 ```
 
 ### k6 Architecture
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                        k6 Execution Model                         │
-├──────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│   ┌─────────────────────────────────────────────────────────┐    │
-│   │                    Test Script                           │    │
-│   │   import http from 'k6/http';                           │    │
-│   │   export default function() { ... }                     │    │
-│   └─────────────────────────────────────────────────────────┘    │
-│                              │                                    │
-│                              ▼                                    │
-│   ┌─────────────────────────────────────────────────────────┐    │
-│   │                    k6 Engine (Go)                        │    │
-│   │   ┌─────────────┐  ┌─────────────┐  ┌───────────────┐   │    │
-│   │   │ JavaScript  │  │ Scheduler   │  │ Metrics       │   │    │
-│   │   │ Runtime     │  │ (VU Mgmt)   │  │ Engine        │   │    │
-│   │   └─────────────┘  └─────────────┘  └───────────────┘   │    │
-│   └─────────────────────────────────────────────────────────┘    │
-│                              │                                    │
-│            ┌─────────────────┼─────────────────┐                  │
-│            ▼                 ▼                 ▼                  │
-│   ┌─────────────┐   ┌─────────────┐   ┌─────────────────┐        │
-│   │    VU 1     │   │    VU 2     │   │      VU N       │        │
-│   │ (Iteration) │   │ (Iteration) │   │   (Iteration)   │        │
-│   └─────────────┘   └─────────────┘   └─────────────────┘        │
-│                                                                   │
-└──────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+title: k6 Execution Model {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+script: Test Script {
+  style.fill: "#E3F2FD"
+  
+  code: JavaScript\nimport http from 'k6/http';\nexport default function() { ... } {
+    shape: document
+    style.fill: "#2196F3"
+    style.font-color: white
+  }
+}
+
+engine: k6 Engine (Go) {
+  style.fill: "#E8F5E9"
+  
+  js_runtime: JavaScript\nRuntime {
+    shape: hexagon
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+  
+  scheduler: Scheduler\n(VU Mgmt) {
+    shape: hexagon
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+  
+  metrics_engine: Metrics\nEngine {
+    shape: hexagon
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+  
+  js_runtime -> scheduler
+  scheduler -> metrics_engine
+}
+
+vus: Virtual Users {
+  style.fill: "#FFF3E0"
+  
+  vu1: VU 1\n(Iteration) {
+    shape: person
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+  
+  vu2: VU 2\n(Iteration) {
+    shape: person
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+  
+  vuN: VU N\n(Iteration) {
+    shape: person
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+}
+
+script -> engine: Parse & Execute
+engine -> vus: Spawn VUs
 ```
 
 ## Configuration

@@ -80,39 +80,102 @@ with DAG(
 
 ## Architecture
 
-```
-                                    ┌──────────────────────────────────────────────┐
-                                    │              Apache Airflow                   │
-                                    └──────────────────────────────────────────────┘
-                                                         │
-        ┌────────────────────────────────────────────────┼────────────────────────────────────────────────┐
-        │                                                │                                                │
-        ▼                                                ▼                                                ▼
-┌───────────────┐                               ┌───────────────┐                               ┌───────────────┐
-│   Web Server  │                               │   Scheduler   │                               │    Workers    │
-│   (Flask UI)  │                               │               │                               │  (Executors)  │
-├───────────────┤                               ├───────────────┤                               ├───────────────┤
-│ • DAG views   │                               │ • Parse DAGs  │                               │ • Run tasks   │
-│ • Task logs   │                               │ • Schedule    │                               │ • Report      │
-│ • Admin UI    │                               │   tasks       │                               │   status      │
-│ • REST API    │                               │ • Monitor     │                               │ • XCom push   │
-└───────┬───────┘                               └───────┬───────┘                               └───────┬───────┘
-        │                                               │                                               │
-        └───────────────────────────────────────────────┼───────────────────────────────────────────────┘
-                                                        │
-                                                        ▼
-                                    ┌──────────────────────────────────────────────┐
-                                    │              Metadata Database                │
-                                    │          (PostgreSQL / MySQL)                 │
-                                    └──────────────────────────────────────────────┘
-                                                        │
-                                    ┌───────────────────┴───────────────────┐
-                                    │                                       │
-                                    ▼                                       ▼
-                        ┌─────────────────────┐                 ┌─────────────────────┐
-                        │  Message Broker     │                 │   Result Backend    │
-                        │  (Redis/RabbitMQ)   │                 │   (Redis/DB)        │
-                        └─────────────────────┘                 └─────────────────────┘
+```d2
+direction: down
+
+title: Apache Airflow Architecture {
+  shape: text
+  near: top-center
+  style: {
+    font-size: 24
+    bold: true
+  }
+}
+
+airflow: Apache Airflow {
+  style: {
+    fill: "#e3f2fd"
+    stroke: "#1976d2"
+    border-radius: 8
+  }
+
+  webserver: Web Server (Flask UI) {
+    shape: rectangle
+    style: {
+      fill: "#bbdefb"
+      stroke: "#1976d2"
+    }
+    features: |md
+      - DAG views
+      - Task logs
+      - Admin UI
+      - REST API
+    |
+  }
+
+  scheduler: Scheduler {
+    shape: rectangle
+    style: {
+      fill: "#c8e6c9"
+      stroke: "#388e3c"
+    }
+    features: |md
+      - Parse DAGs
+      - Schedule tasks
+      - Monitor
+    |
+  }
+
+  workers: Workers (Executors) {
+    shape: rectangle
+    style: {
+      fill: "#fff3e0"
+      stroke: "#f57c00"
+    }
+    features: |md
+      - Run tasks
+      - Report status
+      - XCom push
+    |
+  }
+}
+
+metadata_db: Metadata Database {
+  shape: cylinder
+  style: {
+    fill: "#f3e5f5"
+    stroke: "#7b1fa2"
+  }
+  label: "Metadata Database\n(PostgreSQL / MySQL)"
+}
+
+message_broker: Message Broker {
+  shape: hexagon
+  style: {
+    fill: "#ffebee"
+    stroke: "#c62828"
+  }
+  label: "Message Broker\n(Redis / RabbitMQ)"
+}
+
+result_backend: Result Backend {
+  shape: cylinder
+  style: {
+    fill: "#e8f5e9"
+    stroke: "#2e7d32"
+  }
+  label: "Result Backend\n(Redis / DB)"
+}
+
+airflow.webserver -> metadata_db: read/write
+airflow.scheduler -> metadata_db: state management
+airflow.workers -> metadata_db: task status
+
+metadata_db -> message_broker: task queue
+metadata_db -> result_backend: results
+airflow.scheduler -> message_broker: dispatch tasks
+airflow.workers -> message_broker: receive tasks
+airflow.workers -> result_backend: store results
 ```
 
 ## Executor Types

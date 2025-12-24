@@ -62,38 +62,116 @@ redis-cli -c -p 7000 cluster nodes
 
 ## Architecture
 
-```
-                                 ┌──────────────────────────────────────────────────────────────┐
-                                 │                        Redis Cluster                         │
-                                 │                     (16384 Hash Slots)                       │
-                                 └──────────────────────────────────────────────────────────────┘
-                                                            │
-        ┌───────────────────────────────────────────────────┼───────────────────────────────────────────────────┐
-        │                                                   │                                                   │
-┌───────▼───────┐                                   ┌───────▼───────┐                                   ┌───────▼───────┐
-│   Master 1    │                                   │   Master 2    │                                   │   Master 3    │
-│  Slots 0-5460 │                                   │ Slots 5461-   │                                   │ Slots 10923-  │
-│   Port 7000   │                                   │  10922        │                                   │  16383        │
-│               │                                   │  Port 7001    │                                   │  Port 7002    │
-└───────┬───────┘                                   └───────┬───────┘                                   └───────┬───────┘
-        │ Replication                                       │ Replication                                       │ Replication
-        ▼                                                   ▼                                                   ▼
-┌───────────────┐                                   ┌───────────────┐                                   ┌───────────────┐
-│   Replica 1   │                                   │   Replica 2   │                                   │   Replica 3   │
-│   Port 7003   │                                   │   Port 7004   │                                   │   Port 7005   │
-└───────────────┘                                   └───────────────┘                                   └───────────────┘
+```d2
+direction: down
 
-                                           ┌─────────────────────────────┐
-                                           │      Client Connection      │
-                                           │    (Cluster-aware client)   │
-                                           └─────────────────────────────┘
-                                                          │
-                                                          ▼
-                                           ┌─────────────────────────────┐
-                                           │   Key: "user:1234"          │
-                                           │   CRC16("user:1234") % 16384│
-                                           │   = Slot 6789 → Master 2    │
-                                           └─────────────────────────────┘
+title: Redis Cluster Topology {
+  shape: text
+  near: top-center
+  style.font-size: 24
+  style.bold: true
+}
+
+cluster: Redis Cluster (16384 Hash Slots) {
+  style.fill: "#ffebee"
+  style.stroke: "#c62828"
+  style.stroke-width: 2
+
+  masters: Master Nodes {
+    style.fill: "#ffffff"
+    
+    m1: Master 1 {
+      style.fill: "#d32f2f"
+      style.font-color: "#ffffff"
+      icon: https://icons.terrastruct.com/essentials%2F112-server.svg
+      
+      slots: "Slots 0-5460" {
+        style.fill: "#ffcdd2"
+        style.font-size: 12
+      }
+      port: "Port 7000" {
+        style.fill: "#ef9a9a"
+        style.font-size: 11
+      }
+    }
+    
+    m2: Master 2 {
+      style.fill: "#1976d2"
+      style.font-color: "#ffffff"
+      icon: https://icons.terrastruct.com/essentials%2F112-server.svg
+      
+      slots: "Slots 5461-10922" {
+        style.fill: "#bbdefb"
+        style.font-size: 12
+      }
+      port: "Port 7001" {
+        style.fill: "#90caf9"
+        style.font-size: 11
+      }
+    }
+    
+    m3: Master 3 {
+      style.fill: "#388e3c"
+      style.font-color: "#ffffff"
+      icon: https://icons.terrastruct.com/essentials%2F112-server.svg
+      
+      slots: "Slots 10923-16383" {
+        style.fill: "#c8e6c9"
+        style.font-size: 12
+      }
+      port: "Port 7002" {
+        style.fill: "#a5d6a7"
+        style.font-size: 11
+      }
+    }
+  }
+  
+  replicas: Replica Nodes {
+    style.fill: "#f5f5f5"
+    
+    r1: Replica 1 {
+      style.fill: "#ef5350"
+      style.font-color: white
+      port: "Port 7003" {style.font-size: 11}
+    }
+    r2: Replica 2 {
+      style.fill: "#42a5f5"
+      style.font-color: white
+      port: "Port 7004" {style.font-size: 11}
+    }
+    r3: Replica 3 {
+      style.fill: "#66bb6a"
+      style.font-color: white
+      port: "Port 7005" {style.font-size: 11}
+    }
+  }
+  
+  masters.m1 -> replicas.r1: "Replication" {style.stroke: "#d32f2f"; style.stroke-dash: 3}
+  masters.m2 -> replicas.r2: "Replication" {style.stroke: "#1976d2"; style.stroke-dash: 3}
+  masters.m3 -> replicas.r3: "Replication" {style.stroke: "#388e3c"; style.stroke-dash: 3}
+  
+  masters.m1 <-> masters.m2: "Gossip" {style.stroke: "#9e9e9e"; style.stroke-dash: 5}
+  masters.m2 <-> masters.m3: "Gossip" {style.stroke: "#9e9e9e"; style.stroke-dash: 5}
+  masters.m1 <-> masters.m3: "Gossip" {style.stroke: "#9e9e9e"; style.stroke-dash: 5}
+}
+
+client: Cluster-Aware Client {
+  style.fill: "#fff8e1"
+  style.stroke: "#f57c00"
+  shape: rectangle
+  
+  routing: Key Routing {
+    style.fill: "#ffe0b2"
+    
+    key: 'Key: "user:1234"' {shape: text; style.font-size: 12}
+    hash: 'CRC16("user:1234") % 16384' {shape: text; style.font-size: 11}
+    result: "= Slot 6789 → Master 2" {shape: text; style.font-size: 11; style.bold: true}
+  }
+}
+
+client -> cluster.masters.m2: "Routed Request" {style.stroke: "#1976d2"; style.stroke-width: 2}
+client -> cluster.masters.m1: "MOVED redirect" {style.stroke: "#9e9e9e"; style.stroke-dash: 3}
+client -> cluster.masters.m3: "MOVED redirect" {style.stroke: "#9e9e9e"; style.stroke-dash: 3}
 ```
 
 ## Deployment Modes

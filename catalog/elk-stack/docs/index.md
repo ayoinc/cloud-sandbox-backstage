@@ -56,50 +56,130 @@ curl -X GET "localhost:9200/logs/_search?q=level:INFO&pretty"
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        ELK Stack Architecture                   │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│   Data Sources                                                  │
-│   ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐              │
-│   │ App Logs│ │ Metrics │ │ Syslogs │ │ Events  │              │
-│   └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘              │
-│        │           │           │           │                    │
-│        ▼           ▼           ▼           ▼                    │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │                     Beats Agents                        │   │
-│   │  Filebeat   Metricbeat   Packetbeat   Heartbeat         │   │
-│   └────────────────────────┬────────────────────────────────┘   │
-│                            │                                    │
-│                            ▼                                    │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │                      Logstash                           │   │
-│   │  ┌─────────┐    ┌─────────┐    ┌─────────┐              │   │
-│   │  │  Input  │───►│ Filter  │───►│ Output  │              │   │
-│   │  └─────────┘    └─────────┘    └─────────┘              │   │
-│   └────────────────────────┬────────────────────────────────┘   │
-│                            │                                    │
-│                            ▼                                    │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │              Elasticsearch Cluster                      │   │
-│   │  ┌─────────┐  ┌─────────┐  ┌─────────┐                  │   │
-│   │  │ Node 1  │  │ Node 2  │  │ Node 3  │                  │   │
-│   │  │ Master  │  │  Data   │  │  Data   │                  │   │
-│   │  └─────────┘  └─────────┘  └─────────┘                  │   │
-│   │         Primary + Replica Shards                        │   │
-│   └────────────────────────┬────────────────────────────────┘   │
-│                            │                                    │
-│                            ▼                                    │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │                       Kibana                            │   │
-│   │  Discover │ Dashboard │ Visualize │ Dev Tools │ Alerts  │   │
-│   └─────────────────────────────────────────────────────────┘   │
-│                            │                                    │
-│                            ▼                                    │
-│                      Users / API                                │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+title: ELK Stack Architecture {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+sources: Data Sources {
+  shape: rectangle
+  style.fill: "#E3F2FD"
+  
+  apps: App Logs {
+    shape: document
+    style.fill: "#BBDEFB"
+  }
+  metrics: Metrics {
+    shape: document
+    style.fill: "#BBDEFB"
+  }
+  syslogs: Syslogs {
+    shape: document
+    style.fill: "#BBDEFB"
+  }
+  events: Events {
+    shape: document
+    style.fill: "#BBDEFB"
+  }
+}
+
+beats: Beats Agents {
+  shape: rectangle
+  style.fill: "#FFF3E0"
+  
+  filebeat: Filebeat {
+    shape: hexagon
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+  metricbeat: Metricbeat {
+    shape: hexagon
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+  packetbeat: Packetbeat {
+    shape: hexagon
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+  heartbeat: Heartbeat {
+    shape: hexagon
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+}
+
+logstash: Logstash {
+  shape: rectangle
+  style.fill: "#C8E6C9"
+  
+  input: Input {
+    shape: rectangle
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+  filter: Filter {
+    shape: rectangle
+    style.fill: "#4CAF50"
+    style.font-color: white
+    label: "Parse, Transform, Enrich"
+  }
+  output: Output {
+    shape: rectangle
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+}
+
+elasticsearch: Elasticsearch Cluster {
+  shape: rectangle
+  style.fill: "#FFCDD2"
+  
+  node1: Node 1 (Master) {
+    shape: cylinder
+    style.fill: "#F44336"
+    style.font-color: white
+  }
+  node2: Node 2 (Data) {
+    shape: cylinder
+    style.fill: "#F44336"
+    style.font-color: white
+  }
+  node3: Node 3 (Data) {
+    shape: cylinder
+    style.fill: "#F44336"
+    style.font-color: white
+  }
+  
+  shards: Primary + Replica Shards
+}
+
+kibana: Kibana {
+  shape: rectangle
+  style.fill: "#E1BEE7"
+  
+  discover: Discover
+  dashboard: Dashboard
+  visualize: Visualize
+  devtools: Dev Tools
+  alerts: Alerts
+}
+
+users: Users / API {
+  shape: person
+  style.fill: "#E3F2FD"
+}
+
+sources -> beats: collect
+beats -> logstash: ship
+logstash.input -> logstash.filter -> logstash.output
+logstash.output -> elasticsearch: index
+elasticsearch -> kibana: query
+kibana -> users: visualize
 ```
 
 ## Component Overview

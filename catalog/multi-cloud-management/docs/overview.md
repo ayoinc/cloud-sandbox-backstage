@@ -6,70 +6,181 @@
 
 The Multi-Cloud Management platform provides a unified abstraction layer that normalizes cloud provider APIs and resources:
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    Multi-Cloud Abstraction Patterns                      │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  Application Request                                                     │
-│         │                                                                │
-│         ▼                                                                │
-│  ┌─────────────────────────────────────────────────────────────────────┐ │
-│  │              Unified Resource Interface                              │ │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                  │ │
-│  │  │  Compute    │  │  Database   │  │   Storage   │                  │ │
-│  │  │  Interface  │  │  Interface  │  │  Interface  │                  │ │
-│  │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘                  │ │
-│  └─────────┼────────────────┼────────────────┼─────────────────────────┘ │
-│            │                │                │                           │
-│  ┌─────────▼────────────────▼────────────────▼─────────────────────────┐ │
-│  │              Provider Adapters                                       │ │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐               │ │
-│  │  │AWS Adapter   │  │Azure Adapter │  │ GCP Adapter  │               │ │
-│  │  │              │  │              │  │              │               │ │
-│  │  │ • EC2 → VM   │  │ • VM → VM    │  │ • GCE → VM   │               │ │
-│  │  │ • RDS → DB   │  │ • SQL → DB   │  │ • SQL → DB   │               │ │
-│  │  │ • S3 → Blob  │  │ • Blob→Blob  │  │ • GCS → Blob │               │ │
-│  │  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘               │ │
-│  └─────────┼────────────────┼────────────────┼─────────────────────────┘ │
-│            │                │                │                           │
-│            ▼                ▼                ▼                           │
-│        AWS API          Azure API         GCP API                        │
-└─────────────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+title: Multi-Cloud Abstraction Patterns {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+request: Application Request {
+  shape: rectangle
+  style.fill: "#E3F2FD"
+}
+
+interfaces: Unified Resource Interface {
+  style.fill: "#E8F5E9"
+  
+  compute: Compute\nInterface {
+    shape: hexagon
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+  
+  database: Database\nInterface {
+    shape: hexagon
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+  
+  storage: Storage\nInterface {
+    shape: hexagon
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+}
+
+adapters: Provider Adapters {
+  style.fill: "#FFF3E0"
+  
+  aws_adapter: AWS Adapter {
+    style.fill: "#FF9900"
+    style.font-color: white
+    
+    mapping: EC2 → VM\nRDS → DB\nS3 → Blob {
+      shape: text
+      style.font-size: 12
+    }
+  }
+  
+  azure_adapter: Azure Adapter {
+    style.fill: "#0078D4"
+    style.font-color: white
+    
+    mapping: VM → VM\nSQL → DB\nBlob → Blob {
+      shape: text
+      style.font-size: 12
+    }
+  }
+  
+  gcp_adapter: GCP Adapter {
+    style.fill: "#4285F4"
+    style.font-color: white
+    
+    mapping: GCE → VM\nSQL → DB\nGCS → Blob {
+      shape: text
+      style.font-size: 12
+    }
+  }
+}
+
+apis: Cloud APIs {
+  style.fill: "#FCE4EC"
+  
+  aws_api: AWS API {shape: rectangle; style.fill: "#FF9900"; style.font-color: white}
+  azure_api: Azure API {shape: rectangle; style.fill: "#0078D4"; style.font-color: white}
+  gcp_api: GCP API {shape: rectangle; style.fill: "#4285F4"; style.font-color: white}
+}
+
+request -> interfaces
+interfaces -> adapters
+adapters.aws_adapter -> apis.aws_api
+adapters.azure_adapter -> apis.azure_api
+adapters.gcp_adapter -> apis.gcp_api
 ```
 
 ### Cross-Cloud Networking
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    Cross-Cloud Network Topology                          │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│    AWS us-east-1                Azure eastus              GCP us-east1   │
-│  ┌──────────────┐            ┌──────────────┐          ┌──────────────┐  │
-│  │  VPC         │            │    VNet      │          │    VPC       │  │
-│  │ 10.0.0.0/16  │            │ 10.1.0.0/16  │          │ 10.2.0.0/16  │  │
-│  │              │            │              │          │              │  │
-│  │  ┌────────┐  │            │  ┌────────┐  │          │  ┌────────┐  │  │
-│  │  │Private │  │            │  │Private │  │          │  │Private │  │  │
-│  │  │Subnet  │  │            │  │Subnet  │  │          │  │Subnet  │  │  │
-│  │  │10.0.1.x│  │            │  │10.1.1.x│  │          │  │10.2.1.x│  │  │
-│  │  └────────┘  │            │  └────────┘  │          │  └────────┘  │  │
-│  │       │      │            │       │      │          │       │      │  │
-│  │  ┌────▼────┐ │            │  ┌────▼────┐ │          │  ┌────▼────┐ │  │
-│  │  │   VPN   │◀╋════════════╋══│   VPN   │═╋══════════╋▶ │   VPN   │ │  │
-│  │  │ Gateway │ │  IPSec     │  │ Gateway │  IPSec     │  │ Gateway │ │  │
-│  │  └─────────┘ │  Tunnel    │  └─────────┘  Tunnel    │  └─────────┘ │  │
-│  └──────────────┘            └──────────────┘          └──────────────┘  │
-│                                                                          │
-│  Global DNS (Route53 / Azure DNS / Cloud DNS)                            │
-│  ┌──────────────────────────────────────────────────────────────────────┐│
-│  │  app.example.com                                                     ││
-│  │    ├── aws.app.example.com    → 10.0.1.x (latency-based)            ││
-│  │    ├── azure.app.example.com  → 10.1.1.x (latency-based)            ││
-│  │    └── gcp.app.example.com    → 10.2.1.x (latency-based)            ││
-│  └──────────────────────────────────────────────────────────────────────┘│
-└─────────────────────────────────────────────────────────────────────────┘
+```d2
+direction: right
+
+title: Cross-Cloud Network Topology {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+aws: AWS us-east-1 {
+  style.fill: "#FFF3E0"
+  
+  vpc: VPC\n10.0.0.0/16 {
+    style.fill: "#FF9900"
+    style.font-color: white
+    
+    subnet: Private Subnet\n10.0.1.x {
+      shape: rectangle
+    }
+  }
+  
+  vpn: VPN Gateway {
+    shape: hexagon
+    style.fill: "#FF9900"
+    style.font-color: white
+  }
+  
+  vpc -> vpn
+}
+
+azure: Azure eastus {
+  style.fill: "#E3F2FD"
+  
+  vnet: VNet\n10.1.0.0/16 {
+    style.fill: "#0078D4"
+    style.font-color: white
+    
+    subnet: Private Subnet\n10.1.1.x {
+      shape: rectangle
+    }
+  }
+  
+  vpn: VPN Gateway {
+    shape: hexagon
+    style.fill: "#0078D4"
+    style.font-color: white
+  }
+  
+  vnet -> vpn
+}
+
+gcp: GCP us-east1 {
+  style.fill: "#E8F5E9"
+  
+  gcp_vpc: VPC\n10.2.0.0/16 {
+    style.fill: "#4285F4"
+    style.font-color: white
+    
+    subnet: Private Subnet\n10.2.1.x {
+      shape: rectangle
+    }
+  }
+  
+  vpn: VPN Gateway {
+    shape: hexagon
+    style.fill: "#4285F4"
+    style.font-color: white
+  }
+  
+  gcp_vpc -> vpn
+}
+
+dns: Global DNS {
+  style.fill: "#FCE4EC"
+  
+  routes: app.example.com\n├── aws.app → 10.0.1.x\n├── azure.app → 10.1.1.x\n└── gcp.app → 10.2.1.x {
+    shape: document
+    style.fill: "#E91E63"
+    style.font-color: white
+  }
+}
+
+aws.vpn <-> azure.vpn: IPSec Tunnel
+azure.vpn <-> gcp.vpn: IPSec Tunnel
+aws.vpn <-> gcp.vpn: IPSec Tunnel {style.stroke-dash: 3}
+dns -> aws
+dns -> azure
+dns -> gcp
 ```
 
 ## Terraform Module Design

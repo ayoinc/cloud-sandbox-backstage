@@ -40,43 +40,87 @@ delete /myapp
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                     ZooKeeper Ensemble                          │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐         │
-│  │  ZK Node 1  │◄──►│  ZK Node 2  │◄──►│  ZK Node 3  │         │
-│  │  (Leader)   │    │  (Follower) │    │  (Follower) │         │
-│  │  Port 2181  │    │  Port 2181  │    │  Port 2181  │         │
-│  └──────┬──────┘    └──────┬──────┘    └──────┬──────┘         │
-│         │                  │                  │                 │
-│         └──────────────────┼──────────────────┘                 │
-│                            │                                    │
-│                    ZAB Protocol                                 │
-│              (Atomic Broadcast)                                 │
-│                                                                 │
-├─────────────────────────────────────────────────────────────────┤
-│                     Data Model (ZNodes)                         │
-│                                                                 │
-│                          /                                      │
-│                    ┌─────┴─────┐                                │
-│                    │           │                                │
-│                 /kafka      /apps                               │
-│                    │           │                                │
-│            ┌───────┼───────┐   └──────┐                         │
-│            │       │       │          │                         │
-│        /brokers /topics /consumers  /myapp                      │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-        ┌─────────────────────────────────────────┐
-        │              Clients                     │
-        │  ┌───────┐  ┌───────┐  ┌───────────┐    │
-        │  │ Kafka │  │ HBase │  │ Custom App│    │
-        │  └───────┘  └───────┘  └───────────┘    │
-        └─────────────────────────────────────────┘
+```d2
+direction: down
+
+title: ZooKeeper Ensemble Architecture {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+ensemble: ZooKeeper Ensemble {
+  style.fill: "#E3F2FD"
+  
+  nodes: Node Cluster {
+    style.fill: "#BBDEFB"
+    
+    zk1: ZK Node 1\n(Leader)\nPort 2181 {
+      shape: hexagon
+      style.fill: "#4CAF50"
+      style.font-color: white
+    }
+    
+    zk2: ZK Node 2\n(Follower)\nPort 2181 {
+      shape: hexagon
+      style.fill: "#2196F3"
+      style.font-color: white
+    }
+    
+    zk3: ZK Node 3\n(Follower)\nPort 2181 {
+      shape: hexagon
+      style.fill: "#2196F3"
+      style.font-color: white
+    }
+    
+    zk1 <-> zk2: ZAB Protocol
+    zk2 <-> zk3: ZAB Protocol
+    zk1 <-> zk3: ZAB Protocol {style.stroke-dash: 3}
+  }
+  
+  znodes: Data Model (ZNodes) {
+    style.fill: "#E8F5E9"
+    
+    root: / {shape: circle}
+    kafka: /kafka {shape: rectangle}
+    apps: /apps {shape: rectangle}
+    brokers: /brokers {shape: document}
+    topics: /topics {shape: document}
+    consumers: /consumers {shape: document}
+    myapp: /myapp {shape: document}
+    
+    root -> kafka
+    root -> apps
+    kafka -> brokers
+    kafka -> topics
+    kafka -> consumers
+    apps -> myapp
+  }
+}
+
+clients: Clients {
+  style.fill: "#FFF3E0"
+  
+  kafka_client: Kafka {
+    shape: rectangle
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+  
+  hbase: HBase {
+    shape: rectangle
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+  
+  custom: Custom App {
+    shape: rectangle
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+}
+
+ensemble -> clients: Client Connections (2181)
 ```
 
 ## ZNode Types

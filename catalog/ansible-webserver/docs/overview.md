@@ -4,33 +4,88 @@
 
 ### Role Dependencies
 
-```
-site.yml
-├── common (base system)
-│   ├── Update packages
-│   ├── Install prerequisites
-│   ├── Configure firewall
-│   ├── Set timezone/NTP
-│   └── Create service users
-│
-├── security (hardening)
-│   ├── SSH hardening
-│   ├── Fail2ban setup
-│   ├── SELinux/AppArmor
-│   └── Audit logging
-│
-├── nginx OR apache (webserver)
-│   ├── Install web server
-│   ├── Configure main settings
-│   ├── Setup virtual hosts
-│   ├── Enable modules
-│   └── Configure logging
-│
-└── ssl (certificates)
-    ├── Let's Encrypt setup
-    ├── Certificate deployment
-    ├── Auto-renewal cron
-    └── OCSP stapling
+```d2
+direction: down
+
+title: Ansible Webserver Role Architecture {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+site: site.yml {
+  shape: document
+  style.fill: "#E3F2FD"
+}
+
+common: Common Role {
+  shape: rectangle
+  style.fill: "#C8E6C9"
+  
+  tasks: |md
+    - Update packages
+    - Install prerequisites
+    - Configure firewall
+    - Set timezone/NTP
+    - Create service users
+  |
+}
+
+security: Security Role {
+  shape: rectangle
+  style.fill: "#FFCDD2"
+  
+  tasks: |md
+    - SSH hardening
+    - Fail2ban setup
+    - SELinux/AppArmor
+    - Audit logging
+  |
+}
+
+webserver: Webserver Role {
+  shape: rectangle
+  style.fill: "#BBDEFB"
+  
+  nginx: Nginx {
+    shape: hexagon
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+  
+  apache: Apache {
+    shape: hexagon
+    style.fill: "#FF5722"
+    style.font-color: white
+  }
+  
+  tasks: |md
+    - Install web server
+    - Configure main settings
+    - Setup virtual hosts
+    - Enable modules
+    - Configure logging
+  |
+}
+
+ssl: SSL Role {
+  shape: rectangle
+  style.fill: "#FFF9C4"
+  
+  tasks: |md
+    - Let's Encrypt setup
+    - Certificate deployment
+    - Auto-renewal cron
+    - OCSP stapling
+  |
+}
+
+site -> common: includes
+common -> security: depends
+security -> webserver: depends
+webserver -> ssl: depends
+webserver.nginx -> ssl
+webserver.apache -> ssl
 ```
 
 ## Nginx Role

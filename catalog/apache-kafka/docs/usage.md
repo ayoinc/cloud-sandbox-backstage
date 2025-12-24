@@ -1,5 +1,62 @@
 # Usage Guide
 
+## Producer/Consumer Flow
+
+```d2
+direction: right
+
+producer: Producer Application {
+  style.fill: "#FF9800"
+  serialize: Serialize Message
+  partition: Select Partition
+  batch: Batch Messages
+  
+  serialize -> partition -> batch
+}
+
+kafka: Kafka Cluster {
+  style.fill: "#f5f5f5"
+  
+  topic: Topic {
+    p0: Partition 0 {
+      style.fill: "#4CAF50"
+      leader: Leader
+      replica: Replica
+    }
+    p1: Partition 1 {
+      style.fill: "#4CAF50"
+      leader: Leader
+      replica: Replica
+    }
+    p2: Partition 2 {
+      style.fill: "#4CAF50"
+      leader: Leader
+      replica: Replica
+    }
+  }
+}
+
+consumer_group: Consumer Group {
+  style.fill: "#9C27B0"
+  
+  c1: Consumer 1 {
+    style.fill: "#E1BEE7"
+  }
+  c2: Consumer 2 {
+    style.fill: "#E1BEE7"
+  }
+  c3: Consumer 3 {
+    style.fill: "#E1BEE7"
+  }
+}
+
+producer -> kafka.topic: "1. Send (acks=all)"
+kafka.topic.p0 -> consumer_group.c1: "2. Fetch"
+kafka.topic.p1 -> consumer_group.c2: "2. Fetch"
+kafka.topic.p2 -> consumer_group.c3: "2. Fetch"
+consumer_group -> kafka: "3. Commit Offset"
+```
+
 ## Getting Started
 
 ### Prerequisites

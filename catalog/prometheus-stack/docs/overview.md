@@ -4,6 +4,48 @@
 
 Prometheus uses a pull-based architecture where it periodically scrapes metrics from configured targets. Data is stored in a time-series database optimized for high cardinality.
 
+```d2
+direction: right
+
+targets: Scrape Targets {
+  service-a: Service A\n/metrics
+  service-b: Service B\n/metrics
+  node-exporter: Node Exporter\n:9100
+  pushgateway: Pushgateway\n:9091 {
+    style.stroke-dash: 3
+  }
+}
+
+prometheus: Prometheus Server {
+  scraper: Scrape Engine
+  tsdb: Time Series DB
+  rules: Rule Engine
+  
+  scraper -> tsdb: Store
+  tsdb -> rules: Evaluate
+}
+
+batch-jobs: Batch Jobs {
+  style.stroke-dash: 3
+}
+
+prometheus.scraper -> targets.service-a: Pull (15s)
+prometheus.scraper -> targets.service-b: Pull (15s)
+prometheus.scraper -> targets.node-exporter: Pull (15s)
+prometheus.scraper -> targets.pushgateway: Pull (15s)
+batch-jobs -> targets.pushgateway: Push
+
+alertmanager: Alertmanager
+grafana: Grafana
+thanos: Thanos/Cortex {
+  style.stroke-dash: 3
+}
+
+prometheus.rules -> alertmanager: Fire Alerts
+prometheus.tsdb -> grafana: PromQL Queries
+prometheus.tsdb -> thanos: Remote Write
+```
+
 ### Data Model
 
 ```

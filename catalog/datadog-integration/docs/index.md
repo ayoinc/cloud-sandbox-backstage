@@ -53,44 +53,106 @@ curl -X POST "https://api.datadoghq.com/api/v1/series" \
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Datadog Architecture                         │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  Your Infrastructure                                            │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                                                         │    │
-│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐     │    │
-│  │  │  Host   │  │Container│  │  K8s    │  │ Cloud   │     │    │
-│  │  │ Agent   │  │  Agent  │  │ Agent   │  │  Integ  │     │    │
-│  │  └────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘     │    │
-│  │       │            │            │            │          │    │
-│  │       └────────────┴─────┬──────┴────────────┘          │    │
-│  │                          │                              │    │
-│  │  ┌─────────────────────────────────────────────────┐    │    │
-│  │  │              Datadog Agent                      │    │    │
-│  │  │  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐    │    │    │
-│  │  │  │Metrics │ │ Traces │ │  Logs  │ │Profiles│    │    │    │
-│  │  │  │Collect │ │ Agent  │ │ Agent  │ │ Agent  │    │    │    │
-│  │  │  └────────┘ └────────┘ └────────┘ └────────┘    │    │    │
-│  │  └─────────────────────────────────────────────────┘    │    │
-│  │                          │                              │    │
-│  └──────────────────────────┼──────────────────────────────┘    │
-│                             │ HTTPS (443)                       │
-│                             ▼                                   │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                  Datadog Cloud                          │    │
-│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐        │    │
-│  │  │Metrics  │ │  APM    │ │  Logs   │ │Security │        │    │
-│  │  │Explorer │ │ Service │ │Explorer │ │ SIEM    │        │    │
-│  │  └─────────┘ └─────────┘ └─────────┘ └─────────┘        │    │
-│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐        │    │
-│  │  │Dashboard│ │ Alerts  │ │Notebooks│ │  SLOs   │        │    │
-│  │  └─────────┘ └─────────┘ └─────────┘ └─────────┘        │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+title: Datadog Monitoring Architecture {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+infrastructure: Your Infrastructure {
+  shape: rectangle
+  style.fill: "#E8F5E9"
+  
+  agents: Agent Types {
+    shape: rectangle
+    style.fill: "#C8E6C9"
+    
+    host: Host Agent {
+      shape: hexagon
+      style.fill: "#4CAF50"
+      style.font-color: white
+    }
+    container: Container Agent {
+      shape: hexagon
+      style.fill: "#4CAF50"
+      style.font-color: white
+    }
+    k8s: K8s Agent {
+      shape: hexagon
+      style.fill: "#4CAF50"
+      style.font-color: white
+    }
+    cloud: Cloud Integrations {
+      shape: hexagon
+      style.fill: "#4CAF50"
+      style.font-color: white
+    }
+  }
+  
+  dd_agent: Datadog Agent {
+    shape: rectangle
+    style.fill: "#81C784"
+    
+    metrics: Metrics Collector
+    traces: Trace Agent
+    logs: Logs Agent
+    profiles: Profiler
+  }
+}
+
+datadog: Datadog Cloud {
+  shape: rectangle
+  style.fill: "#E1BEE7"
+  
+  platform: Platform Services {
+    shape: rectangle
+    style.fill: "#CE93D8"
+    
+    metrics_exp: Metrics Explorer {
+      shape: rectangle
+      style.fill: "#9C27B0"
+      style.font-color: white
+    }
+    apm: APM Service {
+      shape: rectangle
+      style.fill: "#9C27B0"
+      style.font-color: white
+    }
+    logs_exp: Logs Explorer {
+      shape: rectangle
+      style.fill: "#9C27B0"
+      style.font-color: white
+    }
+    siem: Security SIEM {
+      shape: rectangle
+      style.fill: "#9C27B0"
+      style.font-color: white
+    }
+  }
+  
+  tools: Tools {
+    shape: rectangle
+    style.fill: "#CE93D8"
+    
+    dashboards: Dashboards
+    alerts: Alerts
+    notebooks: Notebooks
+    slos: SLOs
+  }
+}
+
+users: Users {
+  shape: person
+  style.fill: "#E3F2FD"
+}
+
+infrastructure.agents -> infrastructure.dd_agent: collect
+infrastructure.dd_agent -> datadog: HTTPS (443)
+datadog.platform -> datadog.tools
+datadog.tools -> users: visualize & alert
 ```
 
 ## Agent Components

@@ -1,5 +1,53 @@
 # Usage Guide
 
+## Alerting Workflow
+
+```d2
+direction: down
+
+app: Application {
+  metrics: /metrics endpoint
+}
+
+prometheus: Prometheus {
+  scraper: Scrape Engine
+  tsdb: TSDB
+  rules: Alert Rules {
+    high-cpu: "HighCPU: cpu > 80%"
+    disk-low: "DiskLow: disk > 90%"
+    svc-down: "ServiceDown: up == 0"
+  }
+  
+  scraper -> tsdb: Store Metrics
+  tsdb -> rules: Evaluate Every 15s
+}
+
+alertmanager: Alertmanager {
+  receiver: Receiver
+  router: Route Matcher
+  grouper: Group & Dedupe
+  silencer: Silence Filter
+  
+  receiver -> router
+  router -> grouper
+  grouper -> silencer
+}
+
+notifications: Notifications {
+  slack: "#alerts Slack
+  email: ops@company.com
+  pagerduty: PagerDuty\n(Critical Only)
+}
+
+app.metrics <- prometheus.scraper: Scrape
+prometheus.rules -> alertmanager.receiver: "FIRING: HighCPU" {
+  style.stroke: red
+}
+alertmanager.silencer -> notifications.slack
+alertmanager.silencer -> notifications.email
+alertmanager.silencer -> notifications.pagerduty: severity=critical
+```
+
 ## Getting Started
 
 ### Docker Compose Setup

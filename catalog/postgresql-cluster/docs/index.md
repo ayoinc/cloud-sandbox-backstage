@@ -44,33 +44,70 @@ psql "postgresql://admin:secretpassword@localhost:5432/myapp"
 
 ## Architecture Overview
 
-```
-                         ┌─────────────────┐
-                         │    PgBouncer    │
-                         │  (Connection    │
-                         │    Pooler)      │
-                         └────────┬────────┘
-                                  │
-              ┌───────────────────┼───────────────────┐
-              │                   │                   │
-     ┌────────▼────────┐ ┌────────▼────────┐ ┌────────▼────────┐
-     │   PostgreSQL    │ │   PostgreSQL    │ │   PostgreSQL    │
-     │    Primary      │ │   Replica 1     │ │   Replica 2     │
-     │   (Read/Write)  │ │   (Read-only)   │ │   (Read-only)   │
-     └────────┬────────┘ └────────┬────────┘ └────────┬────────┘
-              │                   │                   │
-              │      Streaming Replication            │
-              └───────────────────┴───────────────────┘
-                                  │
-                         ┌────────▼────────┐
-                         │     Patroni     │
-                         │  (HA Manager)   │
-                         └────────┬────────┘
-                                  │
-                         ┌────────▼────────┐
-                         │   etcd/Consul   │
-                         │  (DCS Store)    │
-                         └─────────────────┘
+```d2
+direction: down
+
+clients: Clients {
+  shape: rectangle
+  style.fill: "#e3f2fd"
+}
+
+pgbouncer: PgBouncer {
+  shape: rectangle
+  style.fill: "#fff3e0"
+  label: "PgBouncer\n(Connection Pooler)"
+}
+
+cluster: PostgreSQL Cluster {
+  style.fill: "#f3e5f5"
+  
+  primary: Primary {
+    shape: cylinder
+    style.fill: "#c8e6c9"
+    label: "PostgreSQL Primary\n(Read/Write)"
+  }
+  
+  replica1: Replica 1 {
+    shape: cylinder
+    style.fill: "#bbdefb"
+    label: "PostgreSQL Replica 1\n(Read-only)"
+  }
+  
+  replica2: Replica 2 {
+    shape: cylinder
+    style.fill: "#bbdefb"
+    label: "PostgreSQL Replica 2\n(Read-only)"
+  }
+  
+  primary -> replica1: WAL Stream {style.stroke-dash: 3}
+  primary -> replica2: WAL Stream {style.stroke-dash: 3}
+}
+
+ha: HA Management {
+  style.fill: "#fff8e1"
+  
+  patroni: Patroni {
+    shape: hexagon
+    style.fill: "#ffe0b2"
+    label: "Patroni\n(HA Manager)"
+  }
+  
+  etcd: etcd Cluster {
+    shape: cylinder
+    style.fill: "#ffccbc"
+    label: "etcd\n(DCS Store)"
+  }
+  
+  patroni -> etcd: Leader Election
+}
+
+clients -> pgbouncer: SQL Queries
+pgbouncer -> cluster.primary: Write
+pgbouncer -> cluster.replica1: Read
+pgbouncer -> cluster.replica2: Read
+ha.patroni -> cluster.primary: Manage {style.stroke-dash: 3}
+ha.patroni -> cluster.replica1: Manage {style.stroke-dash: 3}
+ha.patroni -> cluster.replica2: Manage {style.stroke-dash: 3}
 ```
 
 ## Related Documentation

@@ -51,47 +51,124 @@ curl -k https://localhost:8088/services/collector/event \
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Splunk Architecture                          │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  Data Sources                                                   │
-│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐               │
-│  │  Logs   │ │ Metrics │ │ Events  │ │  APIs   │               │
-│  └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘               │
-│       │           │           │           │                     │
-│       ▼           ▼           ▼           ▼                     │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │               Data Collection Tier                      │    │
-│  │  ┌───────────────┐  ┌───────────────┐  ┌─────────────┐  │    │
-│  │  │  Universal    │  │  Heavy        │  │    HEC      │  │    │
-│  │  │  Forwarder    │  │  Forwarder    │  │  Endpoint   │  │    │
-│  │  └───────────────┘  └───────────────┘  └─────────────┘  │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                             │                                   │
-│                             ▼ Port 9997                         │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                    Indexing Tier                        │    │
-│  │  ┌───────────┐  ┌───────────┐  ┌───────────┐            │    │
-│  │  │ Indexer 1 │  │ Indexer 2 │  │ Indexer 3 │            │    │
-│  │  └───────────┘  └───────────┘  └───────────┘            │    │
-│  │                 Clustered Indexers                      │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                             │                                   │
-│                             ▼                                   │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                    Search Tier                          │    │
-│  │  ┌───────────┐  ┌───────────┐  ┌───────────────────┐    │    │
-│  │  │Search Head│  │Search Head│  │ Search Head       │    │    │
-│  │  │    1      │  │    2      │  │ Cluster Captain   │    │    │
-│  │  └───────────┘  └───────────┘  └───────────────────┘    │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                             │                                   │
-│                             ▼ Port 8000                         │
-│                      Users / API                                │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+title: Splunk Architecture {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+sources: Data Sources {
+  style.fill: "#E3F2FD"
+  
+  logs: Logs {
+    shape: document
+    style.fill: "#2196F3"
+    style.font-color: white
+  }
+  
+  metrics: Metrics {
+    shape: document
+    style.fill: "#2196F3"
+    style.font-color: white
+  }
+  
+  events: Events {
+    shape: document
+    style.fill: "#2196F3"
+    style.font-color: white
+  }
+  
+  apis: APIs {
+    shape: document
+    style.fill: "#2196F3"
+    style.font-color: white
+  }
+}
+
+collection: Data Collection Tier {
+  style.fill: "#E8F5E9"
+  
+  uf: Universal\nForwarder {
+    shape: hexagon
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+  
+  hf: Heavy\nForwarder {
+    shape: hexagon
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+  
+  hec: HEC\nEndpoint {
+    shape: hexagon
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+}
+
+indexing: Indexing Tier {
+  style.fill: "#FFF3E0"
+  
+  idx1: Indexer 1 {
+    shape: cylinder
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+  
+  idx2: Indexer 2 {
+    shape: cylinder
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+  
+  idx3: Indexer 3 {
+    shape: cylinder
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+  
+  cluster_label: Clustered Indexers {
+    shape: text
+    style.font-size: 12
+  }
+}
+
+search: Search Tier {
+  style.fill: "#FCE4EC"
+  
+  sh1: Search Head\n1 {
+    shape: hexagon
+    style.fill: "#E91E63"
+    style.font-color: white
+  }
+  
+  sh2: Search Head\n2 {
+    shape: hexagon
+    style.fill: "#E91E63"
+    style.font-color: white
+  }
+  
+  captain: Search Head\nCluster Captain {
+    shape: hexagon
+    style.fill: "#AD1457"
+    style.font-color: white
+  }
+}
+
+users: Users / API (Port 8000) {
+  shape: rectangle
+  style.fill: "#9C27B0"
+  style.font-color: white
+}
+
+sources -> collection: Collect
+collection -> indexing: Port 9997
+indexing -> search: Query
+search -> users: Results
 ```
 
 ## Component Types

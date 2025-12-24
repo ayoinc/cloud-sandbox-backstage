@@ -67,39 +67,103 @@ mvn deploy -DaltDeploymentRepository=nexus::default::http://localhost:8081/repos
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                       Artifact Repository                                │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  ┌────────────────────────────────────────────────────────────────┐     │
-│  │                    Repository Groups                            │     │
-│  │  ┌──────────────────────────────────────────────────────────┐  │     │
-│  │  │    maven-public (Group)                                  │  │     │
-│  │  │  ┌─────────────┐  ┌─────────────┐  ┌────────────────┐   │  │     │
-│  │  │  │maven-releases│  │maven-snapshots│  │maven-central  │   │  │     │
-│  │  │  │  (Hosted)   │  │  (Hosted)   │  │   (Proxy)      │   │  │     │
-│  │  │  └─────────────┘  └─────────────┘  └────────────────┘   │  │     │
-│  │  └──────────────────────────────────────────────────────────┘  │     │
-│  └────────────────────────────────────────────────────────────────┘     │
-│                                                                          │
-│  ┌────────────────────────────────────────────────────────────────┐     │
-│  │                    Storage Layer                                │     │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐     │     │
-│  │  │ Blob Store   │  │ Blob Store   │  │  Blob Store      │     │     │
-│  │  │ (default)    │  │ (docker)     │  │  (S3/Azure)      │     │     │
-│  │  └──────────────┘  └──────────────┘  └──────────────────┘     │     │
-│  └────────────────────────────────────────────────────────────────┘     │
-│                                                                          │
-│  ┌────────────────────────────────────────────────────────────────┐     │
-│  │                    Supporting Services                          │     │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐    │     │
-│  │  │ Scheduler   │  │ Security    │  │ Search/Index        │    │     │
-│  │  │ (Cleanup)   │  │ (LDAP/SAML) │  │ (OrientDB/ES)       │    │     │
-│  │  └─────────────┘  └─────────────┘  └─────────────────────┘    │     │
-│  └────────────────────────────────────────────────────────────────┘     │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+title: Artifact Repository Architecture {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+clients: Clients {
+  shape: rectangle
+  style.fill: "#E3F2FD"
+  
+  maven: Maven
+  npm: npm
+  docker: Docker
+  gradle: Gradle
+}
+
+nexus: Artifact Repository (Nexus) {
+  shape: rectangle
+  style.fill: "#FFF3E0"
+  
+  groups: Repository Groups {
+    shape: rectangle
+    style.fill: "#FFE0B2"
+    
+    maven_public: maven-public (Group) {
+      style.fill: "#FFCC80"
+    }
+    npm_all: npm-all (Group) {
+      style.fill: "#FFCC80"
+    }
+    docker_all: docker-all (Group) {
+      style.fill: "#FFCC80"
+    }
+  }
+  
+  repos: Repositories {
+    shape: rectangle
+    style.fill: "#C8E6C9"
+    
+    hosted: Hosted {
+      shape: cylinder
+      style.fill: "#81C784"
+      maven_releases: maven-releases
+      maven_snapshots: maven-snapshots
+      docker_private: docker-private
+    }
+    
+    proxy: Proxy {
+      shape: cylinder
+      style.fill: "#4FC3F7"
+      maven_central: maven-central
+      npmjs: npmjs.org
+      docker_hub: docker-hub
+    }
+  }
+  
+  storage: Storage Layer {
+    shape: rectangle
+    style.fill: "#E1BEE7"
+    
+    default_blob: Default Blob Store {
+      shape: cylinder
+      style.fill: "#CE93D8"
+    }
+    s3_blob: S3 Blob Store {
+      shape: cylinder
+      style.fill: "#CE93D8"
+    }
+  }
+  
+  services: Supporting Services {
+    shape: rectangle
+    style.fill: "#FFCDD2"
+    
+    scheduler: Scheduler (Cleanup)
+    security: Security (LDAP/SAML)
+    search: Search (OrientDB)
+  }
+}
+
+remote: Remote Repositories {
+  shape: cloud
+  style.fill: "#B3E5FC"
+  
+  central: Maven Central
+  npmjs_remote: npmjs.org
+  dockerhub: Docker Hub
+}
+
+clients -> nexus.groups: fetch/push
+nexus.groups -> nexus.repos.hosted: includes
+nexus.groups -> nexus.repos.proxy: includes
+nexus.repos.proxy -> remote: cache from
+nexus.repos -> nexus.storage: stores in
 ```
 
 ## Repository Types

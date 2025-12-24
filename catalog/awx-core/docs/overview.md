@@ -6,94 +6,129 @@ AWX provides enterprise-grade automation capabilities through a modular, contain
 
 ### Component Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        AWX Kubernetes Deployment                         │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  ┌────────────────────────────────────────────────────────────────┐     │
-│  │                     Ingress / Load Balancer                     │     │
-│  │  ┌──────────────────────────────────────────────────────────┐  │     │
-│  │  │    HTTPS (443) → AWX Web UI / API                        │  │     │
-│  │  │    WSS → WebSocket (Job Output Streaming)                │  │     │
-│  │  └──────────────────────────────────────────────────────────┘  │     │
-│  └────────────────────────────────────────────────────────────────┘     │
-│                                    │                                     │
-│  ┌────────────────────────────────────────────────────────────────┐     │
-│  │                     AWX Pods                                    │     │
-│  │  ┌─────────────────────────────────────────────────────────┐   │     │
-│  │  │    AWX Web Pod                                          │   │     │
-│  │  │    ┌─────────────┐  ┌─────────────┐                    │   │     │
-│  │  │    │   nginx     │  │   uwsgi     │                    │   │     │
-│  │  │    │  (Reverse   │──│  (Django)   │                    │   │     │
-│  │  │    │   Proxy)    │  │             │                    │   │     │
-│  │  │    └─────────────┘  └─────────────┘                    │   │     │
-│  │  └─────────────────────────────────────────────────────────┘   │     │
-│  │                                                                 │     │
-│  │  ┌─────────────────────────────────────────────────────────┐   │     │
-│  │  │    AWX Task Pod                                         │   │     │
-│  │  │    ┌─────────────┐  ┌─────────────┐  ┌──────────────┐  │   │     │
-│  │  │    │   Celery    │  │  Receptor   │  │  Dispatcher  │  │   │     │
-│  │  │    │  (Workers)  │  │  (Mesh)     │  │  (Scheduler) │  │   │     │
-│  │  │    └─────────────┘  └─────────────┘  └──────────────┘  │   │     │
-│  │  └─────────────────────────────────────────────────────────┘   │     │
-│  │                                                                 │     │
-│  │  ┌─────────────────────────────────────────────────────────┐   │     │
-│  │  │    Execution Environment Pod (per job)                  │   │     │
-│  │  │    ┌─────────────────────────────────────────────────┐  │   │     │
-│  │  │    │   ansible-runner + collections + dependencies   │  │   │     │
-│  │  │    └─────────────────────────────────────────────────┘  │   │     │
-│  │  └─────────────────────────────────────────────────────────┘   │     │
-│  └────────────────────────────────────────────────────────────────┘     │
-│                                    │                                     │
-│  ┌────────────────────────────────────────────────────────────────┐     │
-│  │                     Data Services                               │     │
-│  │  ┌─────────────────────┐  ┌─────────────────────────────────┐  │     │
-│  │  │    PostgreSQL       │  │         Redis                   │  │     │
-│  │  │  - Job history      │  │  - Cache                        │  │     │
-│  │  │  - Credentials      │  │  - Message broker               │  │     │
-│  │  │  - Inventories      │  │  - Websocket events             │  │     │
-│  │  └─────────────────────┘  └─────────────────────────────────┘  │     │
-│  └────────────────────────────────────────────────────────────────┘     │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+title: AWX Kubernetes Deployment {
+  shape: text
+  near: top-center
+  style: {
+    font-size: 24
+    bold: true
+  }
+}
+
+ingress: Ingress / Load Balancer {
+  style.fill: "#fff3e0"
+  https: "HTTPS (443)\nAWX Web UI / API" {
+    shape: rectangle
+    style.fill: "#ffe0b2"
+  }
+  wss: "WSS\nJob Output Streaming" {
+    shape: rectangle
+    style.fill: "#ffe0b2"
+  }
+}
+
+awx_pods: AWX Pods {
+  style.fill: "#e8f5e9"
+  
+  web_pod: AWX Web Pod {
+    style.fill: "#c8e6c9"
+    nginx: nginx\n(Reverse Proxy) {
+      shape: rectangle
+    }
+    uwsgi: uwsgi\n(Django) {
+      shape: rectangle
+    }
+    nginx -> uwsgi
+  }
+  
+  task_pod: AWX Task Pod {
+    style.fill: "#a5d6a7"
+    celery: Celery\n(Workers) {
+      shape: rectangle
+    }
+    receptor: Receptor\n(Mesh) {
+      shape: hexagon
+    }
+    dispatcher: Dispatcher\n(Scheduler) {
+      shape: rectangle
+    }
+  }
+  
+  ee_pod: Execution Environment Pod {
+    style.fill: "#81c784"
+    runner: ansible-runner\n+ collections\n+ dependencies {
+      shape: rectangle
+    }
+  }
+}
+
+data_services: Data Services {
+  style.fill: "#e3f2fd"
+  
+  postgres: PostgreSQL {
+    shape: cylinder
+    style.fill: "#90caf9"
+    label: "Job history\nCredentials\nInventories"
+  }
+  
+  redis: Redis {
+    shape: cylinder
+    style.fill: "#90caf9"
+    label: "Cache\nMessage broker\nWebsocket events"
+  }
+}
+
+target_hosts: Managed Hosts {
+  shape: rectangle
+  style.fill: "#ffcdd2"
+}
+
+ingress -> awx_pods.web_pod: HTTP/WS
+awx_pods.web_pod -> awx_pods.task_pod: Queue Jobs
+awx_pods.task_pod -> awx_pods.ee_pod: Launch
+awx_pods.task_pod.celery -> data_services.redis: Message Queue
+awx_pods.web_pod.uwsgi -> data_services.postgres: Queries
+awx_pods.task_pod -> data_services.postgres: Job Data
+awx_pods.ee_pod.runner -> target_hosts: SSH/WinRM
+awx_pods.task_pod.receptor -> target_hosts: Mesh Network
 ```
 
 ### Job Execution Flow
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                      Job Execution Pipeline                       │
-├──────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│   1. Job Launch                                                   │
-│   ┌─────────────────────────────────────────────────────────┐    │
-│   │  User/API/Schedule → Create Job → Queue to Celery       │    │
-│   └─────────────────────────────────────────────────────────┘    │
-│                              │                                    │
-│   2. Pre-run Tasks           ▼                                    │
-│   ┌─────────────────────────────────────────────────────────┐    │
-│   │  - Decrypt credentials                                   │    │
-│   │  - Sync project (if needed)                             │    │
-│   │  - Sync inventory (if dynamic)                          │    │
-│   │  - Prepare execution environment                        │    │
-│   └─────────────────────────────────────────────────────────┘    │
-│                              │                                    │
-│   3. Execution               ▼                                    │
-│   ┌─────────────────────────────────────────────────────────┐    │
-│   │  Receptor → ansible-runner → Ansible Playbook           │    │
-│   │  (Stream output via WebSocket)                          │    │
-│   └─────────────────────────────────────────────────────────┘    │
-│                              │                                    │
-│   4. Post-run Tasks          ▼                                    │
-│   ┌─────────────────────────────────────────────────────────┐    │
-│   │  - Store job output                                      │    │
-│   │  - Send notifications                                    │    │
-│   │  - Trigger dependent workflows                           │    │
-│   │  - Update job status                                     │    │
-│   └─────────────────────────────────────────────────────────┘    │
-│                                                                   │
-└──────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+pipeline: Job Execution Pipeline {
+  launch: 1. Job Launch {
+    flow: User/API/Schedule -> Create Job -> Queue to Celery
+  }
+  
+  prerun: 2. Pre-run Tasks {
+    decrypt: Decrypt credentials
+    sync_proj: Sync project (if needed)
+    sync_inv: Sync inventory (if dynamic)
+    prep_ee: Prepare execution environment
+  }
+  
+  execution: 3. Execution {
+    flow: Receptor -> ansible-runner -> Ansible Playbook {
+      shape: hexagon
+    }
+    stream: Stream output via WebSocket
+  }
+  
+  postrun: 4. Post-run Tasks {
+    store: Store job output
+    notify: Send notifications
+    trigger: Trigger dependent workflows
+    status: Update job status
+  }
+  
+  launch -> prerun -> execution -> postrun
+}
 ```
 
 ## Configuration
@@ -244,39 +279,80 @@ for key, value in settings.items():
 
 ### RBAC Model
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                        AWX RBAC Model                             │
-├──────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│   Organizations (Top-level container)                             │
-│   └── Teams (Group of users)                                      │
-│       └── Users                                                   │
-│                                                                   │
-│   Permissions:                                                    │
-│   ┌───────────────┬─────────────────────────────────────────┐    │
-│   │ Role          │ Permissions                              │    │
-│   ├───────────────┼─────────────────────────────────────────┤    │
-│   │ Admin         │ Full control over resource              │    │
-│   │ Execute       │ Run jobs, view output                   │    │
-│   │ Read          │ View resource details                   │    │
-│   │ Use           │ Use in job templates                    │    │
-│   │ Update        │ Modify resource                         │    │
-│   │ Approve       │ Approve workflow steps                  │    │
-│   └───────────────┴─────────────────────────────────────────┘    │
-│                                                                   │
-│   Resource Hierarchy:                                             │
-│   ┌─────────────────────────────────────────────────────────┐    │
-│   │ Organization                                             │    │
-│   │  ├── Projects                                            │    │
-│   │  ├── Inventories                                         │    │
-│   │  ├── Credentials                                         │    │
-│   │  ├── Job Templates                                       │    │
-│   │  ├── Workflow Templates                                  │    │
-│   │  └── Execution Environments                              │    │
-│   └─────────────────────────────────────────────────────────┘    │
-│                                                                   │
-└──────────────────────────────────────────────────────────────────┘
+```d2
+direction: right
+
+rbac: AWX RBAC Model {
+  hierarchy: User Hierarchy {
+    org: Organization {
+      shape: rectangle
+    }
+    teams: Teams {
+      shape: rectangle
+    }
+    users: Users {
+      shape: person
+    }
+    
+    org -> teams: contains
+    teams -> users: contains
+  }
+  
+  roles: Permission Roles {
+    admin: Admin\nFull control {
+      shape: hexagon
+    }
+    execute: Execute\nRun jobs {
+      shape: hexagon
+    }
+    read: Read\nView details {
+      shape: hexagon
+    }
+    use: Use\nIn templates {
+      shape: hexagon
+    }
+    update: Update\nModify resource {
+      shape: hexagon
+    }
+    approve: Approve\nWorkflow steps {
+      shape: hexagon
+    }
+  }
+  
+  resources: Resource Hierarchy {
+    organization: Organization {
+      shape: rectangle
+    }
+    projects: Projects {
+      shape: document
+    }
+    inventories: Inventories {
+      shape: cylinder
+    }
+    credentials: Credentials {
+      shape: document
+    }
+    job_templates: Job Templates {
+      shape: document
+    }
+    workflow_templates: Workflow Templates {
+      shape: document
+    }
+    execution_envs: Execution Environments {
+      shape: hexagon
+    }
+    
+    organization -> projects
+    organization -> inventories
+    organization -> credentials
+    organization -> job_templates
+    organization -> workflow_templates
+    organization -> execution_envs
+  }
+  
+  hierarchy.users -> roles: assigned
+  roles -> resources: grants access
+}
 ```
 
 ### Credential Encryption

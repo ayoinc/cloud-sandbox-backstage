@@ -4,37 +4,42 @@
 
 ### Elasticsearch Cluster Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                  Elasticsearch Cluster                          │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                  Master-Eligible Nodes                  │    │
-│  │  ┌───────────┐  ┌───────────┐  ┌───────────┐            │    │
-│  │  │  Master 1 │  │  Master 2 │  │  Master 3 │            │    │
-│  │  │ (Active)  │  │ (Standby) │  │ (Standby) │            │    │
-│  │  └───────────┘  └───────────┘  └───────────┘            │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                              │                                  │
-│                              ▼                                  │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                      Data Nodes                         │    │
-│  │  ┌───────────┐  ┌───────────┐  ┌───────────┐            │    │
-│  │  │  Data 1   │  │  Data 2   │  │  Data 3   │            │    │
-│  │  │ Shards:   │  │ Shards:   │  │ Shards:   │            │    │
-│  │  │ P0,R1,P2  │  │ R0,P1,R2  │  │ P3,R3,P4  │            │    │
-│  │  └───────────┘  └───────────┘  └───────────┘            │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                              │                                  │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                  Coordinating Nodes                     │    │
-│  │  ┌───────────┐  ┌───────────┐                           │    │
-│  │  │  Coord 1  │  │  Coord 2  │   (Query routing)         │    │
-│  │  └───────────┘  └───────────┘                           │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+cluster: Elasticsearch Cluster {
+  masters: Master-Eligible Nodes {
+    m1: Master 1 (Active) {
+      shape: hexagon
+    }
+    m2: Master 2 (Standby) {
+      shape: hexagon
+    }
+    m3: Master 3 (Standby) {
+      shape: hexagon
+    }
+  }
+  
+  data: Data Nodes {
+    d1: Data 1 {
+      shape: cylinder
+    }
+    d2: Data 2 {
+      shape: cylinder
+    }
+    d3: Data 3 {
+      shape: cylinder
+    }
+  }
+  
+  coord: Coordinating Nodes {
+    c1: Coord 1 (Query routing)
+    c2: Coord 2 (Query routing)
+  }
+  
+  masters -> data: manage
+  data -> coord
+}
 ```
 
 ### Node Roles

@@ -1,5 +1,77 @@
 # Jaeger Distributed Tracing Usage Guide
 
+## Trace Propagation
+
+```d2
+direction: right
+
+client: Client {
+  browser: Browser
+}
+
+gateway: API Gateway {
+  handler: Request Handler
+  ctx: Trace Context {
+    trace-id: "trace-id: abc123"
+    span-id: "span-id: span-001"
+  }
+}
+
+user-svc: User Service {
+  handler: Handler
+  ctx: Trace Context {
+    trace-id: "trace-id: abc123"
+    span-id: "span-id: span-002"
+    parent: "parent: span-001"
+  }
+}
+
+order-svc: Order Service {
+  handler: Handler
+  ctx: Trace Context {
+    trace-id: "trace-id: abc123"
+    span-id: "span-id: span-003"
+    parent: "parent: span-001"
+  }
+}
+
+db: Database {
+  query: Query Span {
+    trace-id: "trace-id: abc123"
+    span-id: "span-id: span-004"
+    parent: "parent: span-003"
+  }
+}
+
+jaeger: Jaeger Collector
+
+client.browser -> gateway.handler: "GET /api/orders\n+ traceparent header" {
+  style.stroke: blue
+}
+gateway.handler -> user-svc.handler: "GET /users/123\ntraceparent: abc123-span-001" {
+  style.stroke: green
+}
+gateway.handler -> order-svc.handler: "GET /orders\ntraceparent: abc123-span-001" {
+  style.stroke: green
+}
+order-svc.handler -> db.query: "SELECT * FROM orders\ntraceparent: abc123-span-003" {
+  style.stroke: orange
+}
+
+gateway.ctx -> jaeger: Report Span {
+  style.stroke-dash: 3
+}
+user-svc.ctx -> jaeger: Report Span {
+  style.stroke-dash: 3
+}
+order-svc.ctx -> jaeger: Report Span {
+  style.stroke-dash: 3
+}
+db.query -> jaeger: Report Span {
+  style.stroke-dash: 3
+}
+```
+
 ## Docker Compose Deployment
 
 ### Development (All-in-One)

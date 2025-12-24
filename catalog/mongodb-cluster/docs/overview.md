@@ -6,33 +6,46 @@
 
 A MongoDB replica set provides high availability through automatic failover and data redundancy.
 
-```
-                    ┌─────────────────────────────────────────────────────┐
-                    │                  Replica Set (rs0)                  │
-                    └─────────────────────────────────────────────────────┘
-                                            │
-        ┌───────────────────────────────────┼───────────────────────────────────┐
-        │                                   │                                   │
-┌───────▼───────┐                   ┌───────▼───────┐                   ┌───────▼───────┐
-│    PRIMARY    │                   │   SECONDARY   │                   │   SECONDARY   │
-│   (Writable)  │   ──Replication──▶│  (Read-only)  │   ──Replication──▶│   (Read-only) │
-├───────────────┤                   ├───────────────┤                   ├───────────────┤
-│ Oplog: 50GB   │                   │ Oplog: 50GB   │                   │ Oplog: 50GB   │
-│ Data: /data/db│                   │ Data: /data/db│                   │ Data: /data/db│
-│ Priority: 2   │                   │ Priority: 1   │                   │ Priority: 1   │
-└───────────────┘                   └───────────────┘                   └───────────────┘
-        │                                   │                                   │
-        │                           ┌───────▼───────┐                           │
-        │                           │   ARBITER     │                           │
-        │                           │  (Vote only)  │◀──────────────────────────┘
-        │                           │  No data      │
-        │                           └───────────────┘
-        │
-        ▼
-  ┌─────────────┐
-  │ Application │
-  │   Writes    │
-  └─────────────┘
+```d2
+direction: down
+
+rs: Replica Set (rs0) {
+  primary: PRIMARY (Writable) {
+    shape: cylinder
+    oplog: Oplog 50GB
+    data: Data /data/db
+    priority: Priority 2
+  }
+  
+  secondary1: SECONDARY (Read-only) {
+    shape: cylinder
+    oplog: Oplog 50GB
+    data: Data /data/db
+    priority: Priority 1
+  }
+  
+  secondary2: SECONDARY (Read-only) {
+    shape: cylinder
+    oplog: Oplog 50GB
+    data: Data /data/db
+    priority: Priority 1
+  }
+  
+  arbiter: ARBITER (Vote only, No data) {
+    shape: hexagon
+  }
+  
+  primary -> secondary1: Replication
+  primary -> secondary2: Replication
+  secondary1 -> arbiter
+  secondary2 -> arbiter
+}
+
+app: Application Writes {
+  shape: rectangle
+}
+
+app -> rs.primary: writes
 ```
 
 ### Election Process
@@ -48,6 +61,104 @@ When the primary becomes unavailable:
 ### Sharding Architecture
 
 For datasets exceeding single-server capacity:
+
+```d2
+direction: down
+
+title: MongoDB Sharding Architecture {
+  shape: text
+  near: top-center
+  style: {
+    font-size: 24
+    bold: true
+  }
+}
+
+clients: Application Clients {
+  shape: rectangle
+  style.fill: "#e1f5fe"
+}
+
+load_balancer: Load Balancer {
+  shape: rectangle
+  style.fill: "#fff3e0"
+}
+
+mongos_layer: Query Routers {
+  mongos1: mongos {
+    shape: cylinder
+    style.fill: "#c8e6c9"
+  }
+  mongos2: mongos {
+    shape: cylinder
+    style.fill: "#c8e6c9"
+  }
+}
+
+config_servers: Config Servers (Replica Set) {
+  style.fill: "#fff9c4"
+  config1: Config 1 {
+    shape: cylinder
+  }
+  config2: Config 2 {
+    shape: cylinder
+  }
+  config3: Config 3 {
+    shape: cylinder
+  }
+}
+
+shards: Data Shards {
+  shard1: Shard 1 (Replica Set) {
+    style.fill: "#e8eaf6"
+    primary1: Primary {
+      shape: cylinder
+    }
+    secondary1a: Secondary {
+      shape: cylinder
+    }
+    secondary1b: Secondary {
+      shape: cylinder
+    }
+  }
+  shard2: Shard 2 (Replica Set) {
+    style.fill: "#fce4ec"
+    primary2: Primary {
+      shape: cylinder
+    }
+    secondary2a: Secondary {
+      shape: cylinder
+    }
+    secondary2b: Secondary {
+      shape: cylinder
+    }
+  }
+  shard3: Shard 3 (Replica Set) {
+    style.fill: "#e0f2f1"
+    primary3: Primary {
+      shape: cylinder
+    }
+    secondary3a: Secondary {
+      shape: cylinder
+    }
+    secondary3b: Secondary {
+      shape: cylinder
+    }
+  }
+}
+
+clients -> load_balancer: Queries
+load_balancer -> mongos_layer.mongos1
+load_balancer -> mongos_layer.mongos2
+mongos_layer.mongos1 -> config_servers: Metadata Lookup
+mongos_layer.mongos2 -> config_servers: Metadata Lookup
+mongos_layer.mongos1 -> shards.shard1: Route Data
+mongos_layer.mongos1 -> shards.shard2: Route Data
+mongos_layer.mongos1 -> shards.shard3: Route Data
+mongos_layer.mongos2 -> shards.shard1: Route Data
+mongos_layer.mongos2 -> shards.shard2: Route Data
+mongos_layer.mongos2 -> shards.shard3: Route Data
+```
 
 | Component | Role | Recommended Count |
 |-----------|------|-------------------|

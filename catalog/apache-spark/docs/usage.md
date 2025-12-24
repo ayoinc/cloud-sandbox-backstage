@@ -1,5 +1,74 @@
 # Apache Spark Usage Guide
 
+## Data Processing Pipeline
+
+```d2
+direction: right
+
+sources: Data Sources {
+  style.fill: "#E3F2FD"
+  
+  s3: S3/HDFS {
+    style.fill: "#BBDEFB"
+  }
+  kafka: Kafka {
+    style.fill: "#BBDEFB"
+  }
+  jdbc: JDBC/Databases {
+    style.fill: "#BBDEFB"
+  }
+}
+
+spark: Spark Processing {
+  style.fill: "#E8F5E9"
+  
+  extract: Extract {
+    style.fill: "#C8E6C9"
+    read: "spark.read.*"
+  }
+  
+  transform: Transform {
+    style.fill: "#A5D6A7"
+    ops: |md
+      - filter()
+      - select()
+      - groupBy()
+      - join()
+      - agg()
+    |
+  }
+  
+  load: Load {
+    style.fill: "#81C784"
+    write: "df.write.*"
+  }
+  
+  extract -> transform -> load
+}
+
+sinks: Data Sinks {
+  style.fill: "#FFF3E0"
+  
+  delta: Delta Lake {
+    style.fill: "#FFE0B2"
+  }
+  warehouse: Data Warehouse {
+    style.fill: "#FFE0B2"
+  }
+  streaming: Streaming Output {
+    style.fill: "#FFE0B2"
+  }
+}
+
+sources.s3 -> spark.extract
+sources.kafka -> spark.extract
+sources.jdbc -> spark.extract
+
+spark.load -> sinks.delta
+spark.load -> sinks.warehouse
+spark.load -> sinks.streaming
+```
+
 ## Prerequisites
 
 - Java 8, 11, or 17

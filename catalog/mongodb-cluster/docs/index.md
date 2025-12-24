@@ -65,38 +65,104 @@ rs.status()
 
 ## Architecture
 
-```
-                                    ┌─────────────────────────────────────┐
-                                    │           MongoDB Cluster           │
-                                    └─────────────────────────────────────┘
-                                                      │
-                    ┌─────────────────────────────────┼─────────────────────────────────┐
-                    │                                 │                                 │
-            ┌───────▼───────┐                 ┌───────▼───────┐                 ┌───────▼───────┐
-            │   Mongos      │                 │   Mongos      │                 │   Mongos      │
-            │   Router      │                 │   Router      │                 │   Router      │
-            └───────┬───────┘                 └───────┬───────┘                 └───────┬───────┘
-                    │                                 │                                 │
-                    └─────────────────────────────────┼─────────────────────────────────┘
-                                                      │
-            ┌─────────────────────────────────────────┼─────────────────────────────────────────┐
-            │                                         │                                         │
-    ┌───────▼───────┐                         ┌───────▼───────┐                         ┌───────▼───────┐
-    │   Shard 1     │                         │   Shard 2     │                         │   Shard 3     │
-    │  Replica Set  │                         │  Replica Set  │                         │  Replica Set  │
-    ├───────────────┤                         ├───────────────┤                         ├───────────────┤
-    │ P │ S │ S     │                         │ P │ S │ S     │                         │ P │ S │ S     │
-    └───────────────┘                         └───────────────┘                         └───────────────┘
+```d2
+direction: down
 
-                              ┌─────────────────────────────────────┐
-                              │      Config Server Replica Set      │
-                              │         (Cluster Metadata)          │
-                              ├─────────────────────────────────────┤
-                              │       P    │    S    │    S         │
-                              └─────────────────────────────────────┘
+title: MongoDB Sharded Cluster {
+  style.fill: transparent
+  style.font-size: 24
+}
 
-    P = Primary    S = Secondary
+routers: Query Routers {
+  direction: right
+  style.fill: "#E3F2FD"
+  
+  mongos1: Mongos Router {
+    style.fill: "#BBDEFB"
+  }
+  mongos2: Mongos Router {
+    style.fill: "#BBDEFB"
+  }
+  mongos3: Mongos Router {
+    style.fill: "#BBDEFB"
+  }
+}
+
+shards: Shards {
+  direction: right
+  style.fill: "#E8F5E9"
+  
+  shard1: Shard 1 (Replica Set) {
+    style.fill: "#C8E6C9"
+    p1: Primary {
+      style.fill: "#4CAF50"
+    }
+    s1a: Secondary {
+      style.fill: "#81C784"
+    }
+    s1b: Secondary {
+      style.fill: "#81C784"
+    }
+    p1 -> s1a: replication
+    p1 -> s1b: replication
+  }
+  
+  shard2: Shard 2 (Replica Set) {
+    style.fill: "#C8E6C9"
+    p2: Primary {
+      style.fill: "#4CAF50"
+    }
+    s2a: Secondary {
+      style.fill: "#81C784"
+    }
+    s2b: Secondary {
+      style.fill: "#81C784"
+    }
+    p2 -> s2a: replication
+    p2 -> s2b: replication
+  }
+  
+  shard3: Shard 3 (Replica Set) {
+    style.fill: "#C8E6C9"
+    p3: Primary {
+      style.fill: "#4CAF50"
+    }
+    s3a: Secondary {
+      style.fill: "#81C784"
+    }
+    s3b: Secondary {
+      style.fill: "#81C784"
+    }
+    p3 -> s3a: replication
+    p3 -> s3b: replication
+  }
+}
+
+config: Config Server Replica Set {
+  style.fill: "#FFF3E0"
+  desc: Cluster Metadata
+  
+  nodes: {
+    direction: right
+    cp: Primary {
+      style.fill: "#FF9800"
+    }
+    cs1: Secondary {
+      style.fill: "#FFB74D"
+    }
+    cs2: Secondary {
+      style.fill: "#FFB74D"
+    }
+  }
+}
+
+routers.mongos1 -> shards: route queries
+routers.mongos2 -> shards: route queries
+routers.mongos3 -> shards: route queries
+routers -> config: read metadata
 ```
+
+**Legend:** P = Primary, S = Secondary
 
 ## Deployment Options
 

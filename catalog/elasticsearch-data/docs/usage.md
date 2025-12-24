@@ -1,5 +1,128 @@
 # Elasticsearch Usage Guide
 
+## Indexing Workflow
+
+```d2
+direction: down
+
+title: Elasticsearch Indexing Workflow {
+  shape: text
+  near: top-center
+  style.font-size: 24
+  style.bold: true
+}
+
+# Document Submission
+client: Client Application {
+  style.fill: "#e3f2fd"
+  style.stroke: "#1565c2"
+  shape: rectangle
+  icon: https://icons.terrastruct.com/tech%2Fdesktop.svg
+  
+  doc: Document {
+    shape: page
+    style.fill: "#bbdefb"
+  }
+}
+
+# Coordinating Node
+coord: Coordinating Node {
+  style.fill: "#fff3e0"
+  style.stroke: "#ef6c00"
+  
+  route: Routing {
+    shape: diamond
+    style.fill: "#ffb74d"
+    
+    hash: "_id hash % shards" {
+      shape: text
+      style.font-size: 12
+    }
+  }
+}
+
+# Pipeline Processing
+pipeline: Ingest Pipeline {
+  style.fill: "#f3e5f5"
+  style.stroke: "#7b1fa2"
+  
+  steps: Processing Steps {
+    style.fill: "#e1bee7"
+    
+    parse: "1. Parse" {shape: step; style.fill: "#ce93d8"}
+    transform: "2. Transform" {shape: step; style.fill: "#ba68c8"}
+    enrich: "3. Enrich" {shape: step; style.fill: "#ab47bc"}
+    validate: "4. Validate" {shape: step; style.fill: "#9c27b0"; style.font-color: white}
+    
+    parse -> transform -> enrich -> validate
+  }
+}
+
+# Primary Shard
+primary: Primary Shard {
+  style.fill: "#e8f5e9"
+  style.stroke: "#2e7d32"
+  
+  write: Write to Translog {
+    shape: cylinder
+    style.fill: "#81c784"
+  }
+  
+  index: Index in Memory {
+    shape: hexagon
+    style.fill: "#66bb6a"
+    style.font-color: white
+  }
+  
+  segment: Create Segment {
+    shape: document
+    style.fill: "#4caf50"
+    style.font-color: white
+  }
+  
+  write -> index: "1. Durability"
+  index -> segment: "2. Refresh (1s)"
+}
+
+# Replica Shards
+replicas: Replica Shards {
+  style.fill: "#fce4ec"
+  style.stroke: "#c2185b"
+  
+  r1: Replica 1 {
+    shape: cylinder
+    style.fill: "#f48fb1"
+  }
+  r2: Replica 2 {
+    shape: cylinder
+    style.fill: "#f48fb1"
+  }
+}
+
+# Response
+response: Response to Client {
+  shape: document
+  style.fill: "#c8e6c9"
+  style.stroke: "#2e7d32"
+  
+  ack: "_id, _version, result: created" {
+    shape: text
+    style.font-size: 12
+  }
+}
+
+# Flow
+client -> coord: "PUT /index/_doc/1\n{...}"
+coord -> pipeline: "If pipeline specified"
+pipeline -> coord
+coord.route -> primary: "Route to shard"
+primary -> replicas.r1: "Replicate" {style.stroke: "#e91e63"; style.stroke-dash: 3}
+primary -> replicas.r2: "Replicate" {style.stroke: "#e91e63"; style.stroke-dash: 3}
+replicas -> coord: "ACK" {style.stroke: "#4caf50"}
+coord -> response: "Success"
+response -> client
+```
+
 ## Prerequisites
 
 - Docker and Docker Compose (for containerized deployment)

@@ -6,83 +6,228 @@ The AWX Operator follows the Kubernetes Operator pattern, using custom controlle
 
 ### Operator Components
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    AWX Operator Internals                                │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  ┌────────────────────────────────────────────────────────────────┐     │
-│  │                    Controller Manager                           │     │
-│  │  ┌─────────────────────────────────────────────────────────┐   │     │
-│  │  │    Main Process (operator-sdk based)                    │   │     │
-│  │  │    - Leader election                                     │   │     │
-│  │  │    - Health/Ready endpoints                             │   │     │
-│  │  │    - Metrics server                                     │   │     │
-│  │  └─────────────────────────────────────────────────────────┘   │     │
-│  └────────────────────────────────────────────────────────────────┘     │
-│                                    │                                     │
-│  ┌────────────────────────────────────────────────────────────────┐     │
-│  │                    Controllers                                  │     │
-│  │  ┌─────────────────────────────────────────────────────────┐   │     │
-│  │  │  AWXController                                          │   │     │
-│  │  │  - Manages Deployments, StatefulSets                    │   │     │
-│  │  │  - Handles ConfigMaps, Secrets                          │   │     │
-│  │  │  - Creates Services, Ingress                            │   │     │
-│  │  │  - Manages PVCs for projects/postgres                   │   │     │
-│  │  └─────────────────────────────────────────────────────────┘   │     │
-│  │                                                                 │     │
-│  │  ┌─────────────────────────────────────────────────────────┐   │     │
-│  │  │  AWXBackupController                                    │   │     │
-│  │  │  - Creates backup jobs                                  │   │     │
-│  │  │  - Manages backup PVCs                                  │   │     │
-│  │  │  - Exports database and secrets                         │   │     │
-│  │  └─────────────────────────────────────────────────────────┘   │     │
-│  │                                                                 │     │
-│  │  ┌─────────────────────────────────────────────────────────┐   │     │
-│  │  │  AWXRestoreController                                   │   │     │
-│  │  │  - Validates backup integrity                           │   │     │
-│  │  │  - Restores database                                    │   │     │
-│  │  │  - Recreates secrets                                    │   │     │
-│  │  └─────────────────────────────────────────────────────────┘   │     │
-│  └────────────────────────────────────────────────────────────────┘     │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+title: AWX Operator Internals {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+operator: AWX Operator {
+  style.fill: "#E3F2FD"
+  
+  manager: Controller Manager {
+    style.fill: "#BBDEFB"
+    
+    main: Main Process {
+      shape: hexagon
+      style.fill: "#2196F3"
+      style.font-color: white
+    }
+    
+    features: |md
+      - Leader election
+      - Health/Ready endpoints
+      - Metrics server
+    | {
+      shape: document
+      style.fill: "#E8F5E9"
+    }
+  }
+  
+  controllers: Controllers {
+    style.fill: "#FFF3E0"
+    
+    awx: AWXController {
+      shape: hexagon
+      style.fill: "#FF9800"
+      style.font-color: white
+    }
+    awx_desc: |md
+      - Manages Deployments, StatefulSets
+      - Handles ConfigMaps, Secrets
+      - Creates Services, Ingress
+      - Manages PVCs for projects/postgres
+    | {
+      shape: document
+      style.fill: "#FFECB3"
+    }
+    
+    backup: AWXBackupController {
+      shape: hexagon
+      style.fill: "#FF9800"
+      style.font-color: white
+    }
+    backup_desc: |md
+      - Creates backup jobs
+      - Manages backup PVCs
+      - Exports database and secrets
+    | {
+      shape: document
+      style.fill: "#FFECB3"
+    }
+    
+    restore: AWXRestoreController {
+      shape: hexagon
+      style.fill: "#FF9800"
+      style.font-color: white
+    }
+    restore_desc: |md
+      - Validates backup integrity
+      - Restores database
+      - Recreates secrets
+    | {
+      shape: document
+      style.fill: "#FFECB3"
+    }
+    
+    awx -> awx_desc
+    backup -> backup_desc
+    restore -> restore_desc
+  }
+  
+  manager -> controllers: manages
+}
 ```
 
 ### Resources Created by Operator
 
-```
-AWX CR (awx.ansible.com/v1beta1)
-│
-├── Deployments
-│   ├── awx-web (Nginx + uWSGI)
-│   └── awx-task (Celery workers + Receptor)
-│
-├── StatefulSets
-│   └── awx-postgres (if not using external DB)
-│
-├── Services
-│   ├── awx-service (Web UI/API)
-│   ├── awx-postgres-13 (Database)
-│   └── awx-receptor (Mesh networking)
-│
-├── ConfigMaps
-│   ├── awx-configmap (Django settings)
-│   ├── awx-nginx-conf (Nginx configuration)
-│   └── awx-receptor-conf (Receptor mesh config)
-│
-├── Secrets
-│   ├── awx-admin-password
-│   ├── awx-secret-key
-│   ├── awx-postgres-configuration
-│   └── awx-receptor-ca
-│
-├── PersistentVolumeClaims
-│   ├── awx-projects (Playbook storage)
-│   └── postgres-13-awx-postgres-13-0 (Database)
-│
-└── Ingress (if enabled)
-    └── awx-ingress
+```d2
+direction: down
+
+title: AWX CR Resources {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+awx_cr: AWX CR\n(awx.ansible.com/v1beta1) {
+  shape: circle
+  style.fill: "#9C27B0"
+  style.font-color: white
+}
+
+deployments: Deployments {
+  style.fill: "#E3F2FD"
+  
+  web: awx-web\n(Nginx + uWSGI) {
+    shape: hexagon
+    style.fill: "#2196F3"
+    style.font-color: white
+  }
+  task: awx-task\n(Celery + Receptor) {
+    shape: hexagon
+    style.fill: "#2196F3"
+    style.font-color: white
+  }
+}
+
+statefulsets: StatefulSets {
+  style.fill: "#E8F5E9"
+  
+  postgres: awx-postgres\n(if not external DB) {
+    shape: cylinder
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+}
+
+services: Services {
+  style.fill: "#FFF3E0"
+  
+  svc: awx-service\n(Web UI/API) {
+    shape: rectangle
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+  db_svc: awx-postgres-13\n(Database) {
+    shape: rectangle
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+  receptor: awx-receptor\n(Mesh networking) {
+    shape: rectangle
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+}
+
+configmaps: ConfigMaps {
+  style.fill: "#F3E5F5"
+  
+  cm1: awx-configmap\n(Django settings) {
+    shape: document
+    style.fill: "#CE93D8"
+  }
+  cm2: awx-nginx-conf\n(Nginx config) {
+    shape: document
+    style.fill: "#CE93D8"
+  }
+  cm3: awx-receptor-conf\n(Receptor mesh) {
+    shape: document
+    style.fill: "#CE93D8"
+  }
+}
+
+secrets: Secrets {
+  style.fill: "#FFCDD2"
+  
+  s1: awx-admin-password {
+    shape: document
+    style.fill: "#EF5350"
+    style.font-color: white
+  }
+  s2: awx-secret-key {
+    shape: document
+    style.fill: "#EF5350"
+    style.font-color: white
+  }
+  s3: awx-postgres-configuration {
+    shape: document
+    style.fill: "#EF5350"
+    style.font-color: white
+  }
+  s4: awx-receptor-ca {
+    shape: document
+    style.fill: "#EF5350"
+    style.font-color: white
+  }
+}
+
+pvcs: PersistentVolumeClaims {
+  style.fill: "#E0F7FA"
+  
+  pvc1: awx-projects\n(Playbook storage) {
+    shape: cylinder
+    style.fill: "#00BCD4"
+    style.font-color: white
+  }
+  pvc2: postgres-13-awx-postgres-13-0\n(Database) {
+    shape: cylinder
+    style.fill: "#00BCD4"
+    style.font-color: white
+  }
+}
+
+ingress: Ingress (if enabled) {
+  style.fill: "#FCE4EC"
+  
+  ing: awx-ingress {
+    shape: rectangle
+    style.fill: "#E91E63"
+    style.font-color: white
+  }
+}
+
+awx_cr -> deployments: creates
+awx_cr -> statefulsets: creates
+awx_cr -> services: creates
+awx_cr -> configmaps: creates
+awx_cr -> secrets: creates
+awx_cr -> pvcs: creates
+awx_cr -> ingress: creates
 ```
 
 ## Configuration

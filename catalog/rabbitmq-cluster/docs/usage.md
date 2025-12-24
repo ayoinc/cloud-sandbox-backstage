@@ -1,5 +1,78 @@
 # RabbitMQ Cluster Usage Guide
 
+## Deployment Architecture
+
+```d2
+direction: down
+
+title: RabbitMQ Cluster Deployment {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+lb: HAProxy Load Balancer {
+  style.fill: "#E3F2FD"
+  
+  amqp: AMQP (5673) {
+    shape: hexagon
+    style.fill: "#2196F3"
+    style.font-color: white
+  }
+  
+  mgmt: Management (15673) {
+    shape: hexagon
+    style.fill: "#2196F3"
+    style.font-color: white
+  }
+  
+  stats: Stats (8404) {
+    shape: rectangle
+    style.fill: "#64B5F6"
+    style.font-color: white
+  }
+}
+
+cluster: RabbitMQ Cluster {
+  style.fill: "#FFF3E0"
+  
+  rmq1: rabbitmq1\n:5672 :15672 {
+    shape: hexagon
+    style.fill: "#FF6F00"
+    style.font-color: white
+  }
+  
+  rmq2: rabbitmq2\n:5672 :15672 {
+    shape: hexagon
+    style.fill: "#FF6F00"
+    style.font-color: white
+  }
+  
+  rmq3: rabbitmq3\n:5672 :15672 {
+    shape: hexagon
+    style.fill: "#FF6F00"
+    style.font-color: white
+  }
+  
+  rmq1 <-> rmq2: Cluster
+  rmq2 <-> rmq3: Cluster
+  rmq1 <-> rmq3: Cluster {style.stroke-dash: 3}
+}
+
+storage: Persistent Storage {
+  style.fill: "#E8F5E9"
+  
+  vol1: rabbitmq1-data {shape: cylinder; style.fill: "#4CAF50"; style.font-color: white}
+  vol2: rabbitmq2-data {shape: cylinder; style.fill: "#4CAF50"; style.font-color: white}
+  vol3: rabbitmq3-data {shape: cylinder; style.fill: "#4CAF50"; style.font-color: white}
+}
+
+lb -> cluster: Load Balance
+cluster.rmq1 -> storage.vol1
+cluster.rmq2 -> storage.vol2
+cluster.rmq3 -> storage.vol3
+```
+
 ## Prerequisites
 
 - Docker and Docker Compose

@@ -54,44 +54,116 @@ awx job_templates launch "Deploy Application" --monitor
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           AWX Platform                                   │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  ┌────────────────────────────────────────────────────────────────┐     │
-│  │                      Web Interface                              │     │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐    │     │
-│  │  │   React UI  │  │  REST API   │  │  WebSocket (Live)   │    │     │
-│  │  │             │  │  /api/v2/   │  │  Job Output Stream  │    │     │
-│  │  └─────────────┘  └─────────────┘  └─────────────────────┘    │     │
-│  └────────────────────────────────────────────────────────────────┘     │
-│                                    │                                     │
-│  ┌────────────────────────────────────────────────────────────────┐     │
-│  │                      AWX Task (Django)                          │     │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐    │     │
-│  │  │   Views     │  │   Models    │  │   Celery Tasks      │    │     │
-│  │  │   (API)     │  │   (ORM)     │  │   (Job Runner)      │    │     │
-│  │  └─────────────┘  └─────────────┘  └─────────────────────┘    │     │
-│  └────────────────────────────────────────────────────────────────┘     │
-│                                    │                                     │
-│  ┌────────────────────────────────────────────────────────────────┐     │
-│  │                      Execution Layer                            │     │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐    │     │
-│  │  │  Receptor   │  │  ansible-   │  │   Execution         │    │     │
-│  │  │  (Mesh)     │  │  runner     │  │   Environments      │    │     │
-│  │  └─────────────┘  └─────────────┘  └─────────────────────┘    │     │
-│  └────────────────────────────────────────────────────────────────┘     │
-│                                    │                                     │
-│  ┌────────────────────────────────────────────────────────────────┐     │
-│  │                      Data Layer                                 │     │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐    │     │
-│  │  │ PostgreSQL  │  │    Redis    │  │   Project Storage   │    │     │
-│  │  │ (Database)  │  │  (Cache/MQ) │  │   (Git/SCM)         │    │     │
-│  │  └─────────────┘  └─────────────┘  └─────────────────────┘    │     │
-│  └────────────────────────────────────────────────────────────────┘     │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+title: AWX Platform Architecture {
+  shape: text
+  near: top-center
+  style: {
+    font-size: 24
+    bold: true
+  }
+}
+
+users: Users / API Clients {
+  shape: rectangle
+  style.fill: "#e3f2fd"
+}
+
+web_interface: Web Interface Layer {
+  style.fill: "#e8f5e9"
+  
+  react_ui: React UI {
+    shape: rectangle
+    style.fill: "#c8e6c9"
+  }
+  
+  rest_api: REST API\n/api/v2/ {
+    shape: rectangle
+    style.fill: "#c8e6c9"
+  }
+  
+  websocket: WebSocket\nJob Output Stream {
+    shape: rectangle
+    style.fill: "#c8e6c9"
+  }
+}
+
+awx_task: AWX Task Layer (Django) {
+  style.fill: "#fff3e0"
+  
+  views: Views\n(API Handlers) {
+    shape: rectangle
+    style.fill: "#ffe0b2"
+  }
+  
+  models: Models\n(ORM) {
+    shape: rectangle
+    style.fill: "#ffe0b2"
+  }
+  
+  celery: Celery Tasks\n(Job Runner) {
+    shape: rectangle
+    style.fill: "#ffe0b2"
+  }
+}
+
+execution: Execution Layer {
+  style.fill: "#f3e5f5"
+  
+  receptor: Receptor\n(Mesh Network) {
+    shape: hexagon
+    style.fill: "#e1bee7"
+  }
+  
+  runner: ansible-runner {
+    shape: rectangle
+    style.fill: "#e1bee7"
+  }
+  
+  ee: Execution\nEnvironments {
+    shape: rectangle
+    style.fill: "#e1bee7"
+  }
+}
+
+data: Data Layer {
+  style.fill: "#e0f7fa"
+  
+  postgres: PostgreSQL {
+    shape: cylinder
+    style.fill: "#80deea"
+    label: "Jobs, Credentials\nInventories"
+  }
+  
+  redis: Redis {
+    shape: cylinder
+    style.fill: "#80deea"
+    label: "Cache, Message\nBroker"
+  }
+  
+  scm: Project Storage {
+    shape: cylinder
+    style.fill: "#80deea"
+    label: "Git/SCM"
+  }
+}
+
+target_hosts: Target Hosts {
+  shape: rectangle
+  style.fill: "#ffcdd2"
+  label: "Managed\nInfrastructure"
+}
+
+users -> web_interface
+web_interface -> awx_task
+awx_task -> execution
+execution -> data
+awx_task.celery -> data.redis: Queue Jobs
+awx_task.models -> data.postgres: Persist Data
+execution.runner -> target_hosts: SSH/WinRM
+execution.receptor -> target_hosts: Mesh Network
 ```
 
 ## Core Components

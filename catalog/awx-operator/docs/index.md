@@ -58,74 +58,167 @@ kubectl get secret awx-admin-password -n awx -o jsonpath='{.data.password}' | ba
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                       AWX Operator Architecture                          │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  ┌────────────────────────────────────────────────────────────────┐     │
-│  │                    Kubernetes API Server                        │     │
-│  │  ┌─────────────────────────────────────────────────────────┐   │     │
-│  │  │    Custom Resource Definitions (CRDs)                   │   │     │
-│  │  │    - AWX                                                 │   │     │
-│  │  │    - AWXBackup                                          │   │     │
-│  │  │    - AWXRestore                                         │   │     │
-│  │  └─────────────────────────────────────────────────────────┘   │     │
-│  └────────────────────────────────────────────────────────────────┘     │
-│                                    │                                     │
-│                                    │ Watch/Reconcile                     │
-│                                    ▼                                     │
-│  ┌────────────────────────────────────────────────────────────────┐     │
-│  │                    AWX Operator Controller                      │     │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐    │     │
-│  │  │ AWX         │  │ Backup      │  │ Restore             │    │     │
-│  │  │ Controller  │  │ Controller  │  │ Controller          │    │     │
-│  │  └─────────────┘  └─────────────┘  └─────────────────────┘    │     │
-│  └────────────────────────────────────────────────────────────────┘     │
-│                                    │                                     │
-│                                    │ Creates/Manages                     │
-│                                    ▼                                     │
-│  ┌────────────────────────────────────────────────────────────────┐     │
-│  │                    Managed Resources                            │     │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐    │     │
-│  │  │ Deployments │  │ Services    │  │ ConfigMaps/Secrets  │    │     │
-│  │  │ StatefulSet │  │ Ingress     │  │ PVCs                │    │     │
-│  │  └─────────────┘  └─────────────┘  └─────────────────────┘    │     │
-│  └────────────────────────────────────────────────────────────────┘     │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+title: Kubernetes Operator Pattern - AWX Operator {
+  shape: text
+  near: top-center
+  style: {
+    font-size: 24
+    bold: true
+  }
+}
+
+k8s_api: Kubernetes API Server {
+  style.fill: "#e3f2fd"
+  
+  crds: Custom Resource Definitions (CRDs) {
+    style.fill: "#bbdefb"
+    awx_crd: AWX {
+      shape: document
+      style.fill: "#90caf9"
+    }
+    backup_crd: AWXBackup {
+      shape: document
+      style.fill: "#90caf9"
+    }
+    restore_crd: AWXRestore {
+      shape: document
+      style.fill: "#90caf9"
+    }
+  }
+}
+
+operator: AWX Operator Controller {
+  style.fill: "#e8f5e9"
+  
+  awx_controller: AWX\nController {
+    shape: hexagon
+    style.fill: "#a5d6a7"
+  }
+  backup_controller: Backup\nController {
+    shape: hexagon
+    style.fill: "#a5d6a7"
+  }
+  restore_controller: Restore\nController {
+    shape: hexagon
+    style.fill: "#a5d6a7"
+  }
+}
+
+reconcile_loop: Reconciliation Loop {
+  style.fill: "#fff3e0"
+  
+  watch: Watch for Changes {
+    shape: rectangle
+    style.fill: "#ffe0b2"
+  }
+  compare: Compare Desired\nvs Actual State {
+    shape: diamond
+    style.fill: "#ffcc80"
+  }
+  apply: Apply Changes {
+    shape: rectangle
+    style.fill: "#ffb74d"
+  }
+  
+  watch -> compare -> apply
+  apply -> watch: Requeue
+}
+
+managed_resources: Managed Resources {
+  style.fill: "#f3e5f5"
+  
+  workloads: Workloads {
+    style.fill: "#e1bee7"
+    deployment: Deployments {
+      shape: rectangle
+    }
+    statefulset: StatefulSets {
+      shape: rectangle
+    }
+  }
+  
+  networking: Networking {
+    style.fill: "#e1bee7"
+    services: Services {
+      shape: rectangle
+    }
+    ingress: Ingress {
+      shape: rectangle
+    }
+  }
+  
+  config: Configuration {
+    style.fill: "#e1bee7"
+    configmaps: ConfigMaps {
+      shape: rectangle
+    }
+    secrets: Secrets {
+      shape: rectangle
+    }
+    pvcs: PVCs {
+      shape: cylinder
+    }
+  }
+}
+
+awx_instance: AWX Instance {
+  style.fill: "#c8e6c9"
+  
+  web: AWX Web {
+    shape: rectangle
+  }
+  task: AWX Task {
+    shape: rectangle
+  }
+  postgres: PostgreSQL {
+    shape: cylinder
+  }
+  redis: Redis {
+    shape: cylinder
+  }
+}
+
+k8s_api.crds -> operator: Watch/Reconcile
+operator -> reconcile_loop: Execute
+operator.awx_controller -> managed_resources: Creates/Manages
+operator.backup_controller -> managed_resources
+operator.restore_controller -> managed_resources
+managed_resources -> awx_instance: Deploys
 ```
 
 ## Operator Lifecycle
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                     Reconciliation Loop                           │
-├──────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│   1. Watch for Changes                                            │
-│   ┌─────────────────────────────────────────────────────────┐    │
-│   │  - AWX CR created/updated/deleted                       │    │
-│   │  - Child resources changed                               │    │
-│   │  - Periodic requeue                                      │    │
-│   └─────────────────────────────────────────────────────────┘    │
-│                              │                                    │
-│   2. Reconcile              ▼                                    │
-│   ┌─────────────────────────────────────────────────────────┐    │
-│   │  - Compare desired state (CR spec) with actual state    │    │
-│   │  - Create missing resources                              │    │
-│   │  - Update changed resources                              │    │
-│   │  - Delete orphaned resources                             │    │
-│   └─────────────────────────────────────────────────────────┘    │
-│                              │                                    │
-│   3. Update Status          ▼                                    │
-│   ┌─────────────────────────────────────────────────────────┐    │
-│   │  - Set conditions (Ready, Progressing, Degraded)        │    │
-│   │  - Update observed generation                            │    │
-│   │  - Record events                                         │    │
-│   └─────────────────────────────────────────────────────────┘    │
-│                                                                   │
-└──────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+reconciliation: Reconciliation Loop {
+  watch: 1. Watch for Changes {
+    cr_changes: AWX CR created/updated/deleted
+    child_changes: Child resources changed
+    requeue: Periodic requeue
+  }
+  
+  reconcile: 2. Reconcile {
+    compare: Compare desired state (CR spec) with actual state
+    create: Create missing resources
+    update: Update changed resources
+    delete: Delete orphaned resources
+  }
+  
+  status: 3. Update Status {
+    conditions: Set conditions (Ready, Progressing, Degraded)
+    generation: Update observed generation
+    events: Record events
+  }
+  
+  watch -> reconcile -> status
+  status -> watch: requeue {
+    style.stroke-dash: 3
+  }
+}
 ```
 
 ## Version Information

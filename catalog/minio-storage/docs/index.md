@@ -53,48 +53,57 @@ mc rm local/my-bucket/file.txt     # Delete object
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                     MinIO Distributed Cluster                   │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │                    Load Balancer                          │  │
-│  │              (nginx / HAProxy / Traefik)                  │  │
-│  └───────────────────────────────────────────────────────────┘  │
-│                              │                                  │
-│         ┌────────────────────┼────────────────────┐             │
-│         │                    │                    │             │
-│         ▼                    ▼                    ▼             │
-│  ┌─────────────┐      ┌─────────────┐      ┌─────────────┐      │
-│  │   MinIO 1   │      │   MinIO 2   │      │   MinIO 3   │      │
-│  │  :9000/9001 │      │  :9000/9001 │      │  :9000/9001 │      │
-│  └──────┬──────┘      └──────┬──────┘      └──────┬──────┘      │
-│         │                    │                    │             │
-│         ▼                    ▼                    ▼             │
-│  ┌─────────────┐      ┌─────────────┐      ┌─────────────┐      │
-│  │   Disk 1    │      │   Disk 1    │      │   Disk 1    │      │
-│  │   Disk 2    │      │   Disk 2    │      │   Disk 2    │      │
-│  │   Disk 3    │      │   Disk 3    │      │   Disk 3    │      │
-│  │   Disk 4    │      │   Disk 4    │      │   Disk 4    │      │
-│  └─────────────┘      └─────────────┘      └─────────────┘      │
-│                                                                 │
-├─────────────────────────────────────────────────────────────────┤
-│                     Erasure Coding (EC:4)                       │
-│         ┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┐       │
-│         │D1 │D2 │D3 │D4 │D5 │D6 │D7 │D8 │P1 │P2 │P3 │P4 │       │
-│         └───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┘       │
-│                     Data Blocks    Parity Blocks                │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-        ┌─────────────────────────────────────────┐
-        │              Clients                     │
-        │  ┌───────┐  ┌───────┐  ┌───────────┐    │
-        │  │AWS SDK│  │ mc CLI│  │ Backstage │    │
-        │  └───────┘  └───────┘  └───────────┘    │
-        └─────────────────────────────────────────┘
+```d2
+direction: down
+
+cluster: MinIO Distributed Cluster {
+  lb: Load Balancer (nginx / HAProxy / Traefik)
+  
+  servers: MinIO Servers {
+    m1: MinIO 1 (:9000/9001) {
+      shape: hexagon
+    }
+    m2: MinIO 2 (:9000/9001) {
+      shape: hexagon
+    }
+    m3: MinIO 3 (:9000/9001) {
+      shape: hexagon
+    }
+  }
+  
+  storage: Storage Layer {
+    d1: Disks 1-4 {
+      shape: cylinder
+    }
+    d2: Disks 1-4 {
+      shape: cylinder
+    }
+    d3: Disks 1-4 {
+      shape: cylinder
+    }
+  }
+  
+  lb -> servers.m1
+  lb -> servers.m2
+  lb -> servers.m3
+  servers.m1 -> storage.d1
+  servers.m2 -> storage.d2
+  servers.m3 -> storage.d3
+}
+
+erasure: Erasure Coding (EC:4) {
+  data: Data Blocks (D1-D8)
+  parity: Parity Blocks (P1-P4)
+}
+
+clients: Clients {
+  sdk: AWS SDK
+  cli: mc CLI
+  backstage: Backstage
+}
+
+clients -> cluster.lb: S3 API
+cluster -> erasure: protects
 ```
 
 ## Erasure Coding

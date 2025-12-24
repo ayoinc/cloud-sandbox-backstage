@@ -6,21 +6,62 @@ Google Cloud Platform Services provides a comprehensive framework for managing G
 
 ### Resource Hierarchy
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Organization                              │
-├─────────────────────────────────────────────────────────────┤
-│                      Folders                                 │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
-│  │ Production  │  │ Development │  │  Sandbox    │         │
-│  │   Folder    │  │   Folder    │  │   Folder    │         │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘         │
-│         │                │                │                 │
-│  ┌──────▼──────┐  ┌──────▼──────┐  ┌──────▼──────┐         │
-│  │ Prod        │  │  Dev        │  │ Sandbox     │         │
-│  │ Projects    │  │  Projects   │  │ Projects    │         │
-│  └─────────────┘  └─────────────┘  └─────────────┘         │
-└─────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+title: GCP Organization {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+org: Organization {
+  style.fill: "#E3F2FD"
+  
+  folders: Folders {
+    style.fill: "#BBDEFB"
+    
+    prod: Production Folder {
+      shape: rectangle
+      style.fill: "#2196F3"
+      style.font-color: white
+    }
+    dev: Development Folder {
+      shape: rectangle
+      style.fill: "#2196F3"
+      style.font-color: white
+    }
+    sandbox: Sandbox Folder {
+      shape: rectangle
+      style.fill: "#2196F3"
+      style.font-color: white
+    }
+  }
+  
+  projects: Projects {
+    style.fill: "#E8F5E9"
+    
+    prod_proj: Prod Projects {
+      shape: rectangle
+      style.fill: "#4CAF50"
+      style.font-color: white
+    }
+    dev_proj: Dev Projects {
+      shape: rectangle
+      style.fill: "#4CAF50"
+      style.font-color: white
+    }
+    sandbox_proj: Sandbox Projects {
+      shape: rectangle
+      style.fill: "#4CAF50"
+      style.font-color: white
+    }
+  }
+  
+  folders.prod -> projects.prod_proj
+  folders.dev -> projects.dev_proj
+  folders.sandbox -> projects.sandbox_proj
+}
 ```
 
 ## Core Components

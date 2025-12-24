@@ -58,52 +58,150 @@ docker run -t zaproxy/zap-stable zap-baseline.py -t https://target-app.com
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                     Security Scanning Pipeline                           │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                        Source Code                               │    │
-│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────────────┐    │    │
-│  │  │ SAST    │  │ Secrets │  │ License │  │ Dependency      │    │    │
-│  │  │ Semgrep │  │Gitleaks │  │ Trivy   │  │ Check (SCA)     │    │    │
-│  │  └─────────┘  └─────────┘  └─────────┘  └─────────────────┘    │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-│                                    │                                     │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                     Container Images                             │    │
-│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────────────┐    │    │
-│  │  │ Trivy   │  │ Grype   │  │ Snyk    │  │ SBOM Generation │    │    │
-│  │  │ (Vuln)  │  │ (Vuln)  │  │ (Vuln)  │  │ Syft            │    │    │
-│  │  └─────────┘  └─────────┘  └─────────┘  └─────────────────┘    │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-│                                    │                                     │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                   Infrastructure as Code                         │    │
-│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────────────┐    │    │
-│  │  │ Trivy   │  │ Checkov │  │ tfsec   │  │ KICS            │    │    │
-│  │  │ (IaC)   │  │         │  │         │  │                 │    │    │
-│  │  └─────────┘  └─────────┘  └─────────┘  └─────────────────┘    │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-│                                    │                                     │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                    Running Applications                          │    │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐     │    │
-│  │  │ OWASP ZAP   │  │ Nuclei      │  │ Burp Suite          │     │    │
-│  │  │ (DAST)      │  │ (DAST)      │  │ (DAST/Manual)       │     │    │
-│  │  └─────────────┘  └─────────────┘  └─────────────────────┘     │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-│                                    │                                     │
-│                                    ▼                                     │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │              Security Dashboard / Reporting                      │    │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐     │    │
-│  │  │ DefectDojo  │  │ SonarQube   │  │ Grafana/Prometheus  │     │    │
-│  │  └─────────────┘  └─────────────┘  └─────────────────────┘     │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+title: Security Scanning Pipeline {
+  shape: text
+  near: top-center
+  style.font-size: 24
+}
+
+source: Source Code Scanning {
+  style.fill: "#E3F2FD"
+  
+  sast: SAST\nSemgrep {
+    shape: hexagon
+    style.fill: "#2196F3"
+    style.font-color: white
+  }
+  
+  secrets: Secrets\nGitleaks {
+    shape: hexagon
+    style.fill: "#2196F3"
+    style.font-color: white
+  }
+  
+  license: License\nTrivy {
+    shape: hexagon
+    style.fill: "#2196F3"
+    style.font-color: white
+  }
+  
+  sca: Dependency\nCheck (SCA) {
+    shape: hexagon
+    style.fill: "#2196F3"
+    style.font-color: white
+  }
+}
+
+container: Container Image Scanning {
+  style.fill: "#E8F5E9"
+  
+  trivy: Trivy\n(Vuln) {
+    shape: hexagon
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+  
+  grype: Grype\n(Vuln) {
+    shape: hexagon
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+  
+  snyk: Snyk\n(Vuln) {
+    shape: hexagon
+    style.fill: "#4CAF50"
+    style.font-color: white
+  }
+  
+  sbom: SBOM\nSyft {
+    shape: document
+    style.fill: "#81C784"
+    style.font-color: white
+  }
+}
+
+iac: Infrastructure as Code {
+  style.fill: "#FFF3E0"
+  
+  trivy_iac: Trivy\n(IaC) {
+    shape: hexagon
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+  
+  checkov: Checkov {
+    shape: hexagon
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+  
+  tfsec: tfsec {
+    shape: hexagon
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+  
+  kics: KICS {
+    shape: hexagon
+    style.fill: "#FF9800"
+    style.font-color: white
+  }
+}
+
+runtime: Running Applications (DAST) {
+  style.fill: "#FFCDD2"
+  
+  zap: OWASP ZAP {
+    shape: hexagon
+    style.fill: "#F44336"
+    style.font-color: white
+  }
+  
+  nuclei: Nuclei {
+    shape: hexagon
+    style.fill: "#F44336"
+    style.font-color: white
+  }
+  
+  burp: Burp Suite\n(Manual) {
+    shape: hexagon
+    style.fill: "#EF5350"
+    style.font-color: white
+  }
+}
+
+dashboard: Security Dashboard / Reporting {
+  style.fill: "#F3E5F5"
+  
+  defectdojo: DefectDojo {
+    shape: rectangle
+    style.fill: "#9C27B0"
+    style.font-color: white
+  }
+  
+  sonarqube: SonarQube {
+    shape: rectangle
+    style.fill: "#9C27B0"
+    style.font-color: white
+  }
+  
+  grafana: Grafana/\nPrometheus {
+    shape: rectangle
+    style.fill: "#9C27B0"
+    style.font-color: white
+  }
+}
+
+source -> container: Build
+container -> iac: Deploy
+iac -> runtime: Running
+runtime -> dashboard: Report
+source -> dashboard: Results {style.stroke-dash: 3}
+container -> dashboard: Results {style.stroke-dash: 3}
+iac -> dashboard: Results {style.stroke-dash: 3}
 ```
 
 ## Vulnerability Severity Levels

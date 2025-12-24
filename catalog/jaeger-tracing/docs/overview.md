@@ -4,38 +4,46 @@
 
 ### Jaeger V2 Architecture (OpenTelemetry Collector)
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│               Jaeger V2 (OTEL Collector Based)                  │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                     Receivers                           │    │
-│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐     │    │
-│  │  │  OTLP   │  │ Jaeger  │  │ Zipkin  │  │  Kafka  │     │    │
-│  │  │gRPC/HTTP│  │  gRPC   │  │  HTTP   │  │Consumer │     │    │
-│  │  └─────────┘  └─────────┘  └─────────┘  └─────────┘     │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                            │                                    │
-│                            ▼                                    │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                     Processors                          │    │
-│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐     │    │
-│  │  │  Batch  │  │Sampling │  │Tail-Base│  │Attribute│     │    │
-│  │  │         │  │         │  │Sampling │  │         │     │    │
-│  │  └─────────┘  └─────────┘  └─────────┘  └─────────┘     │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                            │                                    │
-│                            ▼                                    │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                     Exporters                           │    │
-│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐     │    │
-│  │  │ Jaeger  │  │  OTLP   │  │  Kafka  │  │Prometheus│    │    │
-│  │  │ Storage │  │         │  │Producer │  │         │     │    │
-│  │  └─────────┘  └─────────┘  └─────────┘  └─────────┘     │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+otel-collector: Jaeger V2 (OTEL Collector Based) {
+  receivers: Receivers {
+    direction: right
+    otlp: OTLP\ngRPC/HTTP
+    jaeger: Jaeger\ngRPC
+    zipkin: Zipkin\nHTTP
+    kafka: Kafka\nConsumer
+  }
+
+  processors: Processors {
+    direction: right
+    batch: Batch
+    sampling: Sampling
+    tail: Tail-Based\nSampling
+    attributes: Attribute\nProcessor
+    
+    batch -> sampling -> tail -> attributes
+  }
+
+  exporters: Exporters {
+    direction: right
+    jaeger-storage: Jaeger\nStorage
+    otlp-export: OTLP
+    kafka-producer: Kafka\nProducer
+    prometheus: Prometheus
+  }
+
+  receivers.otlp -> processors.batch
+  receivers.jaeger -> processors.batch
+  receivers.zipkin -> processors.batch
+  receivers.kafka -> processors.batch
+  
+  processors.attributes -> exporters.jaeger-storage
+  processors.attributes -> exporters.otlp-export
+  processors.attributes -> exporters.kafka-producer
+  processors.attributes -> exporters.prometheus
+}
 ```
 
 ### Deployment Modes
