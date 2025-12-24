@@ -1,0 +1,170 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.16.0/.schema/devbox.schema.json",
+  "packages": [
+    "nodejs@22",
+    "yarn-berry@4",
+    "python@3.12",
+    "d2@latest",
+    "git@latest",
+    "jq@latest",
+    "curl@latest",
+    "postgresql@15",
+    "redis@latest",
+    "minio-client@latest"
+  ],
+  "env": {
+    "DEVBOX_COREPACK_ENABLED": "true",
+    "NODE_ENV": "development",
+    "POSTGRES_HOST": "localhost",
+    "POSTGRES_PORT": "5432",
+    "POSTGRES_USER": "backstage",
+    "POSTGRES_PASSWORD": "backstage",
+    "POSTGRES_DB": "backstage",
+    "REDIS_HOST": "localhost",
+    "REDIS_PORT": "6379",
+    "MINIO_HOST": "localhost",
+    "MINIO_PORT": "9000",
+    "MINIO_ROOT_USER": "backstage",
+    "MINIO_ROOT_PASSWORD": "backstage123",
+    "MINIO_ACCESS_KEY": "backstage",
+    "MINIO_SECRET_KEY": "backstage123",
+    "TECHDOCS_BUCKET": "techdocs",
+    "BRANDING_BUCKET": "backstage-assets"
+  },
+  "shell": {
+    "init_hook": [
+      "echo ''",
+      "echo '╔══════════════════════════════════════════════════════════════╗'",
+      "echo '║     Cloud Sandbox Backstage - Development Environment        ║'",
+      "echo '╚══════════════════════════════════════════════════════════════╝'",
+      "echo ''",
+      "echo '  Node.js:  '$(node --version)",
+      "echo '  Yarn:     '$(yarn --version)",
+      "echo '  Python:   '$(python3 --version | cut -d' ' -f2)",
+      "echo '  D2:       '$(d2 --version 2>/dev/null | head -1 || echo 'installed')",
+      "echo ''",
+      "echo '  Available commands:'",
+      "echo '    devbox run services:start   - Start Docker services (Postgres, Redis, MinIO)'",
+      "echo '    devbox run services:stop    - Stop Docker services'",
+      "echo '    devbox run dev              - Start Backstage in development mode'",
+      "echo '    devbox run build            - Build the backend'",
+      "echo '    devbox run test             - Run tests'",
+      "echo '    devbox run lint             - Run linter'",
+      "echo '    devbox run techdocs         - Generate TechDocs'",
+      "echo ''",
+      "",
+      "# Install Python packages for TechDocs (silently)",
+      "if ! python3 -c 'import mkdocs' 2>/dev/null; then",
+      "  pip install --quiet --disable-pip-version-check mkdocs mkdocs-material mkdocs-techdocs-core mkdocs-monorepo-plugin mkdocs-d2-plugin mkdocs-awesome-pages-plugin 2>/dev/null",
+      "fi"
+    ],
+    "scripts": {
+      "services:start": [
+        "echo 'Starting Docker services (Postgres, Redis, MinIO)...'",
+        "docker compose -f docker-compose.services-only.yaml up -d",
+        "echo ''",
+        "echo 'Waiting for services to be healthy...'",
+        "sleep 5",
+        "docker compose -f docker-compose.services-only.yaml ps",
+        "echo ''",
+        "echo 'Services are ready! Run: devbox run dev'"
+      ],
+      "services:stop": [
+        "echo 'Stopping Docker services...'",
+        "docker compose -f docker-compose.services-only.yaml down",
+        "echo 'Services stopped.'"
+      ],
+      "services:status": [
+        "docker compose -f docker-compose.services-only.yaml ps"
+      ],
+      "services:logs": [
+        "docker compose -f docker-compose.services-only.yaml logs -f"
+      ],
+      "dev": [
+        "echo 'Starting Backstage in development mode...'",
+        "echo 'Frontend: http://localhost:3000'",
+        "echo 'Backend:  http://localhost:7007'",
+        "echo ''",
+        "yarn start"
+      ],
+      "start": [
+        "yarn start"
+      ],
+      "build": [
+        "echo 'Building backend...'",
+        "yarn build:backend"
+      ],
+      "build:all": [
+        "echo 'Building all packages...'",
+        "yarn build:all"
+      ],
+      "test": [
+        "yarn test"
+      ],
+      "test:all": [
+        "yarn test:all"
+      ],
+      "test:e2e": [
+        "yarn test:e2e"
+      ],
+      "lint": [
+        "yarn lint:all"
+      ],
+      "lint:fix": [
+        "yarn fix"
+      ],
+      "typecheck": [
+        "yarn tsc --noEmit"
+      ],
+      "format": [
+        "yarn prettier:check"
+      ],
+      "format:fix": [
+        "yarn prettier --write ."
+      ],
+      "techdocs": [
+        "echo 'Generating TechDocs for all catalog items...'",
+        "for dir in catalog/*/; do",
+        "  if [ -f \"${dir}mkdocs.yml\" ]; then",
+        "    echo \"Building TechDocs for ${dir}\"",
+        "    (cd \"${dir}\" && mkdocs build -d ../../techdocs-output/$(basename ${dir}))",
+        "  fi",
+        "done",
+        "echo 'TechDocs generation complete!'"
+      ],
+      "db:migrate": [
+        "echo 'Running database migrations...'",
+        "yarn workspace backend knex migrate:latest"
+      ],
+      "clean": [
+        "echo 'Cleaning build artifacts...'",
+        "yarn clean",
+        "rm -rf techdocs-output node_modules/.cache"
+      ],
+      "reset": [
+        "echo 'Resetting development environment...'",
+        "devbox run services:stop",
+        "docker volume rm backstage_postgres-data backstage_redis-data backstage_minio-data 2>/dev/null || true",
+        "devbox run clean",
+        "echo 'Environment reset. Run: yarn install && devbox run services:start'"
+      ],
+      "install": [
+        "yarn install"
+      ],
+      "update": [
+        "yarn up"
+      ],
+      "docker:build": [
+        "echo 'Building Docker image...'",
+        "docker compose -f docker-compose.yaml -f docker-compose.services.yaml build backstage"
+      ],
+      "docker:full": [
+        "echo 'Starting full Docker stack (for testing production setup)...'",
+        "docker compose -f docker-compose.yaml -f docker-compose.services.yaml up -d"
+      ],
+      "docker:full:stop": [
+        "docker compose -f docker-compose.yaml -f docker-compose.services.yaml down"
+      ]
+    }
+  }
+}

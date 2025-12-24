@@ -1,0 +1,121 @@
+# Docker Compose for Devbox Development Mode
+# This file only runs the required services (Postgres, Redis, MinIO)
+# Backstage runs natively via Devbox for faster development
+#
+# Usage:
+#   devbox run services:start   # Start services
+#   devbox run services:stop    # Stop services
+#   devbox run dev              # Run Backstage locally
+#
+# Or manually:
+#   docker compose -f docker-compose.services-only.yaml up -d
+#   yarn dev
+
+name: backstage-services
+
+services:
+  # =============================================================================
+  # PostgreSQL Database
+  # =============================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: backstage-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-backstage}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-backstage}
+      POSTGRES_DB: ${POSTGRES_DB:-backstage}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-backstage} -d ${POSTGRES_DB:-backstage}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backstage-network
+
+  # =============================================================================
+  # Redis Cache
+  # =============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: backstage-redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backstage-network
+
+  # =============================================================================
+  # MinIO Object Storage (S3-compatible)
+  # =============================================================================
+  minio:
+    image: minio/minio:latest
+    container_name: backstage-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-backstage}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-backstage123}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backstage-network
+
+  # =============================================================================
+  # MinIO Bucket Initialization
+  # =============================================================================
+  minio-init:
+    image: minio/mc:latest
+    container_name: backstage-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+        mc alias set myminio http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD};
+        mc mb myminio/$${TECHDOCS_BUCKET} --ignore-existing;
+        mc anonymous set download myminio/$${TECHDOCS_BUCKET};
+        mc mb myminio/$${BRANDING_BUCKET} --ignore-existing;
+        mc anonymous set download myminio/$${BRANDING_BUCKET};
+        echo 'Buckets created successfully';
+        exit 0;
+      "
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-backstage}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-backstage123}
+      TECHDOCS_BUCKET: ${TECHDOCS_BUCKET:-techdocs}
+      BRANDING_BUCKET: ${BRANDING_BUCKET:-backstage-assets}
+    networks:
+      - backstage-network
+
+networks:
+  backstage-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+    name: backstage-postgres-data
+  redis-data:
+    name: backstage-redis-data
+  minio-data:
+    name: backstage-minio-data

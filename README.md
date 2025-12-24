@@ -38,43 +38,140 @@ A fully-featured [Backstage](https://backstage.io) developer portal configured f
 
 ### Prerequisites
 
-- Node.js 22 or 24
-- Yarn 4.4.1 (installed via Corepack)
-- Docker and Docker Compose (for full stack)
+- Docker and Docker Compose
+- **For Devbox (Recommended):** [Devbox](https://www.jetify.com/devbox/) (automatically installs Node.js, Yarn, Python, D2, etc.)
+- **For Manual Setup:** Node.js 22+, Yarn 4.4.1 (via Corepack)
 
-### Development Setup
+### Development Modes
+
+This project supports two development modes:
+
+| Mode | Best For | Hot Reload | Setup Complexity |
+|------|----------|------------|------------------|
+| **Devbox + Docker Services** | Daily development | Yes | Low |
+| **Full Docker Stack** | Testing production setup | No (rebuild required) | Very Low |
+
+---
+
+## Option 1: Devbox Development (Recommended)
+
+Devbox provides a reproducible development environment with all tools pre-configured.
+
+### Install Devbox
+
+```bash
+# Install Devbox (one-time setup)
+curl -fsSL https://get.jetify.com/devbox | bash
+
+# Devbox will automatically install Nix on first use
+```
+
+### Start Development
 
 ```bash
 # Clone the repository
 git clone <repository-url>
 cd backstage
 
-# Enable Corepack for Yarn
-corepack enable
+# Enter Devbox shell (installs Node.js 22, Yarn 4, Python, D2, etc.)
+devbox shell
+
+# Start Docker services (PostgreSQL, Redis, MinIO)
+devbox run services:start
+
+# Copy environment template
+cp .env.example .env
+# Edit .env with your configuration (especially GITHUB_* variables)
 
 # Install dependencies
 yarn install
+
+# Start Backstage in development mode with hot reload
+devbox run dev
+```
+
+Access the portal at http://localhost:3000 (frontend) and http://localhost:7007 (backend API).
+
+### Devbox Commands
+
+```bash
+devbox run services:start    # Start Docker services (Postgres, Redis, MinIO)
+devbox run services:stop     # Stop Docker services
+devbox run services:status   # Check service status
+devbox run dev               # Start Backstage with hot reload
+devbox run build             # Build the backend
+devbox run test              # Run tests
+devbox run lint              # Run linter
+devbox run techdocs          # Generate TechDocs
+devbox run clean             # Clean build artifacts
+devbox run reset             # Reset entire dev environment
+```
+
+---
+
+## Option 2: Full Docker Stack
+
+Run everything in Docker containers (closest to production).
+
+### Start Full Stack
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd backstage
 
 # Copy environment template
 cp .env.example .env
 # Edit .env with your configuration
 
-# Start development server
-yarn start
-```
-
-### Docker Deployment
-
-```bash
-# Start all services (PostgreSQL, Redis, MinIO, Backstage)
-docker compose up -d
+# Start all services (PostgreSQL, Redis, MinIO, Backstage, Nginx)
+docker compose -f docker-compose.yaml -f docker-compose.services.yaml up -d
 
 # View logs
-docker compose logs -f backstage
+docker compose -f docker-compose.yaml -f docker-compose.services.yaml logs -f backstage
 
 # Access the portal
 open http://localhost
 ```
+
+### Full Docker Commands
+
+```bash
+# Start full stack
+docker compose -f docker-compose.yaml -f docker-compose.services.yaml up -d
+
+# Stop full stack
+docker compose -f docker-compose.yaml -f docker-compose.services.yaml down
+
+# Rebuild after code changes
+docker compose -f docker-compose.yaml -f docker-compose.services.yaml up -d --build backstage
+
+# View logs
+docker compose -f docker-compose.yaml -f docker-compose.services.yaml logs -f
+
+# Check status
+docker compose -f docker-compose.yaml -f docker-compose.services.yaml ps
+```
+
+---
+
+## Option 3: Makefile Shortcuts
+
+The Makefile provides convenient shortcuts for common operations:
+
+```bash
+make help              # Show all available commands
+make up                # Start full Docker stack
+make down              # Stop full Docker stack
+make dev               # Start dev environment (services only)
+make build             # Build Docker image
+make logs              # Tail logs
+make ps                # Show container status
+make devbox            # Enter Devbox shell
+make devbox-services   # Start services for Devbox mode
+```
+
+---
 
 ## Configuration
 
@@ -170,10 +267,60 @@ The repository includes several compose files:
 
 | File | Purpose |
 |------|---------|
-| `docker-compose.yaml` | Full stack deployment |
+| `docker-compose.yaml` | Base configuration with networks and volumes |
+| `docker-compose.services.yaml` | Infrastructure services (PostgreSQL, Redis, MinIO) |
+| `docker-compose.services-only.yaml` | Services only for Devbox mode |
 | `docker-compose.dev.yaml` | Development with hot reload |
-| `docker-compose.services.yaml` | Infrastructure services only |
 | `docker-compose.prod.yaml` | Production configuration |
+
+## Troubleshooting
+
+### Devbox Issues
+
+**"Nix not installed" error:**
+```bash
+# Devbox will prompt to install Nix automatically, or install manually:
+curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+```
+
+**Package installation fails:**
+```bash
+# Clear Devbox cache and retry
+devbox rm --all
+devbox install
+```
+
+### Docker Issues
+
+**Port already in use:**
+```bash
+# Check what's using the port
+lsof -i :7007
+lsof -i :5432
+
+# Stop conflicting services or change ports in docker-compose
+```
+
+**Container won't start:**
+```bash
+# Check logs for the specific container
+docker compose -f docker-compose.yaml -f docker-compose.services.yaml logs backstage
+
+# Rebuild from scratch
+docker compose -f docker-compose.yaml -f docker-compose.services.yaml down -v
+docker compose -f docker-compose.yaml -f docker-compose.services.yaml up -d --build
+```
+
+### Database Issues
+
+**Reset database:**
+```bash
+# Stop services and remove volumes
+docker compose -f docker-compose.yaml -f docker-compose.services.yaml down -v
+
+# Or in Devbox mode:
+devbox run reset
+```
 
 ## Architecture
 
@@ -241,9 +388,11 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
 
 ## Documentation
 
-- [Architecture Overview](ARCHITECTURE.md)
-- [Backstage Documentation](https://backstage.io/docs)
-- [Template Development Guide](templates/README.md)
+- [Complete Setup Guide](SETUP.md) - Detailed installation and configuration
+- [Architecture Overview](ARCHITECTURE.md) - System design and components
+- [Contributing Guidelines](CONTRIBUTING.md) - How to contribute
+- [Backstage Documentation](https://backstage.io/docs) - Official Backstage docs
+- [Template Development Guide](templates/README.md) - Creating custom templates
 
 ## License
 
