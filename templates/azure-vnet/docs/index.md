@@ -19,25 +19,34 @@ This template creates an Azure Virtual Network (VNet) with subnets, network secu
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Azure VNet                           │
-│                   10.0.0.0/16                           │
-│                                                         │
-│  ┌─────────────────┐  ┌─────────────────┐              │
-│  │  Public Subnet  │  │  Private Subnet │              │
-│  │  10.0.1.0/24    │  │  10.0.2.0/24    │              │
-│  │                 │  │                 │              │
-│  │  ┌───────────┐  │  │  ┌───────────┐  │              │
-│  │  │    NSG    │  │  │  │    NSG    │  │              │
-│  │  └───────────┘  │  │  └───────────┘  │              │
-│  └─────────────────┘  └─────────────────┘              │
-│                                                         │
-│  ┌─────────────────┐  ┌─────────────────┐              │
-│  │ Database Subnet │  │   AKS Subnet    │              │
-│  │  10.0.3.0/24    │  │  10.0.4.0/22    │              │
-│  └─────────────────┘  └─────────────────┘              │
-└─────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+vnet: Azure VNet (10.0.0.0/16) {
+  style.fill: "#e3f2fd"
+
+  public: Public Subnet (10.0.1.0/24) {
+    style.fill: "#c8e6c9"
+    nsg: NSG {
+      style.fill: "#fff9c4"
+    }
+  }
+
+  private: Private Subnet (10.0.2.0/24) {
+    style.fill: "#b3e5fc"
+    nsg: NSG {
+      style.fill: "#fff9c4"
+    }
+  }
+
+  database: Database Subnet (10.0.3.0/24) {
+    style.fill: "#f3e5f5"
+  }
+
+  aks: AKS Subnet (10.0.4.0/22) {
+    style.fill: "#fff3e0"
+  }
+}
 ```
 
 ## Quick Start
@@ -55,13 +64,13 @@ terraform apply
 
 ## Configuration
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `vnet_name` | Name of the virtual network | - |
-| `resource_group_name` | Azure resource group | - |
-| `location` | Azure region | `eastus` |
-| `address_space` | VNet address space | `["10.0.0.0/16"]` |
-| `subnets` | Subnet configurations | See variables.tf |
+| Variable              | Description                 | Default           |
+| --------------------- | --------------------------- | ----------------- |
+| `vnet_name`           | Name of the virtual network | -                 |
+| `resource_group_name` | Azure resource group        | -                 |
+| `location`            | Azure region                | `eastus`          |
+| `address_space`       | VNet address space          | `["10.0.0.0/16"]` |
+| `subnets`             | Subnet configurations       | See variables.tf  |
 
 ## Subnet Configuration
 

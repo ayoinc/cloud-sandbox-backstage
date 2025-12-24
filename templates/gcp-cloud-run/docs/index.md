@@ -15,19 +15,22 @@ Cloud Run is a fully managed compute platform that automatically scales your sta
 ## Features
 
 ### Serverless Container Deployment
+
 - Zero infrastructure management
 - Scale to zero when not in use
 - Automatic scaling based on concurrent requests
 
 ### Configuration Options
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `memory` | Container memory allocation | 512Mi |
-| `cpu` | CPU allocation | 1 |
-| `maxInstances` | Maximum scaling instances | 10 |
-| `allowUnauthenticated` | Public access control | false |
+
+| Parameter              | Description                 | Default |
+| ---------------------- | --------------------------- | ------- |
+| `memory`               | Container memory allocation | 512Mi   |
+| `cpu`                  | CPU allocation              | 1       |
+| `maxInstances`         | Maximum scaling instances   | 10      |
+| `allowUnauthenticated` | Public access control       | false   |
 
 ### Security
+
 - IAM-based authentication by default
 - HTTPS endpoints with managed certificates
 - VPC egress controls
@@ -35,6 +38,7 @@ Cloud Run is a fully managed compute platform that automatically scales your sta
 ## Getting Started
 
 ### Prerequisites
+
 - GCP project with billing enabled
 - Cloud Run API enabled
 - Terraform >= 1.0
@@ -42,11 +46,13 @@ Cloud Run is a fully managed compute platform that automatically scales your sta
 ### Deployment
 
 1. **Initialize Terraform**
+
    ```bash
    terraform init
    ```
 
 2. **Review the plan**
+
    ```bash
    terraform plan
    ```
@@ -70,18 +76,30 @@ curl -H "Authorization: Bearer $(gcloud auth print-identity-token)" SERVICE_URL
 
 ## Architecture
 
-```
-                    ┌─────────────────┐
-                    │   Cloud Run     │
-    Internet ──────►│    Service      │──────► VPC (optional)
-                    │                 │
-                    └─────────────────┘
-                           │
-                           ▼
-                    ┌─────────────────┐
-                    │  Cloud Logging  │
-                    │  Cloud Monitor  │
-                    └─────────────────┘
+```d2
+direction: right
+
+internet: Internet {
+  style.fill: "#e3f2fd"
+}
+
+cloud-run: Cloud Run Service {
+  style.fill: "#c8e6c9"
+}
+
+vpc: VPC (optional) {
+  style.fill: "#fff3e0"
+  style.stroke-dash: 3
+}
+
+monitoring: Cloud Logging & Monitoring {
+  style.fill: "#f3e5f5"
+  label: "Cloud Logging\nCloud Monitor"
+}
+
+internet -> cloud-run
+cloud-run -> vpc: optional
+cloud-run -> monitoring
 ```
 
 ## Cost Optimization
@@ -93,6 +111,7 @@ curl -H "Authorization: Bearer $(gcloud auth print-identity-token)" SERVICE_URL
 ## Monitoring
 
 The template includes integration with:
+
 - Cloud Logging for application logs
 - Cloud Monitoring for metrics and alerts
 - Cloud Trace for distributed tracing

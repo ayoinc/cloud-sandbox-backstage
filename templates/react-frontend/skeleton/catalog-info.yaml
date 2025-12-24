@@ -1,0 +1,59 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.name }}
+  description: ${{ values.description }}
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
+{%- if values.enable_ci_cd %}
+    github.com/workflows: ci.yaml
+{%- endif %}
+{%- if values.enable_monitoring %}
+    prometheus.io/scrape: 'true'
+    prometheus.io/path: '/metrics'
+{%- endif %}
+  tags:
+    - react
+    - frontend
+    - typescript
+    - web
+{%- if values.ui_framework != 'none' %}
+    - ${{ values.ui_framework }}
+{%- endif %}
+{%- if values.app_type == 'pwa' %}
+    - pwa
+{%- endif %}
+  links:
+    - url: https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}
+      title: Repository
+      icon: github
+{%- if values.enable_storybook %}
+    - url: http://localhost:6006
+      title: Storybook
+      icon: storybook
+{%- endif %}
+spec:
+  type: website
+  lifecycle: production
+  owner: ${{ values.owner }}
+  system: frontend-applications
+  dependsOn:
+{%- if values.api_client != 'none' %}
+    - component:backend-api
+{%- endif %}
+  providesApis: []
+---
+{%- if values.enable_monitoring %}
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: ${{ values.name }}-hosting
+  description: Static hosting for ${{ values.name }}
+spec:
+  type: website
+  owner: ${{ values.owner }}
+  system: frontend-applications
+  dependencyOf:
+    - component:${{ values.name }}
+{%- endif %}

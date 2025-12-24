@@ -1,0 +1,353 @@
+name: Ansible Playbook CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      playbook:
+        description: 'Playbook to run'
+        required: true
+        default: 'site.yml'
+      check_mode:
+        description: 'Run in check mode (dry-run)'
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+  security-events: write
+
+env:
+  ANSIBLE_VERSION: '2.17'
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  # ============================================
+  # LINT - Ansible-lint and YAML lint
+  # ============================================
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible-core==${{ env.ANSIBLE_VERSION }}.* \
+                      ansible-lint \
+                      yamllint \
+                      jmespath
+
+      - name: Run yamllint
+        run: |
+          yamllint -c .yamllint.yml . || yamllint .
+        continue-on-error: true
+
+      - name: Run ansible-lint
+        run: |
+          ansible-lint --format=sarif --output-file=ansible-lint-results.sarif || \
+          ansible-lint
+        continue-on-error: true
+
+      - name: Upload ansible-lint SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: ansible-lint-results.sarif
+          category: ansible-lint
+        continue-on-error: true
+
+      - name: Check syntax
+        run: |
+          for playbook in $(find . -name "*.yml" -path "./playbooks/*" -o -name "site.yml"); do
+            echo "Checking syntax: $playbook"
+            ansible-playbook --syntax-check "$playbook" || true
+          done
+
+  # ============================================
+  # SECURITY - Check for secrets and vulnerabilities
+  # ============================================
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Trivy for IaC
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: 'config'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: Upload Trivy SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy
+
+      - name: Check for hardcoded secrets
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+        continue-on-error: true
+
+      - name: Check ansible-vault usage
+        run: |
+          # Check if vault-encrypted files exist and are properly encrypted
+          if find . -name "*.vault.yml" -o -name "vault.yml" | grep -q .; then
+            echo "Vault files found, checking encryption..."
+            for vault_file in $(find . -name "*.vault.yml" -o -name "vault.yml"); do
+              if head -1 "$vault_file" | grep -q '^\$ANSIBLE_VAULT'; then
+                echo "✅ $vault_file is encrypted"
+              else
+                echo "❌ $vault_file is NOT encrypted!"
+                exit 1
+              fi
+            done
+          fi
+
+  # ============================================
+  # TEST - Molecule tests
+  # ============================================
+  test:
+    name: Molecule Test
+    runs-on: ubuntu-latest
+    needs: lint
+    strategy:
+      fail-fast: false
+      matrix:
+        distro:
+          - ubuntu2404
+          - debian12
+          - rockylinux9
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible-core==${{ env.ANSIBLE_VERSION }}.* \
+                      molecule \
+                      molecule-plugins[docker] \
+                      docker \
+                      pytest-testinfra
+
+      - name: Run Molecule tests
+        run: |
+          molecule test
+        env:
+          MOLECULE_DISTRO: ${{ matrix.distro }}
+          PY_COLORS: '1'
+          ANSIBLE_FORCE_COLOR: '1'
+
+  # ============================================
+  # VALIDATE - Check inventory and variables
+  # ============================================
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Ansible
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible-core==${{ env.ANSIBLE_VERSION }}.*
+
+      - name: Validate inventory
+        run: |
+          for inventory in $(find . -name "inventory*" -type f); do
+            echo "Validating inventory: $inventory"
+            ansible-inventory -i "$inventory" --list > /dev/null || echo "Invalid inventory: $inventory"
+          done
+
+      - name: Check variable files
+        run: |
+          for var_file in $(find . -path "*/vars/*.yml" -o -path "*/defaults/*.yml"); do
+            echo "Checking variable file: $var_file"
+            python -c "import yaml; yaml.safe_load(open('$var_file'))" || echo "Invalid YAML: $var_file"
+          done
+
+      - name: Validate role dependencies
+        run: |
+          if [ -f "requirements.yml" ]; then
+            echo "Checking role requirements..."
+            ansible-galaxy role install -r requirements.yml --force || true
+            ansible-galaxy collection install -r requirements.yml --force || true
+          fi
+
+  # ============================================
+  # DRY-RUN - Check mode execution
+  # ============================================
+  dry-run:
+    name: Dry Run
+    runs-on: ubuntu-latest
+    needs: [lint, security, test, validate]
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Ansible
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible-core==${{ env.ANSIBLE_VERSION }}.* boto3 azure-cli google-cloud-sdk
+
+      - name: Install roles and collections
+        run: |
+          if [ -f "requirements.yml" ]; then
+            ansible-galaxy install -r requirements.yml --force
+          fi
+
+      - name: Run playbook in check mode
+        run: |
+          ansible-playbook site.yml \
+            -i inventory/dev \
+            --check \
+            --diff \
+            --limit localhost
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: 'false'
+        continue-on-error: true
+
+  # ============================================
+  # DEPLOY - Execute playbook
+  # ============================================
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: [lint, security, test, validate]
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Ansible
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible-core==${{ env.ANSIBLE_VERSION }}.* boto3
+
+      - name: Install roles and collections
+        run: |
+          if [ -f "requirements.yml" ]; then
+            ansible-galaxy install -r requirements.yml --force
+          fi
+
+      - name: Configure SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Set Ansible Vault Password
+        run: |
+          echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > .vault_password
+          chmod 600 .vault_password
+
+      - name: Run playbook
+        run: |
+          ENV="${{ github.event.inputs.environment || 'dev' }}"
+          PLAYBOOK="${{ github.event.inputs.playbook || 'site.yml' }}"
+          CHECK_MODE="${{ github.event.inputs.check_mode }}"
+
+          ARGS="--vault-password-file=.vault_password"
+          if [ "$CHECK_MODE" = "true" ]; then
+            ARGS="$ARGS --check --diff"
+          fi
+
+          ansible-playbook "$PLAYBOOK" \
+            -i "inventory/$ENV" \
+            $ARGS
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: 'false'
+          ANSIBLE_FORCE_COLOR: '1'
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -f ~/.ssh/id_rsa .vault_password
+
+  # ============================================
+  # DOCUMENTATION
+  # ============================================
+  docs:
+    name: Generate Docs
+    runs-on: ubuntu-latest
+    needs: lint
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install ansible-doctor
+        run: pip install ansible-doctor
+
+      - name: Generate role documentation
+        run: |
+          for role_dir in roles/*/; do
+            if [ -d "$role_dir" ]; then
+              echo "Generating docs for: $role_dir"
+              ansible-doctor -o "$role_dir/README.md" "$role_dir" || true
+            fi
+          done
+        continue-on-error: true

@@ -1,78 +1,1135 @@
-name: Terraform
+# =============================================================================
+# GCP VPC - Terraform CI/CD Pipeline
+# =============================================================================
+# Comprehensive CI/CD pipeline for GCP Virtual Private Cloud infrastructure
+# Features:
+# - Workload Identity Federation (OIDC) authentication
+# - Multi-environment support (dev, staging, prod)
+# - Preflight checks and validation
+# - Security scanning (tfsec, Checkov, Trivy)
+# - Cost estimation with Infracost
+# - Terraform native tests
+# - Plan and Apply workflows with manual approval
+# - Drift detection
+# - Destroy workflow with confirmation
+# =============================================================================
+
+name: 'Terraform CI/CD'
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - develop
+    paths:
+      - '**.tf'
+      - '**.tfvars'
+      - '.github/workflows/terraform.yaml'
   pull_request:
-    branches: [main]
+    branches:
+      - main
+      - develop
+    paths:
+      - '**.tf'
+      - '**.tfvars'
+      - '.github/workflows/terraform.yaml'
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+          - drift-detection
+        default: plan
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+        default: dev
+      confirm_destroy:
+        description: 'Type DESTROY to confirm destruction (required for destroy action)'
+        required: false
+        type: string
+        default: ''
 
+# =============================================================================
+# Environment Variables
+# =============================================================================
 env:
-  TF_VERSION: '1.6.0'
-  GOOGLE_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
+  TF_VERSION: '1.9.8'
+  TFLINT_VERSION: 'v0.53.0'
+  TERRAFORM_DOCS_VERSION: 'v0.18.0'
+  INFRACOST_VERSION: '0.10.x'
+  WORKING_DIRECTORY: '.'
+  TF_IN_AUTOMATION: 'true'
+  TF_INPUT: 'false'
 
+  # GCP Backend Configuration
+  BACKEND_BUCKET: '${{ secrets.GCP_TERRAFORM_STATE_BUCKET }}'
+
+  # Project Configuration
+  PROJECT_NAME: '${{ values.name }}'
+  GCP_PROJECT_ID: '${{ secrets.GCP_PROJECT_ID }}'
+  GCP_REGION: '${{ values.region }}'
+
+# =============================================================================
+# Permissions for OIDC
+# =============================================================================
 permissions:
   id-token: write
   contents: read
   pull-requests: write
+  issues: write
+  security-events: write
 
+# =============================================================================
+# Concurrency Control
+# =============================================================================
+concurrency:
+  group: terraform-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+# =============================================================================
+# Jobs
+# =============================================================================
 jobs:
-  validate:
-    name: Validate
+  # ===========================================================================
+  # Preflight Checks
+  # ===========================================================================
+  preflight:
+    name: 'Preflight Checks'
     runs-on: ubuntu-latest
+    outputs:
+      environments: ${{ steps.set-environments.outputs.environments }}
+      is_main: ${{ steps.check-branch.outputs.is_main }}
+      is_manual: ${{ steps.check-trigger.outputs.is_manual }}
+      action: ${{ steps.set-action.outputs.action }}
+      target_environment: ${{ steps.set-action.outputs.target_environment }}
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check Branch
+        id: check-branch
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "is_main=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_main=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check Trigger Type
+        id: check-trigger
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "is_manual=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_manual=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set Action and Environment
+        id: set-action
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "action=${{ github.event.inputs.action }}" >> $GITHUB_OUTPUT
+            echo "target_environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "action=plan" >> $GITHUB_OUTPUT
+            echo "target_environment=dev" >> $GITHUB_OUTPUT
+          else
+            echo "action=apply" >> $GITHUB_OUTPUT
+            echo "target_environment=dev" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set Environments Matrix
+        id: set-environments
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo 'environments=["${{ github.event.inputs.environment }}"]' >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo 'environments=["dev"]' >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo 'environments=["dev", "staging", "prod"]' >> $GITHUB_OUTPUT
+          else
+            echo 'environments=["dev"]' >> $GITHUB_OUTPUT
+          fi
+
+      - name: Validate Destroy Confirmation
+        if: github.event.inputs.action == 'destroy'
+        run: |
+          if [[ "${{ github.event.inputs.confirm_destroy }}" != "DESTROY" ]]; then
+            echo "Destroy action requires typing 'DESTROY' in the confirmation field"
+            exit 1
+          fi
+          echo "Destroy confirmation validated"
+
+      - name: Print Configuration
+        run: |
+          echo "Configuration Summary"
+          echo "========================"
+          echo "Branch: ${{ github.ref }}"
+          echo "Event: ${{ github.event_name }}"
+          echo "Is Main Branch: ${{ steps.check-branch.outputs.is_main }}"
+          echo "Is Manual Trigger: ${{ steps.check-trigger.outputs.is_manual }}"
+          echo "Action: ${{ steps.set-action.outputs.action }}"
+          echo "Target Environment: ${{ steps.set-action.outputs.target_environment }}"
+          echo "Environments: ${{ steps.set-environments.outputs.environments }}"
+
+  # ===========================================================================
+  # Validation
+  # ===========================================================================
+  validate:
+    name: 'Validate'
+    runs-on: ubuntu-latest
+    needs: preflight
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
-      - run: terraform fmt -check -recursive
-      - run: terraform init -backend=false
-      - run: terraform validate
+          terraform_wrapper: false
 
-  security:
-    name: Security Scan
+      - name: Cache Terraform Plugins
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.terraform.d/plugin-cache
+            .terraform
+          key: terraform-${{ runner.os }}-${{ hashFiles('**/*.tf') }}
+          restore-keys: |
+            terraform-${{ runner.os }}-
+
+      - name: Terraform Format Check
+        id: fmt
+        run: terraform fmt -check -recursive -diff
+        continue-on-error: true
+
+      - name: Terraform Init (Validation Only)
+        id: init
+        run: terraform init -backend=false
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate -no-color
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Post Validation Results to PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const output = `## Terraform Validation Results
+
+            | Check | Status |
+            |-------|--------|
+            | Format | ${{ steps.fmt.outcome == 'success' && 'Passed' || 'Failed' }} |
+            | Init | ${{ steps.init.outcome == 'success' && 'Passed' || 'Failed' }} |
+            | Validate | ${{ steps.validate.outcome == 'success' && 'Passed' || 'Failed' }} |
+
+            *Pushed by: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
+
+      - name: Check Validation Status
+        if: steps.fmt.outcome == 'failure' || steps.init.outcome == 'failure' || steps.validate.outcome == 'failure'
+        run: |
+          echo "Validation failed"
+          exit 1
+
+  # ===========================================================================
+  # TFLint
+  # ===========================================================================
+  tflint:
+    name: 'TFLint'
     runs-on: ubuntu-latest
+    needs: preflight
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: aquasecurity/tfsec-action@v1.0.3
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v4
         with:
+          tflint_version: ${{ env.TFLINT_VERSION }}
+
+      - name: Initialize TFLint
+        run: tflint --init
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run TFLint
+        id: tflint
+        run: |
+          tflint --format=compact --recursive 2>&1 | tee tflint-results.txt
+          echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        continue-on-error: true
+
+      - name: Upload TFLint Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: tflint-results
+          path: tflint-results.txt
+          retention-days: 7
+
+  # ===========================================================================
+  # Terraform Tests
+  # ===========================================================================
+  terraform-test:
+    name: 'Terraform Tests'
+    runs-on: ubuntu-latest
+    needs: validate
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        run: terraform init -backend=false
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Run Terraform Tests
+        id: test
+        run: |
+          terraform test -no-color 2>&1 | tee test-results.txt
+          echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        continue-on-error: true
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-test-results
+          path: test-results.txt
+          retention-days: 7
+
+      - name: Post Test Results to PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const testResults = fs.readFileSync('test-results.txt', 'utf8');
+            const truncatedResults = testResults.length > 3000 
+              ? testResults.substring(0, 3000) + '\n...(truncated)'
+              : testResults;
+
+            const output = `## Terraform Test Results
+
+            \`\`\`
+            ${truncatedResults}
+            \`\`\`
+
+            Status: ${{ steps.test.outputs.exit_code == '0' && 'All tests passed' || 'Some tests failed' }}
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
+
+  # ===========================================================================
+  # Security Scanning - tfsec
+  # ===========================================================================
+  security-tfsec:
+    name: 'Security Scan (tfsec)'
+    runs-on: ubuntu-latest
+    needs: preflight
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Run tfsec
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: ${{ env.WORKING_DIRECTORY }}
           soft_fail: true
-      - uses: bridgecrewio/checkov-action@v12
+          format: sarif
+          out: tfsec-results.sarif
+
+      - name: Upload tfsec SARIF Results
+        uses: github/codeql-action/upload-sarif@v3
         with:
-          directory: .
+          sarif_file: tfsec-results.sarif
+        continue-on-error: true
+
+      - name: Run tfsec (Text Output)
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: ${{ env.WORKING_DIRECTORY }}
+          soft_fail: true
+
+  # ===========================================================================
+  # Security Scanning - Checkov
+  # ===========================================================================
+  security-checkov:
+    name: 'Security Scan (Checkov)'
+    runs-on: ubuntu-latest
+    needs: preflight
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Run Checkov
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: ${{ env.WORKING_DIRECTORY }}
           framework: terraform
           soft_fail: true
+          output_format: cli,sarif
+          output_file_path: console,checkov-results.sarif
 
-  plan:
-    name: Plan
+      - name: Upload Checkov SARIF Results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: checkov-results.sarif
+        continue-on-error: true
+
+  # ===========================================================================
+  # Security Scanning - Trivy
+  # ===========================================================================
+  security-trivy:
+    name: 'Security Scan (Trivy)'
     runs-on: ubuntu-latest
-    needs: [validate, security]
-    if: github.event_name == 'pull_request'
+    needs: preflight
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: google-github-actions/auth@v2
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Run Trivy Config Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          scan-ref: ${{ env.WORKING_DIRECTORY }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+          exit-code: '0'
+
+      - name: Upload Trivy SARIF Results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+        continue-on-error: true
+
+  # ===========================================================================
+  # Cost Estimation
+  # ===========================================================================
+  cost-estimation:
+    name: 'Cost Estimation'
+    runs-on: ubuntu-latest
+    needs: validate
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'plan')
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Infracost
+        uses: infracost/actions/setup@v3
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+      - name: Generate Infracost Breakdown (Dev)
+        run: |
+          infracost breakdown \
+            --path=${{ env.WORKING_DIRECTORY }} \
+            --terraform-var-file=environments/dev.tfvars \
+            --format=json \
+            --out-file=/tmp/infracost-dev.json
+        continue-on-error: true
+
+      - name: Generate Infracost Breakdown (Staging)
+        run: |
+          infracost breakdown \
+            --path=${{ env.WORKING_DIRECTORY }} \
+            --terraform-var-file=environments/staging.tfvars \
+            --format=json \
+            --out-file=/tmp/infracost-staging.json
+        continue-on-error: true
+
+      - name: Generate Infracost Breakdown (Prod)
+        run: |
+          infracost breakdown \
+            --path=${{ env.WORKING_DIRECTORY }} \
+            --terraform-var-file=environments/prod.tfvars \
+            --format=json \
+            --out-file=/tmp/infracost-prod.json
+        continue-on-error: true
+
+      - name: Post Infracost Comment
+        if: github.event_name == 'pull_request'
+        run: |
+          infracost comment github \
+            --path="/tmp/infracost-*.json" \
+            --repo=${{ github.repository }} \
+            --github-token=${{ secrets.GITHUB_TOKEN }} \
+            --pull-request=${{ github.event.pull_request.number }} \
+            --behavior=update
+        continue-on-error: true
+
+  # ===========================================================================
+  # Plan - Development
+  # ===========================================================================
+  plan-dev:
+    name: 'Plan (Dev)'
+    runs-on: ubuntu-latest
+    needs: [validate, tflint, security-tfsec, security-checkov]
+    if: contains(fromJson(needs.preflight.outputs.environments || '["dev"]'), 'dev')
+    environment: dev-plan
+    outputs:
+      plan_exit_code: ${{ steps.plan.outputs.exit_code }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (OIDC)
+        uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-      - uses: hashicorp/setup-terraform@v3
+
+      - name: Setup Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
-      - run: terraform init
-      - run: terraform plan -no-color
+          terraform_wrapper: false
 
-  apply:
-    name: Apply
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ env.BACKEND_BUCKET }}" \
+            -backend-config="prefix=${{ env.PROJECT_NAME }}/dev"
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          set +e
+          terraform plan \
+            -var-file=environments/dev.tfvars \
+            -out=tfplan-dev.binary \
+            -detailed-exitcode \
+            -no-color 2>&1 | tee plan-output.txt
+          exit_code=$?
+          echo "exit_code=$exit_code" >> $GITHUB_OUTPUT
+
+          # Exit code 0 = no changes, 1 = error, 2 = changes present
+          if [ $exit_code -eq 1 ]; then
+            exit 1
+          fi
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Convert Plan to JSON
+        run: terraform show -json tfplan-dev.binary > tfplan-dev.json
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Upload Plan Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-dev
+          path: |
+            ${{ env.WORKING_DIRECTORY }}/tfplan-dev.binary
+            ${{ env.WORKING_DIRECTORY }}/tfplan-dev.json
+            ${{ env.WORKING_DIRECTORY }}/plan-output.txt
+          retention-days: 7
+
+      - name: Post Plan to PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const planOutput = fs.readFileSync('plan-output.txt', 'utf8');
+            const truncatedPlan = planOutput.length > 60000 
+              ? planOutput.substring(0, 60000) + '\n...(truncated due to size)'
+              : planOutput;
+
+            const exitCode = '${{ steps.plan.outputs.exit_code }}';
+            let planStatus = '';
+            if (exitCode === '0') {
+              planStatus = 'No changes required';
+            } else if (exitCode === '2') {
+              planStatus = 'Changes detected';
+            } else {
+              planStatus = 'Plan failed';
+            }
+
+            const output = `## Terraform Plan - Development
+
+            **Status:** ${planStatus}
+
+            <details>
+            <summary>Show Plan Output</summary>
+
+            \`\`\`terraform
+            ${truncatedPlan}
+            \`\`\`
+
+            </details>
+
+            *Environment: \`dev\` | Pushed by: @${{ github.actor }}*`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
+
+  # ===========================================================================
+  # Plan - Staging
+  # ===========================================================================
+  plan-staging:
+    name: 'Plan (Staging)'
     runs-on: ubuntu-latest
-    needs: [validate, security]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    environment: ${{ values.environment }}
+    needs: [validate, tflint, security-tfsec, security-checkov, plan-dev]
+    if: contains(fromJson(needs.preflight.outputs.environments || '[]'), 'staging')
+    environment: staging-plan
+    outputs:
+      plan_exit_code: ${{ steps.plan.outputs.exit_code }}
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: google-github-actions/auth@v2
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (OIDC)
+        uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-      - uses: hashicorp/setup-terraform@v3
+
+      - name: Setup Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
-      - run: terraform init
-      - run: terraform apply -auto-approve
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ env.BACKEND_BUCKET }}" \
+            -backend-config="prefix=${{ env.PROJECT_NAME }}/staging"
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          set +e
+          terraform plan \
+            -var-file=environments/staging.tfvars \
+            -out=tfplan-staging.binary \
+            -detailed-exitcode \
+            -no-color 2>&1 | tee plan-output.txt
+          exit_code=$?
+          echo "exit_code=$exit_code" >> $GITHUB_OUTPUT
+
+          if [ $exit_code -eq 1 ]; then
+            exit 1
+          fi
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Upload Plan Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-staging
+          path: |
+            ${{ env.WORKING_DIRECTORY }}/tfplan-staging.binary
+            ${{ env.WORKING_DIRECTORY }}/plan-output.txt
+          retention-days: 7
+
+  # ===========================================================================
+  # Plan - Production
+  # ===========================================================================
+  plan-prod:
+    name: 'Plan (Production)'
+    runs-on: ubuntu-latest
+    needs: [validate, tflint, security-tfsec, security-checkov, plan-staging]
+    if: contains(fromJson(needs.preflight.outputs.environments || '[]'), 'prod')
+    environment: prod-plan
+    outputs:
+      plan_exit_code: ${{ steps.plan.outputs.exit_code }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (OIDC)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ env.BACKEND_BUCKET }}" \
+            -backend-config="prefix=${{ env.PROJECT_NAME }}/prod"
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          set +e
+          terraform plan \
+            -var-file=environments/prod.tfvars \
+            -out=tfplan-prod.binary \
+            -detailed-exitcode \
+            -no-color 2>&1 | tee plan-output.txt
+          exit_code=$?
+          echo "exit_code=$exit_code" >> $GITHUB_OUTPUT
+
+          if [ $exit_code -eq 1 ]; then
+            exit 1
+          fi
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Upload Plan Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-prod
+          path: |
+            ${{ env.WORKING_DIRECTORY }}/tfplan-prod.binary
+            ${{ env.WORKING_DIRECTORY }}/plan-output.txt
+          retention-days: 7
+
+  # ===========================================================================
+  # Apply - Development
+  # ===========================================================================
+  apply-dev:
+    name: 'Apply (Dev)'
+    runs-on: ubuntu-latest
+    needs: [preflight, plan-dev]
+    if: |
+      (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply' && github.event.inputs.environment == 'dev')
+    environment: dev
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (OIDC)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Download Plan Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-plan-dev
+          path: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ env.BACKEND_BUCKET }}" \
+            -backend-config="prefix=${{ env.PROJECT_NAME }}/dev"
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan-dev.binary
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Terraform Outputs
+        run: terraform output -json > outputs-dev.json
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Upload Outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-outputs-dev
+          path: ${{ env.WORKING_DIRECTORY }}/outputs-dev.json
+          retention-days: 30
+
+  # ===========================================================================
+  # Apply - Staging
+  # ===========================================================================
+  apply-staging:
+    name: 'Apply (Staging)'
+    runs-on: ubuntu-latest
+    needs: [preflight, plan-staging, apply-dev]
+    if: |
+      (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply' && github.event.inputs.environment == 'staging')
+    environment: staging
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (OIDC)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Download Plan Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-plan-staging
+          path: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ env.BACKEND_BUCKET }}" \
+            -backend-config="prefix=${{ env.PROJECT_NAME }}/staging"
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan-staging.binary
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Terraform Outputs
+        run: terraform output -json > outputs-staging.json
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Upload Outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-outputs-staging
+          path: ${{ env.WORKING_DIRECTORY }}/outputs-staging.json
+          retention-days: 30
+
+  # ===========================================================================
+  # Apply - Production
+  # ===========================================================================
+  apply-prod:
+    name: 'Apply (Production)'
+    runs-on: ubuntu-latest
+    needs: [preflight, plan-prod, apply-staging]
+    if: |
+      (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply' && github.event.inputs.environment == 'prod')
+    environment: production
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (OIDC)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Download Plan Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-plan-prod
+          path: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ env.BACKEND_BUCKET }}" \
+            -backend-config="prefix=${{ env.PROJECT_NAME }}/prod"
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan-prod.binary
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Terraform Outputs
+        run: terraform output -json > outputs-prod.json
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Upload Outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-outputs-prod
+          path: ${{ env.WORKING_DIRECTORY }}/outputs-prod.json
+          retention-days: 90
+
+  # ===========================================================================
+  # Destroy
+  # ===========================================================================
+  destroy:
+    name: 'Destroy'
+    runs-on: ubuntu-latest
+    needs: preflight
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy'
+    environment: ${{ github.event.inputs.environment }}-destroy
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (OIDC)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ env.BACKEND_BUCKET }}" \
+            -backend-config="prefix=${{ env.PROJECT_NAME }}/${{ github.event.inputs.environment }}"
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Terraform Destroy Plan
+        run: |
+          terraform plan -destroy \
+            -var-file=environments/${{ github.event.inputs.environment }}.tfvars \
+            -out=tfplan-destroy.binary \
+            -no-color
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Terraform Destroy
+        run: terraform apply -auto-approve tfplan-destroy.binary
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Destruction Complete
+        run: |
+          echo "Infrastructure destroyed successfully!"
+          echo "Environment: ${{ github.event.inputs.environment }}"
+          echo "Destroyed by: ${{ github.actor }}"
+          echo "Timestamp: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+
+  # ===========================================================================
+  # Drift Detection
+  # ===========================================================================
+  drift-detection:
+    name: 'Drift Detection'
+    runs-on: ubuntu-latest
+    needs: preflight
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'drift-detection'
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (OIDC)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ env.BACKEND_BUCKET }}" \
+            -backend-config="prefix=${{ env.PROJECT_NAME }}/${{ github.event.inputs.environment }}"
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Detect Drift
+        id: drift
+        run: |
+          set +e
+          terraform plan \
+            -var-file=environments/${{ github.event.inputs.environment }}.tfvars \
+            -detailed-exitcode \
+            -no-color 2>&1 | tee drift-output.txt
+          exit_code=$?
+          echo "exit_code=$exit_code" >> $GITHUB_OUTPUT
+
+          if [ $exit_code -eq 0 ]; then
+            echo "No drift detected"
+            echo "drift_detected=false" >> $GITHUB_OUTPUT
+          elif [ $exit_code -eq 2 ]; then
+            echo "Drift detected!"
+            echo "drift_detected=true" >> $GITHUB_OUTPUT
+          else
+            echo "Error during drift detection"
+            exit 1
+          fi
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+
+      - name: Upload Drift Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: drift-report-${{ github.event.inputs.environment }}
+          path: ${{ env.WORKING_DIRECTORY }}/drift-output.txt
+          retention-days: 30
+
+      - name: Create Issue for Drift
+        if: steps.drift.outputs.drift_detected == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const driftOutput = fs.readFileSync('drift-output.txt', 'utf8');
+            const truncatedOutput = driftOutput.length > 60000 
+              ? driftOutput.substring(0, 60000) + '\n...(truncated)'
+              : driftOutput;
+
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Infrastructure Drift Detected - ${{ github.event.inputs.environment }}`,
+              body: `## Drift Detection Report
+
+            **Environment:** \`${{ github.event.inputs.environment }}\`
+            **Detected at:** ${new Date().toISOString()}
+            **Detected by:** @${{ github.actor }}
+
+            ### Drift Details
+
+            <details>
+            <summary>Show Terraform Plan Output</summary>
+
+            \`\`\`terraform
+            ${truncatedOutput}
+            \`\`\`
+
+            </details>
+
+            ### Recommended Actions
+
+            1. Review the drift details above
+            2. Determine if the changes are intentional
+            3. Either:
+               - Run \`terraform apply\` to reconcile state with configuration
+               - Update the Terraform configuration to match the actual state
+               - Investigate unauthorized changes
+
+            ---
+            *This issue was automatically created by the drift detection workflow.*`,
+              labels: ['infrastructure', 'drift', '${{ github.event.inputs.environment }}']
+            });
+
+  # ===========================================================================
+  # Summary
+  # ===========================================================================
+  summary:
+    name: 'Pipeline Summary'
+    runs-on: ubuntu-latest
+    needs:
+      [
+        preflight,
+        validate,
+        tflint,
+        terraform-test,
+        security-tfsec,
+        security-checkov,
+      ]
+    if: always()
+
+    steps:
+      - name: Generate Summary
+        run: |
+          echo "## Terraform Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Stage | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Preflight | ${{ needs.preflight.result == 'success' && 'Pass' || 'Fail' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Validate | ${{ needs.validate.result == 'success' && 'Pass' || needs.validate.result == 'skipped' && 'Skipped' || 'Fail' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| TFLint | ${{ needs.tflint.result == 'success' && 'Pass' || needs.tflint.result == 'skipped' && 'Skipped' || 'Fail' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Terraform Tests | ${{ needs.terraform-test.result == 'success' && 'Pass' || needs.terraform-test.result == 'skipped' && 'Skipped' || 'Fail' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security (tfsec) | ${{ needs.security-tfsec.result == 'success' && 'Pass' || needs.security-tfsec.result == 'skipped' && 'Skipped' || 'Fail' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security (Checkov) | ${{ needs.security-checkov.result == 'success' && 'Pass' || needs.security-checkov.result == 'skipped' && 'Skipped' || 'Fail' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Event:** \`${{ github.event_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Ref:** \`${{ github.ref }}\`" >> $GITHUB_STEP_SUMMARY

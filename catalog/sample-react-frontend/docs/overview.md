@@ -4,88 +4,175 @@
 
 ### Component Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    React Component Hierarchy                             │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  <App>                                                                   │
-│    │                                                                     │
-│    ├── <ThemeProvider>                                                   │
-│    │     │                                                               │
-│    │     ├── <QueryClientProvider>                                       │
-│    │     │     │                                                         │
-│    │     │     ├── <AuthProvider>                                        │
-│    │     │     │     │                                                   │
-│    │     │     │     ├── <BrowserRouter>                                 │
-│    │     │     │     │     │                                             │
-│    │     │     │     │     ├── <Routes>                                  │
-│    │     │     │     │     │     │                                       │
-│    │     │     │     │     │     ├── <MainLayout>                        │
-│    │     │     │     │     │     │     ├── <Header />                    │
-│    │     │     │     │     │     │     ├── <Sidebar />                   │
-│    │     │     │     │     │     │     ├── <Outlet /> ← Page content     │
-│    │     │     │     │     │     │     └── <Footer />                    │
-│    │     │     │     │     │     │                                       │
-│    │     │     │     │     │     ├── <AuthLayout>                        │
-│    │     │     │     │     │     │     └── <Outlet /> ← Auth pages       │
-│    │     │     │     │     │     │                                       │
-│    │     │     │     │     │     └── <NotFound />                        │
-└─────────────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+title: React Component Hierarchy {
+  shape: text
+  near: top-center
+  style.font-size: 20
+  style.bold: true
+}
+
+App: "<App>" {
+  style.fill: "#E3F2FD"
+  style.stroke: "#1976D2"
+
+  ThemeProvider: "<ThemeProvider>" {
+    style.fill: "#E8F5E9"
+    style.stroke: "#388E3C"
+
+    QueryClientProvider: "<QueryClientProvider>" {
+      style.fill: "#E8F5E9"
+      style.stroke: "#388E3C"
+
+      AuthProvider: "<AuthProvider>" {
+        style.fill: "#E8F5E9"
+        style.stroke: "#388E3C"
+
+        BrowserRouter: "<BrowserRouter>" {
+          style.fill: "#E8F5E9"
+          style.stroke: "#388E3C"
+
+          Routes: "<Routes>" {
+            style.fill: "#FFF3E0"
+            style.stroke: "#FF9800"
+
+            MainLayout: "<MainLayout>" {
+              style.fill: "#E3F2FD"
+              style.stroke: "#1976D2"
+
+              Header: "<Header />"
+              Sidebar: "<Sidebar />"
+              Outlet: "<Outlet /> Page content"
+              Footer: "<Footer />"
+            }
+
+            AuthLayout: "<AuthLayout>" {
+              style.fill: "#E3F2FD"
+              style.stroke: "#1976D2"
+
+              AuthOutlet: "<Outlet /> Auth pages"
+            }
+
+            NotFound: "<NotFound />" {
+              style.fill: "#FFCDD2"
+              style.stroke: "#D32F2F"
+            }
+          }
+        }
+      }
+    }
+  }
+}
 ```
 
 ### State Management Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                      State Management Architecture                       │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  ┌─────────────────────────────────────────────────────────────────────┐ │
-│  │                     React Query (Server State)                       │ │
-│  │                                                                      │ │
-│  │  User Action (click, form submit)                                    │ │
-│  │       │                                                              │ │
-│  │       ▼                                                              │ │
-│  │  ┌─────────────────┐     ┌─────────────────┐                        │ │
-│  │  │  useQuery()     │     │  useMutation()  │                        │ │
-│  │  │  (Read data)    │     │  (Write data)   │                        │ │
-│  │  └────────┬────────┘     └────────┬────────┘                        │ │
-│  │           │                       │                                  │ │
-│  │           ▼                       ▼                                  │ │
-│  │  ┌─────────────────────────────────────────────┐                    │ │
-│  │  │              Query Cache                     │                    │ │
-│  │  │  • Automatic caching                         │                    │ │
-│  │  │  • Background refetch                        │                    │ │
-│  │  │  • Stale-while-revalidate                    │                    │ │
-│  │  │  • Optimistic updates                        │                    │ │
-│  │  └─────────────────────────────────────────────┘                    │ │
-│  │           │                                                          │ │
-│  │           ▼                                                          │ │
-│  │      API Service (Axios)                                             │ │
-│  │           │                                                          │ │
-│  │           ▼                                                          │ │
-│  │      Backend API                                                     │ │
-│  └─────────────────────────────────────────────────────────────────────┘ │
-│                                                                          │
-│  ┌─────────────────────────────────────────────────────────────────────┐ │
-│  │                      Zustand (Client State)                          │ │
-│  │                                                                      │ │
-│  │  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐            │ │
-│  │  │   authStore   │  │    uiStore    │  │   cartStore   │            │ │
-│  │  │               │  │               │  │               │            │ │
-│  │  │ • user        │  │ • theme       │  │ • items       │            │ │
-│  │  │ • isAuth      │  │ • sidebarOpen │  │ • total       │            │ │
-│  │  │ • login()     │  │ • toggleTheme │  │ • addItem()   │            │ │
-│  │  │ • logout()    │  │ • toggleSidebar│ │ • removeItem()│            │ │
-│  │  └───────────────┘  └───────────────┘  └───────────────┘            │ │
-│  │         │                   │                   │                    │ │
-│  │         └───────────────────┴───────────────────┘                    │ │
-│  │                             │                                        │ │
-│  │                             ▼                                        │ │
-│  │                    localStorage (persist)                            │ │
-│  └─────────────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+title: State Management Architecture {
+  shape: text
+  near: top-center
+  style.font-size: 20
+  style.bold: true
+}
+
+tanstack_query: TanStack Query v5 (Server State) {
+  style.fill: "#E3F2FD"
+  style.stroke: "#1976D2"
+
+  user_action: User Action {
+    shape: oval
+    style.fill: "#FFF3E0"
+    style.stroke: "#FF9800"
+  }
+
+  hooks: Query Hooks {
+    direction: right
+
+    useQuery: "useQuery()\n(Read data)" {
+      style.fill: "#E8F5E9"
+      style.stroke: "#388E3C"
+    }
+
+    useMutation: "useMutation()\n(Write data)" {
+      style.fill: "#E8F5E9"
+      style.stroke: "#388E3C"
+    }
+
+    useSuspenseQuery: "useSuspenseQuery()\n(Streaming)" {
+      style.fill: "#E8F5E9"
+      style.stroke: "#388E3C"
+    }
+  }
+
+  cache: Query Cache {
+    shape: cylinder
+    style.fill: "#FCE4EC"
+    style.stroke: "#C2185B"
+  }
+
+  api: API Service {
+    shape: hexagon
+    style.fill: "#E8F5E9"
+    style.stroke: "#388E3C"
+  }
+
+  backend: Backend API {
+    shape: cloud
+    style.fill: "#FFF3E0"
+    style.stroke: "#FF9800"
+  }
+
+  user_action -> hooks.useQuery
+  user_action -> hooks.useMutation
+  user_action -> hooks.useSuspenseQuery
+  hooks.useQuery -> cache
+  hooks.useMutation -> cache
+  hooks.useSuspenseQuery -> cache
+  cache -> api
+  api -> backend
+}
+
+zustand: Zustand 5 (Client State) {
+  style.fill: "#E8F5E9"
+  style.stroke: "#388E3C"
+
+  stores: Stores {
+    direction: right
+
+    authStore: authStore {
+      style.fill: "#E3F2FD"
+      style.stroke: "#1976D2"
+    }
+
+    uiStore: uiStore {
+      style.fill: "#E3F2FD"
+      style.stroke: "#1976D2"
+    }
+
+    cartStore: cartStore {
+      style.fill: "#E3F2FD"
+      style.stroke: "#1976D2"
+    }
+  }
+
+  localStorage: localStorage (persist) {
+    shape: cylinder
+    style.fill: "#FCE4EC"
+    style.stroke: "#C2185B"
+  }
+
+  stores.authStore -> localStorage
+  stores.uiStore -> localStorage
+  stores.cartStore -> localStorage
+}
+
+tanstack_query -> zustand: "Component uses both" {
+  style.stroke-dash: 5
+}
 ```
 
 ## Theme Configuration
@@ -289,7 +376,7 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
-  
+
   // Actions
   login: (email: string, password: string) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
@@ -329,7 +416,7 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      register: async (data) => {
+      register: async data => {
         set({ isLoading: true, error: null });
         try {
           const response = await authService.register(data);
@@ -342,7 +429,8 @@ export const useAuthStore = create<AuthState>()(
           });
         } catch (error) {
           set({
-            error: error instanceof Error ? error.message : 'Registration failed',
+            error:
+              error instanceof Error ? error.message : 'Registration failed',
             isLoading: false,
           });
           throw error;
@@ -374,19 +462,19 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      setUser: (user) => set({ user }),
+      setUser: user => set({ user }),
       clearError: () => set({ error: null }),
     }),
     {
       name: 'auth-storage',
-      partialize: (state) => ({
+      partialize: state => ({
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,
         user: state.user,
         isAuthenticated: state.isAuthenticated,
       }),
-    }
-  )
+    },
+  ),
 );
 ```
 
@@ -439,10 +527,10 @@ export function useUpdateProduct() {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<Product> }) =>
       productsService.update(id, data),
-    onSuccess: (updatedProduct) => {
+    onSuccess: updatedProduct => {
       queryClient.setQueryData(
         productKeys.detail(updatedProduct.id),
-        updatedProduct
+        updatedProduct,
       );
       queryClient.invalidateQueries({ queryKey: productKeys.lists() });
     },
@@ -470,7 +558,8 @@ export function useDeleteProduct() {
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '../stores/authStore';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -489,12 +578,12 @@ api.interceptors.request.use(
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  error => Promise.reject(error),
 );
 
 // Response interceptor - handle token refresh
 api.interceptors.response.use(
-  (response) => response,
+  response => response,
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & {
       _retry?: boolean;
@@ -507,7 +596,7 @@ api.interceptors.response.use(
       try {
         await useAuthStore.getState().refreshAuth();
         const newToken = useAuthStore.getState().accessToken;
-        
+
         if (newToken) {
           originalRequest.headers.Authorization = `Bearer ${newToken}`;
           return api(originalRequest);
@@ -519,7 +608,7 @@ api.interceptors.response.use(
     }
 
     return Promise.reject(error);
-  }
+  },
 );
 
 export default api;
@@ -530,7 +619,11 @@ export default api;
 ```typescript
 // src/services/products.service.ts
 import api from './api';
-import { Product, CreateProductInput, UpdateProductInput } from '../types/product.types';
+import {
+  Product,
+  CreateProductInput,
+  UpdateProductInput,
+} from '../types/product.types';
 import { PaginatedResponse } from '../types/api.types';
 
 export interface ProductsParams {
@@ -547,7 +640,9 @@ export interface ProductsParams {
 class ProductsService {
   private baseUrl = '/products';
 
-  async getAll(params: ProductsParams = {}): Promise<PaginatedResponse<Product>> {
+  async getAll(
+    params: ProductsParams = {},
+  ): Promise<PaginatedResponse<Product>> {
     const { data } = await api.get<PaginatedResponse<Product>>(this.baseUrl, {
       params,
     });

@@ -1,0 +1,60 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Documentation
+*.md
+!README.md
+docs/
+LICENSE
+
+# Test files
+tests/
+__tests__/
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+coverage/
+test-results/
+playwright-report/
+
+# Storybook
+.storybook/
+stories/
+*.stories.tsx
+
+# Development files
+.env.local
+.env.*.local
+docker-compose*.yaml
+!docker-compose.yaml
+Makefile
+
+# Build artifacts (we copy dist separately)
+src/
+public/
+*.config.ts
+*.config.js
+tsconfig*.json
+biome.json
+package.json
+pnpm-lock.yaml
+
+# Misc
+*.log
+.DS_Store
+Thumbs.db
+tmp/
+temp/

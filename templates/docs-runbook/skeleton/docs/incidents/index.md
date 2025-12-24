@@ -4,27 +4,43 @@ This section contains runbooks for responding to common incidents.
 
 ## Incident Quick Reference
 
-| Incident | Severity | Runbook |
-|----------|----------|---------|
-| High CPU Usage | SEV2/3 | [high-cpu.md](high-cpu.md) |
-| High Memory Usage | SEV2/3 | [high-memory.md](high-memory.md) |
-| Service Down | SEV1/2 | [service-down.md](service-down.md) |
-| Database Issues | SEV1/2 | [database-issues.md](database-issues.md) |
+| Incident          | Severity | Runbook                                  |
+| ----------------- | -------- | ---------------------------------------- |
+| High CPU Usage    | SEV2/3   | [high-cpu.md](high-cpu.md)               |
+| High Memory Usage | SEV2/3   | [high-memory.md](high-memory.md)         |
+| Service Down      | SEV1/2   | [service-down.md](service-down.md)       |
+| Database Issues   | SEV1/2   | [database-issues.md](database-issues.md) |
 
 ## Incident Response Process
 
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   Alert     │────▶│  Triage     │────▶│ Investigate │
-└─────────────┘     └─────────────┘     └─────────────┘
-                                               │
-                    ┌─────────────┐     ┌──────▼──────┐
-                    │   Resolve   │◀────│   Mitigate  │
-                    └─────────────┘     └─────────────┘
-                           │
-                    ┌──────▼──────┐
-                    │  Document   │
-                    └─────────────┘
+```d2
+direction: right
+
+alert: Alert {
+  style.fill: "#ffcdd2"
+}
+
+triage: Triage {
+  style.fill: "#fff9c4"
+}
+
+investigate: Investigate {
+  style.fill: "#c8e6c9"
+}
+
+mitigate: Mitigate {
+  style.fill: "#b3e5fc"
+}
+
+resolve: Resolve {
+  style.fill: "#d1c4e9"
+}
+
+document: Document {
+  style.fill: "#f5f5f5"
+}
+
+alert -> triage -> investigate -> mitigate -> resolve -> document
 ```
 
 ## Before You Start

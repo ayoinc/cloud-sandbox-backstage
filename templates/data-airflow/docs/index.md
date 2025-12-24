@@ -29,30 +29,35 @@ DAGs (Directed Acyclic Graphs) are workflows defined as Python code that specify
 ## Features
 
 ### 🏗️ Pre-configured DAG Structure
+
 - Organized directory layout following best practices
 - Modular DAG definitions with reusable components
 - Default ETL template with extract-transform-load pattern
 - Proper separation of concerns and code organization
 
 ### 🧪 Comprehensive Testing Framework
+
 - Unit tests for DAG validation using pytest
 - DAG import and structure testing
 - Task dependency verification
 - Custom operator and hook testing support
 
 ### 🚀 CI/CD Pipeline
+
 - GitHub Actions workflows for automation
 - Multi-stage pipeline: lint, test, validate, deploy
 - Code quality checks (black, isort, flake8, mypy)
 - Automated DAG validation before deployment
 
 ### 📚 Type Hints and Code Quality
+
 - MyPy configuration for static type checking
 - Black code formatting with consistent style
 - Flake8 linting for code quality
 - Import sorting with isort
 
 ### 🔄 Best Practices Built-in
+
 - Idempotent task design patterns
 - Proper retry and timeout configurations
 - XCom usage for inter-task communication
@@ -66,12 +71,14 @@ Before using this template, ensure you have the following installed and configur
 ### Required Software
 
 1. **Python 3.9+**
+
    ```bash
    python --version
    # Should show 3.9 or higher
    ```
 
 2. **pip (Python package manager)**
+
    ```bash
    pip --version
    ```
@@ -99,11 +106,13 @@ pip install -r requirements.txt
 ### Airflow Installation
 
 The template includes the following Airflow version:
+
 ```
 apache-airflow>=2.7.0
 ```
 
 For production use, consider:
+
 - **Managed Airflow**: AWS MWAA, Google Cloud Composer, Azure Data Factory
 - **Self-hosted**: Docker deployment with official Airflow images
 - **Local development**: Docker Compose setup (see Local Development section)
@@ -123,6 +132,7 @@ docker-compose --version
 ### Database Dependencies
 
 Depending on your use case, you may need:
+
 - **PostgreSQL**: `psycopg2-binary>=2.9.0`
 - **MySQL**: `mysqlclient>=2.0.0`
 - **MSSQL**: `pyodbc>=4.0.0`
@@ -134,37 +144,40 @@ When creating a project from this template, the following parameters can be cust
 
 ### Project Information
 
-| Parameter | Description | Validation | Example |
-|-----------|-------------|------------|---------|
-| `name` | Project name (used for DAG ID) | `^[a-z][a-z0-9-]*[a-z0-9]$` | `customer-etl-daily` |
-| `description` | Description of the DAG's purpose | Any string | "Daily ETL for customer data" |
-| `owner` | Team ownership (must be a Backstage group) | Must exist in catalog | `group:data-engineering` |
+| Parameter     | Description                                | Validation                  | Example                       |
+| ------------- | ------------------------------------------ | --------------------------- | ----------------------------- |
+| `name`        | Project name (used for DAG ID)             | `^[a-z][a-z0-9-]*[a-z0-9]$` | `customer-etl-daily`          |
+| `description` | Description of the DAG's purpose           | Any string                  | "Daily ETL for customer data" |
+| `owner`       | Team ownership (must be a Backstage group) | Must exist in catalog       | `group:data-engineering`      |
 
 ### DAG Configuration
 
-| Parameter | Description | Options | Default | Impact |
-|-----------|-------------|---------|---------|--------|
-| `environment` | Deployment environment | `development`, `staging`, `production` | `development` | Sets deployment conditions, connections |
-| `schedule` | DAG execution schedule | Cron presets or expressions (see below) | `@daily` | Determines when DAG runs |
-| `startDate` | First scheduled run date | `YYYY-MM-DD` format | `2024-01-01` | Backfill start point |
-| `catchup` | Backfill missed runs | `true` or `false` | `false` | Controls historical run behavior |
-| `maxActiveRuns` | Concurrent DAG runs | `1-10` | `1` | Prevents resource exhaustion |
+| Parameter       | Description              | Options                                 | Default       | Impact                                  |
+| --------------- | ------------------------ | --------------------------------------- | ------------- | --------------------------------------- |
+| `environment`   | Deployment environment   | `development`, `staging`, `production`  | `development` | Sets deployment conditions, connections |
+| `schedule`      | DAG execution schedule   | Cron presets or expressions (see below) | `@daily`      | Determines when DAG runs                |
+| `startDate`     | First scheduled run date | `YYYY-MM-DD` format                     | `2024-01-01`  | Backfill start point                    |
+| `catchup`       | Backfill missed runs     | `true` or `false`                       | `false`       | Controls historical run behavior        |
+| `maxActiveRuns` | Concurrent DAG runs      | `1-10`                                  | `1`           | Prevents resource exhaustion            |
 
 #### Schedule Intervals
 
 **Cron Presets:**
+
 - `@hourly` - Every hour at minute 0: `0 * * * *`
 - `@daily` - Every day at midnight: `0 0 * * *`
 - `@weekly` - Every Sunday at midnight: `0 0 * * 0`
-- `@monthly` - First day of month at midnight: `0 0 1 * *
+- `@monthly` - First day of month at midnight: `0 0 1 \* \*
 
 **Custom Cron Expressions:**
+
 - `0 */6 * * *` - Every 6 hours
 - `30 2 * * 1-5` - Weekdays at 2:30 AM
 - `0 */3 * * *` - Every 3 hours
 - `0 8,14,20 * * *` - At 8 AM, 2 PM, and 8 PM
 
 **Interval Examples:**
+
 ```python
 # Every 15 minutes
 schedule_interval = "*/15 * * * *"
@@ -181,19 +194,21 @@ schedule_interval = "0 23 28-31 * *"
 
 ### Repository Configuration
 
-| Parameter | Description | Required | Example |
-|-----------|-------------|----------|---------|
-| `repoUrl` | GitHub repository URL | Yes | `https://github.com/org/repo` |
+| Parameter | Description           | Required | Example                       |
+| --------- | --------------------- | -------- | ----------------------------- |
+| `repoUrl` | GitHub repository URL | Yes      | `https://github.com/org/repo` |
 
 ### Template Values in Code
 
 All configuration values are substituted into the generated files:
+
 - `dags/{{values.name}}_dag.py` - The main DAG definition
 - `tests/test_dag.py` - DAG validation tests
 - `.github/workflows/airflow.yaml` - CI/CD pipeline
 - `catalog-info.yaml` - Backstage catalog entry
 
 Example usage in DAG template:
+
 ```python
 with DAG(
     dag_id='{{ values.name }}',
@@ -243,6 +258,7 @@ test-dag/
 #### `dags/` - DAG Definitions
 
 This is the main directory for all your DAG files. Each DAG file should contain:
+
 - **DAG definition**: The workflow structure and schedule
 - **Task definitions**: Operators and their configurations
 - **Task dependencies**: How tasks relate to each other
@@ -261,12 +277,12 @@ with DAG(
     schedule_interval='@daily',
     # ... other configurations
 ) as dag:
-    
+
     task1 = PythonOperator(
         task_id='task1',
         python_callable=task_function
     )
-    
+
     # Task dependencies
     task1 >> task2
 ```
@@ -297,6 +313,7 @@ def send_slack_notification(message: str, channel: str):
 #### `plugins/` - Custom Operators and Hooks
 
 Airflow plugins directory for custom:
+
 - **Operators**: Custom task types
 - **Hooks**: Connections to external systems
 - **Sensors**: Custom polling mechanisms
@@ -307,12 +324,12 @@ from airflow.models.baseoperator import BaseOperator
 
 class DataQualityCheckOperator(BaseOperator):
     """Custom operator for data quality checks."""
-    
+
     def __init__(self, query, expected_result, **kwargs):
         self.query = query
         self.expected_result = expected_result
         super().__init__(**kwargs)
-    
+
     def execute(self, context):
         # Implementation here
         pass
@@ -329,17 +346,18 @@ from airflow.models import DagBag
 
 class TestCustomerEtlDag:
     """Test suite for customer ETL DAG."""
-    
+
     def setup_method(self):
         self.dag_bag = DagBag(dag_folder='dags')
         self.dag = self.dag_bag.get_dag('customer-etl')
-    
+
     def test_dag_loaded(self):
         assert self.dag is not None
         assert self.dag_bag.import_errors == {}
 ```
 
 **Test Types:**
+
 - **DAG validation tests**: Ensure DAGs can be imported without errors
 - **Structure tests**: Verify task dependencies and configurations
 - **Unit tests**: Test individual task functions
@@ -410,28 +428,28 @@ default_args = {
 def extract_customer_data(**context):
     """
     Extract customer data from source database.
-    
+
     Args:
         context: Airflow context passed from PythonOperator
-    
+
     Returns:
         dict: Extraction metadata including row count
     """
     logger.info("Starting customer data extraction")
-    
+
     # TODO: Implement actual database extraction
     # Example with PostgreSQL:
     # import psycopg2
     # conn = psycopg2.connect(os.getenv('CUSTOMER_DB_CONN'))
     # cursor = conn.cursor()
     # cursor.execute("SELECT * FROM customers WHERE created_at >= %s", (execution_date,))
-    
+
     # Simulated extraction for template
     execution_date = context['execution_date']
     extracted_records = 1000  # Simulate record count
-    
+
     logger.info(f"Extracted {extracted_records} customer records for {execution_date}")
-    
+
     # Return metadata for downstream tasks
     return {
         'validation_context': {
@@ -444,19 +462,19 @@ def extract_customer_data(**context):
 def transform_customer_data(**context):
     """
     Transform extracted customer data.
-    
+
     Args:
         context: Airflow context
-    
+
     Returns:
         dict: Transformation metadata
     """
     logger.info("Starting customer data transformation")
-    
+
     # Pull data from upstream task
     ti = context['ti']
     extract_result = ti.xcom_pull(task_ids='extract', key='return_value')
-    
+
     # TODO: Implement actual transformation logic
     # Common operations:
     # - Data type conversion
@@ -464,12 +482,12 @@ def transform_customer_data(**context):
     # - Data validation
     # - Aggregation
     # - Join with reference data
-    
+
     extracted_count = extract_result.get('extracted_count', 0)
     transformed_count = extracted_count  # Simulate transformation
-    
+
     logger.info(f"Transformed {transformed_count} customer records")
-    
+
     return {
         'validation_context': {
             'transformed_count': transformed_count,
@@ -480,28 +498,28 @@ def transform_customer_data(**context):
 def load_customer_data(**context):
     """
     Load transformed customer data to data warehouse.
-    
+
     Args:
         context: Airflow context
-    
+
     Returns:
         dict: Load metadata
     """
     logger.info("Starting customer data load")
-    
+
     ti = context['ti']
     transform_result = ti.xcom_pull(task_ids='transform', key='return_value')
-    
+
     # TODO: Implement actual load logic
     # Example with PostgreSQL:
     # import psycopg2
     # conn = psycopg2.connect(os.getenv('WAREHOUSE_DB_CONN'))
-    
+
     transformed_count = transform_result.get('transformed_count', 0)
     loaded_count = transformed_count
-    
+
     logger.info(f"Loaded {loaded_count} customer records to warehouse")
-    
+
     return {
         'records_loaded': loaded_count,
         'status': 'completed'
@@ -510,17 +528,17 @@ def load_customer_data(**context):
 def validate_customer_data(**context):
     """
     Validate loaded customer data for quality and completeness.
-    
+
     Args:
         context: Airflow context
     """
     logger.info("Starting customer data validation")
-    
+
     ti = context['ti']
     load_result = ti.xcom_pull(task_ids='load', key='return_value')
-    
+
     records_loaded = load_result.get('records_loaded', 0)
-    
+
     # TODO: Implement actual validation
     # Common checks:
     # - Row count validation
@@ -528,10 +546,10 @@ def validate_customer_data(**context):
     # - Data type validation
     # - Referential integrity
     # - Business rule validation
-    
+
     if records_loaded == 0:
         raise ValueError("No records loaded, validation failed")
-    
+
     logger.info(f"Validation completed: {records_loaded} records validated")
 
 # Define the DAG
@@ -548,31 +566,31 @@ with DAG(
 
     # Define tasks
     start = EmptyOperator(task_id='start')
-    
+
     extract_task = PythonOperator(
         task_id='extract',
         python_callable=extract_customer_data,
         provide_context=True,
     )
-    
+
     transform_task = PythonOperator(
         task_id='transform',
         python_callable=transform_customer_data,
         provide_context=True,
     )
-    
+
     load_task = PythonOperator(
         task_id='load',
         python_callable=load_customer_data,
         provide_context=True,
     )
-    
+
     validate_task = PythonOperator(
         task_id='validate',
         python_callable=validate_customer_data,
         provide_context=True,
     )
-    
+
     end = EmptyOperator(task_id='end')
 
     # Define workflow dependencies
@@ -593,10 +611,10 @@ def my_task(**context):
     execution_date = context['execution_date']
     ti = context['ti']
     dag_run = context['dag_run']
-    
+
     # Your logic here
     result = some_python_function()
-    
+
     # Push to XCom for downstream tasks
     ti.xcom_push(key='result', value=result)
 
@@ -703,7 +721,7 @@ from airflow.utils.trigger_rule import TriggerRule
 
 def choose_branch(**context):
     day_of_week = context['execution_date'].strftime('%A')
-    
+
     if day_of_week in ['Saturday', 'Sunday']:
         return 'weekend_task'
     else:
@@ -739,7 +757,7 @@ Share data between tasks using XCom:
 ```python
 def extract_data(**context):
     data = fetch_data_from_api()
-    
+
     # Push to XCom
     context['ti'].xcom_push(
         key='extracted_data',
@@ -747,7 +765,7 @@ def extract_data(**context):
         # Optional: specify DAG run for sharing between DAGs
         execution_date=context['execution_date']
     )
-    
+
     return data  # Automatically pushed to XCom with key 'return_value'
 ```
 
@@ -756,7 +774,7 @@ def extract_data(**context):
 ```python
 def process_data(**context):
     ti = context['ti']
-    
+
     # Pull from upstream task
     extracted_data = ti.xcom_pull(
         key='extracted_data',
@@ -764,7 +782,7 @@ def process_data(**context):
         # Optional: Pull from specific DAG run
         execution_date=context['execution_date']
     )
-    
+
     # Process data
     processed_data = transform_data(extracted_data)
     return processed_data
@@ -826,16 +844,17 @@ with DAG(
     },
     # ... other configurations
 ) as dag:
-    
+
     def process_data(**context):
         table_name = context['params']['table_name']
         date_range = context['params']['date_range']
         validate = context['params']['validate']
-        
+
         logger.info(f"Processing table: {table_name}, range: {date_range} days")
 ```
 
 Trigger with parameters via CLI:
+
 ```bash
 airflow dags trigger parameterized_dag --conf '{"table_name": "orders", "date_range": 7}'
 ```
@@ -952,24 +971,24 @@ def test_dag_has_all_tasks(dag_bag):
     dag = dag_bag.get_dag('customer-etl-daily')
     task_ids = [task.task_id for task in dag.tasks]
     required_tasks = ['start', 'extract', 'transform', 'load', 'validate', 'end']
-    
+
     for task_id in required_tasks:
         assert task_id in task_ids, f"Missing required task: {task_id}"
 
 def test_task_dependencies(dag_bag):
     """Test that tasks have correct dependencies."""
     dag = dag_bag.get_dag('customer-etl-daily')
-    
+
     # Test extract task upstream
     extract_task = dag.get_task('extract')
     upstream_tasks = [t.task_id for t in extract_task.upstream_list]
     assert 'start' in upstream_tasks
-    
+
     # Test transform task upstream
     transform_task = dag.get_task('transform')
     upstream_tasks = [t.task_id for t in transform_task.upstream_list]
     assert 'extract' in upstream_tasks
-    
+
     # Test load task upstream
     load_task = dag.get_task('load')
     upstream_tasks = [t.task_id for t in load_task.upstream_list]
@@ -1008,9 +1027,9 @@ def test_extract_customer_data():
         'execution_date': datetime(2024, 1, 15),
         'ti': Mock()
     }
-    
+
     result = extract_customer_data(**context)
-    
+
     assert result is not None
     assert 'validation_context' in result
     assert result['validation_context']['status'] == 'completed'
@@ -1021,7 +1040,7 @@ def test_extract_customer_data_with_database():
         'execution_date': datetime(2024, 1, 15),
         'ti': Mock()
     }
-    
+
     with patch('psycopg2.connect') as mock_connect:
         mock_cursor = MagicMock()
         mock_cursor.fetchall.return_value = [
@@ -1029,14 +1048,14 @@ def test_extract_customer_data_with_database():
             (2, 'user2', 'user2@email.com')
         ]
         mock_cursor.rowcount = 2
-        
+
         mock_conn = MagicMock()
         mock_conn.cursor.return_value = mock_cursor
         mock_connect.return_value = mock_conn
-        
+
         from dags.customer_etl_dag import extract_customer_data
         result = extract_customer_data(**context)
-        
+
         assert result['validation_context']['extracted_count'] == 2
 
 def test_transform_customer_data():
@@ -1044,16 +1063,16 @@ def test_transform_customer_data():
     context = {
         'ti': Mock()
     }
-    
+
     # Mock XCom pull from extract task
     context['ti'].xcom_pull.return_value = {
         'validation_context': {
             'extracted_count': 100
         }
     }
-    
+
     result = transform_customer_data(**context)
-    
+
     assert 'validation_context' in result
     assert result['validation_context']['transformed_count'] == 100
 ```
@@ -1075,16 +1094,16 @@ def test_data_quality_check_operator():
         expected_result=1000,
         conn_id='postgres_default'
     )
-    
+
     # Mock the database connection and execution
     with patch('plugins.custom_operators.postgres_hook') as mock_hook:
         mock_conn = Mock()
         mock_conn.execute.return_value = [(1000,)]
         mock_hook.get_conn.return_value = mock_conn
-        
+
         # Mock the context
         context = {'execution_date': datetime(2024, 1, 15)}
-        
+
         # Should not raise exception if result matches expected
         task.execute(context)
 
@@ -1096,14 +1115,14 @@ def test_data_quality_check_fails():
         expected_result=1000,
         conn_id='postgres_default'
     )
-    
+
     with patch('plugins.custom_operators.postgres_hook') as mock_hook:
         mock_conn = Mock()
         mock_conn.execute.return_value = [(500,)]  # Different result
         mock_hook.get_conn.return_value = mock_conn
-        
+
         context = {'execution_date': datetime(2024, 1, 15)}
-        
+
         with pytest.raises(ValueError, match="Data quality check failed"):
             task.execute(context)
 ```
@@ -1145,15 +1164,15 @@ def sample_customer_data():
 def mock_db_connection():
     """Provide mocked database connection."""
     from unittest.mock import MagicMock
-    
+
     mock_cursor = MagicMock()
     mock_cursor.execute.return_value = None
     mock_cursor.fetchall.return_value = []
     mock_cursor.rowcount = 0
-    
+
     mock_conn = MagicMock()
     mock_conn.cursor.return_value = mock_cursor
-    
+
     return mock_conn
 ```
 
@@ -1175,10 +1194,10 @@ def create_mock_context(**kwargs):
     mock.ti = Mock()
     mock.dag_run = Mock()
     mock.params = {}
-    
+
     for k, v in kwargs.items():
         setattr(mock, k, v)
-    
+
     return mock
 
 def create_mock_task_instance():
@@ -1189,7 +1208,7 @@ def create_mock_task_instance():
     mock.log = Mock()
     mock.task_instance_key_str = "test_dag__test_task__20240115"
     mock.try_number = 1
-    
+
     return mock
 ```
 
@@ -1212,9 +1231,9 @@ services:
     volumes:
       - postgres-db-volume:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - '5432:5432'
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "airflow"]
+      test: ['CMD', 'pg_isready', '-U', 'airflow']
       interval: 10s
       retries: 5
 
@@ -1236,7 +1255,12 @@ services:
       - ./tests:/opt/airflow/tests
       - ./plugins:/opt/airflow/plugins
       - ./requirements.txt:/requirements.txt
-    command: ["bash", "-c", "pip install -r requirements.txt && airflow db init && airflow users create -r Admin -u admin -f Admin -l User -p admin -e admin@airflow.com"]
+    command:
+      [
+        'bash',
+        '-c',
+        'pip install -r requirements.txt && airflow db init && airflow users create -r Admin -u admin -f Admin -l User -p admin -e admin@airflow.com',
+      ]
 
   airflow-webserver:
     image: apache/airflow:2.7.0
@@ -1251,7 +1275,7 @@ services:
       - ./tests:/opt/airflow/tests
       - ./plugins:/opt/airflow/plugins
     ports:
-      - "8080:8080"
+      - '8080:8080'
     command: airflow webserver
 
   airflow-scheduler:
@@ -1354,29 +1378,29 @@ Create `.vscode/launch.json`:
 
 ```json
 {
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": "Python: Debug DAG",
-            "type": "python",
-            "request": "launch",
-            "program": "${workspaceFolder}/tests/test_dag.py",
-            "console": "integratedTerminal",
-            "justMyCode": false,
-            "env": {
-                "AIRFLOW_HOME": "${workspaceFolder}",
-                "PYTHONPATH": "${workspaceFolder}:${workspaceFolder}/dags"
-            }
-        },
-        {
-            "name": "Python: Debug Task",
-            "type": "python",
-            "request": "launch",
-            "program": "${workspaceFolder}/debug_task.py",
-            "console": "integratedTerminal",
-            "justMyCode": false
-        }
-    ]
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: Debug DAG",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/tests/test_dag.py",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "env": {
+        "AIRFLOW_HOME": "${workspaceFolder}",
+        "PYTHONPATH": "${workspaceFolder}:${workspaceFolder}/dags"
+      }
+    },
+    {
+      "name": "Python: Debug Task",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/debug_task.py",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    }
+  ]
 }
 ```
 
@@ -1517,13 +1541,13 @@ logger = logging.getLogger(__name__)
 class DataQualityCheckOperator(BaseOperator):
     """
     Performs data quality checks on a database table.
-    
+
     Checks include:
     - Row count validation
     - Null value checks
     - Data type validation
     - Referential integrity
-    
+
     :param conn_id: Connection ID to the database
     :param table_name: Name of the table to validate
     :param expected_min_rows: Minimum expected rows
@@ -1531,7 +1555,7 @@ class DataQualityCheckOperator(BaseOperator):
     :param sql_quality_checks: Additional SQL quality check queries
     :param tolerance_percent: Percentage tolerance for row count validation
     """
-    
+
     @apply_defaults
     def __init__(
         self,
@@ -1551,46 +1575,46 @@ class DataQualityCheckOperator(BaseOperator):
         self.expected_max_rows = expected_max_rows
         self.sql_quality_checks = sql_quality_checks or {}
         self.tolerance_percent = tolerance_percent
-    
+
     def execute(self, context):
         """Execute data quality checks."""
         import psycopg2
         from psycopg2 import Error
-        
+
         connection = None
-        
+
         try:
             # Establish database connection
             connection = psycopg2.connect(self.conn_id)
             cursor = connection.cursor()
-            
+
             # Check 1: Row count validation
             row_count = self._check_row_count(cursor)
-            
+
             # Check 2: Null value validation
             self._check_null_values(cursor)
-            
+
             # Check 3: Run custom SQL checks
             self._run_custom_checks(cursor)
-            
+
             # Check 4: Referential integrity
             self._check_referential_integrity(cursor)
-            
+
             logger.info(f"Data quality checks passed for table {self.table_name}")
-            
+
         except Error as e:
             logger.error(f"Database error during quality check: {e}")
             raise
         finally:
             if connection:
                 connection.close()
-    
+
     def _check_row_count(self, cursor):
         """Check if row count is within expected range."""
         query = f"SELECT COUNT(*) FROM {self.table_name}"
         cursor.execute(query)
         actual_count = cursor.fetchone()[0]
-        
+
         if actual_count < self.expected_min_rows:
             error_msg = (
                 f"Row count validation failed for {self.table_name}. "
@@ -1599,7 +1623,7 @@ class DataQualityCheckOperator(BaseOperator):
             )
             logger.error(error_msg)
             raise ValueError(error_msg)
-        
+
         if self.expected_max_rows and actual_count > self.expected_max_rows:
             warning_msg = (
                 f"Row count exceeded maximum for {self.table_name}. "
@@ -1607,36 +1631,36 @@ class DataQualityCheckOperator(BaseOperator):
                 f"but found {actual_count}"
             )
             logger.warning(warning_msg)
-        
+
         return actual_count
-    
+
     def _check_null_values(self, cursor):
         """Check for unexpected null values in critical fields."""
         critical_fields = ['id', 'created_at']  # Define based on your schema
-        
+
         for field in critical_fields:
             query = f"SELECT COUNT(*) FROM {self.table_name} WHERE {field} IS NULL"
             cursor.execute(query)
             null_count = cursor.fetchone()[0]
-            
+
             if null_count > 0:
                 raise ValueError(
                     f"Null value check failed for {self.table_name}.{field}. "
                     f"Found {null_count} null values"
                 )
-    
+
     def _run_custom_checks(self, cursor):
         """Run custom SQL quality checks."""
         for check_name, check_query in self.sql_quality_checks.items():
             try:
                 cursor.execute(check_query)
                 result = cursor.fetchone()
-                
+
                 if not result or not result[0]:
                     raise ValueError(f"Custom quality check failed: {check_name}")
-                
+
                 logger.info(f"Custom check passed: {check_name}")
-            
+
             except Exception as e:
                 logger.error(f"Error in custom check '{check_name}': {e}")
                 raise
@@ -1644,7 +1668,7 @@ class DataQualityCheckOperator(BaseOperator):
 class ApiRequestOperator(BaseOperator):
     """
     Make authenticated API requests with error handling.
-    
+
     :param endpoint: API endpoint (relative to base URL)
     :param method: HTTP method (GET, POST, PUT, DELETE)
     :param connection_id: Airflow connection ID for API
@@ -1654,7 +1678,7 @@ class ApiRequestOperator(BaseOperator):
     :param retry_codes: HTTP status codes to retry
     :param timeout: Request timeout in seconds
     """
-    
+
     @apply_defaults
     def __init__(
         self,
@@ -1678,33 +1702,33 @@ class ApiRequestOperator(BaseOperator):
         self.parameters = parameters
         self.retry_codes = retry_codes
         self.timeout = timeout
-    
+
     def execute(self, context):
         """Execute API request."""
         import requests
         from airflow.hooks.base import BaseHook
-        
+
         # Get connection details
         conn = BaseHook.get_connection(self.connection_id)
-        
+
         # Construct full URL
         base_url = conn.host
         if conn.port:
             base_url = f"{base_url}:{conn.port}"
-        
+
         full_url = f"{base_url}{self.endpoint}"
-        
+
         # Prepare authentication
         auth = None
         if conn.login and conn.password:
             auth = (conn.login, conn.password)
-        
+
         # Prepare headers
         headers = {
             'Content-Type': 'application/json',
             **self.headers
         }
-        
+
         # Add API key if present
         if conn.extra:
             import json
@@ -1714,7 +1738,7 @@ class ApiRequestOperator(BaseOperator):
                     headers['Authorization'] = f"Bearer {extra_data['api_key']}"
             except json.JSONDecodeError:
                 pass
-        
+
         # Prepare request
         request_kwargs = {
             'method': self.method,
@@ -1724,10 +1748,10 @@ class ApiRequestOperator(BaseOperator):
             'timeout': self.timeout,
             'params': self.parameters
         }
-        
+
         if self.payload and self.method in ['POST', 'PUT']:
             request_kwargs['json'] = self.payload
-        
+
         # Execute request with retries
         session = requests.Session()
         retry_adapter = requests.adapters.HTTPAdapter(
@@ -1740,15 +1764,15 @@ class ApiRequestOperator(BaseOperator):
         )
         session.mount("http://", retry_adapter)
         session.mount("https://", retry_adapter)
-        
+
         response = session.request(**request_kwargs)
-        
+
         # Log response
         self.log.info(f"Request to {full_url} returned status {response.status_code}")
-        
+
         # Check for errors
         response.raise_for_status()
-        
+
         # Return response data
         try:
             return response.json()
@@ -1886,16 +1910,18 @@ export AIRFLOW_VAR_CUSTOMER_API_CONFIG='{"timeout": 30, "retries": 3}'
 ### Best Practices for Connections and Variables
 
 1. **Use connection IDs instead of hardcoded credentials**
+
    ```python
    # Good: Uses connection from Airflow
    PostgresOperator(postgres_conn_id='warehouse_db', ...)
-   
+
    # Avoid: Hardcoded credentials
    import psycopg2
    conn = psycopg2.connect(host='localhost', password='secret')
    ```
 
 2. **Use variables for configuration**
+
    ```python
    # Store thresholds, flags, and configuration
    validation_enabled = Variable.get('enable_data_validation', default_var=True)
@@ -1903,11 +1929,13 @@ export AIRFLOW_VAR_CUSTOMER_API_CONFIG='{"timeout": 30, "retries": 3}'
    ```
 
 3. **Set appropriate connection types**
+
    - Use `HTTP` for APIs
    - Use `JDBC` for database connections when needed
    - Use `AWS` or cloud-specific types for cloud resources
 
 4. **Secure sensitive data**
+
    - Store passwords in connections, not in code
    - Use Airflow's built-in secret management
    - Consider using secret backends (AWS Secrets Manager, HashiCorp Vault)
@@ -1924,31 +1952,34 @@ The template includes a comprehensive GitHub Actions workflow for continuous int
 
 ### Pipeline Overview
 
-```
-Pull Request/Push
-    ↓
-┌────────────────┐
-│  Lint          │ - Code formatting (Black, isort)
-│                │ - Linting (flake8)
-│                │ - Type checking (mypy)
-└────────────────┘
-    ↓
-┌────────────────┐
-│  Test          │ - Unit tests (pytest)
-│                │ - Coverage reporting
-│                │ - Parallel execution
-└────────────────┘
-    ↓
-┌────────────────┐
-│  DAG Validation│ - Load all DAGs
-│                │ - Check for import errors
-│                │ - Validate DAG structure
-└────────────────┘
-    ↓
-┌────────────────┐
-│  Deploy        │ - Deploy to staging/production
-│                │ - (Only on main branch push)
-└────────────────┘
+```d2
+direction: down
+
+trigger: Pull Request/Push {
+  style.fill: "#e3f2fd"
+}
+
+lint: Lint {
+  style.fill: "#fff3e0"
+  label: "Lint\n- Code formatting (Black, isort)\n- Linting (flake8)\n- Type checking (mypy)"
+}
+
+test: Test {
+  style.fill: "#e8f5e9"
+  label: "Test\n- Unit tests (pytest)\n- Coverage reporting\n- Parallel execution"
+}
+
+dag-validation: DAG Validation {
+  style.fill: "#f3e5f5"
+  label: "DAG Validation\n- Load all DAGs\n- Check for import errors\n- Validate DAG structure"
+}
+
+deploy: Deploy {
+  style.fill: "#e0f7fa"
+  label: "Deploy\n- Deploy to staging/production\n- (Only on main branch push)"
+}
+
+trigger -> lint -> test -> dag-validation -> deploy
 ```
 
 ### GitHub Actions Configuration
@@ -1973,105 +2004,105 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install black flake8 isort mypy
-      
+
       - name: Check formatting
         run: black --check .
-      
+
       - name: Check import ordering
         run: isort --check-only .
-      
+
       - name: Lint code
         run: flake8 dags/ tests/ --max-line-length=100
-      
+
       - name: Type checking
         run: mypy dags/ --ignore-missing-imports
-  
+
   test:
     name: Test
     runs-on: ubuntu-latest
     needs: lint
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      
+
       - name: Initialize Airflow
         run: |
           export AIRFLOW_HOME=$(pwd)
           airflow db init
-      
+
       - name: Run tests
         run: pytest tests/ -v --cov=dags --cov-report=xml
-      
+
       - name: Upload coverage
         uses: codecov/codecov-action@v3
         with:
           files: ./coverage.xml
           fail_ci_if_error: false
-  
+
   dag-validation:
     name: DAG Validation
     runs-on: ubuntu-latest
     needs: lint
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install apache-airflow psycopg2-binary
-      
+
       - name: Initialize Airflow
         run: |
           export AIRFLOW_HOME=$(pwd)
           airflow db init
-      
+
       - name: Validate DAGs
         run: |
           export AIRFLOW_HOME=$(pwd)
           python3 -c "
           from airflow.models import DagBag
           import sys
-          
+
           dag_bag = DagBag(dag_folder='dags', include_examples=False)
-          
+
           if dag_bag.import_errors:
               print('❌ DAG Import Errors:')
               for dag_id, error in dag_bag.import_errors.items():
                   print(f'  {dag_id}: {error}')
               sys.exit(1)
-          
+
           print(f'✅ Successfully validated {len(dag_bag.dags)} DAGs:')
           for dag_id in dag_bag.dags.keys():
               print(f'  - {dag_id}')
           "
-  
+
   deploy:
     name: Deploy DAGs
     runs-on: ubuntu-latest
@@ -2080,7 +2111,7 @@ jobs:
     environment: ${{ values.environment }}
     steps:
       - uses: actions/checkout@v4
-      
+
       # Configure AWS for S3 deployment
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v3
@@ -2089,7 +2120,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
         if: ${{ values.environment == 'production' }}
-      
+
       # Deploy to S3 (for AWS MWAA or similar)
       - name: Sync DAGs to S3
         run: |
@@ -2097,25 +2128,25 @@ jobs:
           aws s3 sync dags/ s3://${{ secrets.DAG_S3_BUCKET }}/dags/
           echo "DAGs deployment complete!"
         if: ${{ values.environment == 'production' }}
-      
+
       # Deploy via Git (for self-hosted Airflow)
       - name: Deploy to Airflow Git repository
         run: |
           echo "Deploying DAGs via Git..."
           git config --global user.email "airflow-deployment@company.com"
           git config --global user.name "Airflow Deployment"
-          
+
           git clone ${{ secrets.AIRFLOW_GIT_REPO }} airflow-dags
           cd airflow-dags
-          
+
           cp -r ../dags/* dags/
           cp -r ../plugins/* plugins/
-          
+
           git add dags/ plugins/
           git commit -m "Automated deployment of DAGs from ${{ github.sha }}"
           git push origin main
         if: ${{ values.environment == 'staging' }}
-      
+
       # Notify deployment
       - name: Notify deployment
         run: |
@@ -2135,18 +2166,18 @@ repos:
     hooks:
       - id: black
         language_version: python3
-  
+
   - repo: https://github.com/pycqa/isort
     rev: 5.12.0
     hooks:
       - id: isort
-  
+
   - repo: https://github.com/pycqa/flake8
     rev: 6.1.0
     hooks:
       - id: flake8
         args: [--max-line-length=100]
-  
+
   - repo: local
     hooks:
       - id: dag-validate
@@ -2157,6 +2188,7 @@ repos:
 ```
 
 Install pre-commit:
+
 ```bash
 pip install pre-commit
 pre-commit install
@@ -2171,7 +2203,7 @@ jobs:
     if: github.ref == 'refs/heads/develop'
     environment: staging
     # ... deployment steps for staging
-  
+
   deploy-production:
     if: github.ref == 'refs/heads/main'
     environment: production
@@ -2215,7 +2247,7 @@ def load_data(**context):
     # Delete existing data for this date first (idempotency)
     delete_query = "DELETE FROM orders WHERE date = '{{ ds }}'"
     execute_query(delete_query)
-    
+
     # Then insert new data
     insert_query = "INSERT INTO orders SELECT * FROM staging.orders"
     execute_query(insert_query)
@@ -2270,7 +2302,7 @@ def create_report(**context):
     # Get configuration from variables
     recipient_list = Variable.get('report_recipients', deserialize_json=True)
     format = Variable.get('report_format', default_var='pdf')
-    
+
     generate_report(format=format, recipients=recipient_list)
 ```
 
@@ -2302,7 +2334,7 @@ with DAG(
     default_args=default_args,
     sla_miss_callback=sla_miss_alert,
 ) as dag:
-    
+
     critical_task = PythonOperator(
         task_id='critical_task',
         python_callable=important_processing,
@@ -2366,17 +2398,17 @@ Dependencies: sales-db, email-service
 def generate_report(**context):
     """
     Generate monthly sales report.
-    
+
     Fetches data from sales database, aggregates metrics,
     and creates visualizations. Handles missing data gracefully
     by using previous month's data as fallback.
-    
+
     Args:
         context: Airflow context with execution_date, etc.
-    
+
     Returns:
         dict: Report metadata including file paths and record counts
-    
+
     Raises:
         DataQualityError: If critical data quality checks fail
     """
@@ -2400,6 +2432,7 @@ def generate_report(**context):
 **Symptoms**: DAG doesn't show up in Airflow web UI
 
 **Solutions**:
+
 ```bash
 # Check for import errors
 airflow dags list-import-errors
@@ -2420,6 +2453,7 @@ airflow config get-value core dags_folder
 **Symptoms**: Tasks remain in running state indefinitely
 
 **Solutions**:
+
 ```bash
 # Check scheduler logs
 airflow scheduler --debug
@@ -2440,12 +2474,13 @@ airflow scheduler --daemon
 **Symptoms**: `KeyError` or `xcom_pull` returns `None`
 
 **Solutions**:
+
 ```python
 # Add debug logging
 def task_function(**context):
     ti = context['ti']
     result = ti.xcom_pull(task_ids='upstream_task')
-    
+
     if result is None:
         logger.warning("XCom returned None, checking upstream task…")
         # Check if upstream task ran successfully
@@ -2459,6 +2494,7 @@ def task_function(**context):
 **Symptoms**: Connection errors in task logs
 
 **Solutions**:
+
 ```bash
 # Test connection from CLI
 airflow connections test connection_id
@@ -2475,6 +2511,7 @@ docker-compose exec airflow-scheduler curl -v http://your-host:port
 **Symptoms**: Slow DAG execution, scheduler lag
 
 **Solutions**:
+
 ```python
 # Reduce DAG parsing timeout (in airflow.cfg)
 min_file_process_interval = 10
@@ -2492,6 +2529,7 @@ latest_only >> expensive_task
 ### Log Analysis
 
 Tail logs in real-time:
+
 ```bash
 # Scheduler logs
 docker-compose logs -f airflow-scheduler
@@ -2504,6 +2542,7 @@ docker-compose logs -f airflow-webserver
 ```
 
 Enable debug logging:
+
 ```python
 import logging
 logging.basicConfig(level=logging.DEBUG)
@@ -2516,13 +2555,14 @@ logger.setLevel(logging.DEBUG)
 ### Database Issues
 
 Check PostgreSQL performance:
+
 ```sql
 -- Check for locks
 SELECT * FROM pg_locks WHERE NOT granted;
 
 -- Check long-running queries
-SELECT pid, now() - query_start as duration, query 
-FROM pg_stat_activity 
+SELECT pid, now() - query_start as duration, query
+FROM pg_stat_activity
 WHERE query != '<IDLE>' AND now() - query_start > interval '1 minute';
 
 -- Check connection count
@@ -2532,16 +2572,19 @@ SELECT count(*) from pg_stat_activity;
 ### Common Error Messages
 
 **"Broken DAG: Undefined variable"**
+
 - Check for syntax errors in DAG files
 - Verify all imports are correct
 - Check for circular dependencies
 
 **"Executor reports task instance finished but was not in running state"**
+
 - This is often transient, but check for:
   - Database connectivity issues
   - Scheduler restart during task execution
 
 **"Task exited with return code 1"**
+
 - Check task logs for Python errors
 - Verify all dependencies are installed
 - Check for resource constraints (memory, CPU)
@@ -2549,6 +2592,7 @@ SELECT count(*) from pg_stat_activity;
 ### Debug Mode
 
 Run scheduler in debug mode for detailed logging:
+
 ```bash
 airflow scheduler --debug
 ```
@@ -2560,6 +2604,7 @@ airflow scheduler --debug
 This Airflow template is part of a comprehensive data platform:
 
 - **[data-dbt](https://github.com/your-org/backstage/tree/main/templates/data-dbt)** - Data transformation with dbt
+
   - Models your data warehouse transformations
   - Integrates seamlessly with Airflow via the `DbtRunOperator`
   - Shared data lineage between Airflow and dbt
@@ -2568,14 +2613,15 @@ This Airflow template is part of a comprehensive data platform:
   - Create visualizations on data processed by Airflow DAGs
   - Schedule dashboard cache refreshes via Airflow
   - Alerts on data freshness
--  **[data-sisense](https://github.com/your-org/backstage/tree/main/templates/data-sisense)** - Data analytics and embedded BI
-  - Advanced analytics on processed datasets
-  - Integration points with Airflow
-  - Automated report distribution
+- **[data-sisense](https://github.com/your-org/backstage/tree/main/templates/data-sisense)** - Data analytics and embedded BI
+- Advanced analytics on processed datasets
+- Integration points with Airflow
+- Automated report distribution
 
 ### Integration Patterns
 
 **Airflow + dbt**: ELT orchestration
+
 ```python
 from airflow_dbt.operators.dbt_operator import DbtRunOperator
 
@@ -2583,7 +2629,7 @@ with DAG('customer_pipeline') as dag:
     # Extract and load with Airflow
     extract_task = PythonOperator(task_id='extract', ...)
     load_task = PythonOperator(task_id='load', ...)
-    
+
     # Transform with dbt
     dbt_run = DbtRunOperator(
         task_id='dbt_transform',
@@ -2591,7 +2637,7 @@ with DAG('customer_pipeline') as dag:
         profiles_dir='/dbt',
         target='prod'
     )
-    
+
     # BI refresh with Superset
     refresh_dashboard = SimpleHttpOperator(
         task_id='refresh_dashboards',
@@ -2599,11 +2645,12 @@ with DAG('customer_pipeline') as dag:
         endpoint='/api/v1/dashboard/refresh',
         method='POST'
     )
-    
+
     extract_task >> load_task >> dbt_run >> refresh_dashboard
 ```
 
 **Airflow + Superset**: Dashboard automation
+
 ```python
 # Refresh Superset dashboard after data update
 refresh_task = SimpleHttpOperator(
@@ -2617,12 +2664,12 @@ refresh_task = SimpleHttpOperator(
 
 ### Template Comparison
 
-| Template | Purpose | Language | Primary Use Case | Integrates With |
-|----------|---------|----------|------------------|-----------------|
-| **data-airflow** | Workflow orchestration | Python | Data pipelines | dbt, Superset, Sisense |
-| **data-dbt** | Data transformation | SQL + YAML | Data modeling | Airflow, Snowflake, BigQuery |
-| **data-superset** | BI & Dashboards | Python + SQL | Data visualization | Airflow, dbt, PostgreSQL |
-| **data-sisense** | Advanced Analytics | Multiple | Complex analytics | Airflow, cloud DW |
+| Template          | Purpose                | Language     | Primary Use Case   | Integrates With              |
+| ----------------- | ---------------------- | ------------ | ------------------ | ---------------------------- |
+| **data-airflow**  | Workflow orchestration | Python       | Data pipelines     | dbt, Superset, Sisense       |
+| **data-dbt**      | Data transformation    | SQL + YAML   | Data modeling      | Airflow, Snowflake, BigQuery |
+| **data-superset** | BI & Dashboards        | Python + SQL | Data visualization | Airflow, dbt, PostgreSQL     |
+| **data-sisense**  | Advanced Analytics     | Multiple     | Complex analytics  | Airflow, cloud DW            |
 
 ### Getting Started with Multiple Templates
 
@@ -2651,6 +2698,7 @@ Keep documentation in sync across templates:
 - **Template Issues**: Submit issues to your organization's GitHub repository
 
 For internal support:
+
 - **Data Engineering Team**: #data-engineering
 - **Office Hours**: Tuesday/Thursday 2-3 PM
 - **Email**: data-engineering@company.com

@@ -20,6 +20,7 @@ This template creates production-ready AWX (Ansible Automation Platform) deploym
 - **Network Automation**: Manage network devices and configurations
 - **Security Automation**: Automate security compliance and incident response
 - **Disaster Recovery**: Automated backup and recovery procedures
+
 ## Features
 
 This template provides a comprehensive AWX deployment with the following capabilities:
@@ -42,6 +43,7 @@ This template provides a comprehensive AWX deployment with the following capabil
 - **Security Hardened**: Network policies, RBAC, and secret management
 - **Scalable Architecture**: Independent web, task, and execution environment pods
 - **Storage Management**: Persistent volumes for projects, databases, and configurations
+
 ## Prerequisites
 
 ### Infrastructure Requirements
@@ -97,23 +99,23 @@ This template provides a comprehensive AWX deployment with the following capabil
 
 All template parameters from `template.yaml` with detailed explanations:
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `name` | string | Yes | - | AWX instance name (lowercase, hyphen-separated) |
-| `namespace` | string | Yes | `awx` | Kubernetes namespace for deployment |
-| `owner` | string | Yes | - | Owner entity from Backstage catalog |
-| `environment` | enum | Yes | `development` | Deployment environment: `development`, `staging`, `production` |
-| `repoUrl` | string | Yes | - | Git repository URL for storing configurations |
-| `awx_version` | string | No | `latest` | AWX version tag (e.g., `21.14.0`)
-| `service_type` | enum | No | `ClusterIP` | Kubernetes service type: `ClusterIP`, `NodePort`, `LoadBalancer` |
-| `ingress_enabled` | boolean | No | `true` | Enable ingress for external access |
-| `hostname` | string | No* | `awx.example.com` | Hostname for AWX access (required if ingress enabled) |
-| `storage_class` | string | No | `default` | Storage class for persistent volumes |
-| `postgres_storage_size` | string | No | `8Gi` | PostgreSQL storage capacity |
-| `project_storage_size` | string | No | `8Gi` | Project storage capacity |
-| `admin_user` | string | No | `admin` | AWX administrator username |
-| `ssl_enabled` | boolean | No | `true` | Enable SSL/TLS encryption |
-| `ldap_enabled` | boolean | No | `false` | Enable LDAP authentication |
+| Parameter               | Type    | Required | Default           | Description                                                      |
+| ----------------------- | ------- | -------- | ----------------- | ---------------------------------------------------------------- |
+| `name`                  | string  | Yes      | -                 | AWX instance name (lowercase, hyphen-separated)                  |
+| `namespace`             | string  | Yes      | `awx`             | Kubernetes namespace for deployment                              |
+| `owner`                 | string  | Yes      | -                 | Owner entity from Backstage catalog                              |
+| `environment`           | enum    | Yes      | `development`     | Deployment environment: `development`, `staging`, `production`   |
+| `repoUrl`               | string  | Yes      | -                 | Git repository URL for storing configurations                    |
+| `awx_version`           | string  | No       | `latest`          | AWX version tag (e.g., `21.14.0`)                                |
+| `service_type`          | enum    | No       | `ClusterIP`       | Kubernetes service type: `ClusterIP`, `NodePort`, `LoadBalancer` |
+| `ingress_enabled`       | boolean | No       | `true`            | Enable ingress for external access                               |
+| `hostname`              | string  | No\*     | `awx.example.com` | Hostname for AWX access (required if ingress enabled)            |
+| `storage_class`         | string  | No       | `default`         | Storage class for persistent volumes                             |
+| `postgres_storage_size` | string  | No       | `8Gi`             | PostgreSQL storage capacity                                      |
+| `project_storage_size`  | string  | No       | `8Gi`             | Project storage capacity                                         |
+| `admin_user`            | string  | No       | `admin`           | AWX administrator username                                       |
+| `ssl_enabled`           | boolean | No       | `true`            | Enable SSL/TLS encryption                                        |
+| `ldap_enabled`          | boolean | No       | `false`           | Enable LDAP authentication                                       |
 
 **Note:** `hostname` is required when `ingress_enabled` is `true`
 
@@ -138,12 +140,13 @@ resource_requests: higher
 
 ### Resource Requirements by Environment
 
-| Component | Development | Staging | Production |
-|-----------|-------------|---------|------------|
-| **Web Pod** | 0.5-1 CPU / 1-2GB | 1-1.5 CPU / 1-2GB | 1-2 CPU / 2-4GB |
-| **Task Pod** | 0.25-0.5 CPU / 0.5-1GB | 0.5-1 CPU / 1-2GB | 0.5-1 CPU / 1-2GB |
-| **EE Pod** | 0.25-0.5 CPU / 0.5-1GB | 0.5-1 CPU / 1-2GB | 0.5-1 CPU / 1-2GB |
+| Component     | Development            | Staging           | Production        |
+| ------------- | ---------------------- | ----------------- | ----------------- |
+| **Web Pod**   | 0.5-1 CPU / 1-2GB      | 1-1.5 CPU / 1-2GB | 1-2 CPU / 2-4GB   |
+| **Task Pod**  | 0.25-0.5 CPU / 0.5-1GB | 0.5-1 CPU / 1-2GB | 0.5-1 CPU / 1-2GB |
+| **EE Pod**    | 0.25-0.5 CPU / 0.5-1GB | 0.5-1 CPU / 1-2GB | 0.5-1 CPU / 1-2GB |
 | **Redis Pod** | 0.25-0.5 CPU / 0.5-1GB | 0.5-1 CPU / 1-2GB | 0.5-1 CPU / 1-2GB |
+
 ## Getting Started
 
 ### Step 1: Create Template Instance
@@ -297,78 +300,62 @@ kubectl get svc -n ${NAMESPACE} awx-${AWX_NAME}-service
 
 The deployment uses the **Kubernetes Operator pattern** for managing AWX lifecycle:
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Backstage Platform                        │
-└────────────────────────┬────────────────────────────────────┘
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────────────┐
-│              Template Generation Service                     │
-│          (Generates customized AWX manifests)               │
-└────────────────────────┬────────────────────────────────────┘
-                         │
-┌────────────────────────▼────────────────────────────────────┐
-│                  Kubernetes API Server                       │
-│                                                              │
-│            ┌────────────────────────────────┐                │
-│            │     AWX Operator Controller    │                │
-│            │         (Reconciliation)       │                │
-│            └────────┬───────────────────────┘                │
-│                     │                                        │
-│                     ▼                                        │
-│         ┌────────────────────────┐                         │
-│         │   AWX Custom Resource  │                         │
-│         │  (awx-${{ values.name }})  │                         │
-│         └────┬───────────────────┘                         │
-│              │                                             │
-│              ▼                                             │
-│  ┌─────────────────────────────────────────────────┐       │
-│  │  Kubernetes Resources Generated by Operator     │       │
-│  │                                                 │       │
-│  │  ┌────────────────────────────────────┐         │
-│  │  │  Deployment: awx-web              │         │
-│  │  │  (Web UI/API pods)                │         │
-│  │  └────────────────────────────────────┘         │
-│  │                                                 │
-│  │  ┌────────────────────────────────────┐         │
-│  │  │  Deployment: awx-task             │         │
-│  │  │  (Background task processor)      │         │
-│  │  └────────────────────────────────────┘         │
-│  │                                                 │
-│  │  ┌────────────────────────────────────┐         │
-│  │  │  Deployment: awx-ee               │         │
-│  │  │  (Execution environment)          │         │
-│  │  └────────────────────────────────────┘         │
-│  │                                                 │
-│  │  ┌────────────────────────────────────┐         │
-│  │  │  StatefulSet: awx-postgres-13     │         │
-│  │  │  (PostgreSQL database)            │         │
-│  │  └────────────────────────────────────┘         │
-│  └─────────────────────────────────────────────────┘       │
-│                                                             │
-│  ┌─────────────────────────────────────────────────┐       │
-│  │      Persistent Volumes & Claims                │       │
-│  │                                                 │       │
-│  │  - PVC: awx-postgres                            │       │
-│  │  - PVC: awx-projects                            │       │
-│  └─────────────────────────────────────────────────┘       │
-│                                                             │
-│  ┌─────────────────────────────────────────────────┐       │
-│  │          Networking & Services                  │       │
-│  │                                                 │       │
-│  │  - Service: awx-${{ values.name }}-service      │       │
-│  │  - Secret: *-admin-password                    │       │
-│  │  - Secret: *-postgres-configuration            │       │
-│  └─────────────────────────────────────────────────┘       │
-│                                                             │
-│  ┌─────────────────────────────────────────────────┐       │
-│  │          Ingress (if enabled)                   │       │
-│  │                                                 │
-│  │  - Ingress: awx-${{ values.name }}-ingress      │       │
-│  │  - TLS: *-tls (cert-manager)                   │       │
-│  └─────────────────────────────────────────────────┘       │
-└──────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+backstage: Backstage Platform {
+  style.fill: "#e3f2fd"
+}
+
+template-service: Template Generation Service {
+  label: "Template Generation Service\n(Generates customized AWX manifests)"
+  style.fill: "#fff3e0"
+}
+
+backstage -> template-service
+
+k8s: Kubernetes API Server {
+  style.fill: "#f3e5f5"
+
+  operator: AWX Operator Controller {
+    label: "AWX Operator Controller\n(Reconciliation)"
+    style.fill: "#e8f5e9"
+  }
+
+  awx-cr: "AWX Custom Resource\n(awx-instance)" {
+    style.fill: "#fff8e1"
+  }
+
+  operator -> awx-cr
+
+  resources: Kubernetes Resources Generated by Operator {
+    style.fill: "#e0f7fa"
+
+    awx-web: "Deployment: awx-web\n(Web UI/API pods)"
+    awx-task: "Deployment: awx-task\n(Background task processor)"
+    awx-ee: "Deployment: awx-ee\n(Execution environment)"
+    awx-postgres: "StatefulSet: awx-postgres-13\n(PostgreSQL database)"
+  }
+
+  awx-cr -> resources
+
+  storage: Persistent Volumes & Claims {
+    style.fill: "#fce4ec"
+    label: "Persistent Volumes & Claims\n- PVC: awx-postgres\n- PVC: awx-projects"
+  }
+
+  networking: Networking & Services {
+    style.fill: "#f1f8e9"
+    label: "Networking & Services\n- Service: awx-service\n- Secret: *-admin-password\n- Secret: *-postgres-configuration"
+  }
+
+  ingress: Ingress (if enabled) {
+    style.fill: "#fff3e0"
+    label: "Ingress (if enabled)\n- Ingress: awx-ingress\n- TLS: *-tls (cert-manager)"
+  }
+}
+
+template-service -> k8s
 ```
 
 ### Custom Resource Definition (CRD)
@@ -416,25 +403,27 @@ AWX Web Pods (Django)
 ### Scaling Architecture
 
 **Horizontal Scaling**:
+
 ```yaml
 spec:
-  replicas: 3  # Scales web pods
+  replicas: 3 # Scales web pods
   web_resource_requirements:
     replicas: 3
   task_resource_requirements:
-    replicas: 3  # For multiple task workers
+    replicas: 3 # For multiple task workers
 ```
 
 **Vertical Scaling**:
+
 ```yaml
 spec:
   web_resource_requirements:
     requests:
-      cpu: 2000m    # 2 cores
-      memory: 4Gi   # 4GB
+      cpu: 2000m # 2 cores
+      memory: 4Gi # 4GB
     limits:
-      cpu: 4000m    # 4 cores
-      memory: 8Gi   # 8GB
+      cpu: 4000m # 4 cores
+      memory: 8Gi # 8GB
 ```
 
 ## Kubernetes Resources
@@ -458,8 +447,9 @@ spec:
 #### 2. Deployments
 
 **Web Deployment (awx-${NAME}-web)**:
+
 ```yaml
-# Creates: 
+# Creates:
 # - Pods: Django application server
 # - Replicas: Configurable (1 for dev/staging, 2+ for prod)
 # - Ports: 8052 (internal)
@@ -472,13 +462,14 @@ spec:
   template:
     spec:
       containers:
-      - name: awx-web
-        image: quay.io/ansible/awx
-        ports:
-        - containerPort: 8052
+        - name: awx-web
+          image: quay.io/ansible/awx
+          ports:
+            - containerPort: 8052
 ```
 
 **Task Deployment (awx-${NAME}-task)**:
+
 ```yaml
 # Creates:
 # - Pods: Celery task workers
@@ -491,6 +482,7 @@ metadata:
 ```
 
 **Execution Environment Deployment (awx-${NAME}-ee)**:
+
 ```yaml
 # Creates:
 # - Pods: Isolated execution environment
@@ -503,6 +495,7 @@ metadata:
 ```
 
 **Redis Deployment (awx-${NAME}-redis)**:
+
 ```yaml
 # Creates:
 # - Pods: Redis for caching and queuing
@@ -531,24 +524,25 @@ spec:
   template:
     spec:
       containers:
-      - name: postgres
-        image: postgres:13
-        volumeMounts:
-        - name: postgres-data
-          mountPath: /var/lib/postgresql/data
+        - name: postgres
+          image: postgres:13
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
   volumeClaimTemplates:
-  - metadata:
-      name: postgres-data
-    spec:
-      accessModes: ["ReadWriteOnce"]
-      resources:
-        requests:
-          storage: ${POSTGRES_STORAGE_SIZE}
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes: ['ReadWriteOnce']
+        resources:
+          requests:
+            storage: ${POSTGRES_STORAGE_SIZE}
 ```
 
 #### 4. Services
 
 **AWX Service**:
+
 ```yaml
 # Creates:
 # - Type: Configurable (ClusterIP, NodePort, LoadBalancer)
@@ -561,13 +555,14 @@ metadata:
 spec:
   type: ${SERVICE_TYPE}
   ports:
-  - port: 80
-    targetPort: 8052
+    - port: 80
+      targetPort: 8052
   selector:
     app.kubernetes.io/name: awx-${NAME}-web
 ```
 
 **PostgreSQL Service**:
+
 ```yaml
 # Creates:
 # - Type: ClusterIP
@@ -579,10 +574,11 @@ metadata:
   name: awx-${NAME}-postgres-13
 spec:
   ports:
-  - port: 5432
+    - port: 5432
 ```
 
 **Redis Service**:
+
 ```yaml
 # Creates:
 # - Type: ClusterIP
@@ -594,12 +590,13 @@ metadata:
   name: awx-${NAME}-redis
 spec:
   ports:
-  - port: 6379
+    - port: 6379
 ```
 
 #### 5. Persistent Volume Claims
 
 **PostgreSQL PVC**:
+
 ```yaml
 # Creates:
 # - AccessMode: ReadWriteOnce
@@ -610,7 +607,7 @@ metadata:
   name: postgres-${NAME}-postgres-13-0
 spec:
   accessModes:
-  - ReadWriteOnce
+    - ReadWriteOnce
   resources:
     requests:
       storage: ${POSTGRES_STORAGE_SIZE}
@@ -618,6 +615,7 @@ spec:
 ```
 
 **Project Storage PVC**:
+
 ```yaml
 # Creates:
 # - AccessMode: ReadWriteMany (required for multi-pod access)
@@ -628,7 +626,7 @@ metadata:
   name: ${NAME}-projects-claim
 spec:
   accessModes:
-  - ReadWriteMany
+    - ReadWriteMany
   resources:
     requests:
       storage: ${PROJECT_STORAGE_SIZE}
@@ -638,6 +636,7 @@ spec:
 #### 6. Secrets
 
 **Admin Password Secret**:
+
 ```yaml
 # Creates:
 # - Type: Opaque
@@ -649,10 +648,11 @@ metadata:
   name: awx-${NAME}-admin-password
 type: Opaque
 data:
-  password: YWRtaW4xMjM=  # FIXME: CHANGE BEFORE PRODUCTION!
+  password: YWRtaW4xMjM= # FIXME: CHANGE BEFORE PRODUCTION!
 ```
 
 **PostgreSQL Configuration Secret**:
+
 ```yaml
 # Creates:
 # - Type: Opaque
@@ -664,15 +664,16 @@ metadata:
 type: Opaque
 stringData:
   host: awx-${NAME}-postgres-13
-  port: "5432"
+  port: '5432'
   database: awx
   username: awx
-  password: awxpass123  # FIXME: CHANGE BEFORE PRODUCTION!
+  password: awxpass123 # FIXME: CHANGE BEFORE PRODUCTION!
   sslmode: prefer
   type: managed
 ```
 
 **TLS Secret** (if SSL enabled):
+
 ```yaml
 # Creates:
 # - Type: kubernetes.io/tls
@@ -692,6 +693,7 @@ data:
 ```
 
 **LDAP CA Certificate Secret** (if LDAP enabled):
+
 ```yaml
 # Creates:
 # - Type: Opaque
@@ -718,24 +720,24 @@ kind: Ingress
 metadata:
   name: awx-${NAME}-ingress
   annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: 'true'
     cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
   rules:
-  - host: ${HOSTNAME}
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: awx-${NAME}-service
-            port:
-              number: 80
+    - host: ${HOSTNAME}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: awx-${NAME}-service
+                port:
+                  number: 80
   tls:
-  - hosts:
-    - ${HOSTNAME}
-    secretName: awx-${NAME}-tls
+    - hosts:
+        - ${HOSTNAME}
+      secretName: awx-${NAME}-tls
 ```
 
 #### 8. ConfigMaps and Extra Settings
@@ -757,24 +759,24 @@ spec:
 
 ### Resource Overview Table
 
-| Resource Type | Resource Name | Purpose | Quantity |
-|---------------|---------------|---------|----------|
-| **Custom Resource** | awx-${NAME} | AWX instance definition | 1 |
-| **Deployment** | awx-${NAME}-web | Web UI/API server | 1-3 replicas |
-| **Deployment** | awx-${NAME}-task | Background tasks | 1-3 replicas |
-| **Deployment** | awx-${NAME}-ee | Execution environment | 1-3 replicas |
-| **Deployment** | awx-${NAME}-redis | Cache/queue | 1 replica |
-| **StatefulSet** | awx-${NAME}-postgres-13 | Database | 1 pod |
-| **Service** | awx-${NAME}-service | Main service | 1 |
-| **Service** | awx-${NAME}-postgres-13 | Database service | 1 |
-| **Service** | awx-${NAME}-redis | Redis service | 1 |
-| **PVC** | postgres-${NAME}-postgres-13-0 | Database storage | 1 |
-| **PVC** | ${NAME}-projects-claim | Project storage | 1 |
-| **Secret** | awx-${NAME}-admin-password | Admin credentials | 1 |
-| **Secret** | awx-${NAME}-postgres-configuration | Database creds | 1 |
-| **Secret** | awx-${NAME}-tls | TLS certificate | 1 (if SSL) |
-| **Secret** | awx-${NAME}-ldap-cacert | LDAP CA cert | 1 (if LDAP) |
-| **Ingress** | awx-${NAME}-ingress | External access | 1 (if enabled) |
+| Resource Type       | Resource Name                      | Purpose                 | Quantity       |
+| ------------------- | ---------------------------------- | ----------------------- | -------------- |
+| **Custom Resource** | awx-${NAME}                        | AWX instance definition | 1              |
+| **Deployment**      | awx-${NAME}-web                    | Web UI/API server       | 1-3 replicas   |
+| **Deployment**      | awx-${NAME}-task                   | Background tasks        | 1-3 replicas   |
+| **Deployment**      | awx-${NAME}-ee                     | Execution environment   | 1-3 replicas   |
+| **Deployment**      | awx-${NAME}-redis                  | Cache/queue             | 1 replica      |
+| **StatefulSet**     | awx-${NAME}-postgres-13            | Database                | 1 pod          |
+| **Service**         | awx-${NAME}-service                | Main service            | 1              |
+| **Service**         | awx-${NAME}-postgres-13            | Database service        | 1              |
+| **Service**         | awx-${NAME}-redis                  | Redis service           | 1              |
+| **PVC**             | postgres-${NAME}-postgres-13-0     | Database storage        | 1              |
+| **PVC**             | ${NAME}-projects-claim             | Project storage         | 1              |
+| **Secret**          | awx-${NAME}-admin-password         | Admin credentials       | 1              |
+| **Secret**          | awx-${NAME}-postgres-configuration | Database creds          | 1              |
+| **Secret**          | awx-${NAME}-tls                    | TLS certificate         | 1 (if SSL)     |
+| **Secret**          | awx-${NAME}-ldap-cacert            | LDAP CA cert            | 1 (if LDAP)    |
+| **Ingress**         | awx-${NAME}-ingress                | External access         | 1 (if enabled) |
 
 ### kubectl Commands for Resource Management
 
@@ -807,6 +809,7 @@ kubectl top nodes
 kubectl describe pod <pod-name> -n ${NAMESPACE}
 kubectl exec -it <pod-name> -n ${NAMESPACE} -- /bin/bash
 ```
+
 ## Database Configuration
 
 ### PostgreSQL Database Options
@@ -821,7 +824,7 @@ Best for: **Quick setup, development, testing**
 # In awx.yaml
 spec:
   postgres_configuration_secret: awx-${NAME}-postgres-configuration
-  
+
 # In secrets.yaml --
 apiVersion: v1
 kind: Secret
@@ -830,25 +833,28 @@ metadata:
 type: Opaque
 stringData:
   host: awx-${NAME}-postgres-13
-  port: "5432"
+  port: '5432'
   database: awx
   username: awx
-  password: awxpass123  # CHANGE THIS!
+  password: awxpass123 # CHANGE THIS!
   sslmode: prefer
   type: managed
 ```
 
 **Pros:**
+
 - Zero external dependencies
 - Self-contained in Kubernetes
 - Easy backup/restore
 
 **Cons:**
+
 - Single point of failure
 - Not recommended for production
 - Requires manual HA setup
 
 **Setup:**
+
 ```bash
 # Operator automatically creates PostgreSQL StatefulSet
 kubectl apply -f k8s/secrets.yaml  # Contains DB credentials
@@ -868,15 +874,16 @@ metadata:
 type: Opaque
 stringData:
   host: postgres-prod.example.com
-  port: "5432"
+  port: '5432'
   database: awx_production
   username: awx_user
-  password: "${EXTERNAL_DB_PASSWORD}"  # Set via environment or secret
+  password: '${EXTERNAL_DB_PASSWORD}' # Set via environment or secret
   sslmode: require
   type: unmanaged
 ```
 
 **Pros:**
+
 - Managed database service
 - High availability built-in
 - Professional backup/restore
@@ -884,11 +891,13 @@ stringData:
 - Monitoring and alerting
 
 **Cons:**
+
 - External dependency
 - Network connectivity required
 - Additional cost
 
 **Setup for AWS RDS:**
+
 ```bash
 # 1. Create RDS PostgreSQL instance
 aws rds create-db-instance \
@@ -923,6 +932,7 @@ kubectl create secret generic awx-${NAME}-postgres-configuration \
 ```
 
 **Setup for Azure Database:**
+
 ```bash
 # 1. Create Azure PostgreSQL
 az postgres server create \
@@ -953,6 +963,7 @@ EOF
 ```
 
 **Setup for Google Cloud SQL:**
+
 ```bash
 # 1. Create Cloud SQL instance
 gcloud sql instances create awx-postgres-prod \
@@ -1000,12 +1011,14 @@ kubectl create secret generic awx-${NAME}-postgres-configuration \
 ```
 
 **Pros:**
+
 - Automatic failover
 - Read replicas for load balancing
 - Self-healing
 - All within Kubernetes
 
 **Cons:**
+
 - Complex setup
 - More resource intensive
 - PostgreSQL expertise required
@@ -1024,7 +1037,7 @@ data:
   pgbouncer.ini: |
     [databases]
     awx = host=postgres-prod.example.com port=5432 dbname=awx_production
-    
+
     [pgbouncer]
     listen_port = 5432
     listen_addr = *
@@ -1058,10 +1071,10 @@ kubectl create secret generic awx-${NAME}-postgres-configuration \
 # Require SSL for production
 stringData:
   host: postgres-prod.example.com
-  port: "5432"
+  port: '5432'
   database: awx_production
   username: awx_user
-  password: "${DB_PASSWORD}"
+  password: '${DB_PASSWORD}'
   sslmode: require
   sslrootcert: |
     # CA certificate for verification
@@ -1122,35 +1135,35 @@ kind: CronJob
 metadata:
   name: awx-db-backup
 spec:
-  schedule: "0 2 * * *"  # Daily at 2 AM
+  schedule: '0 2 * * *' # Daily at 2 AM
   jobTemplate:
     spec:
       template:
         spec:
           containers:
-          - name: backup
-            image: postgres:13
-            env:
-            - name: PGPASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: awx-${NAME}-postgres-configuration
-                  key: password
-            command:
-            - /bin/bash
-            - -c
-            - |
-              pg_dump -h awx-${NAME}-postgres-13 \
-                      -U awx \
-                      -d awx \
-                      | gzip > /backups/awx_$(date +%Y%m%d).sql.gz
-            volumeMounts:
-            - name: backup-storage
-              mountPath: /backups
+            - name: backup
+              image: postgres:13
+              env:
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: awx-${NAME}-postgres-configuration
+                      key: password
+              command:
+                - /bin/bash
+                - -c
+                - |
+                  pg_dump -h awx-${NAME}-postgres-13 \
+                          -U awx \
+                          -d awx \
+                          | gzip > /backups/awx_$(date +%Y%m%d).sql.gz
+              volumeMounts:
+                - name: backup-storage
+                  mountPath: /backups
           volumes:
-          - name: backup-storage
-            persistentVolumeClaim:
-              claimName: awx-backup-pvc
+            - name: backup-storage
+              persistentVolumeClaim:
+                claimName: awx-backup-pvc
           restartPolicy: OnFailure
 ```
 
@@ -1160,7 +1173,7 @@ spec:
 # Check database connections
 psql -h ${DB_HOST} -U ${DB_USER} -d awx_production <<EOF
 SELECT count(*) as active_connections
-FROM pg_stat_activity 
+FROM pg_stat_activity
 WHERE state = 'active';
 
 -- Check database size
@@ -1182,6 +1195,7 @@ kubectl exec -it awx-${NAME}-postgres-13-0 -n ${NAMESPACE} -- \
 ### Database Troubleshooting
 
 **Connection Issues:**
+
 ```bash
 # From within the cluster
 curl -v telnet://${DB_HOST}:5432
@@ -1192,12 +1206,13 @@ kubectl run test-db --image=postgres:13 -it --rm --restart=Never -- \
 ```
 
 **Performance Issues:**
+
 ```bash
 # Check for long-running queries
 psql -h ${DB_HOST} -U ${DB_USER} -d awx_production <<EOF
-SELECT pid, now() - query_start as duration, query 
-FROM pg_stat_activity 
-WHERE state = 'active' 
+SELECT pid, now() - query_start as duration, query
+FROM pg_stat_activity
+WHERE state = 'active'
 AND query_start < now() - interval '5 minutes';
 EOF
 ```
@@ -1220,6 +1235,7 @@ spec:
 ```
 
 **Storage Requirements:**
+
 - **Access Mode**: ReadWriteOnce (single pod access)
 - **Recommended Storage Classes**:
   - AWS: `gp3`, `io2`
@@ -1229,14 +1245,15 @@ spec:
   - Generic: `fast-ssd`, `standard` (if no performance needs)
 
 **Performance Recommendations:**
+
 ```yaml
 # High-performance configuration for large deployments
-storage_class: io2-high-performance  # AWS with provisioned IOPS
+storage_class: io2-high-performance # AWS with provisioned IOPS
 postgres_storage_requirements:
   requests:
     storage: 100Gi
     # For io2
-    iops: "5000"
+    iops: '5000'
 volume_mode: Filesystem
 ```
 
@@ -1252,6 +1269,7 @@ spec:
 ```
 
 **Storage Requirements:**
+
 - **Access Mode**: ReadWriteMany (multiple pods need access)
 - **Required**: Storage class must support ReadWriteMany
 - **Recommended Storage Classes**:
@@ -1273,9 +1291,9 @@ metadata:
 provisioner: ebs.csi.aws.com
 parameters:
   type: gp3
-  iops: "3000"
-  throughput: "125"
-  encrypted: "true"
+  iops: '3000'
+  throughput: '125'
+  encrypted: 'true'
 allowVolumeExpansion: true
 reclaimPolicy: Retain
 volumeBindingMode: WaitForFirstConsumer
@@ -1289,10 +1307,10 @@ provisioner: efs.csi.aws.com
 parameters:
   provisioningMode: efs-ap
   fileSystemId: fs-xxxxxxxx
-  directoryPerms: "700"
-  gidRangeStart: "1000"
-  gidRangeEnd: "2000"
-  basePath: "/dynamic_provisioning"
+  directoryPerms: '700'
+  gidRangeStart: '1000'
+  gidRangeEnd: '2000'
+  basePath: '/dynamic_provisioning'
 reclaimPolicy: Retain
 ```
 
@@ -1436,9 +1454,9 @@ groups:
   - alert: AWXPostgreSQLStorageLow
     expr: |
       (
-        kubelet_volume_stats_available_bytes{namespace="${NAMESPACE}", 
+        kubelet_volume_stats_available_bytes{namespace="${NAMESPACE}",
         persistentvolumeclaim=~"postgres.*"} /
-        kubelet_volume_stats_capacity_bytes{namespace="${NAMESPACE}", 
+        kubelet_volume_stats_capacity_bytes{namespace="${NAMESPACE}",
         persistentvolumeclaim=~"postgres.*"}
       ) < 0.2
     for: 5m
@@ -1473,7 +1491,7 @@ metadata:
   namespace: ${NAMESPACE}
 spec:
   accessModes:
-  - ReadWriteOnce
+    - ReadWriteOnce
   storageClassName: ${STORAGE_CLASS}
   dataSource:
     name: awx-postgres-snapshot-20230101
@@ -1493,39 +1511,40 @@ kind: CronJob
 metadata:
   name: awx-postgres-volume-backup
 spec:
-  schedule: "0 3 * * *"
+  schedule: '0 3 * * *'
   jobTemplate:
     spec:
       template:
         spec:
           containers:
-          - name: backup
-            image: ubuntu:latest
-            command:
-            - /bin/bash
-            - -c
-            - |
-              apt-get update && apt-get install -y tar gzip awscli
-              # Mount PostgreSQL volume
-              tar -czf /backup/awx-postgres-$(date +%Y%m%d).tar.gz /var/lib/postgresql/data
-              aws s3 cp /backup/*.tar.gz s3://awx-backups/postgres/
-            volumeMounts:
-            - name: postgres-data
-              mountPath: /var/lib/postgresql/data
-            - name: backup-storage
-              mountPath: /backup
+            - name: backup
+              image: ubuntu:latest
+              command:
+                - /bin/bash
+                - -c
+                - |
+                  apt-get update && apt-get install -y tar gzip awscli
+                  # Mount PostgreSQL volume
+                  tar -czf /backup/awx-postgres-$(date +%Y%m%d).tar.gz /var/lib/postgresql/data
+                  aws s3 cp /backup/*.tar.gz s3://awx-backups/postgres/
+              volumeMounts:
+                - name: postgres-data
+                  mountPath: /var/lib/postgresql/data
+                - name: backup-storage
+                  mountPath: /backup
           volumes:
-          - name: postgres-data
-            persistentVolumeClaim:
-              claimName: postgres-${NAME}-postgres-13-0
-          - name: backup-storage
-            emptyDir: {}
+            - name: postgres-data
+              persistentVolumeClaim:
+                claimName: postgres-${NAME}-postgres-13-0
+            - name: backup-storage
+              emptyDir: {}
           restartPolicy: OnFailure
 ```
 
 ### Troubleshooting Storage Issues
 
 **PVC Pending:**
+
 ```bash
 # Check storage class
 kubectl get storageclass ${STORAGE_CLASS}
@@ -1545,6 +1564,7 @@ kubectl describe pvc postgres-${NAME}-postgres-13-0 -n ${NAMESPACE}
 ```
 
 **Projects PVC ReadWriteMany Error:**
+
 ```bash
 # Check storage class support
 kubectl get storageclass ${STORAGE_CLASS} -o yaml | grep volumeBindingMode
@@ -1563,6 +1583,7 @@ helm install nfs-subdir-external-provisioner \
 ```
 
 **Storage Performance Issues:**
+
 ```bash
 # Check I/O performance from within pod
 kubectl exec -it awx-${NAME}-postgres-13-0 -n ${NAMESPACE} -- \
@@ -1586,7 +1607,7 @@ kind: StorageClass
 metadata:
   name: awx-encrypted
 parameters:
-  encrypted: "true"  # For AWS EBS
+  encrypted: 'true' # For AWS EBS
   # For Azure
   # diskEncryptionSetID: <resource-id>
 ---
@@ -1595,8 +1616,8 @@ apiVersion: v1
 kind: Pod
 spec:
   securityContext:
-    fsGroup: 1000  # PostgreSQL usually runs as UID 999
-  # For project storage, may need supplemental groups
+    fsGroup: 1000 # PostgreSQL usually runs as UID 999
+    # For project storage, may need supplemental groups
     supplementalGroups: [1000]
 ```
 
@@ -1616,6 +1637,7 @@ fio --name=test_rand_rw --directory=/var/lib/postgresql/data \
 # Random RW IOPS: >500 IOPS for acceptable performance
 # Latency: <10ms average for responsive database
 ```
+
 ## Authentication Setup
 
 ### Local Authentication (Default)
@@ -1671,6 +1693,7 @@ curl -X POST "https://${HOSTNAME}/api/v2/settings/ldap/" \
 ```
 
 **ldap-config.json:**
+
 ```json
 {
   "AUTH_LDAP_SERVER_URI": "ldaps://ldap.corp.example.com:636",
@@ -1762,6 +1785,7 @@ curl -X POST "https://${HOSTNAME}/api/v2/settings/saml/" \
 ```
 
 **saml-config.json:**
+
 ```json
 {
   "SOCIAL_AUTH_SAML_ENABLED_IDPS": {
@@ -1825,16 +1849,16 @@ data:
 # Update AWX CRD
 spec:
   extra_volumes:
-  - name: saml-cert
-    secret:
-      secretName: awx-${NAME}-saml-cert
+    - name: saml-cert
+      secret:
+        secretName: awx-${NAME}-saml-cert
   extra_volume_mounts:
-  - name: saml-cert
-    mountPath: /etc/tower/saml.crt
-    subPath: saml-sp.crt
-  - name: saml-cert
-    mountPath: /etc/tower/saml.key
-    subPath: saml-sp.key
+    - name: saml-cert
+      mountPath: /etc/tower/saml.crt
+      subPath: saml-sp.crt
+    - name: saml-cert
+      mountPath: /etc/tower/saml.key
+      subPath: saml-sp.key
 ```
 
 ### OAuth2/OIDC Authentication
@@ -1854,6 +1878,7 @@ curl -X POST "https://${HOSTNAME}/api/v2/settings/authentication/" \
 ```
 
 **oauth-config.json:**
+
 ```json
 {
   "SOCIAL_AUTH_GITHUB_KEY": "${GITHUB_CLIENT_ID}",
@@ -1915,6 +1940,7 @@ curl -X POST "https://${HOSTNAME}/api/v2/settings/system/" \
 ```
 
 Users can configure MFA in their profile settings:
+
 - Time-based One-Time Password (TOTP)
 - SMS (via external integration)
 - Hardware tokens
@@ -1958,6 +1984,7 @@ curl -X POST "https://${HOSTNAME}/api/v2/teams/" \
 #### 3. Role Assignments
 
 Built-in AWX roles:
+
 - **System Administrator**: Full system access
 - **Organization Administrator**: Admin for specific org
 - **Team Member**: Access to team's resources
@@ -2033,6 +2060,7 @@ kubectl annotate ingress awx-${NAME}-ingress \
 ### Troubleshooting Authentication
 
 **LDAP Connection Issues:**
+
 ```bash
 # Test from AWX pod
 kubectl exec -it awx-${NAME}-task-0 -n ${NAMESPACE} -- \
@@ -2048,6 +2076,7 @@ kubectl logs -n ${NAMESPACE} deployment/awx-${NAME}-web | grep -i ldap
 ```
 
 **SAML Issues:**
+
 ```bash
 # Check SAML metadata
 curl "https://${HOSTNAME}/sso/metadata/saml/" \
@@ -2062,6 +2091,7 @@ kubectl logs -n ${NAMESPACE} deployment/awx-${NAME}-web | grep -i saml
 ```
 
 **OAuth Issues:**
+
 ```bash
 # Verify OAuth app configuration
 kubectl exec -it awx-${NAME}-task-0 -n ${NAMESPACE} -- \
@@ -2080,8 +2110,8 @@ EOF
 <md:EntityDescriptor entityID="https://${HOSTNAME}">
   <md:SPSSODescriptor>
     <md:NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress</md:NameIDFormat>
-    <md:AssertionConsumerService 
-      index="1" 
+    <md:AssertionConsumerService
+      index="1"
       Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
       Location="https://${HOSTNAME}/sso/complete/saml/"/>
   </md:SPSSODescriptor>
@@ -2131,7 +2161,7 @@ awx user list --all-pages > local_users.json
 # 2. Map existing users to LDAP
 for user in $(cat local_users.json | jq -r '.results[] | select(.ldap_dn == null) | .username'); do
   echo "Migrating user: $user"
-  
+
   # Update user to use LDAP auth
   awx user modify $user \
     --ldap_dn "uid=$user,ou=users,dc=example,dc=com"
@@ -2168,7 +2198,7 @@ spec:
     limits:
       cpu: 1000m
       memory: 2Gi
-  
+
   task_resource_requirements:
     requests:
       cpu: 250m
@@ -2176,7 +2206,7 @@ spec:
     limits:
       cpu: 500m
       memory: 1Gi
-  
+
   ee_resource_requirements:
     requests:
       cpu: 250m
@@ -2184,7 +2214,7 @@ spec:
     limits:
       cpu: 500m
       memory: 1Gi
-  
+
   redis_resource_requirements:
     requests:
       cpu: 250m
@@ -2204,7 +2234,7 @@ spec:
     limits:
       cpu: 4000m
       memory: 8Gi
-  
+
   task_resource_requirements:
     requests:
       cpu: 1000m
@@ -2212,7 +2242,7 @@ spec:
     limits:
       cpu: 2000m
       memory: 4Gi
-  
+
   ee_resource_requirements:
     requests:
       cpu: 1000m
@@ -2220,7 +2250,7 @@ spec:
     limits:
       cpu: 2000m
       memory: 4Gi
-  
+
   redis_resource_requirements:
     requests:
       cpu: 1000m
@@ -2341,34 +2371,34 @@ spec:
   minReplicas: 2
   maxReplicas: 10
   metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 70
-  - type: Resource
-    resource:
-      name: memory
-      target:
-        type: Utilization
-        averageUtilization: 80
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
   behavior:
     scaleDown:
       stabilizationWindowSeconds: 300
       policies:
-      - type: Percent
-        value: 10
-        periodSeconds: 60
+        - type: Percent
+          value: 10
+          periodSeconds: 60
     scaleUp:
       stabilizationWindowSeconds: 0
       policies:
-      - type: Percent
-        value: 100
-        periodSeconds: 15
-      - type: Pods
-        value: 4
-        periodSeconds: 15
+        - type: Percent
+          value: 100
+          periodSeconds: 15
+        - type: Pods
+          value: 4
+          periodSeconds: 15
       selectPolicy: Max
 ```
 
@@ -2387,13 +2417,13 @@ spec:
   minReplicas: 2
   maxReplicas: 20
   metrics:
-  - type: Pods
-    pods:
-      metric:
-        name: awx_pending_jobs
-      target:
-        type: AverageValue
-        averageValue: "5"
+    - type: Pods
+      pods:
+        metric:
+          name: awx_pending_jobs
+        target:
+          type: AverageValue
+          averageValue: '5'
 ```
 
 #### 2. Create Custom Metrics for AWX
@@ -2496,8 +2526,8 @@ spec:
       cpu: 2000m
       memory: 4Gi
     limits:
-      cpu: 4000m  # 2x requests
-      memory: 8Gi  # 2x requests
+      cpu: 4000m # 2x requests
+      memory: 8Gi # 2x requests
 ```
 
 #### 2. Resource Quotas
@@ -2510,11 +2540,11 @@ metadata:
   namespace: ${NAMESPACE}
 spec:
   hard:
-    requests.cpu: "10"
+    requests.cpu: '10'
     requests.memory: 40Gi
-    limits.cpu: "20"
+    limits.cpu: '20'
     limits.memory: 80Gi
-    persistentvolumeclaims: "10"
+    persistentvolumeclaims: '10'
     requests.storage: 500Gi
 ```
 
@@ -2528,13 +2558,13 @@ metadata:
   namespace: ${NAMESPACE}
 spec:
   limits:
-  - default:
-      cpu: 1000m
-      memory: 2Gi
-    defaultRequest:
-      cpu: 500m
-      memory: 1Gi
-    type: Container
+    - default:
+        cpu: 1000m
+        memory: 2Gi
+      defaultRequest:
+        cpu: 500m
+        memory: 1Gi
+      type: Container
 ```
 
 ### Performance Tuning
@@ -2546,13 +2576,13 @@ spec:
 spec:
   extra_settings:
     - setting: TOWER_URL_BASE
-      value: "https://${HOSTNAME}"
+      value: 'https://${HOSTNAME}'
     - setting: AWX_TASK_ENV['MAX_OPEN_FILES']
       value: 8192
     - setting: SYSTEM_TASK_ABS_MEM
-      value: 40  # 40GB for production
+      value: 40 # 40GB for production
     - setting: SYSTEM_TASK_ABS_CPU
-      value: 12  # 12 cores for production
+      value: 12 # 12 cores for production
     - setting: AWX_RUNNER_MIN_JOBS
       value: 5
     - setting: AWX_RUNNER_MAX_JOBS
@@ -2593,13 +2623,13 @@ data:
     max_connections = 200
     shared_buffers = 2GB
     effective_cache_size = 6GB
-    
+
     # Performance settings
     checkpoint_timeout = 10min
     max_wal_size = 2GB
     work_mem = 10MB
     maintenance_work_mem = 512MB
-    
+
     # Logging
     log_min_duration_statement = 1000
     log_checkpoints = on
@@ -2608,6 +2638,7 @@ data:
 ```
 
 Apply to PostgreSQL StatefulSet:
+
 ```bash
 kubectl patch statefulset awx-${NAME}-postgres-13 -n ${NAMESPACE} --patch '{
   "spec": {
@@ -2649,9 +2680,9 @@ spec:
     matchLabels:
       app.kubernetes.io/name: awx-${NAME}
   endpoints:
-  - port: metrics
-    interval: 30s
-    path: /metrics
+    - port: metrics
+      interval: 30s
+      path: /metrics
 ```
 
 #### 2. Grafana Dashboard
@@ -2699,46 +2730,46 @@ metadata:
   name: awx-${NAME}-alerts
 spec:
   groups:
-  - name: awx-resources
-    rules:
-    - alert: AWXHighCPUUsage
-      expr: |
-        avg(rate(container_cpu_usage_seconds_total{
-          namespace="${NAMESPACE}",
-          pod=~"awx-${NAME}-web-.*"
-        }[5m])) > 0.8
-      for: 10m
-      labels:
-        severity: warning
-      annotations:
-        summary: "AWX web pods high CPU usage"
-        
-    - alert: AWXHighMemoryUsage
-      expr: |
-        avg(container_memory_working_set_bytes{
-          namespace="${NAMESPACE}", 
-          pod=~"awx-${NAME}-.*"
-        }) / avg(container_spec_memory_limit_bytes{
-          namespace="${NAMESPACE}",
-          pod=~"awx-${NAME}-.*"
-        }) > 0.85
-      for: 5m
-      labels:
-        severity: warning
-      annotations:
-        summary: "AWX pods memory usage high"
-        
-    - alert: AWXPodRestarting
-      expr: |
-        rate(kube_pod_container_status_restarts_total{
-          namespace="${NAMESPACE}",
-          pod=~"awx-${NAME}-.*"
-        }[15m]) > 0
-      for: 5m
-      labels:
-        severity: critical
-      annotations:
-        summary: "AWX pod restarting frequently"
+    - name: awx-resources
+      rules:
+        - alert: AWXHighCPUUsage
+          expr: |
+            avg(rate(container_cpu_usage_seconds_total{
+              namespace="${NAMESPACE}",
+              pod=~"awx-${NAME}-web-.*"
+            }[5m])) > 0.8
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: 'AWX web pods high CPU usage'
+
+        - alert: AWXHighMemoryUsage
+          expr: |
+            avg(container_memory_working_set_bytes{
+              namespace="${NAMESPACE}", 
+              pod=~"awx-${NAME}-.*"
+            }) / avg(container_spec_memory_limit_bytes{
+              namespace="${NAMESPACE}",
+              pod=~"awx-${NAME}-.*"
+            }) > 0.85
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: 'AWX pods memory usage high'
+
+        - alert: AWXPodRestarting
+          expr: |
+            rate(kube_pod_container_status_restarts_total{
+              namespace="${NAMESPACE}",
+              pod=~"awx-${NAME}-.*"
+            }[15m]) > 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: 'AWX pod restarting frequently'
 ```
 
 ### Cost Optimization
@@ -2754,7 +2785,7 @@ kubectl top pods -n ${NAMESPACE}
 # Recommendation: Set requests to 300m (60% of actual)
 
 # Memory usage
-# Current: 2Gi requests, using 1.2Gi average  
+# Current: 2Gi requests, using 1.2Gi average
 # Recommendation: Set requests to 1.5Gi (80% of actual)
 ```
 
@@ -2771,10 +2802,10 @@ spec:
         kubernetes.io/arch: amd64
         node.kubernetes.io/instance-type: spot
       tolerations:
-      - key: "spot-instance"
-        operator: "Equal"
-        value: "true"
-        effect: "NoSchedule"
+        - key: 'spot-instance'
+          operator: 'Equal'
+          value: 'true'
+          effect: 'NoSchedule'
 ```
 
 #### 3. Scheduled Scaling (Development/Staging)
@@ -2785,24 +2816,24 @@ kind: CronJob
 metadata:
   name: awx-scale-down-demo
 spec:
-  schedule: "0 18 * * 1-5"  # 6 PM weekdays
+  schedule: '0 18 * * 1-5' # 6 PM weekdays
   jobTemplate:
     spec:
       template:
         spec:
           containers:
-          - name: kubectl
-            image: bitnami/kubectl:latest
-            command:
-            - kubectl
-            - patch
-            - awx
-            - ${NAME}
-            - -n
-            - ${NAMESPACE}
-            - --type=merge
-            - -p
-            - '{"spec":{"web_replicas":1,"task_replicas":1,"ee_replicas":1}}'
+            - name: kubectl
+              image: bitnami/kubectl:latest
+              command:
+                - kubectl
+                - patch
+                - awx
+                - ${NAME}
+                - -n
+                - ${NAMESPACE}
+                - --type=merge
+                - -p
+                - '{"spec":{"web_replicas":1,"task_replicas":1,"ee_replicas":1}}'
           restartPolicy: OnFailure
 ---
 apiVersion: batch/v1beta1
@@ -2810,30 +2841,31 @@ kind: CronJob
 metadata:
   name: awx-scale-up-demo
 spec:
-  schedule: "0 8 * * 1-5"  # 8 AM weekdays
+  schedule: '0 8 * * 1-5' # 8 AM weekdays
   jobTemplate:
     spec:
       template:
         spec:
           containers:
-          - name: kubectl
-            image: bitnami/kubectl:latest
-            command:
-            - kubectl
-            - patch
-            - awx
-            - ${NAME}
-            - -n
-            - ${NAMESPACE}
-            - --type=merge
-            - -p
-            - '{"spec":{"web_replicas":2,"task_replicas":3,"ee_replicas":3}}'
+            - name: kubectl
+              image: bitnami/kubectl:latest
+              command:
+                - kubectl
+                - patch
+                - awx
+                - ${NAME}
+                - -n
+                - ${NAMESPACE}
+                - --type=merge
+                - -p
+                - '{"spec":{"web_replicas":2,"task_replicas":3,"ee_replicas":3}}'
           restartPolicy: OnFailure
 ```
 
 ### Resource Troubleshooting
 
 **OOMKilled Pods:**
+
 ```bash
 # Check for OOM events
 kubectl get events -n ${NAMESPACE} --sort-by='.lastTimestamp' | grep OOM
@@ -2853,6 +2885,7 @@ kubectl patch awx ${NAME} -n ${NAMESPACE} --type merge -p '{
 ```
 
 **CPU Throttling:**
+
 ```bash
 # Check CPU throttling
 kubectl describe pod awx-${NAME}-web-xxx -n ${NAMESPACE}
@@ -2866,6 +2899,7 @@ kubectl top pod awx-${NAME}-web-xxx -n ${NAMESPACE}
 ```
 
 **Insufficient Resources:**
+
 ```bash
 # Check pending pods
 kubectl get pods -n ${NAMESPACE} | grep Pending
@@ -2882,6 +2916,7 @@ kubectl top nodes
 ```
 
 **Scheduling Issues:**
+
 ```bash
 # Check pod scheduling failures
 kubectl describe pod awx-${NAME}-web-xxx -n ${NAMESPACE}
@@ -2906,15 +2941,15 @@ kubectl patch awx ${NAME} -n ${NAMESPACE} --type merge -p '{
 Web Pods:
   CPU: 1000m-4000m per replica (based on concurrent users)
   Memory: 2Gi-8Gi per replica (based on job history size)
-  
+
 Task Pods:
   CPU: 500m-2000m per replica (based on job complexity)
   Memory: 1Gi-4Gi per replica (based on job resources)
-  
+
 EE Pods:
   CPU: 500m-2000m per replica (based on ansible processes)
   Memory: 1Gi-4Gi per replica (based on playbook memory needs)
-  
+
 Redis Pods:
   CPU: 500m-2000m (based on cache size and throughput)
   Memory: 1Gi-4Gi (based on concurrent sessions)
@@ -2961,6 +2996,7 @@ EOF
 
 # Expected: < 1s for databases with < 100k jobs
 ```
+
 ## Upgrading AWX
 
 ### Pre-Upgrade Checklist
@@ -3198,11 +3234,11 @@ echo "Database rollback completed!"
 
 ### Version Compatibility Matrix
 
-| AWX Version | Operator Version | PostgreSQL Version | Kubernetes Version | Notes |
-|-------------|------------------|-------------------|-------------------|--------|
-| 22.x | 2.x | 13+ | 1.21+ | Current |
-| 21.x | 1.x | 13+ | 1.20+ | Stable |
-| 20.x | 0.x | 12+ | 1.19+ | Legacy |
+| AWX Version | Operator Version | PostgreSQL Version | Kubernetes Version | Notes   |
+| ----------- | ---------------- | ------------------ | ------------------ | ------- |
+| 22.x        | 2.x              | 13+                | 1.21+              | Current |
+| 21.x        | 1.x              | 13+                | 1.20+              | Stable  |
+| 20.x        | 0.x              | 12+                | 1.19+              | Legacy  |
 
 ### Upgrade Best Practices
 
@@ -3297,7 +3333,7 @@ kubectl exec -it awx-${NAME}-task-0 -n ${NAMESPACE} -- \
 
 # Within psql:
 SELECT pid, now() - query_start as duration, query
-FROM pg_stat_activity 
+FROM pg_stat_activity
 WHERE query LIKE '%django_migrations%'
 AND state = 'active';
 
@@ -3356,7 +3392,7 @@ spec:
   image: quay.io/ansible/awx:22.7.0
   hostname: awx-v22.example.com  # Different hostname
   # Use same database or replica
-  
+
 # Test thoroughly on v22
 # Gradually migrate traffic via ingress
 apiVersion: networking.k8s.io/v1

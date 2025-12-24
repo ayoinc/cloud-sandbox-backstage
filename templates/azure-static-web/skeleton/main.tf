@@ -1,99 +1,29 @@
-terraform {
-  required_version = ">= 1.0"
-  
-  required_providers {
-    azurerm = {
-      source  = "hashicorp/azurerm"
-      version = "~> 3.0"
-    }
-  }
-  
-  backend "azurerm" {
-    # Configure your backend
-  }
-}
+# =============================================================================
+# Azure Static Web App - Root Module
+# =============================================================================
 
-provider "azurerm" {
-  features {}
-}
+module "static_web" {
+  source = "./modules/static-web"
 
-locals {
-  common_tags = {
-    Project     = var.name
-    Environment = var.environment
-    ManagedBy   = "terraform"
-    Owner       = "${{ values.owner }}"
-  }
-  
-  # Framework-specific build settings
-  build_config = {
-    react = {
-      app_location         = "/"
-      api_location         = "api"
-      output_location      = "build"
-    }
-    vue = {
-      app_location         = "/"
-      api_location         = "api"
-      output_location      = "dist"
-    }
-    angular = {
-      app_location         = "/"
-      api_location         = "api"
-      output_location      = "dist/app"
-    }
-    nextjs = {
-      app_location         = "/"
-      api_location         = ""
-      output_location      = ""
-    }
-    gatsby = {
-      app_location         = "/"
-      api_location         = "api"
-      output_location      = "public"
-    }
-    hugo = {
-      app_location         = "/"
-      api_location         = "api"
-      output_location      = "public"
-    }
-    static = {
-      app_location         = "/"
-      api_location         = ""
-      output_location      = ""
-    }
-  }
-}
+  # Required variables
+  name        = var.name
+  environment = var.environment
+  location    = var.location
+  description = var.description
+  owner       = var.owner
 
-# Resource Group
-resource "azurerm_resource_group" "main" {
-  name     = "rg-${var.name}-${var.environment}"
-  location = var.location
-  tags     = local.common_tags
-}
+  # Static Web App Configuration
+  sku_tier                    = var.sku_tier
+  framework                   = var.framework
+  enable_preview_environments = var.enable_preview_environments
+  enable_config_file_changes  = var.enable_config_file_changes
 
-# Static Web App
-resource "azurerm_static_web_app" "main" {
-  name                = "swa-${var.name}-${var.environment}"
-  resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
-  sku_tier            = var.sku_tier
-  sku_size            = var.sku_tier == "Free" ? "Free" : "Standard"
-  
-  tags = local.common_tags
-}
+  # Custom Domain
+  custom_domain = var.custom_domain
 
-# Custom Domain (for Standard tier)
-resource "azurerm_static_web_app_custom_domain" "main" {
-  count             = var.sku_tier == "Standard" && var.custom_domain != "" ? 1 : 0
-  static_web_app_id = azurerm_static_web_app.main.id
-  domain_name       = var.custom_domain
-  validation_type   = "cname-delegation"
-}
+  # API Backend
+  api_backend_resource_id = var.api_backend_resource_id
 
-# Application Settings
-resource "azurerm_static_web_app_function_app_registration" "api" {
-  count                = var.api_backend_resource_id != "" ? 1 : 0
-  static_web_app_id    = azurerm_static_web_app.main.id
-  function_app_id      = var.api_backend_resource_id
+  # Tags
+  tags = var.tags
 }

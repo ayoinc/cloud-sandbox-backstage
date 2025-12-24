@@ -1,0 +1,77 @@
+services:
+  # ===========================================
+  # React Frontend Development Server
+  # ===========================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: ${{ values.name }}-app
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://localhost:3001/api
+{%- if values.enable_mock_api %}
+      - VITE_ENABLE_MSW=true
+{%- endif %}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5173"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - app-network
+
+{%- if values.enable_mock_api %}
+  # ===========================================
+  # Mock API Server (optional)
+  # ===========================================
+  mock-api:
+    image: node:22-alpine
+    container_name: ${{ values.name }}-mock-api
+    working_dir: /app
+    command: npx json-server --watch db.json --port 3001 --host 0.0.0.0
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./mock:/app
+    networks:
+      - app-network
+{%- endif %}
+
+  # ===========================================
+  # Production Preview (nginx)
+  # ===========================================
+  preview:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+      args:
+        - VITE_API_URL=/api
+        - VITE_APP_ENV=preview
+    container_name: ${{ values.name }}-preview
+    ports:
+      - "8080:8080"
+    environment:
+      - API_URL=http://mock-api:3001
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - app-network
+    profiles:
+      - preview
+
+networks:
+  app-network:
+    driver: bridge

@@ -9,6 +9,7 @@ A VPC provides networking functionality for your cloud resources. This template 
 ## Features
 
 ### Network Components
+
 - Custom mode VPC network
 - Regional subnets with secondary ranges
 - Cloud Router for dynamic routing
@@ -17,25 +18,26 @@ A VPC provides networking functionality for your cloud resources. This template 
 
 ### Configuration Options
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `cidrRange` | Primary CIDR block | 10.0.0.0/16 |
-| `region` | GCP region | us-central1 |
+| Parameter     | Description            | Default     |
+| ------------- | ---------------------- | ----------- |
+| `cidrRange`   | Primary CIDR block     | 10.0.0.0/16 |
+| `region`      | GCP region             | us-central1 |
 | `environment` | Deployment environment | development |
 
 ### Subnet Design
 
 The template creates the following subnets:
 
-| Subnet | Purpose | CIDR Range |
-|--------|---------|------------|
-| Public | Load balancers, bastion hosts | /24 |
-| Private | Application workloads | /20 |
-| Data | Databases, internal services | /22 |
+| Subnet  | Purpose                       | CIDR Range |
+| ------- | ----------------------------- | ---------- |
+| Public  | Load balancers, bastion hosts | /24        |
+| Private | Application workloads         | /20        |
+| Data    | Databases, internal services  | /22        |
 
 ## Getting Started
 
 ### Prerequisites
+
 - GCP project with billing enabled
 - Compute Engine API enabled
 - Terraform >= 1.0
@@ -43,11 +45,13 @@ The template creates the following subnets:
 ### Deployment
 
 1. **Initialize Terraform**
+
    ```bash
    terraform init
    ```
 
 2. **Review the plan**
+
    ```bash
    terraform plan
    ```
@@ -72,30 +76,41 @@ gcloud compute firewall-rules list --filter="network=VPC_NAME"
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                         VPC Network                          │
-│                                                              │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │   Public     │  │   Private    │  │    Data      │      │
-│  │   Subnet     │  │   Subnet     │  │   Subnet     │      │
-│  │   /24        │  │   /20        │  │   /22        │      │
-│  │              │  │              │  │              │      │
-│  │  - LB        │  │  - Apps      │  │  - DBs       │      │
-│  │  - NAT GW    │  │  - GKE       │  │  - Redis     │      │
-│  │  - Bastion   │  │  - VMs       │  │  - Internal  │      │
-│  └──────────────┘  └──────────────┘  └──────────────┘      │
-│         │                 │                 │               │
-│         └────────────────┼─────────────────┘               │
-│                          │                                  │
-│                   ┌──────┴──────┐                          │
-│                   │Cloud Router │                          │
-│                   │  + NAT      │                          │
-│                   └─────────────┘                          │
-│                          │                                  │
-└──────────────────────────┼──────────────────────────────────┘
-                           │
-                       Internet
+```d2
+direction: down
+
+vpc: VPC Network {
+  style.fill: "#e3f2fd"
+
+  public: Public Subnet (/24) {
+    style.fill: "#c8e6c9"
+    label: "Public Subnet\n/24\n- LB\n- NAT GW\n- Bastion"
+  }
+
+  private: Private Subnet (/20) {
+    style.fill: "#b3e5fc"
+    label: "Private Subnet\n/20\n- Apps\n- GKE\n- VMs"
+  }
+
+  data: Data Subnet (/22) {
+    style.fill: "#fff3e0"
+    label: "Data Subnet\n/22\n- DBs\n- Redis\n- Internal"
+  }
+
+  router: Cloud Router + NAT {
+    style.fill: "#f3e5f5"
+  }
+
+  public -> router
+  private -> router
+  data -> router
+}
+
+internet: Internet {
+  style.fill: "#ffcdd2"
+}
+
+vpc.router -> internet
 ```
 
 ## Firewall Rules
@@ -103,11 +118,13 @@ gcloud compute firewall-rules list --filter="network=VPC_NAME"
 The template configures layered firewall rules:
 
 ### Ingress Rules
+
 - Allow HTTPS (443) from internet to load balancers
 - Allow internal communication between subnets
 - Allow SSH from IAP for secure bastion access
 
 ### Egress Rules
+
 - Allow outbound to internet via Cloud NAT
 - Allow internal subnet communication
 - Deny direct internet egress from private subnets

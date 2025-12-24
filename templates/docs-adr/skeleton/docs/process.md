@@ -14,15 +14,28 @@ Create an ADR when:
 
 ## ADR Lifecycle
 
-```
-┌──────────┐     ┌──────────┐     ┌──────────┐
-│ Proposed │ ──► │ Accepted │ ──► │Deprecated│
-└──────────┘     └──────────┘     └──────────┘
-                       │
-                       ▼
-                 ┌──────────┐
-                 │Superseded│
-                 └──────────┘
+```d2
+direction: right
+
+proposed: Proposed {
+  style.fill: "#fff9c4"
+}
+
+accepted: Accepted {
+  style.fill: "#c8e6c9"
+}
+
+deprecated: Deprecated {
+  style.fill: "#ffcdd2"
+}
+
+superseded: Superseded {
+  style.fill: "#e1bee7"
+}
+
+proposed -> accepted
+accepted -> deprecated
+accepted -> superseded
 ```
 
 ### 1. Proposed

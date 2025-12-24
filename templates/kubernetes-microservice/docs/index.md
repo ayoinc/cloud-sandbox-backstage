@@ -9,6 +9,7 @@ Build and deploy containerized microservices to Kubernetes with built-in observa
 ## Features
 
 ### Multi-Language Support
+
 - **Node.js** (Express)
 - **Python** (FastAPI)
 - **Java** (Spring Boot)
@@ -16,6 +17,7 @@ Build and deploy containerized microservices to Kubernetes with built-in observa
 - **.NET Core**
 
 ### Architecture Patterns
+
 - REST API Service
 - GraphQL API Service
 - gRPC Service
@@ -23,6 +25,7 @@ Build and deploy containerized microservices to Kubernetes with built-in observa
 - Batch Processor
 
 ### Database Integration
+
 - PostgreSQL
 - MySQL
 - MongoDB
@@ -30,6 +33,7 @@ Build and deploy containerized microservices to Kubernetes with built-in observa
 - Elasticsearch
 
 ### Message Queues
+
 - RabbitMQ
 - Apache Kafka
 - Redis Pub/Sub
@@ -37,17 +41,18 @@ Build and deploy containerized microservices to Kubernetes with built-in observa
 
 ## Configuration Options
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `language` | Programming language | nodejs |
-| `architecture_type` | Service architecture | rest-api |
-| `database_type` | Database technology | postgresql |
-| `cloud_provider` | Target cloud | aws |
+| Parameter             | Description             | Default        |
+| --------------------- | ----------------------- | -------------- |
+| `language`            | Programming language    | nodejs         |
+| `architecture_type`   | Service architecture    | rest-api       |
+| `database_type`       | Database technology     | postgresql     |
+| `cloud_provider`      | Target cloud            | aws            |
 | `deployment_strategy` | K8s deployment strategy | rolling-update |
 
 ## Getting Started
 
 ### Prerequisites
+
 - Kubernetes cluster (EKS, AKS, GKE, or on-premise)
 - kubectl configured
 - Docker installed
@@ -56,6 +61,7 @@ Build and deploy containerized microservices to Kubernetes with built-in observa
 ### Local Development
 
 1. **Clone and install dependencies**
+
    ```bash
    git clone <repository-url>
    cd <service-name>
@@ -63,6 +69,7 @@ Build and deploy containerized microservices to Kubernetes with built-in observa
    ```
 
 2. **Start local services**
+
    ```bash
    docker-compose up -d
    ```
@@ -75,12 +82,14 @@ Build and deploy containerized microservices to Kubernetes with built-in observa
 ### Kubernetes Deployment
 
 1. **Build and push container**
+
    ```bash
    docker build -t your-registry/service-name:tag .
    docker push your-registry/service-name:tag
    ```
 
 2. **Deploy to Kubernetes**
+
    ```bash
    kubectl apply -f k8s/
    ```
@@ -93,33 +102,47 @@ Build and deploy containerized microservices to Kubernetes with built-in observa
 
 ## Architecture
 
-```
-                         ┌─────────────────────────────────────┐
-                         │         Kubernetes Cluster          │
-                         │                                     │
-   ┌──────────┐         │  ┌─────────────────────────────┐   │
-   │ Ingress  │─────────┼──│         Service             │   │
-   │Controller│         │  │    (ClusterIP/LoadBalancer) │   │
-   └──────────┘         │  └─────────────────────────────┘   │
-                         │              │                     │
-                         │  ┌───────────┴───────────┐        │
-                         │  │                       │        │
-                         │  ▼                       ▼        │
-                         │ ┌───┐                  ┌───┐      │
-                         │ │Pod│                  │Pod│      │
-                         │ │ 1 │                  │ 2 │      │
-                         │ └───┘                  └───┘      │
-                         │                                    │
-                         │  ┌─────────────────────────────┐  │
-                         │  │   HPA (Horizontal Pod        │  │
-                         │  │   Autoscaler)                │  │
-                         │  └─────────────────────────────┘  │
-                         └─────────────────────────────────────┘
+```d2
+direction: right
+
+ingress: Ingress Controller {
+  style.fill: "#e3f2fd"
+}
+
+cluster: Kubernetes Cluster {
+  style.fill: "#f5f5f5"
+
+  service: Service {
+    style.fill: "#c8e6c9"
+    label: "Service\n(ClusterIP/LoadBalancer)"
+  }
+
+  pod1: Pod 1 {
+    style.fill: "#b3e5fc"
+  }
+
+  pod2: Pod 2 {
+    style.fill: "#b3e5fc"
+  }
+
+  hpa: HPA {
+    style.fill: "#fff3e0"
+    label: "Horizontal Pod\nAutoscaler"
+  }
+
+  service -> pod1
+  service -> pod2
+  hpa -> pod1: scales
+  hpa -> pod2: scales
+}
+
+ingress -> cluster.service
 ```
 
 ## Kubernetes Resources
 
 ### Deployment Configuration
+
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -135,6 +158,7 @@ spec:
 ```
 
 ### Horizontal Pod Autoscaler
+
 ```yaml
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -151,6 +175,7 @@ spec:
 ```
 
 ### Pod Disruption Budget
+
 ```yaml
 apiVersion: policy/v1
 kind: PodDisruptionBudget
@@ -164,15 +189,18 @@ spec:
 ## Observability
 
 ### Monitoring Stack Options
+
 - **Prometheus + Grafana** - Cloud-native metrics
 - **Elastic Stack (ELK)** - Centralized logging
 - **Datadog** - Full-stack observability
 - **New Relic** - APM and infrastructure
 
 ### Distributed Tracing
+
 OpenTelemetry integration for end-to-end request tracing across services.
 
 ### Health Checks
+
 ```yaml
 livenessProbe:
   httpGet:
@@ -192,17 +220,20 @@ readinessProbe:
 ## Security
 
 ### Container Security
+
 - Non-root container execution
 - Read-only root filesystem
 - Resource limits enforced
 - Security context constraints
 
 ### CI/CD Security Scanning
+
 - **Trivy** - Container vulnerability scanning
 - **Snyk** - Dependency scanning
 - **OWASP** - Security testing
 
 ### Policy Enforcement
+
 OPA/Gatekeeper policies for Kubernetes resource compliance.
 
 ## CI/CD Platforms
@@ -216,12 +247,15 @@ OPA/Gatekeeper policies for Kubernetes resource compliance.
 ## Deployment Strategies
 
 ### Rolling Update
+
 Zero-downtime deployment with gradual pod replacement.
 
 ### Blue-Green
+
 Run two identical environments, switch traffic instantly.
 
 ### Canary
+
 Gradual traffic shifting to new version for safe rollouts.
 
 ## Related Templates

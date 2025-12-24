@@ -1,0 +1,124 @@
+services:
+  api:
+    build:
+      context: .
+      target: development
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./src:/app/src:cached
+      - ./tests:/app/tests:cached
+    environment:
+      - DEBUG=true
+      - ENVIRONMENT=development
+{%- if values.database_type == 'postgresql' %}
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_USER=postgres
+      - DATABASE_PASSWORD=postgres
+      - DATABASE_NAME=${{ values.name | replace('-', '_') }}
+{%- elif values.database_type == 'mysql' %}
+      - DATABASE_HOST=mysql
+      - DATABASE_PORT=3306
+      - DATABASE_USER=root
+      - DATABASE_PASSWORD=mysql
+      - DATABASE_NAME=${{ values.name | replace('-', '_') }}
+{%- elif values.database_type == 'mongodb' %}
+      - MONGODB_URL=mongodb://mongo:27017
+      - MONGODB_DATABASE=${{ values.name | replace('-', '_') }}
+{%- endif %}
+{%- if values.enable_caching or values.database_type == 'redis' %}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+{%- endif %}
+    depends_on:
+{%- if values.database_type == 'postgresql' %}
+      postgres:
+        condition: service_healthy
+{%- elif values.database_type == 'mysql' %}
+      mysql:
+        condition: service_healthy
+{%- elif values.database_type == 'mongodb' %}
+      mongo:
+        condition: service_started
+{%- endif %}
+{%- if values.enable_caching or values.database_type == 'redis' %}
+      redis:
+        condition: service_healthy
+{%- endif %}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+{%- if values.database_type == 'postgresql' %}
+
+  postgres:
+    image: postgres:17-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=${{ values.name | replace('-', '_') }}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+{%- elif values.database_type == 'mysql' %}
+
+  mysql:
+    image: mysql:8.4
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=mysql
+      - MYSQL_DATABASE=${{ values.name | replace('-', '_') }}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+{%- elif values.database_type == 'mongodb' %}
+
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+{%- endif %}
+
+{%- if values.enable_caching or values.database_type == 'redis' %}
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+{%- endif %}
+
+volumes:
+{%- if values.database_type == 'postgresql' %}
+  postgres_data:
+{%- elif values.database_type == 'mysql' %}
+  mysql_data:
+{%- elif values.database_type == 'mongodb' %}
+  mongo_data:
+{%- endif %}
+{%- if values.enable_caching or values.database_type == 'redis' %}
+  redis_data:
+{%- endif %}

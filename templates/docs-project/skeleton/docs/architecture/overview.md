@@ -4,29 +4,35 @@ This document provides an overview of the ${{ values.name }} architecture.
 
 ## High-Level Architecture
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                     Client Layer                         │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
-│  │   Web UI    │  │   CLI       │  │   API       │     │
-│  └─────────────┘  └─────────────┘  └─────────────┘     │
-└─────────────────────────────────────────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────┐
-│                   Application Layer                      │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
-│  │   Service   │  │   Handler   │  │  Middleware │     │
-│  └─────────────┘  └─────────────┘  └─────────────┘     │
-└─────────────────────────────────────────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────┐
-│                     Data Layer                           │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
-│  │  Database   │  │   Cache     │  │   Storage   │     │
-│  └─────────────┘  └─────────────┘  └─────────────┘     │
-└─────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+client-layer: Client Layer {
+  style.fill: "#e3f2fd"
+
+  web-ui: Web UI
+  cli: CLI
+  api: API
+}
+
+app-layer: Application Layer {
+  style.fill: "#c8e6c9"
+
+  service: Service
+  handler: Handler
+  middleware: Middleware
+}
+
+data-layer: Data Layer {
+  style.fill: "#fff3e0"
+
+  database: Database
+  cache: Cache
+  storage: Storage
+}
+
+client-layer -> app-layer
+app-layer -> data-layer
 ```
 
 ## Design Principles
@@ -38,12 +44,12 @@ This document provides an overview of the ${{ values.name }} architecture.
 
 ## Key Components
 
-| Component | Purpose | Technology |
-|-----------|---------|------------|
-| Web UI | User interface | React |
-| API | REST endpoints | Node.js |
-| Database | Data persistence | PostgreSQL |
-| Cache | Performance | Redis |
+| Component | Purpose          | Technology |
+| --------- | ---------------- | ---------- |
+| Web UI    | User interface   | React      |
+| API       | REST endpoints   | Node.js    |
+| Database  | Data persistence | PostgreSQL |
+| Cache     | Performance      | Redis      |
 
 ## Data Flow
 

@@ -1,193 +1,75 @@
-terraform {
-  required_version = ">= 1.0"
+# =============================================================================
+# GCP GKE - Root Configuration
+# =============================================================================
+# This is the main entry point that calls the GKE module.
+# Environment-specific values are provided via tfvars files.
+# =============================================================================
 
-  required_providers {
-    google = {
-      source  = "hashicorp/google"
-      version = "~> 5.0"
-    }
-  }
+module "gke" {
+  source = "./modules/gke"
 
-  backend "gcs" {
-    # Configure your backend
-  }
-}
+  # Required variables
+  name        = var.name
+  environment = var.environment
+  region      = var.region
+  project_id  = var.project_id
+  owner       = var.owner
+  labels      = var.labels
 
-provider "google" {
-  project = var.gcp_project
-  region  = var.region
-}
+  # Cluster mode
+  cluster_mode = var.cluster_mode
 
-locals {
-  common_labels = {
-    project     = var.name
-    environment = var.environment
-    managed-by  = "terraform"
-  }
-}
+  # Network configuration
+  network_id          = var.network_id
+  subnet_id           = var.subnet_id
+  pods_range_name     = var.pods_range_name
+  services_range_name = var.services_range_name
 
-# Get existing VPC
-data "google_compute_network" "main" {
-  name = "${var.name}-${var.environment}-vpc"
-}
+  # Private cluster configuration
+  enable_private_endpoint    = var.enable_private_endpoint
+  master_ipv4_cidr_block     = var.master_ipv4_cidr_block
+  master_authorized_networks = var.master_authorized_networks
 
-data "google_compute_subnetwork" "gke" {
-  name   = "${var.name}-${var.environment}-gke"
-  region = var.region
-}
+  # Release channel
+  release_channel = var.release_channel
 
-# Service Account for GKE nodes
-resource "google_service_account" "gke_nodes" {
-  account_id   = "${var.name}-${var.environment}-gke"
-  display_name = "GKE Node Service Account for ${var.name}"
-}
+  # Security
+  enable_network_policy = var.enable_network_policy
 
-resource "google_project_iam_member" "gke_nodes" {
-  for_each = toset([
-    "roles/logging.logWriter",
-    "roles/monitoring.metricWriter",
-    "roles/monitoring.viewer",
-    "roles/stackdriver.resourceMetadata.writer",
-    "roles/artifactregistry.reader",
-  ])
-  project = var.gcp_project
-  role    = each.value
-  member  = "serviceAccount:${google_service_account.gke_nodes.email}"
-}
+  # Cluster autoscaling
+  enable_cluster_autoscaling = var.enable_cluster_autoscaling
+  autoscaling_cpu_min        = var.autoscaling_cpu_min
+  autoscaling_cpu_max        = var.autoscaling_cpu_max
+  autoscaling_memory_min     = var.autoscaling_memory_min
+  autoscaling_memory_max     = var.autoscaling_memory_max
 
-# Artifact Registry for container images
-resource "google_artifact_registry_repository" "main" {
-  location      = var.region
-  repository_id = "${var.name}-${var.environment}"
-  description   = "Container registry for ${var.name}"
-  format        = "DOCKER"
+  # Node pool configuration
+  node_count            = var.node_count
+  node_pool_min_count   = var.node_pool_min_count
+  node_pool_max_count   = var.node_pool_max_count
+  machine_type          = var.machine_type
+  disk_size_gb          = var.disk_size_gb
+  disk_type             = var.disk_type
+  image_type            = var.image_type
+  use_preemptible_nodes = var.use_preemptible_nodes
+  use_spot_nodes        = var.use_spot_nodes
 
-  labels = local.common_labels
-}
+  # Node pool upgrade
+  max_surge       = var.max_surge
+  max_unavailable = var.max_unavailable
 
-# GKE Cluster - Autopilot Mode
-resource "google_container_cluster" "autopilot" {
-  count    = var.cluster_mode == "autopilot" ? 1 : 0
-  name     = "${var.name}-${var.environment}"
-  location = var.region
+  # Node taints
+  node_taints = var.node_taints
 
-  enable_autopilot = true
+  # Additional node pools
+  additional_node_pools = var.additional_node_pools
 
-  network    = data.google_compute_network.main.id
-  subnetwork = data.google_compute_subnetwork.gke.id
+  # Maintenance window
+  maintenance_start_time = var.maintenance_start_time
+  maintenance_end_time   = var.maintenance_end_time
+  maintenance_recurrence = var.maintenance_recurrence
 
-  ip_allocation_policy {
-    cluster_secondary_range_name  = "pods"
-    services_secondary_range_name = "services"
-  }
-
-  private_cluster_config {
-    enable_private_nodes    = true
-    enable_private_endpoint = var.environment == "production"
-    master_ipv4_cidr_block  = "172.16.0.0/28"
-  }
-
-  release_channel {
-    channel = var.environment == "production" ? "STABLE" : "REGULAR"
-  }
-
-  workload_identity_config {
-    workload_pool = "${var.gcp_project}.svc.id.goog"
-  }
-
-  resource_labels = local.common_labels
-
-  deletion_protection = var.environment == "production"
-}
-
-# GKE Cluster - Standard Mode
-resource "google_container_cluster" "standard" {
-  count    = var.cluster_mode == "standard" ? 1 : 0
-  name     = "${var.name}-${var.environment}"
-  location = var.region
-
-  remove_default_node_pool = true
-  initial_node_count       = 1
-
-  network    = data.google_compute_network.main.id
-  subnetwork = data.google_compute_subnetwork.gke.id
-
-  ip_allocation_policy {
-    cluster_secondary_range_name  = "pods"
-    services_secondary_range_name = "services"
-  }
-
-  private_cluster_config {
-    enable_private_nodes    = true
-    enable_private_endpoint = var.environment == "production"
-    master_ipv4_cidr_block  = "172.16.0.0/28"
-  }
-
-  release_channel {
-    channel = var.environment == "production" ? "STABLE" : "REGULAR"
-  }
-
-  workload_identity_config {
-    workload_pool = "${var.gcp_project}.svc.id.goog"
-  }
-
-  cluster_autoscaling {
-    enabled = true
-    resource_limits {
-      resource_type = "cpu"
-      minimum       = 1
-      maximum       = 100
-    }
-    resource_limits {
-      resource_type = "memory"
-      minimum       = 1
-      maximum       = 1000
-    }
-  }
-
-  resource_labels = local.common_labels
-
-  deletion_protection = var.environment == "production"
-}
-
-# Node Pool for Standard Mode
-resource "google_container_node_pool" "primary" {
-  count      = var.cluster_mode == "standard" ? 1 : 0
-  name       = "primary"
-  location   = var.region
-  cluster    = google_container_cluster.standard[0].name
-  node_count = var.node_count
-
-  autoscaling {
-    min_node_count = 1
-    max_node_count = var.node_count * 3
-  }
-
-  management {
-    auto_repair  = true
-    auto_upgrade = true
-  }
-
-  node_config {
-    preemptible  = var.environment != "production"
-    machine_type = var.machine_type
-    disk_size_gb = 100
-    disk_type    = "pd-standard"
-
-    service_account = google_service_account.gke_nodes.email
-    oauth_scopes = [
-      "https://www.googleapis.com/auth/cloud-platform"
-    ]
-
-    workload_metadata_config {
-      mode = "GKE_METADATA"
-    }
-
-    shielded_instance_config {
-      enable_secure_boot          = true
-      enable_integrity_monitoring = true
-    }
-
-    labels = local.common_labels
-  }
+  # Artifact Registry
+  create_artifact_registry     = var.create_artifact_registry
+  artifact_registry_keep_count = var.artifact_registry_keep_count
 }

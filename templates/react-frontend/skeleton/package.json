@@ -1,0 +1,96 @@
+{
+  "name": "${{ values.name }}",
+  "version": "0.1.0",
+  "private": true,
+  "description": "${{ values.description }}",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui",
+{%- if values.enable_storybook %}
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build",
+{%- endif %}
+    "typecheck": "tsc --noEmit",
+    "prepare": "husky"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+{%- if values.routing == 'react-router' %},
+    "react-router-dom": "^7.1.0"
+{%- endif %}
+{%- if values.ui_framework == 'mui' %},
+    "@mui/material": "^6.3.0",
+    "@emotion/react": "^11.13.5",
+    "@emotion/styled": "^11.13.5",
+    "@mui/icons-material": "^6.3.0"
+{%- elif values.ui_framework == 'chakra' %},
+    "@chakra-ui/react": "^3.2.0",
+    "@emotion/react": "^11.13.5"
+{%- elif values.ui_framework == 'mantine' %},
+    "@mantine/core": "^7.15.0",
+    "@mantine/hooks": "^7.15.0"
+{%- endif %}
+{%- if values.state_management == 'zustand' %},
+    "zustand": "^5.0.2"
+{%- elif values.state_management == 'redux' %},
+    "@reduxjs/toolkit": "^2.5.0",
+    "react-redux": "^9.2.0"
+{%- elif values.state_management == 'jotai' %},
+    "jotai": "^2.10.3"
+{%- endif %}
+{%- if values.api_client == 'react-query' %},
+    "@tanstack/react-query": "^5.62.0"
+{%- elif values.api_client == 'axios' %},
+    "axios": "^1.7.9"
+{%- elif values.api_client == 'swr' %},
+    "swr": "^2.2.5"
+{%- endif %}
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3",
+    "vitest": "^2.1.8",
+    "@testing-library/react": "^16.1.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/user-event": "^14.5.2",
+    "@vitest/coverage-v8": "^2.1.8",
+    "@vitest/ui": "^2.1.8",
+    "jsdom": "^25.0.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.2.10"
+{%- if values.enable_mock_api %},
+    "msw": "^2.7.0"
+{%- endif %}
+{%- if values.enable_storybook %},
+    "@storybook/react": "^8.4.7",
+    "@storybook/react-vite": "^8.4.7",
+    "@storybook/addon-essentials": "^8.4.7",
+    "@storybook/addon-interactions": "^8.4.7",
+    "@storybook/test": "^8.4.7"
+{%- endif %}
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,json,css,md}": [
+      "biome check --write"
+    ]
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.15.0"
+}

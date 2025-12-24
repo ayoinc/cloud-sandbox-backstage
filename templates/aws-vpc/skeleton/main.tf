@@ -1,159 +1,36 @@
-# AWS VPC
+# =============================================================================
+# AWS VPC - Root Module
+# =============================================================================
+# This is the root module that calls the VPC child module.
+# Environment-specific values are loaded from environments/*.tfvars files.
+#
+# Usage:
+#   terraform init
+#   terraform plan -var-file=environments/dev.tfvars
+#   terraform apply -var-file=environments/dev.tfvars
+# =============================================================================
 
-terraform {
-  required_version = ">= 1.0"
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-  }
-}
+module "vpc" {
+  source = "./modules/vpc"
 
-provider "aws" {
-  region = var.aws_region
-  default_tags {
-    tags = {
-      Environment = var.environment
-      Project     = var.name
-      ManagedBy   = "terraform"
-    }
-  }
-}
+  # Required variables
+  name        = var.name
+  vpc_cidr    = var.vpc_cidr
+  environment = var.environment
 
-data "aws_availability_zones" "available" {
-  state = "available"
-}
+  # Optional variables - networking
+  availability_zones_count = var.availability_zones_count
+  enable_dns_hostnames     = var.enable_dns_hostnames
+  enable_dns_support       = var.enable_dns_support
 
-locals {
-  azs = slice(data.aws_availability_zones.available.names, 0, var.azs)
-}
+  # Optional variables - NAT Gateway
+  enable_nat_gateway = var.enable_nat_gateway
 
-resource "aws_vpc" "this" {
-  cidr_block           = var.vpc_cidr
-  enable_dns_hostnames = true
-  enable_dns_support   = true
-  tags = {
-    Name = var.name
-  }
-}
+  # Optional variables - Flow Logs
+  enable_flow_logs         = var.enable_flow_logs
+  flow_logs_traffic_type   = var.flow_logs_traffic_type
+  flow_logs_retention_days = var.flow_logs_retention_days
 
-resource "aws_internet_gateway" "this" {
-  vpc_id = aws_vpc.this.id
-  tags = {
-    Name = "${var.name}-igw"
-  }
-}
-
-resource "aws_subnet" "public" {
-  count                   = length(local.azs)
-  vpc_id                  = aws_vpc.this.id
-  cidr_block              = cidrsubnet(var.vpc_cidr, 4, count.index)
-  availability_zone       = local.azs[count.index]
-  map_public_ip_on_launch = true
-  tags = {
-    Name                     = "${var.name}-public-${local.azs[count.index]}"
-    "kubernetes.io/role/elb" = "1"
-  }
-}
-
-resource "aws_subnet" "private" {
-  count             = length(local.azs)
-  vpc_id            = aws_vpc.this.id
-  cidr_block        = cidrsubnet(var.vpc_cidr, 4, count.index + length(local.azs))
-  availability_zone = local.azs[count.index]
-  tags = {
-    Name                              = "${var.name}-private-${local.azs[count.index]}"
-    "kubernetes.io/role/internal-elb" = "1"
-  }
-}
-
-resource "aws_eip" "nat" {
-  count  = length(local.azs)
-  domain = "vpc"
-  tags = {
-    Name = "${var.name}-nat-eip-${count.index}"
-  }
-  depends_on = [aws_internet_gateway.this]
-}
-
-resource "aws_nat_gateway" "this" {
-  count         = length(local.azs)
-  allocation_id = aws_eip.nat[count.index].id
-  subnet_id     = aws_subnet.public[count.index].id
-  tags = {
-    Name = "${var.name}-nat-${count.index}"
-  }
-}
-
-resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.this.id
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.this.id
-  }
-  tags = {
-    Name = "${var.name}-public-rt"
-  }
-}
-
-resource "aws_route_table" "private" {
-  count  = length(local.azs)
-  vpc_id = aws_vpc.this.id
-  route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.this[count.index].id
-  }
-  tags = {
-    Name = "${var.name}-private-rt-${count.index}"
-  }
-}
-
-resource "aws_route_table_association" "public" {
-  count          = length(local.azs)
-  subnet_id      = aws_subnet.public[count.index].id
-  route_table_id = aws_route_table.public.id
-}
-
-resource "aws_route_table_association" "private" {
-  count          = length(local.azs)
-  subnet_id      = aws_subnet.private[count.index].id
-  route_table_id = aws_route_table.private[count.index].id
-}
-
-resource "aws_flow_log" "this" {
-  iam_role_arn    = aws_iam_role.flow_logs.arn
-  log_destination = aws_cloudwatch_log_group.flow_logs.arn
-  traffic_type    = "ALL"
-  vpc_id          = aws_vpc.this.id
-}
-
-resource "aws_cloudwatch_log_group" "flow_logs" {
-  name              = "/aws/vpc/${var.name}/flow-logs"
-  retention_in_days = 14
-}
-
-resource "aws_iam_role" "flow_logs" {
-  name = "${var.name}-flow-logs-role"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action    = "sts:AssumeRole"
-      Effect    = "Allow"
-      Principal = { Service = "vpc-flow-logs.amazonaws.com" }
-    }]
-  })
-}
-
-resource "aws_iam_role_policy" "flow_logs" {
-  name = "${var.name}-flow-logs-policy"
-  role = aws_iam_role.flow_logs.id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
-      Effect   = "Allow"
-      Resource = "*"
-    }]
-  })
+  # Tags
+  tags = var.tags
 }

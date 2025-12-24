@@ -1,28 +1,1033 @@
-name: Terraform
+# =============================================================================
+# AWS Lambda Function Pipeline
+# =============================================================================
+# Comprehensive CI/CD pipeline for AWS Lambda functions with:
+# - Code validation and linting
+# - Security scanning (Trivy, Bandit/ESLint, dependency scanning)
+# - Unit and integration testing
+# - Multi-environment deployments (dev/staging/prod)
+# - Manual approvals for production
+# - Function versioning and aliases
+#
+# REQUIRED SETUP:
+# ---------------
+# 1. GitHub Environments: Create 'dev', 'staging', 'prod' environments
+# 2. Environment Protection Rules:
+#    - staging: Require reviewers (optional)
+#    - prod: Require reviewers, restrict to main branch only
+#
+# REQUIRED SECRETS:
+# -----------------
+# | Secret              | Description                                    |
+# |---------------------|------------------------------------------------|
+# | AWS_ROLE_ARN        | IAM role ARN for OIDC authentication           |
+# | TF_STATE_BUCKET     | S3 bucket for Terraform state                  |
+# | TF_STATE_LOCK_TABLE | DynamoDB table for state locking (optional)    |
+# | SNYK_TOKEN          | Snyk API token for security scanning (optional)|
+#
+# REQUIRED VARIABLES:
+# -------------------
+# | Variable   | Description              | Default     |
+# |------------|--------------------------|-------------|
+# | AWS_REGION | AWS region for deployment| us-east-1   |
+#
+# =============================================================================
+
+name: AWS Lambda CI/CD
+
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
+    paths:
+      - 'src/**'
+      - '*.tf'
+      - 'requirements*.txt'
+      - 'package*.json'
+      - '.github/workflows/**'
   pull_request:
     branches: [main]
+    paths:
+      - 'src/**'
+      - '*.tf'
+      - 'requirements*.txt'
+      - 'package*.json'
+      - '.github/workflows/**'
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        default: 'plan'
+        type: choice
+        options:
+          - plan
+          - deploy
+          - rollback
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      version:
+        description: 'Version to rollback to (for rollback action)'
+        required: false
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.inputs.environment || 'default' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
+  id-token: write
+  actions: read
+
+env:
+  TF_VERSION: '1.9.8'
+  PYTHON_VERSION: '3.12'
+  NODE_VERSION: '22'
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+  FUNCTION_NAME: ${{ values.name }}
+  RUNTIME: ${{ values.runtime }}
 
 jobs:
-  validate:
+  # ============================================================================
+  # DETECT RUNTIME - Determine if Python or Node.js
+  # ============================================================================
+  detect-runtime:
+    name: Detect Runtime
     runs-on: ubuntu-latest
+    outputs:
+      runtime_type: ${{ steps.detect.outputs.runtime_type }}
+      runtime_version: ${{ steps.detect.outputs.runtime_version }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
-      - run: terraform fmt -check
-      - run: terraform init -backend=false
-      - run: terraform validate
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-  security:
+      - name: Detect runtime
+        id: detect
+        run: |
+          if [[ "${{ env.RUNTIME }}" == python* ]]; then
+            echo "runtime_type=python" >> $GITHUB_OUTPUT
+            echo "runtime_version=${{ env.PYTHON_VERSION }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ env.RUNTIME }}" == nodejs* ]]; then
+            echo "runtime_type=nodejs" >> $GITHUB_OUTPUT
+            echo "runtime_version=${{ env.NODE_VERSION }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ env.RUNTIME }}" == java* ]]; then
+            echo "runtime_type=java" >> $GITHUB_OUTPUT
+            echo "runtime_version=21" >> $GITHUB_OUTPUT
+          elif [[ "${{ env.RUNTIME }}" == go* ]]; then
+            echo "runtime_type=go" >> $GITHUB_OUTPUT
+            echo "runtime_version=1.22" >> $GITHUB_OUTPUT
+          else
+            echo "runtime_type=python" >> $GITHUB_OUTPUT
+            echo "runtime_version=${{ env.PYTHON_VERSION }}" >> $GITHUB_OUTPUT
+          fi
+
+  # ============================================================================
+  # CODE QUALITY - Lint and format checks
+  # ============================================================================
+  lint:
+    name: Lint & Format
     runs-on: ubuntu-latest
+    needs: detect-runtime
     steps:
-      - uses: actions/checkout@v4
-      - uses: aquasecurity/tfsec-action@v1.0.0
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Python linting
+      - name: Setup Python
+        if: needs.detect-runtime.outputs.runtime_type == 'python'
+        uses: actions/setup-python@v5
         with:
-          soft_fail: true
-      - uses: bridgecrewio/checkov-action@v12
+          python-version: ${{ needs.detect-runtime.outputs.runtime_version }}
+
+      - name: Install Python linters
+        if: needs.detect-runtime.outputs.runtime_type == 'python'
+        run: pip install ruff black isort mypy
+
+      - name: Run Ruff (Python)
+        if: needs.detect-runtime.outputs.runtime_type == 'python'
+        run: ruff check src/ --output-format=github
+
+      - name: Check Black formatting (Python)
+        if: needs.detect-runtime.outputs.runtime_type == 'python'
+        run: black --check src/
+
+      - name: Check import sorting (Python)
+        if: needs.detect-runtime.outputs.runtime_type == 'python'
+        run: isort --check-only src/
+
+      - name: Run mypy type checking (Python)
+        if: needs.detect-runtime.outputs.runtime_type == 'python'
+        run: mypy src/ --ignore-missing-imports
+        continue-on-error: true
+
+      # Node.js linting
+      - name: Setup Node.js
+        if: needs.detect-runtime.outputs.runtime_type == 'nodejs'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ needs.detect-runtime.outputs.runtime_version }}
+          cache: 'npm'
+
+      - name: Install Node.js dependencies
+        if: needs.detect-runtime.outputs.runtime_type == 'nodejs'
+        run: npm ci
+
+      - name: Run Biome (Node.js)
+        if: needs.detect-runtime.outputs.runtime_type == 'nodejs'
+        run: npx @biomejs/biome check src/
+
+      # Terraform linting
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive -diff
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v4
+
+      - name: Run TFLint
+        run: |
+          tflint --init
+          tflint --recursive
+
+  # ============================================================================
+  # UNIT TESTS - Run tests with coverage
+  # ============================================================================
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: detect-runtime
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Python tests
+      - name: Setup Python
+        if: needs.detect-runtime.outputs.runtime_type == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ needs.detect-runtime.outputs.runtime_version }}
+
+      - name: Install Python dependencies
+        if: needs.detect-runtime.outputs.runtime_type == 'python'
+        run: |
+          pip install -r requirements.txt 2>/dev/null || true
+          pip install -r requirements-dev.txt 2>/dev/null || pip install pytest pytest-cov moto boto3
+
+      - name: Run Python tests
+        if: needs.detect-runtime.outputs.runtime_type == 'python'
+        run: |
+          pytest tests/ -v --cov=src --cov-report=xml --cov-report=html --junitxml=test-results.xml 2>/dev/null || \
+          echo "No tests found or tests directory missing"
+
+      # Node.js tests
+      - name: Setup Node.js
+        if: needs.detect-runtime.outputs.runtime_type == 'nodejs'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ needs.detect-runtime.outputs.runtime_version }}
+          cache: 'npm'
+
+      - name: Install Node.js dependencies
+        if: needs.detect-runtime.outputs.runtime_type == 'nodejs'
+        run: npm ci
+
+      - name: Run Node.js tests
+        if: needs.detect-runtime.outputs.runtime_type == 'nodejs'
+        run: npm test -- --coverage 2>/dev/null || echo "No tests configured"
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          files: ./coverage.xml,./coverage/lcov.info
+          fail_ci_if_error: false
+        continue-on-error: true
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: |
+            test-results.xml
+            htmlcov/
+            coverage/
+          retention-days: 7
+
+  # ============================================================================
+  # TERRAFORM TESTS - Run terraform test for validation
+  # ============================================================================
+  terraform-test:
+    name: Terraform Tests
+    runs-on: ubuntu-latest
+    needs: [detect-runtime, lint]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Initialize Terraform
+        run: terraform init -backend=false
+
+      - name: Run Terraform Tests
+        id: test
+        run: |
+          set +e
+          terraform test -no-color 2>&1 | tee test-output.txt
+          EXITCODE=${PIPESTATUS[0]}
+          echo "exitcode=${EXITCODE}" >> $GITHUB_OUTPUT
+
+          # Parse test results for summary
+          PASSED=$(grep -c "Pass" test-output.txt || echo "0")
+          FAILED=$(grep -c "Fail" test-output.txt || echo "0")
+          SKIPPED=$(grep -c "Skip" test-output.txt || echo "0")
+
+          echo "passed=${PASSED}" >> $GITHUB_OUTPUT
+          echo "failed=${FAILED}" >> $GITHUB_OUTPUT
+          echo "skipped=${SKIPPED}" >> $GITHUB_OUTPUT
+
+          exit $EXITCODE
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-test-results
+          path: test-output.txt
+          retention-days: 30
+
+      - name: Test Results Summary
+        if: always()
+        run: |
+          echo "## Terraform Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Passed | ${{ steps.test.outputs.passed || 0 }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Failed | ${{ steps.test.outputs.failed || 0 }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Skipped | ${{ steps.test.outputs.skipped || 0 }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.test.outputs.exitcode }}" != "0" ]; then
+            echo "### Failed Tests" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            grep -A 5 "Fail" test-output.txt >> $GITHUB_STEP_SUMMARY || echo "No failures found"
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "All Terraform tests passed." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Comment Test Results on PR
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const testOutput = fs.readFileSync('test-output.txt', 'utf8');
+            const exitCode = '${{ steps.test.outputs.exitcode }}';
+            const passed = '${{ steps.test.outputs.passed }}' || '0';
+            const failed = '${{ steps.test.outputs.failed }}' || '0';
+
+            const status = exitCode === '0' ? 'All tests passed' : 'Some tests failed';
+
+            // Truncate if too long
+            const maxLength = 30000;
+            const truncatedOutput = testOutput.length > maxLength 
+              ? testOutput.substring(0, maxLength) + '\n\n... (truncated)'
+              : testOutput;
+
+            const body = `### Terraform Test Results
+
+            **Status:** ${status}
+
+            | Metric | Count |
+            |--------|-------|
+            | Passed | ${passed} |
+            | Failed | ${failed} |
+
+            <details>
+            <summary>Show Test Output</summary>
+
+            \`\`\`
+            ${truncatedOutput}
+            \`\`\`
+
+            </details>
+            `;
+
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(c => 
+              c.user.type === 'Bot' && c.body.includes('Terraform Test Results')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
+
+  # ============================================================================
+  # SECURITY SCANNING - Multiple security tools
+  # ============================================================================
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: [detect-runtime, terraform-test]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Trivy for filesystem scanning
+      - name: Run Trivy vulnerability scanner (filesystem)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-fs-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: Upload Trivy FS SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-fs-results.sarif
+          category: trivy-fs
+
+      # Trivy for IaC (Terraform)
+      - name: Run Trivy IaC scanner
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: 'config'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-iac-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy IaC SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-iac-results.sarif
+          category: trivy-iac
+
+      # tfsec for Terraform
+      - name: Run tfsec
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          soft_fail: false
+          format: sarif
+          out: tfsec-results.sarif
+
+      - name: Upload tfsec SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: tfsec-results.sarif
+          category: tfsec
+
+      # Checkov for IaC
+      - name: Run Checkov
+        uses: bridgecrewio/checkov-action@v12
         with:
           directory: .
-          soft_fail: true
+          framework: terraform
+          output_format: cli,sarif
+          output_file_path: console,checkov-results.sarif
+          soft_fail: false
+
+      - name: Upload Checkov SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: checkov-results.sarif
+          category: checkov
+
+      # Python-specific security (Bandit)
+      - name: Setup Python for Bandit
+        if: needs.detect-runtime.outputs.runtime_type == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ needs.detect-runtime.outputs.runtime_version }}
+
+      - name: Run Bandit (Python security)
+        if: needs.detect-runtime.outputs.runtime_type == 'python'
+        run: |
+          pip install bandit
+          bandit -r src/ -f sarif -o bandit-results.sarif || true
+
+      - name: Upload Bandit SARIF
+        if: needs.detect-runtime.outputs.runtime_type == 'python'
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: bandit-results.sarif
+          category: bandit
+        continue-on-error: true
+
+      # Snyk (optional)
+      - name: Run Snyk security scan
+        if: ${{ secrets.SNYK_TOKEN != '' }}
+        uses: snyk/actions/python@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+        continue-on-error: true
+
+      - name: Security Summary
+        run: |
+          echo "## Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Tool | Purpose |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|---------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Trivy FS | Dependency vulnerabilities |" >> $GITHUB_STEP_SUMMARY
+          echo "| Trivy IaC | Infrastructure misconfigurations |" >> $GITHUB_STEP_SUMMARY
+          echo "| tfsec | Terraform security |" >> $GITHUB_STEP_SUMMARY
+          echo "| Checkov | Policy compliance |" >> $GITHUB_STEP_SUMMARY
+          echo "| Bandit | Python code security |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Review the **Security** tab for detailed findings." >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================================
+  # TERRAFORM VALIDATE - Validate infrastructure code
+  # ============================================================================
+  terraform-validate:
+    name: Terraform Validate
+    runs-on: ubuntu-latest
+    needs: [lint, security]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init (validation only)
+        run: terraform init -backend=false
+
+      - name: Terraform Validate
+        run: terraform validate
+
+  # ============================================================================
+  # BUILD - Package Lambda function
+  # ============================================================================
+  build:
+    name: Build Package
+    runs-on: ubuntu-latest
+    needs: [lint, test, security, terraform-validate, detect-runtime]
+    outputs:
+      artifact_name: ${{ steps.package.outputs.artifact_name }}
+      artifact_hash: ${{ steps.package.outputs.artifact_hash }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Python build
+      - name: Setup Python
+        if: needs.detect-runtime.outputs.runtime_type == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ needs.detect-runtime.outputs.runtime_version }}
+
+      - name: Build Python package
+        if: needs.detect-runtime.outputs.runtime_type == 'python'
+        run: |
+          mkdir -p build
+
+          # Install dependencies to build directory
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt -t build/
+          fi
+
+          # Copy source code
+          cp -r src/* build/
+
+          # Create deployment package
+          cd build && zip -r ../lambda-package.zip .
+
+      # Node.js build
+      - name: Setup Node.js
+        if: needs.detect-runtime.outputs.runtime_type == 'nodejs'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ needs.detect-runtime.outputs.runtime_version }}
+          cache: 'npm'
+
+      - name: Build Node.js package
+        if: needs.detect-runtime.outputs.runtime_type == 'nodejs'
+        run: |
+          npm ci --production
+          zip -r lambda-package.zip src/ node_modules/
+
+      - name: Calculate package hash
+        id: package
+        run: |
+          HASH=$(sha256sum lambda-package.zip | cut -d' ' -f1)
+          echo "artifact_name=lambda-package-${{ github.sha }}.zip" >> $GITHUB_OUTPUT
+          echo "artifact_hash=${HASH}" >> $GITHUB_OUTPUT
+
+          echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Package Size | $(du -h lambda-package.zip | cut -f1) |" >> $GITHUB_STEP_SUMMARY
+          echo "| SHA256 | \`${HASH:0:16}...\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Runtime | ${{ env.RUNTIME }} |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-package
+          path: lambda-package.zip
+          retention-days: 5
+
+  # ============================================================================
+  # PLAN DEV - Terraform plan for development
+  # ============================================================================
+  plan-dev:
+    name: Plan (dev)
+    runs-on: ubuntu-latest
+    needs: build
+    environment: dev
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: lambda-plan-dev-${{ github.run_id }}
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: lambda-package
+
+      - name: Terraform Init
+        run: |
+          if [ -n "${{ secrets.TF_STATE_BUCKET }}" ]; then
+            terraform init \
+              -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+              -backend-config="key=${{ github.repository }}/${{ env.FUNCTION_NAME }}/dev/terraform.tfstate" \
+              -backend-config="region=${{ env.AWS_REGION }}" \
+              -backend-config="encrypt=true"
+          else
+            terraform init
+          fi
+
+      - name: Terraform Plan
+        run: |
+          terraform plan \
+            -var-file=environments/dev.tfvars \
+            -out=tfplan-dev \
+            -no-color 2>&1 | tee plan-output.txt
+
+      - name: Upload Plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-dev
+          path: tfplan-dev
+          retention-days: 5
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('plan-output.txt', 'utf8');
+            const truncated = plan.length > 60000 ? plan.substring(0, 60000) + '\n...(truncated)' : plan;
+
+            const body = `### Lambda Plan (dev)
+
+            <details>
+            <summary>Show Plan</summary>
+
+            \`\`\`hcl
+            ${truncated}
+            \`\`\`
+
+            </details>
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+  # ============================================================================
+  # DEPLOY DEV - Deploy to development
+  # ============================================================================
+  deploy-dev:
+    name: Deploy (dev)
+    runs-on: ubuntu-latest
+    needs: plan-dev
+    if: |
+      (github.ref == 'refs/heads/develop' && github.event_name == 'push') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'deploy' && github.event.inputs.environment == 'dev')
+    environment: dev
+    outputs:
+      function_version: ${{ steps.deploy.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: lambda-package
+
+      - name: Download plan
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-dev
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="key=${{ github.repository }}/${{ env.FUNCTION_NAME }}/dev/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}"
+
+      - name: Terraform Apply
+        id: deploy
+        run: |
+          terraform apply -auto-approve tfplan-dev
+
+          # Get the function version
+          VERSION=$(aws lambda publish-version \
+            --function-name ${{ env.FUNCTION_NAME }}-dev \
+            --query 'Version' --output text 2>/dev/null || echo "N/A")
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Update alias
+        run: |
+          aws lambda update-alias \
+            --function-name ${{ env.FUNCTION_NAME }}-dev \
+            --name live \
+            --function-version ${{ steps.deploy.outputs.version }} 2>/dev/null || \
+          aws lambda create-alias \
+            --function-name ${{ env.FUNCTION_NAME }}-dev \
+            --name live \
+            --function-version ${{ steps.deploy.outputs.version }} || true
+
+      - name: Smoke test
+        run: |
+          # Invoke the function with a test event
+          aws lambda invoke \
+            --function-name ${{ env.FUNCTION_NAME }}-dev:live \
+            --payload '{"test": true}' \
+            --cli-binary-format raw-in-base64-out \
+            response.json
+
+          cat response.json
+
+          # Check for errors
+          if grep -q "errorMessage" response.json; then
+            echo "::error::Lambda smoke test failed"
+            exit 1
+          fi
+
+      - name: Deployment Summary
+        run: |
+          echo "## Deployment Summary (dev)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Function | \`${{ env.FUNCTION_NAME }}-dev\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | ${{ steps.deploy.outputs.version }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Alias | \`live\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Region | \`${{ env.AWS_REGION }}\` |" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================================
+  # DEPLOY STAGING - Deploy to staging (manual approval)
+  # ============================================================================
+  deploy-staging:
+    name: Deploy (staging)
+    runs-on: ubuntu-latest
+    needs: deploy-dev
+    if: |
+      (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'deploy' && github.event.inputs.environment == 'staging')
+    environment: staging
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download lambda package
+        uses: actions/download-artifact@v4
+        with:
+          name: lambda-package
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="key=${{ github.repository }}/${{ env.FUNCTION_NAME }}/staging/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}"
+
+      - name: Terraform Apply
+        run: |
+          terraform apply \
+            -var-file=environments/staging.tfvars \
+            -auto-approve
+
+      - name: Smoke test
+        run: |
+          aws lambda invoke \
+            --function-name ${{ env.FUNCTION_NAME }}-staging \
+            --payload '{"test": true}' \
+            --cli-binary-format raw-in-base64-out \
+            response.json
+
+          if grep -q "errorMessage" response.json; then
+            echo "::error::Staging smoke test failed"
+            cat response.json
+            exit 1
+          fi
+
+  # ============================================================================
+  # DEPLOY PRODUCTION - Deploy to production (manual approval required)
+  # ============================================================================
+  deploy-prod:
+    name: Deploy (prod)
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: |
+      (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'deploy' && github.event.inputs.environment == 'prod')
+    environment: prod
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download lambda package
+        uses: actions/download-artifact@v4
+        with:
+          name: lambda-package
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="key=${{ github.repository }}/${{ env.FUNCTION_NAME }}/prod/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}"
+
+      - name: Terraform Apply
+        id: deploy
+        run: |
+          terraform apply \
+            -var-file=environments/prod.tfvars \
+            -auto-approve
+
+          VERSION=$(aws lambda publish-version \
+            --function-name ${{ env.FUNCTION_NAME }}-prod \
+            --query 'Version' --output text)
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Update production alias with traffic shifting
+        run: |
+          # Get current live version
+          CURRENT=$(aws lambda get-alias \
+            --function-name ${{ env.FUNCTION_NAME }}-prod \
+            --name live \
+            --query 'FunctionVersion' --output text 2>/dev/null || echo "")
+
+          NEW_VERSION=${{ steps.deploy.outputs.version }}
+
+          if [ -n "$CURRENT" ] && [ "$CURRENT" != "$NEW_VERSION" ]; then
+            # Gradual traffic shift: 10% -> 50% -> 100%
+            echo "Starting gradual traffic shift from v${CURRENT} to v${NEW_VERSION}"
+            
+            # 10% to new version
+            aws lambda update-alias \
+              --function-name ${{ env.FUNCTION_NAME }}-prod \
+              --name live \
+              --function-version $CURRENT \
+              --routing-config "AdditionalVersionWeights={\"${NEW_VERSION}\"=0.1}"
+            
+            sleep 60
+            
+            # 50% to new version
+            aws lambda update-alias \
+              --function-name ${{ env.FUNCTION_NAME }}-prod \
+              --name live \
+              --function-version $CURRENT \
+              --routing-config "AdditionalVersionWeights={\"${NEW_VERSION}\"=0.5}"
+            
+            sleep 60
+            
+            # 100% to new version
+            aws lambda update-alias \
+              --function-name ${{ env.FUNCTION_NAME }}-prod \
+              --name live \
+              --function-version $NEW_VERSION \
+              --routing-config '{}'
+          else
+            # First deployment or same version
+            aws lambda update-alias \
+              --function-name ${{ env.FUNCTION_NAME }}-prod \
+              --name live \
+              --function-version $NEW_VERSION 2>/dev/null || \
+            aws lambda create-alias \
+              --function-name ${{ env.FUNCTION_NAME }}-prod \
+              --name live \
+              --function-version $NEW_VERSION
+          fi
+
+      - name: Production smoke test
+        run: |
+          aws lambda invoke \
+            --function-name ${{ env.FUNCTION_NAME }}-prod:live \
+            --payload '{"test": true}' \
+            --cli-binary-format raw-in-base64-out \
+            response.json
+
+          if grep -q "errorMessage" response.json; then
+            echo "::error::Production smoke test failed!"
+            cat response.json
+            exit 1
+          fi
+
+          echo "Production deployment successful!"
+
+      - name: Deployment Summary
+        run: |
+          echo "## Production Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Function | \`${{ env.FUNCTION_NAME }}-prod\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | ${{ steps.deploy.outputs.version }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Deployed by | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================================
+  # ROLLBACK - Rollback to previous version
+  # ============================================================================
+  rollback:
+    name: Rollback
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'rollback'
+    environment: ${{ github.event.inputs.environment }}
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: List available versions
+        if: github.event.inputs.version == ''
+        run: |
+          echo "Available versions for ${{ env.FUNCTION_NAME }}-${{ github.event.inputs.environment }}:"
+          aws lambda list-versions-by-function \
+            --function-name ${{ env.FUNCTION_NAME }}-${{ github.event.inputs.environment }} \
+            --query 'Versions[*].[Version,Description,LastModified]' \
+            --output table
+
+      - name: Rollback to version
+        if: github.event.inputs.version != ''
+        run: |
+          aws lambda update-alias \
+            --function-name ${{ env.FUNCTION_NAME }}-${{ github.event.inputs.environment }} \
+            --name live \
+            --function-version ${{ github.event.inputs.version }}
+
+          echo "Rolled back to version ${{ github.event.inputs.version }}"
+
+      - name: Verify rollback
+        if: github.event.inputs.version != ''
+        run: |
+          CURRENT=$(aws lambda get-alias \
+            --function-name ${{ env.FUNCTION_NAME }}-${{ github.event.inputs.environment }} \
+            --name live \
+            --query 'FunctionVersion' --output text)
+
+          if [ "$CURRENT" == "${{ github.event.inputs.version }}" ]; then
+            echo "Rollback successful. Live alias now points to version $CURRENT"
+          else
+            echo "::error::Rollback verification failed"
+            exit 1
+          fi
