@@ -4,36 +4,42 @@
 
 The Docker Images Registry provides centralized container image management with security scanning, signing, and multi-architecture support. All images follow security best practices and are regularly updated with security patches.
 
-```
-+------------------------------------------------------------------+
-|                    IMAGE BUILD PIPELINE                           |
-+------------------------------------------------------------------+
-|                                                                   |
-|  +-------------------+         +-------------------+              |
-|  |   Dockerfile      |         |   .dockerignore   |              |
-|  |   Multi-stage     |-------->|   Build Context   |              |
-|  |   Optimized       |         |   Minimal         |              |
-|  +-------------------+         +-------------------+              |
-|           |                            |                          |
-|           v                            v                          |
-|  +--------------------------------------------------+            |
-|  |              DOCKER BUILDKIT                      |            |
-|  |  +------------+  +------------+  +------------+  |            |
-|  |  | Cache      |  | Parallel   |  | Secrets    |  |            |
-|  |  | Layers     |  | Stages     |  | Mount      |  |            |
-|  |  +------------+  +------------+  +------------+  |            |
-|  +--------------------------------------------------+            |
-|                          |                                        |
-|                          v                                        |
-|  +--------------------------------------------------+            |
-|  |              SECURITY PIPELINE                    |            |
-|  |  +------------+  +------------+  +------------+  |            |
-|  |  | Trivy      |  | SBOM       |  | Cosign     |  |            |
-|  |  | Scan       |  | Generate   |  | Sign       |  |            |
-|  |  +------------+  +------------+  +------------+  |            |
-|  +--------------------------------------------------+            |
-|                                                                   |
-+------------------------------------------------------------------+
+```d2
+direction: down
+
+dockerfile: Dockerfile {
+  style.fill: "#e3f2fd"
+  multistage: Multi-stage
+  optimized: Optimized
+}
+
+context: Build Context {
+  style.fill: "#e8f5e9"
+  dockerignore: .dockerignore
+  minimal: Minimal
+}
+
+dockerfile -> context
+
+buildkit: Docker BuildKit {
+  style.fill: "#fff3e0"
+  cache: Cache Layers
+  parallel: Parallel Stages
+  secrets: Secrets Mount
+}
+
+context -> buildkit
+
+security: Security Pipeline {
+  style.fill: "#ffcdd2"
+  trivy: Trivy Scan
+  sbom: SBOM Generate
+  cosign: Cosign Sign
+
+  trivy -> sbom -> cosign
+}
+
+buildkit -> security
 ```
 
 ## Dockerfile Best Practices
@@ -455,16 +461,16 @@ registries:
   - name: company-registry
     url: https://registry.company.com
     description: Company private registry
-    
+
 replication:
   - name: replicate-to-dr
     target: https://dr-registry.company.com
     trigger:
       type: scheduled
-      cron: "0 0 * * *"
+      cron: '0 0 * * *'
     filters:
       - resource: image
-        pattern: "apps/**"
+        pattern: 'apps/**'
 ```
 
 ### Docker Daemon Configuration
@@ -496,31 +502,30 @@ replication:
 
 ### Update Schedule
 
-| Image Type | Update Frequency | Security Patches |
-|------------|------------------|------------------|
-| OS Base | Monthly | Within 24 hours |
-| Runtime | Minor releases | Within 48 hours |
-| Build Tools | Monthly | Within 1 week |
+| Image Type  | Update Frequency | Security Patches |
+| ----------- | ---------------- | ---------------- |
+| OS Base     | Monthly          | Within 24 hours  |
+| Runtime     | Minor releases   | Within 48 hours  |
+| Build Tools | Monthly          | Within 1 week    |
 
 ### Automated Updates
 
 ```yaml
 # renovate.json
 {
-  "extends": ["config:base"],
-  "docker": {
-    "fileMatch": ["Dockerfile$", "Dockerfile\\..*$"]
-  },
-  "packageRules": [
-    {
-      "matchDatasources": ["docker"],
-      "matchPackagePatterns": ["^registry.company.com/base/"],
-      "groupName": "base images",
-      "automerge": true,
-      "automergeType": "pr",
-      "schedule": ["after 10pm and before 5am on monday"]
-    }
-  ]
+  'extends': ['config:base'],
+  'docker': { 'fileMatch': ['Dockerfile$', "Dockerfile\\..*$"] },
+  'packageRules':
+    [
+      {
+        'matchDatasources': ['docker'],
+        'matchPackagePatterns': ['^registry.company.com/base/'],
+        'groupName': 'base images',
+        'automerge': true,
+        'automergeType': 'pr',
+        'schedule': ['after 10pm and before 5am on monday'],
+      },
+    ],
 }
 ```
 

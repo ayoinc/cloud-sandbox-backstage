@@ -6,65 +6,90 @@
 
 MinIO distributed mode provides high availability and data protection through erasure coding:
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                  Distributed MinIO Cluster                      │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  Write Request Flow:                                            │
-│                                                                 │
-│  Client ──► Any Node ──► Erasure Encode ──► Write to All Drives │
-│                                                                 │
-│  ┌─────────────────────────────────────────────────────────────┐│
-│  │ Object Split into Data + Parity Shards                      ││
-│  │                                                             ││
-│  │   Original Object (100MB)                                   ││
-│  │         │                                                   ││
-│  │         ▼                                                   ││
-│  │   ┌────────────────────────────────────────────────────┐   ││
-│  │   │ Erasure Coding (Reed-Solomon)                      │   ││
-│  │   └────────────────────────────────────────────────────┘   ││
-│  │         │                                                   ││
-│  │         ▼                                                   ││
-│  │   ┌─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┐        ││
-│  │   │Shard│Shard│Shard│Shard│Shard│Shard│Shard│Shard│        ││
-│  │   │  1  │  2  │  3  │  4  │  5  │  6  │  7  │  8  │        ││
-│  │   │Data │Data │Data │Data │Pari │Pari │Pari │Pari │        ││
-│  │   └──┬──┴──┬──┴──┬──┴──┬──┴──┬──┴──┬──┴──┬──┴──┬──┘        ││
-│  │      │     │     │     │     │     │     │                  ││
-│  │      ▼     ▼     ▼     ▼     ▼     ▼     ▼     ▼            ││
-│  │   [Drive][Drive][Drive][Drive][Drive][Drive][Drive][Drive]  ││
-│  │    Node1  Node1  Node2  Node2  Node3  Node3  Node4  Node4   ││
-│  └─────────────────────────────────────────────────────────────┘│
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+cluster: Distributed MinIO Cluster {
+  style.fill: "#e3f2fd"
+
+  flow: Write Request Flow {
+    style.fill: "#e8f5e9"
+    client: Client
+    node: Any Node
+    encode: Erasure Encode
+    write: Write to All Drives
+
+    client -> node -> encode -> write
+  }
+
+  erasure: Erasure Coding {
+    style.fill: "#fff3e0"
+
+    object: Original Object (100MB)
+    coding: Reed-Solomon Encoding {
+      style.fill: "#fce4ec"
+    }
+
+    shards: Data + Parity Shards {
+      style.fill: "#f3e5f5"
+      s1: "Shard 1 (Data)"
+      s2: "Shard 2 (Data)"
+      s3: "Shard 3 (Data)"
+      s4: "Shard 4 (Data)"
+      s5: "Shard 5 (Parity)"
+      s6: "Shard 6 (Parity)"
+      s7: "Shard 7 (Parity)"
+      s8: "Shard 8 (Parity)"
+    }
+
+    object -> coding -> shards
+  }
+
+  nodes: Storage Nodes {
+    style.fill: "#e0f7fa"
+    node1: "Node 1 (2 drives)"
+    node2: "Node 2 (2 drives)"
+    node3: "Node 3 (2 drives)"
+    node4: "Node 4 (2 drives)"
+  }
+
+  erasure.shards -> nodes
+}
 ```
 
 ### Server Pools
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Multi-Pool Architecture                      │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌─────────────────────┐   ┌─────────────────────┐              │
-│  │     Pool 1 (SSD)    │   │    Pool 2 (HDD)     │              │
-│  │    Hot Storage      │   │   Warm Storage      │              │
-│  │                     │   │                     │              │
-│  │  Node1  Node2  Node3│   │  Node4  Node5  Node6│              │
-│  │   ││     ││     ││  │   │   ││     ││     ││  │              │
-│  │   4x     4x     4x  │   │   8x     8x     8x  │              │
-│  │  Drives Drives Drives   │  Drives Drives Drives              │
-│  └─────────────────────┘   └─────────────────────┘              │
-│            │                         │                          │
-│            └────────────┬────────────┘                          │
-│                         │                                       │
-│              ┌──────────▼──────────┐                            │
-│              │   Lifecycle Rules   │                            │
-│              │   (ILM Tiering)     │                            │
-│              └─────────────────────┘                            │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+```d2
+direction: down
+
+multipool: Multi-Pool Architecture {
+  style.fill: "#e3f2fd"
+
+  pools: Storage Pools {
+    style.fill: "#f5f5f5"
+
+    pool1: Pool 1 - Hot Storage (SSD) {
+      style.fill: "#e8f5e9"
+      node1: "Node 1 (4x drives)"
+      node2: "Node 2 (4x drives)"
+      node3: "Node 3 (4x drives)"
+    }
+
+    pool2: Pool 2 - Warm Storage (HDD) {
+      style.fill: "#fff3e0"
+      node4: "Node 4 (8x drives)"
+      node5: "Node 5 (8x drives)"
+      node6: "Node 6 (8x drives)"
+    }
+  }
+
+  ilm: Lifecycle Rules (ILM Tiering) {
+    style.fill: "#fce4ec"
+  }
+
+  pools.pool1 -> ilm: tier down
+  pools.pool2 -> ilm: manage
+}
 ```
 
 ## Configuration
@@ -116,40 +141,40 @@ version: v1
 region: us-east-1
 
 storage_class:
-  standard: "EC:4"
-  rrs: "EC:2"
+  standard: 'EC:4'
+  rrs: 'EC:2'
 
 cache:
-  drives: ["/mnt/cache1", "/mnt/cache2"]
+  drives: ['/mnt/cache1', '/mnt/cache2']
   expiry: 90
   quota: 80
-  exclude: ["*.pdf", "*.zip"]
+  exclude: ['*.pdf', '*.zip']
 
 compression:
   enable: true
   allow_encryption: false
-  extensions: [".txt", ".log", ".csv", ".json"]
-  mime_types: ["text/*", "application/json"]
+  extensions: ['.txt', '.log', '.csv', '.json']
+  mime_types: ['text/*', 'application/json']
 
 identity_openid:
-  config_url: "https://keycloak.example.com/realms/minio/.well-known/openid-configuration"
-  client_id: "minio"
-  claim_name: "policy"
-  claim_prefix: ""
-  scopes: "openid,profile,email"
+  config_url: 'https://keycloak.example.com/realms/minio/.well-known/openid-configuration'
+  client_id: 'minio'
+  claim_name: 'policy'
+  claim_prefix: ''
+  scopes: 'openid,profile,email'
 
 notify_kafka:
   enable: true
-  brokers: "kafka1:9092,kafka2:9092"
-  topic: "minio-events"
+  brokers: 'kafka1:9092,kafka2:9092'
+  topic: 'minio-events'
 
 audit_webhook:
   enable: true
-  endpoint: "http://audit-service:8080/logs"
+  endpoint: 'http://audit-service:8080/logs'
 
 heal:
   bitrotscan: true
-  max_sleep: "1s"
+  max_sleep: '1s'
   max_io: 10
 ```
 
@@ -203,14 +228,8 @@ minio server --certs-dir ~/.minio/certs /data
   "Statement": [
     {
       "Effect": "Allow",
-      "Action": [
-        "s3:GetObject",
-        "s3:ListBucket"
-      ],
-      "Resource": [
-        "arn:aws:s3:::my-bucket",
-        "arn:aws:s3:::my-bucket/*"
-      ]
+      "Action": ["s3:GetObject", "s3:ListBucket"],
+      "Resource": ["arn:aws:s3:::my-bucket", "arn:aws:s3:::my-bucket/*"]
     }
   ]
 }
@@ -368,17 +387,17 @@ scrape_configs:
 
 ### Key Metrics
 
-| Metric | Description | Alert Threshold |
-|--------|-------------|-----------------|
-| `minio_cluster_health` | Cluster health status | != 1 |
-| `minio_cluster_disk_total_free_bytes` | Free disk space | < 10% total |
-| `minio_cluster_disk_offline_total` | Offline disks | > 0 |
-| `minio_node_disk_latency_us` | Disk latency | > 10000 |
-| `minio_s3_requests_total` | Total S3 requests | - |
-| `minio_s3_requests_errors_total` | Request errors | > 1% of total |
-| `minio_s3_traffic_received_bytes` | Ingress traffic | - |
-| `minio_s3_traffic_sent_bytes` | Egress traffic | - |
-| `minio_heal_objects_total` | Objects needing heal | > 0 |
+| Metric                                | Description           | Alert Threshold |
+| ------------------------------------- | --------------------- | --------------- |
+| `minio_cluster_health`                | Cluster health status | != 1            |
+| `minio_cluster_disk_total_free_bytes` | Free disk space       | < 10% total     |
+| `minio_cluster_disk_offline_total`    | Offline disks         | > 0             |
+| `minio_node_disk_latency_us`          | Disk latency          | > 10000         |
+| `minio_s3_requests_total`             | Total S3 requests     | -               |
+| `minio_s3_requests_errors_total`      | Request errors        | > 1% of total   |
+| `minio_s3_traffic_received_bytes`     | Ingress traffic       | -               |
+| `minio_s3_traffic_sent_bytes`         | Egress traffic        | -               |
+| `minio_heal_objects_total`            | Objects needing heal  | > 0             |
 
 ### Health Check Endpoints
 

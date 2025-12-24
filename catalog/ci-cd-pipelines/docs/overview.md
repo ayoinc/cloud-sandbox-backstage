@@ -4,36 +4,40 @@
 
 The CI/CD Pipeline Templates provide standardized, reusable workflows across GitHub Actions, GitLab CI, and Jenkins. Templates follow security best practices, include quality gates, and support multi-environment deployments.
 
-```
-+------------------------------------------------------------------+
-|                    PIPELINE ARCHITECTURE                          |
-+------------------------------------------------------------------+
-|                                                                   |
-|  +-------------------+         +-------------------+              |
-|  |   Shared Workflow |         |   Repository      |              |
-|  |   Templates       |<--------|   Configuration   |              |
-|  |   company/shared  |         |   .github/        |              |
-|  +-------------------+         +-------------------+              |
-|           |                            |                          |
-|           v                            v                          |
-|  +--------------------------------------------------+            |
-|  |              WORKFLOW EXECUTION                   |            |
-|  |  +------------+  +------------+  +------------+  |            |
-|  |  | Runner     |  | Secrets    |  | Artifacts  |  |            |
-|  |  | ubuntu-24  |  | Vault      |  | Cache      |  |            |
-|  |  +------------+  +------------+  +------------+  |            |
-|  +--------------------------------------------------+            |
-|                          |                                        |
-|                          v                                        |
-|  +--------------------------------------------------+            |
-|  |              ENVIRONMENTS                         |            |
-|  |  +------------+  +------------+  +------------+  |            |
-|  |  | Dev        |  | Staging    |  | Production |  |            |
-|  |  | Auto       |  | Auto       |  | Manual     |  |            |
-|  |  +------------+  +------------+  +------------+  |            |
-|  +--------------------------------------------------+            |
-|                                                                   |
-+------------------------------------------------------------------+
+```d2
+direction: down
+
+templates: Shared Workflow Templates {
+  style.fill: "#e3f2fd"
+  company: company/shared
+}
+
+config: Repository Configuration {
+  style.fill: "#e8f5e9"
+  github: .github/
+}
+
+config -> templates
+
+execution: Workflow Execution {
+  style.fill: "#fff3e0"
+  runner: Runner (ubuntu-24)
+  secrets: Secrets (Vault)
+  artifacts: Artifacts (Cache)
+}
+
+templates -> execution
+
+environments: Environments {
+  style.fill: "#fce4ec"
+  dev: Dev (Auto)
+  staging: Staging (Auto)
+  prod: Production (Manual)
+
+  dev -> staging -> prod
+}
+
+execution -> environments
 ```
 
 ## GitHub Actions Workflows
@@ -85,7 +89,7 @@ jobs:
     outputs:
       artifact-name: ${{ steps.build.outputs.artifact-name }}
       build-version: ${{ steps.version.outputs.version }}
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -359,7 +363,7 @@ jobs:
     outputs:
       digest: ${{ steps.build.outputs.digest }}
       tags: ${{ steps.meta.outputs.tags }}
-    
+
     permissions:
       contents: read
       packages: write
@@ -451,7 +455,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
-    
+
     steps:
       - uses: actions/checkout@v4
 
@@ -492,9 +496,9 @@ jobs:
 .base:
   variables:
     DOCKER_HOST: tcp://docker:2376
-    DOCKER_TLS_CERTDIR: "/certs"
+    DOCKER_TLS_CERTDIR: '/certs'
     DOCKER_TLS_VERIFY: 1
-    DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
+    DOCKER_CERT_PATH: '$DOCKER_TLS_CERTDIR/client'
 
 .node-base:
   image: node:20-alpine
@@ -553,7 +557,7 @@ stages:
 
 variables:
   IMAGE_NAME: $CI_REGISTRY_IMAGE
-  NODE_VERSION: "20"
+  NODE_VERSION: '20'
 
 build:
   extends: .node-base
@@ -641,7 +645,7 @@ def call(Map config = [:]) {
     def language = config.language ?: 'node'
     def nodeVersion = config.nodeVersion ?: '20'
     def dockerImage = config.dockerImage ?: ''
-    
+
     pipeline {
         agent {
             kubernetes {
@@ -661,18 +665,18 @@ spec:
 """
             }
         }
-        
+
         environment {
             REGISTRY = credentials('docker-registry')
         }
-        
+
         stages {
             stage('Checkout') {
                 steps {
                     checkout scm
                 }
             }
-            
+
             stage('Build') {
                 steps {
                     container('builder') {
@@ -688,7 +692,7 @@ spec:
                     }
                 }
             }
-            
+
             stage('Test') {
                 steps {
                     container('builder') {
@@ -711,7 +715,7 @@ spec:
                     }
                 }
             }
-            
+
             stage('Build Image') {
                 when {
                     branch 'main'
@@ -725,7 +729,7 @@ spec:
                     }
                 }
             }
-            
+
             stage('Deploy') {
                 when {
                     branch 'main'
@@ -740,7 +744,7 @@ spec:
                 }
             }
         }
-        
+
         post {
             always {
                 cleanWs()

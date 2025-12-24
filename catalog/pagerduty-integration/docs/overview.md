@@ -4,27 +4,56 @@
 
 ### Core Components
 
-```
-+------------------------------------------------------------------+
-|                      PagerDuty Platform                           |
-+------------------------------------------------------------------+
-|                                                                   |
-|  +-------------------+  +-------------------+  +----------------+ |
-|  |   Event Ingest    |  |  Event Processing |  |   Routing      | |
-|  |   - Events API    |  |  - Deduplication  |  |   - Services   | |
-|  |   - Email         |  |  - Grouping       |  |   - Teams      | |
-|  |   - Integrations  |  |  - Suppression    |  |   - Schedules  | |
-|  +-------------------+  +-------------------+  +----------------+ |
-|           |                     |                     |           |
-|           v                     v                     v           |
-|  +-------------------+  +-------------------+  +----------------+ |
-|  | Alert Management  |  |Incident Lifecycle |  | Notifications  | |
-|  | - Severity        |  | - Triggered       |  | - Push         | |
-|  | - Priority        |  | - Acknowledged    |  | - SMS          | |
-|  | - Custom Fields   |  | - Resolved        |  | - Phone        | |
-|  +-------------------+  +-------------------+  +----------------+ |
-|                                                                   |
-+------------------------------------------------------------------+
+```d2
+direction: down
+
+platform: PagerDuty Platform {
+  style.fill: "#e3f2fd"
+
+  ingestion: Event Ingestion {
+    style.fill: "#e8f5e9"
+    ingest: Event Ingest {
+      api: Events API
+      email: Email
+      integrations: Integrations
+    }
+    processing: Event Processing {
+      dedup: Deduplication
+      grouping: Grouping
+      suppression: Suppression
+    }
+    routing: Routing {
+      services: Services
+      teams: Teams
+      schedules: Schedules
+    }
+  }
+
+  management: Incident Management {
+    style.fill: "#fff3e0"
+    alerts: Alert Management {
+      severity: Severity
+      priority: Priority
+      fields: Custom Fields
+    }
+    lifecycle: Incident Lifecycle {
+      triggered: Triggered
+      ack: Acknowledged
+      resolved: Resolved
+    }
+    notifications: Notifications {
+      push: Push
+      sms: SMS
+      phone: Phone
+    }
+  }
+
+  ingestion.ingest -> ingestion.processing
+  ingestion.processing -> ingestion.routing
+  ingestion.routing -> management.alerts
+  management.alerts -> management.lifecycle
+  management.lifecycle -> management.notifications
+}
 ```
 
 ### Service Hierarchy
@@ -69,14 +98,14 @@ alert_grouping_parameters:
   type: intelligent
   config:
     # Time-based grouping window
-    time_window: 300  # 5 minutes
-    
+    time_window: 300 # 5 minutes
+
     # Fields used for grouping
     fields:
       - source
       - component
       - class
-    
+
     # Recommended: Use intelligent grouping
     # Options: time, intelligent, content_based
 ```
@@ -209,10 +238,10 @@ Actionable Incidents (50/hour)
         "rotation_virtual_start": "2024-01-01T09:00:00-05:00",
         "rotation_turn_length_seconds": 604800,
         "users": [
-          {"user": {"id": "PUSER01", "type": "user_reference"}},
-          {"user": {"id": "PUSER02", "type": "user_reference"}},
-          {"user": {"id": "PUSER03", "type": "user_reference"}},
-          {"user": {"id": "PUSER04", "type": "user_reference"}}
+          { "user": { "id": "PUSER01", "type": "user_reference" } },
+          { "user": { "id": "PUSER02", "type": "user_reference" } },
+          { "user": { "id": "PUSER03", "type": "user_reference" } },
+          { "user": { "id": "PUSER04", "type": "user_reference" } }
         ],
         "restrictions": [
           {
@@ -398,11 +427,11 @@ Actionable Incidents (50/hour)
 
 ### API Token Types
 
-| Token Type | Scope | Use Case |
-|------------|-------|----------|
-| **User Token** | User's permissions | CLI, personal scripts |
-| **Account Token** | Full account access | Admin automation |
-| **Scoped OAuth** | Limited permissions | Third-party apps |
+| Token Type        | Scope               | Use Case              |
+| ----------------- | ------------------- | --------------------- |
+| **User Token**    | User's permissions  | CLI, personal scripts |
+| **Account Token** | Full account access | Admin automation      |
+| **Scoped OAuth**  | Limited permissions | Third-party apps      |
 
 ### Token Best Practices
 
@@ -436,11 +465,11 @@ def verify_webhook_signature(payload: bytes, signature: str, secret: str) -> boo
         payload,
         hashlib.sha256
     ).hexdigest()
-    
+
     # Extract signature from header
     # Format: v1=<signature>
     provided = signature.split('=')[1] if '=' in signature else signature
-    
+
     return hmac.compare_digest(expected, provided)
 
 
@@ -453,10 +482,10 @@ WEBHOOK_SECRET = os.environ['PD_WEBHOOK_SECRET']
 @app.route('/webhooks/pagerduty', methods=['POST'])
 def handle_webhook():
     signature = request.headers.get('X-PagerDuty-Signature')
-    
+
     if not verify_webhook_signature(request.data, signature, WEBHOOK_SECRET):
         abort(401)
-    
+
     event = request.json
     # Process event...
     return '', 200
@@ -468,13 +497,13 @@ def handle_webhook():
 # Firewall rules for PagerDuty webhooks
 # Allow inbound from PagerDuty IP ranges
 ingress:
-  - from_ip: 52.21.40.0/24     # US East
-  - from_ip: 52.31.64.0/24     # EU West
-  - from_ip: 13.236.32.0/24    # AP Southeast
-  
+  - from_ip: 52.21.40.0/24 # US East
+  - from_ip: 52.31.64.0/24 # EU West
+  - from_ip: 13.236.32.0/24 # AP Southeast
+
 # TLS requirements
 tls:
-  min_version: "1.2"
+  min_version: '1.2'
   ciphers:
     - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
     - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
@@ -484,13 +513,13 @@ tls:
 
 ### Key Metrics
 
-| Metric | Description | Target |
-|--------|-------------|--------|
-| **MTTA** | Mean Time to Acknowledge | < 5 minutes |
-| **MTTR** | Mean Time to Resolve | < 1 hour |
-| **Escalation Rate** | % incidents escalated | < 10% |
-| **After-Hours %** | Incidents outside business hours | Monitor trend |
-| **High-Urgency %** | % of high-urgency incidents | < 20% |
+| Metric              | Description                      | Target        |
+| ------------------- | -------------------------------- | ------------- |
+| **MTTA**            | Mean Time to Acknowledge         | < 5 minutes   |
+| **MTTR**            | Mean Time to Resolve             | < 1 hour      |
+| **Escalation Rate** | % incidents escalated            | < 10%         |
+| **After-Hours %**   | Incidents outside business hours | Monitor trend |
+| **High-Urgency %**  | % of high-urgency incidents      | < 20%         |
 
 ### Analytics API
 
@@ -523,23 +552,23 @@ curl -s -X GET \
 # prometheus-pagerduty-exporter configuration
 pagerduty:
   token: ${PD_API_TOKEN}
-  
+
 metrics:
   - name: pagerduty_incidents_total
     type: counter
     help: Total number of incidents
     labels: [service, urgency, status]
-    
+
   - name: pagerduty_mtta_seconds
     type: gauge
     help: Mean time to acknowledge
     labels: [service]
-    
+
   - name: pagerduty_mttr_seconds
     type: gauge
     help: Mean time to resolve
     labels: [service]
-    
+
   - name: pagerduty_oncall_user
     type: gauge
     help: Currently on-call user

@@ -46,64 +46,96 @@ ansible-playbook -i "server.example.com," -u deploy --become site.yml
 
 ## Features
 
-| Feature | Description | Default |
-|---------|-------------|---------|
-| **Docker CE Installation** | Latest stable Docker Engine | Enabled |
-| **Docker Compose** | V2 plugin and standalone | Both |
-| **Container Runtime** | containerd with proper configuration | Enabled |
-| **Registry Configuration** | Private registry support, mirrors | Optional |
-| **Storage Driver** | overlay2 with optimal settings | overlay2 |
-| **Logging Configuration** | JSON-file, journald, fluentd | json-file |
-| **Security Hardening** | CIS Docker Benchmark compliance | Enabled |
-| **User Management** | Docker group membership | Configurable |
-| **Network Configuration** | Bridge, overlay, custom networks | Enabled |
-| **Swarm Mode** | Optional Swarm cluster setup | Optional |
-| **GPU Support** | NVIDIA Container Toolkit | Optional |
-| **Monitoring** | Prometheus metrics, cAdvisor | Optional |
+| Feature                    | Description                          | Default      |
+| -------------------------- | ------------------------------------ | ------------ |
+| **Docker CE Installation** | Latest stable Docker Engine          | Enabled      |
+| **Docker Compose**         | V2 plugin and standalone             | Both         |
+| **Container Runtime**      | containerd with proper configuration | Enabled      |
+| **Registry Configuration** | Private registry support, mirrors    | Optional     |
+| **Storage Driver**         | overlay2 with optimal settings       | overlay2     |
+| **Logging Configuration**  | JSON-file, journald, fluentd         | json-file    |
+| **Security Hardening**     | CIS Docker Benchmark compliance      | Enabled      |
+| **User Management**        | Docker group membership              | Configurable |
+| **Network Configuration**  | Bridge, overlay, custom networks     | Enabled      |
+| **Swarm Mode**             | Optional Swarm cluster setup         | Optional     |
+| **GPU Support**            | NVIDIA Container Toolkit             | Optional     |
+| **Monitoring**             | Prometheus metrics, cAdvisor         | Optional     |
 
 ## Architecture Overview
 
-```
-+------------------------------------------------------------------+
-|                    Ansible Control Node                           |
-+------------------------------------------------------------------+
-|  +-------------------+  +-------------------+  +----------------+ |
-|  |   Inventory       |  |   Playbooks       |  |   Roles        | |
-|  |   - docker_hosts  |  |   - site.yml      |  |   - common     | |
-|  |   - swarm_managers|  |   - docker.yml    |  |   - docker     | |
-|  |   - swarm_workers |  |   - swarm.yml     |  |   - compose    | |
-|  +-------------------+  +-------------------+  |   - security   | |
-+------------------------------------------------------------------+
-                              |
-        +---------------------+---------------------+
-        |                     |                     |
-        v                     v                     v
-+----------------+    +----------------+    +----------------+
-|  Docker Host 1 |    |  Docker Host 2 |    |  Docker Host 3 |
-|  Ubuntu 22.04  |    |  Rocky Linux 9 |    |  Debian 12     |
-|                |    |                |    |                |
-|  +----------+  |    |  +----------+  |    |  +----------+  |
-|  | Docker   |  |    |  | Docker   |  |    |  | Docker   |  |
-|  | Engine   |  |    |  | Engine   |  |    |  | Engine   |  |
-|  +----------+  |    |  +----------+  |    |  +----------+  |
-|  | Compose  |  |    |  | Compose  |  |    |  | Compose  |  |
-|  +----------+  |    |  +----------+  |    |  +----------+  |
-|  | containerd| |    |  | containerd| |    |  | containerd| |
-|  +----------+  |    |  +----------+  |    |  +----------+  |
-+----------------+    +----------------+    +----------------+
+```d2
+direction: down
+
+control: Ansible Control Node {
+  style.fill: "#e3f2fd"
+
+  inventory: Inventory {
+    style.fill: "#e8f5e9"
+    docker_hosts: docker_hosts
+    swarm_managers: swarm_managers
+    swarm_workers: swarm_workers
+  }
+
+  playbooks: Playbooks {
+    style.fill: "#fff3e0"
+    site: site.yml
+    docker: docker.yml
+    swarm: swarm.yml
+  }
+
+  roles: Roles {
+    style.fill: "#fce4ec"
+    common: common
+    docker: docker
+    compose: compose
+    security: security
+  }
+}
+
+hosts: Docker Hosts {
+  style.fill: "#f5f5f5"
+
+  host1: Docker Host 1 {
+    style.fill: "#e8f5e9"
+    os: Ubuntu 22.04
+    engine: Docker Engine
+    compose: Compose
+    containerd: containerd
+  }
+
+  host2: Docker Host 2 {
+    style.fill: "#fff3e0"
+    os: Rocky Linux 9
+    engine: Docker Engine
+    compose: Compose
+    containerd: containerd
+  }
+
+  host3: Docker Host 3 {
+    style.fill: "#e3f2fd"
+    os: Debian 12
+    engine: Docker Engine
+    compose: Compose
+    containerd: containerd
+  }
+}
+
+control -> hosts.host1: SSH
+control -> hosts.host2: SSH
+control -> hosts.host3: SSH
 ```
 
 ## Supported Platforms
 
-| OS | Version | Docker Version | Status |
-|----|---------|----------------|--------|
-| Ubuntu | 20.04, 22.04, 24.04 | 24.x, 25.x | Tested |
-| Debian | 11, 12 | 24.x, 25.x | Tested |
-| RHEL | 8, 9 | 24.x, 25.x | Tested |
-| Rocky Linux | 8, 9 | 24.x, 25.x | Tested |
-| AlmaLinux | 8, 9 | 24.x, 25.x | Tested |
-| Amazon Linux | 2, 2023 | 24.x, 25.x | Tested |
-| Fedora | 38, 39, 40 | 24.x, 25.x | Tested |
+| OS           | Version             | Docker Version | Status |
+| ------------ | ------------------- | -------------- | ------ |
+| Ubuntu       | 20.04, 22.04, 24.04 | 24.x, 25.x     | Tested |
+| Debian       | 11, 12              | 24.x, 25.x     | Tested |
+| RHEL         | 8, 9                | 24.x, 25.x     | Tested |
+| Rocky Linux  | 8, 9                | 24.x, 25.x     | Tested |
+| AlmaLinux    | 8, 9                | 24.x, 25.x     | Tested |
+| Amazon Linux | 2, 2023             | 24.x, 25.x     | Tested |
+| Fedora       | 38, 39, 40          | 24.x, 25.x     | Tested |
 
 ## Project Structure
 

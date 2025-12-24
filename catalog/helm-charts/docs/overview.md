@@ -4,36 +4,41 @@
 
 The Helm Charts Repository provides a centralized collection of Kubernetes Helm charts for deploying applications and services. Charts follow best practices for security, scalability, and maintainability.
 
-```
-+------------------------------------------------------------------+
-|                      CHART ARCHITECTURE                           |
-+------------------------------------------------------------------+
-|                                                                   |
-|  +-------------------+         +-------------------+              |
-|  |   values.yaml     |         |   Chart.yaml      |              |
-|  |   User config     |-------->|   Metadata        |              |
-|  |   Overrides       |         |   Dependencies    |              |
-|  +-------------------+         +-------------------+              |
-|           |                            |                          |
-|           v                            v                          |
-|  +--------------------------------------------------+            |
-|  |              TEMPLATE ENGINE                      |            |
-|  |  +------------+  +------------+  +------------+  |            |
-|  |  | _helpers   |  | deployment |  | service    |  |            |
-|  |  | .tpl       |  | .yaml      |  | .yaml      |  |            |
-|  |  +------------+  +------------+  +------------+  |            |
-|  |  +------------+  +------------+  +------------+  |            |
-|  |  | ingress    |  | configmap  |  | secret     |  |            |
-|  |  | .yaml      |  | .yaml      |  | .yaml      |  |            |
-|  |  +------------+  +------------+  +------------+  |            |
-|  +--------------------------------------------------+            |
-|                          |                                        |
-|                          v                                        |
-|  +--------------------------------------------------+            |
-|  |           RENDERED KUBERNETES MANIFESTS           |            |
-|  +--------------------------------------------------+            |
-|                                                                   |
-+------------------------------------------------------------------+
+```d2
+direction: down
+
+values: values.yaml {
+  style.fill: "#e3f2fd"
+  config: User config
+  overrides: Overrides
+}
+
+chart: Chart.yaml {
+  style.fill: "#e8f5e9"
+  metadata: Metadata
+  deps: Dependencies
+}
+
+values -> chart
+
+engine: Template Engine {
+  style.fill: "#fff3e0"
+
+  helpers: _helpers.tpl
+  deployment: deployment.yaml
+  service: service.yaml
+  ingress: ingress.yaml
+  configmap: configmap.yaml
+  secret: secret.yaml
+}
+
+chart -> engine
+
+manifests: Rendered Kubernetes Manifests {
+  style.fill: "#c8e6c9"
+}
+
+engine -> manifests
 ```
 
 ## Chart Development
@@ -47,7 +52,7 @@ name: webapp
 description: A Helm chart for deploying web applications
 type: application
 version: 2.5.0
-appVersion: "1.0.0"
+appVersion: '1.0.0'
 
 # Keywords for search
 keywords:
@@ -71,22 +76,22 @@ sources:
 icon: https://company.com/icons/webapp.png
 
 # Kubernetes version constraint
-kubeVersion: ">=1.25.0-0"
+kubeVersion: '>=1.25.0-0'
 
 # Dependencies
 dependencies:
   - name: common
     version: 1.x.x
-    repository: "file://../library/common"
+    repository: 'file://../library/common'
   - name: redis
     version: 18.x.x
-    repository: "https://charts.bitnami.com/bitnami"
+    repository: 'https://charts.bitnami.com/bitnami'
     condition: redis.enabled
     tags:
       - cache
   - name: postgresql
     version: 14.x.x
-    repository: "https://charts.bitnami.com/bitnami"
+    repository: 'https://charts.bitnami.com/bitnami'
     condition: postgresql.enabled
     alias: db
 ```
@@ -105,15 +110,15 @@ image:
   # -- Image pull policy
   pullPolicy: IfNotPresent
   # -- Image tag (defaults to chart appVersion)
-  tag: ""
+  tag: ''
 
 # -- Image pull secrets
 imagePullSecrets: []
 
 # -- Override the name
-nameOverride: ""
+nameOverride: ''
 # -- Override the fullname
-fullnameOverride: ""
+fullnameOverride: ''
 
 # Service Account
 serviceAccount:
@@ -122,7 +127,7 @@ serviceAccount:
   # -- Service account annotations
   annotations: {}
   # -- Service account name
-  name: ""
+  name: ''
 
 # Pod annotations
 podAnnotations: {}
@@ -151,14 +156,14 @@ service:
   # -- Target container port
   targetPort: 8080
   # -- Node port (when type is NodePort)
-  nodePort: ""
+  nodePort: ''
 
 # Ingress configuration
 ingress:
   # -- Enable ingress
   enabled: false
   # -- Ingress class name
-  className: "nginx"
+  className: 'nginx'
   # -- Ingress annotations
   annotations: {}
   # -- Ingress hosts
@@ -226,25 +231,29 @@ readinessProbe:
   failureThreshold: 3
 
 # Environment variables
-env: []
+env:
+  []
   # - name: LOG_LEVEL
   #   value: "info"
 
 # Environment variables from secrets/configmaps
-envFrom: []
+envFrom:
+  []
   # - secretRef:
   #     name: app-secrets
   # - configMapRef:
   #     name: app-config
 
 # Extra volumes
-extraVolumes: []
+extraVolumes:
+  []
   # - name: config
   #   configMap:
   #     name: app-config
 
 # Extra volume mounts
-extraVolumeMounts: []
+extraVolumeMounts:
+  []
   # - name: config
   #   mountPath: /app/config
   #   readOnly: true
@@ -268,17 +277,17 @@ redis:
   architecture: standalone
   auth:
     enabled: true
-    existingSecret: ""
+    existingSecret: ''
 
 # PostgreSQL subchart
 postgresql:
   enabled: false
   auth:
     database: app
-    existingSecret: ""
+    existingSecret: ''
 ```
 
-### Template Helpers (_helpers.tpl)
+### Template Helpers (\_helpers.tpl)
 
 ```yaml
 {{/*

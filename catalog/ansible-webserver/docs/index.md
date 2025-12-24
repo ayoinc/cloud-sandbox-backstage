@@ -57,58 +57,100 @@ ansible-playbook -i inventory/production.ini site.yml --tags "nginx,ssl"
 
 ## Features
 
-| Feature | Description | Default |
-|---------|-------------|---------|
-| **Multi-Server Support** | Nginx and Apache configuration | Nginx |
-| **SSL/TLS Management** | Let's Encrypt and custom certificates | Enabled |
-| **Virtual Hosts** | Multiple site configuration | Supported |
-| **Load Balancing** | Upstream server configuration | Optional |
-| **Security Hardening** | CIS benchmarks, ModSecurity | Enabled |
-| **Performance Tuning** | Worker processes, caching, compression | Optimized |
-| **Monitoring Integration** | Prometheus exporters, log shipping | Optional |
-| **Backup & Recovery** | Configuration backup, rollback | Enabled |
-| **Zero-Downtime Deploy** | Rolling updates, health checks | Supported |
-| **Multi-OS Support** | Ubuntu, Debian, RHEL, Rocky | All major |
+| Feature                    | Description                            | Default   |
+| -------------------------- | -------------------------------------- | --------- |
+| **Multi-Server Support**   | Nginx and Apache configuration         | Nginx     |
+| **SSL/TLS Management**     | Let's Encrypt and custom certificates  | Enabled   |
+| **Virtual Hosts**          | Multiple site configuration            | Supported |
+| **Load Balancing**         | Upstream server configuration          | Optional  |
+| **Security Hardening**     | CIS benchmarks, ModSecurity            | Enabled   |
+| **Performance Tuning**     | Worker processes, caching, compression | Optimized |
+| **Monitoring Integration** | Prometheus exporters, log shipping     | Optional  |
+| **Backup & Recovery**      | Configuration backup, rollback         | Enabled   |
+| **Zero-Downtime Deploy**   | Rolling updates, health checks         | Supported |
+| **Multi-OS Support**       | Ubuntu, Debian, RHEL, Rocky            | All major |
 
 ## Architecture Overview
 
-```
-+------------------------------------------------------------------+
-|                    Ansible Control Node                           |
-|                                                                   |
-|  +-------------------+  +-------------------+  +----------------+ |
-|  |   Inventory       |  |   Playbooks       |  |   Roles        | |
-|  |   - production    |  |   - site.yml      |  |   - common     | |
-|  |   - staging       |  |   - webserver.yml |  |   - nginx      | |
-|  |   - development   |  |   - ssl.yml       |  |   - apache     | |
-|  +-------------------+  +-------------------+  |   - ssl        | |
-|           |                     |             |   - security   | |
-|           v                     v             +----------------+ |
-|  +-------------------+  +-------------------+         |          |
-|  |   Group Vars      |  |   Host Vars       |         |          |
-|  |   - all.yml       |  |   - web01.yml     |         |          |
-|  |   - webservers    |  |   - web02.yml     |         |          |
-|  +-------------------+  +-------------------+         |          |
-+------------------------------------------------------------------+
-           |                       |                    |
-           v                       v                    v
-+------------------+  +------------------+  +------------------+
-|   Web Server 01  |  |   Web Server 02  |  |   Web Server 03  |
-|   Nginx/Apache   |  |   Nginx/Apache   |  |   Nginx/Apache   |
-|   Ubuntu 22.04   |  |   Rocky Linux 9  |  |   Debian 12      |
-+------------------+  +------------------+  +------------------+
+```d2
+direction: down
+
+control: Ansible Control Node {
+  style.fill: "#e3f2fd"
+
+  inventory: Inventory {
+    style.fill: "#e8f5e9"
+    production: production
+    staging: staging
+    development: development
+  }
+
+  playbooks: Playbooks {
+    style.fill: "#fff3e0"
+    site: site.yml
+    webserver: webserver.yml
+    ssl: ssl.yml
+  }
+
+  roles: Roles {
+    style.fill: "#fce4ec"
+    common: common
+    nginx: nginx
+    apache: apache
+    ssl: ssl
+    security: security
+  }
+
+  group_vars: Group Vars {
+    style.fill: "#f3e5f5"
+    all: all.yml
+    webservers: webservers
+  }
+
+  host_vars: Host Vars {
+    style.fill: "#e0f7fa"
+    web01: web01.yml
+    web02: web02.yml
+  }
+}
+
+servers: Web Servers {
+  style.fill: "#f5f5f5"
+
+  web01: Web Server 01 {
+    style.fill: "#e8f5e9"
+    server: Nginx/Apache
+    os: Ubuntu 22.04
+  }
+
+  web02: Web Server 02 {
+    style.fill: "#fff3e0"
+    server: Nginx/Apache
+    os: Rocky Linux 9
+  }
+
+  web03: Web Server 03 {
+    style.fill: "#e3f2fd"
+    server: Nginx/Apache
+    os: Debian 12
+  }
+}
+
+control -> servers.web01: SSH
+control -> servers.web02: SSH
+control -> servers.web03: SSH
 ```
 
 ## Supported Platforms
 
-| OS | Version | Web Server | Status |
-|----|---------|------------|--------|
-| Ubuntu | 20.04, 22.04, 24.04 | Nginx, Apache | Tested |
-| Debian | 11, 12 | Nginx, Apache | Tested |
-| RHEL | 8, 9 | Nginx, Apache | Tested |
-| Rocky Linux | 8, 9 | Nginx, Apache | Tested |
-| AlmaLinux | 8, 9 | Nginx, Apache | Tested |
-| Amazon Linux | 2, 2023 | Nginx, Apache | Tested |
+| OS           | Version             | Web Server    | Status |
+| ------------ | ------------------- | ------------- | ------ |
+| Ubuntu       | 20.04, 22.04, 24.04 | Nginx, Apache | Tested |
+| Debian       | 11, 12              | Nginx, Apache | Tested |
+| RHEL         | 8, 9                | Nginx, Apache | Tested |
+| Rocky Linux  | 8, 9                | Nginx, Apache | Tested |
+| AlmaLinux    | 8, 9                | Nginx, Apache | Tested |
+| Amazon Linux | 2, 2023             | Nginx, Apache | Tested |
 
 ## Project Structure
 

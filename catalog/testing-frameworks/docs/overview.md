@@ -4,36 +4,42 @@
 
 The Testing Frameworks Suite provides standardized testing patterns, configurations, and utilities for all supported languages. Tests are integrated into CI/CD pipelines with coverage thresholds and quality gates.
 
-```
-+------------------------------------------------------------------+
-|                    TEST EXECUTION FLOW                            |
-+------------------------------------------------------------------+
-|                                                                   |
-|  +-------------------+         +-------------------+              |
-|  |   Source Code     |         |   Test Code       |              |
-|  |   src/            |-------->|   tests/          |              |
-|  |   lib/            |         |   __tests__/      |              |
-|  +-------------------+         +-------------------+              |
-|           |                            |                          |
-|           v                            v                          |
-|  +--------------------------------------------------+            |
-|  |              TEST RUNNER                          |            |
-|  |  +------------+  +------------+  +------------+  |            |
-|  |  | Setup      |  | Execute    |  | Teardown   |  |            |
-|  |  | Fixtures   |  | Assertions |  | Cleanup    |  |            |
-|  |  +------------+  +------------+  +------------+  |            |
-|  +--------------------------------------------------+            |
-|                          |                                        |
-|                          v                                        |
-|  +--------------------------------------------------+            |
-|  |              REPORTS                              |            |
-|  |  +------------+  +------------+  +------------+  |            |
-|  |  | JUnit XML  |  | Coverage   |  | HTML       |  |            |
-|  |  | Report     |  | Report     |  | Report     |  |            |
-|  |  +------------+  +------------+  +------------+  |            |
-|  +--------------------------------------------------+            |
-|                                                                   |
-+------------------------------------------------------------------+
+```d2
+direction: down
+
+source: Source Code {
+  style.fill: "#e3f2fd"
+  src: src/
+  lib: lib/
+}
+
+tests: Test Code {
+  style.fill: "#e8f5e9"
+  tests: tests/
+  __tests__: __tests__/
+}
+
+source -> tests: validates
+
+runner: Test Runner {
+  style.fill: "#fff3e0"
+  setup: Setup Fixtures
+  execute: Execute Assertions
+  teardown: Teardown Cleanup
+
+  setup -> execute -> teardown
+}
+
+tests -> runner
+
+reports: Reports {
+  style.fill: "#fce4ec"
+  junit: JUnit XML Report
+  coverage: Coverage Report
+  html: HTML Report
+}
+
+runner -> reports
 ```
 
 ## Jest Configuration (JavaScript/TypeScript)
@@ -67,10 +73,13 @@ module.exports = {
   coverageReporters: ['text', 'lcov', 'html', 'cobertura'],
   reporters: [
     'default',
-    ['jest-junit', {
-      outputDirectory: 'reports',
-      outputName: 'junit.xml',
-    }],
+    [
+      'jest-junit',
+      {
+        outputDirectory: 'reports',
+        outputName: 'junit.xml',
+      },
+    ],
   ],
   setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
   moduleNameMapper: {
@@ -144,7 +153,9 @@ describe('UserService', () => {
     it('should throw error when user not found', async () => {
       mockUserRepository.findById.mockResolvedValue(null);
 
-      await expect(userService.getUser('999')).rejects.toThrow('User not found');
+      await expect(userService.getUser('999')).rejects.toThrow(
+        'User not found',
+      );
     });
   });
 
@@ -163,7 +174,9 @@ describe('UserService', () => {
     it('should validate email format', async () => {
       const input = { name: 'Jane', email: 'invalid-email' };
 
-      await expect(userService.createUser(input)).rejects.toThrow('Invalid email');
+      await expect(userService.createUser(input)).rejects.toThrow(
+        'Invalid email',
+      );
     });
   });
 });
@@ -180,7 +193,7 @@ testpaths = tests
 python_files = test_*.py
 python_classes = Test*
 python_functions = test_*
-addopts = 
+addopts =
     -v
     --tb=short
     --strict-markers
@@ -340,7 +353,7 @@ import (
     "github.com/stretchr/testify/assert"
     "github.com/stretchr/testify/mock"
     "github.com/stretchr/testify/require"
-    
+
     "myapp/internal/models"
     "myapp/internal/repositories/mocks"
 )
@@ -350,7 +363,7 @@ func TestUserService_GetUser(t *testing.T) {
         // Arrange
         mockRepo := mocks.NewUserRepository(t)
         service := NewUserService(mockRepo)
-        
+
         expectedUser := &models.User{
             ID:    "1",
             Name:  "John",
@@ -370,7 +383,7 @@ func TestUserService_GetUser(t *testing.T) {
     t.Run("returns error when user not found", func(t *testing.T) {
         mockRepo := mocks.NewUserRepository(t)
         service := NewUserService(mockRepo)
-        
+
         mockRepo.On("FindByID", mock.Anything, "999").Return(nil, ErrUserNotFound)
 
         result, err := service.GetUser(context.Background(), "999")
@@ -444,7 +457,7 @@ func TestUserService_CreateUser(t *testing.T) {
 func BenchmarkUserService_GetUser(b *testing.B) {
     mockRepo := mocks.NewUserRepository(b)
     service := NewUserService(mockRepo)
-    
+
     user := &models.User{ID: "1", Name: "John", Email: "john@example.com"}
     mockRepo.On("FindByID", mock.Anything, "1").Return(user, nil)
 
@@ -533,7 +546,9 @@ test.describe('Authentication', () => {
     await page.getByRole('button', { name: 'Sign In' }).click();
 
     await expect(page).toHaveURL('/dashboard');
-    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Dashboard' }),
+    ).toBeVisible();
   });
 
   test('should show error for invalid credentials', async ({ page }) => {
@@ -556,7 +571,7 @@ test.describe('User Flow', () => {
 
   test('should create and view a new item', async ({ page }) => {
     await page.goto('/items');
-    
+
     // Create new item
     await page.getByRole('button', { name: 'New Item' }).click();
     await page.getByLabel('Name').fill('Test Item');
@@ -568,7 +583,9 @@ test.describe('User Flow', () => {
 
     // View item details
     await page.getByText('Test Item').click();
-    await expect(page.getByRole('heading', { name: 'Test Item' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Test Item' }),
+    ).toBeVisible();
     await expect(page.getByText('This is a test item')).toBeVisible();
   });
 });
@@ -594,7 +611,7 @@ mockFn.mockResolvedValue('async value');
 mockFn.mockRejectedValue(new Error('error'));
 
 // Mock implementation
-mockFn.mockImplementation((arg) => arg * 2);
+mockFn.mockImplementation(arg => arg * 2);
 ```
 
 ### Python Mocking

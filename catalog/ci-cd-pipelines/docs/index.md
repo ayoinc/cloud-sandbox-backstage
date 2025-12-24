@@ -38,83 +38,89 @@ jobs:
 
 ## Features
 
-| Feature | Description | Status |
-|---------|-------------|--------|
-| Reusable Workflows | Shared GitHub Actions workflows | Active |
-| GitLab CI Includes | Modular GitLab CI templates | Active |
-| Jenkins Shared Libraries | Groovy shared libraries | Active |
-| Multi-Language Support | Node.js, Python, Go, Java, .NET | Active |
-| Security Scanning | SAST, DAST, dependency scanning | Active |
-| Container Builds | Docker multi-arch builds | Active |
-| Kubernetes Deploy | Helm, Kustomize, ArgoCD | Active |
-| Quality Gates | SonarQube, coverage thresholds | Active |
+| Feature                  | Description                     | Status |
+| ------------------------ | ------------------------------- | ------ |
+| Reusable Workflows       | Shared GitHub Actions workflows | Active |
+| GitLab CI Includes       | Modular GitLab CI templates     | Active |
+| Jenkins Shared Libraries | Groovy shared libraries         | Active |
+| Multi-Language Support   | Node.js, Python, Go, Java, .NET | Active |
+| Security Scanning        | SAST, DAST, dependency scanning | Active |
+| Container Builds         | Docker multi-arch builds        | Active |
+| Kubernetes Deploy        | Helm, Kustomize, ArgoCD         | Active |
+| Quality Gates            | SonarQube, coverage thresholds  | Active |
 
 ## Architecture
 
-```
-+------------------------------------------------------------------+
-|                    CI/CD PIPELINE ARCHITECTURE                    |
-+------------------------------------------------------------------+
-|                                                                   |
-|  +-------------------+    +-------------------+                   |
-|  |   Source Code     |    |   Pipeline Trigger|                   |
-|  |   Git Push/PR     |--->|   Webhook/Schedule|                   |
-|  |                   |    |                   |                   |
-|  +-------------------+    +-------------------+                   |
-|                                  |                                |
-|                                  v                                |
-|  +--------------------------------------------------+            |
-|  |              BUILD STAGE                          |            |
-|  |  +------------+  +------------+  +------------+  |            |
-|  |  | Checkout   |  | Install    |  | Compile    |  |            |
-|  |  | Code       |  | Deps       |  | Build      |  |            |
-|  |  +------------+  +------------+  +------------+  |            |
-|  +--------------------------------------------------+            |
-|                          |                                        |
-|                          v                                        |
-|  +--------------------------------------------------+            |
-|  |              TEST STAGE                           |            |
-|  |  +------------+  +------------+  +------------+  |            |
-|  |  | Unit Tests |  | Integration|  | E2E Tests  |  |            |
-|  |  | Coverage   |  | Tests      |  | Playwright |  |            |
-|  |  +------------+  +------------+  +------------+  |            |
-|  +--------------------------------------------------+            |
-|                          |                                        |
-|                          v                                        |
-|  +--------------------------------------------------+            |
-|  |              SECURITY & QUALITY                   |            |
-|  |  +------------+  +------------+  +------------+  |            |
-|  |  | SAST       |  | SonarQube  |  | License    |  |            |
-|  |  | Scanning   |  | Analysis   |  | Check      |  |            |
-|  |  +------------+  +------------+  +------------+  |            |
-|  +--------------------------------------------------+            |
-|                          |                                        |
-|                          v                                        |
-|  +--------------------------------------------------+            |
-|  |              DEPLOY STAGE                         |            |
-|  |  +------------+  +------------+  +------------+  |            |
-|  |  | Build      |  | Push       |  | Deploy     |  |            |
-|  |  | Image      |  | Registry   |  | K8s/Cloud  |  |            |
-|  |  +------------+  +------------+  +------------+  |            |
-|  +--------------------------------------------------+            |
-|                                                                   |
-+------------------------------------------------------------------+
+```d2
+direction: down
+
+source: Source Code {
+  style.fill: "#e3f2fd"
+  git: Git Push/PR
+}
+
+trigger: Pipeline Trigger {
+  style.fill: "#e8f5e9"
+  webhook: Webhook/Schedule
+}
+
+source -> trigger
+
+build: Build Stage {
+  style.fill: "#fff3e0"
+  checkout: Checkout Code
+  install: Install Deps
+  compile: Compile Build
+
+  checkout -> install -> compile
+}
+
+trigger -> build
+
+test: Test Stage {
+  style.fill: "#c8e6c9"
+  unit: Unit Tests (Coverage)
+  integration: Integration Tests
+  e2e: E2E Tests (Playwright)
+}
+
+build -> test
+
+security: Security & Quality {
+  style.fill: "#ffcdd2"
+  sast: SAST Scanning
+  sonar: SonarQube Analysis
+  license: License Check
+}
+
+test -> security
+
+deploy: Deploy Stage {
+  style.fill: "#e1bee7"
+  image: Build Image
+  push: Push Registry
+  k8s: Deploy K8s/Cloud
+
+  image -> push -> k8s
+}
+
+security -> deploy
 ```
 
 ## Available Templates
 
-| Template | Platform | Language | Description |
-|----------|----------|----------|-------------|
-| `node-ci.yaml` | GitHub Actions | Node.js | Build, test, lint Node.js apps |
-| `python-ci.yaml` | GitHub Actions | Python | Build, test, lint Python apps |
-| `go-ci.yaml` | GitHub Actions | Go | Build, test, lint Go apps |
-| `java-ci.yaml` | GitHub Actions | Java | Build, test with Maven/Gradle |
-| `docker-build.yaml` | GitHub Actions | Any | Multi-arch Docker builds |
-| `helm-deploy.yaml` | GitHub Actions | Any | Helm chart deployment |
-| `terraform-ci.yaml` | GitHub Actions | Terraform | Plan, apply Terraform |
-| `.gitlab-ci-node.yml` | GitLab CI | Node.js | Node.js CI/CD |
-| `.gitlab-ci-python.yml` | GitLab CI | Python | Python CI/CD |
-| `Jenkinsfile-node` | Jenkins | Node.js | Node.js pipeline |
+| Template                | Platform       | Language  | Description                    |
+| ----------------------- | -------------- | --------- | ------------------------------ |
+| `node-ci.yaml`          | GitHub Actions | Node.js   | Build, test, lint Node.js apps |
+| `python-ci.yaml`        | GitHub Actions | Python    | Build, test, lint Python apps  |
+| `go-ci.yaml`            | GitHub Actions | Go        | Build, test, lint Go apps      |
+| `java-ci.yaml`          | GitHub Actions | Java      | Build, test with Maven/Gradle  |
+| `docker-build.yaml`     | GitHub Actions | Any       | Multi-arch Docker builds       |
+| `helm-deploy.yaml`      | GitHub Actions | Any       | Helm chart deployment          |
+| `terraform-ci.yaml`     | GitHub Actions | Terraform | Plan, apply Terraform          |
+| `.gitlab-ci-node.yml`   | GitLab CI      | Node.js   | Node.js CI/CD                  |
+| `.gitlab-ci-python.yml` | GitLab CI      | Python    | Python CI/CD                   |
+| `Jenkinsfile-node`      | Jenkins        | Node.js   | Node.js pipeline               |
 
 ## Template Repository Structure
 
@@ -147,20 +153,20 @@ shared-workflows/
 
 ## Pipeline Stages
 
-| Stage | Purpose | Tools |
-|-------|---------|-------|
-| **Checkout** | Clone repository | Git |
-| **Setup** | Install dependencies | npm/pip/go mod |
-| **Lint** | Code style checks | ESLint, Black, golangci-lint |
-| **Build** | Compile/transpile | tsc, webpack, go build |
-| **Unit Test** | Run unit tests | Jest, pytest, go test |
-| **Integration Test** | API/DB tests | Supertest, pytest |
-| **E2E Test** | Browser tests | Playwright, Cypress |
-| **Security Scan** | Find vulnerabilities | Trivy, Snyk, CodeQL |
-| **Quality Gate** | Code quality | SonarQube |
-| **Build Image** | Container build | Docker, Buildx |
-| **Push Image** | Registry upload | ECR, GCR, Harbor |
-| **Deploy** | Release to environment | Helm, ArgoCD, kubectl |
+| Stage                | Purpose                | Tools                        |
+| -------------------- | ---------------------- | ---------------------------- |
+| **Checkout**         | Clone repository       | Git                          |
+| **Setup**            | Install dependencies   | npm/pip/go mod               |
+| **Lint**             | Code style checks      | ESLint, Black, golangci-lint |
+| **Build**            | Compile/transpile      | tsc, webpack, go build       |
+| **Unit Test**        | Run unit tests         | Jest, pytest, go test        |
+| **Integration Test** | API/DB tests           | Supertest, pytest            |
+| **E2E Test**         | Browser tests          | Playwright, Cypress          |
+| **Security Scan**    | Find vulnerabilities   | Trivy, Snyk, CodeQL          |
+| **Quality Gate**     | Code quality           | SonarQube                    |
+| **Build Image**      | Container build        | Docker, Buildx               |
+| **Push Image**       | Registry upload        | ECR, GCR, Harbor             |
+| **Deploy**           | Release to environment | Helm, ArgoCD, kubectl        |
 
 ## Related Documentation
 

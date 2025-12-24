@@ -4,36 +4,43 @@
 
 Packer Image Builder provides automated, repeatable machine image creation across multiple cloud providers. Images are built from a common template with provider-specific configurations, ensuring consistency across environments.
 
-```
-+------------------------------------------------------------------+
-|                    PACKER ARCHITECTURE                            |
-+------------------------------------------------------------------+
-|                                                                   |
-|  +-------------------+         +-------------------+              |
-|  |   Template        |         |   Variables       |              |
-|  |   sources { }     |-------->|   pkrvars.hcl     |              |
-|  |   build { }       |         |   env vars        |              |
-|  +-------------------+         +-------------------+              |
-|           |                            |                          |
-|           v                            v                          |
-|  +--------------------------------------------------+            |
-|  |              PACKER CORE                          |            |
-|  |  +------------+  +------------+  +------------+  |            |
-|  |  | Plugins    |  | Builders   |  | Comm       |  |            |
-|  |  | Registry   |  | AMI/Image  |  | SSH/WinRM  |  |            |
-|  |  +------------+  +------------+  +------------+  |            |
-|  +--------------------------------------------------+            |
-|                          |                                        |
-|                          v                                        |
-|  +--------------------------------------------------+            |
-|  |              BUILD PROCESS                        |            |
-|  |  +------------+  +------------+  +------------+  |            |
-|  |  | Launch     |  | Provision  |  | Snapshot   |  |            |
-|  |  | Instance   |  | Configure  |  | Create     |  |            |
-|  |  +------------+  +------------+  +------------+  |            |
-|  +--------------------------------------------------+            |
-|                                                                   |
-+------------------------------------------------------------------+
+```d2
+direction: down
+
+template: Template {
+  style.fill: "#e3f2fd"
+  sources: "sources { }"
+  build: "build { }"
+}
+
+variables: Variables {
+  style.fill: "#e8f5e9"
+  pkrvars: pkrvars.hcl
+  env: env vars
+}
+
+template -> variables
+
+core: Packer Core {
+  style.fill: "#fff3e0"
+  plugins: Plugins Registry
+  builders: Builders (AMI/Image)
+  comm: Comm (SSH/WinRM)
+}
+
+template -> core
+variables -> core
+
+process: Build Process {
+  style.fill: "#fce4ec"
+  launch: Launch Instance
+  provision: Provision Configure
+  snapshot: Snapshot Create
+
+  launch -> provision -> snapshot
+}
+
+core -> process
 ```
 
 ## HCL2 Template Structure
@@ -141,7 +148,7 @@ variable "ansible_vault_password" {
 # aws-ubuntu.pkr.hcl
 locals {
   timestamp = formatdate("YYYYMMDD-hhmmss", timestamp())
-  
+
   common_tags = merge(var.tags, {
     Environment = var.environment
     Version     = var.version
@@ -233,7 +240,7 @@ variable "azure_location" {
 
 source "azure-arm" "ubuntu" {
   subscription_id = var.azure_subscription_id
-  
+
   # Use service principal or managed identity
   use_azure_cli_auth = true
 
@@ -290,33 +297,33 @@ variable "gcp_zone" {
 
 source "googlecompute" "ubuntu" {
   project_id = var.gcp_project_id
-  
+
   # Source image
   source_image_family = "ubuntu-2204-lts"
-  
+
   # Build configuration
   zone         = var.gcp_zone
   machine_type = "e2-medium"
-  
+
   # Network
   network    = "default"
   subnetwork = "default"
-  
+
   # Disk configuration
   disk_size = 50
   disk_type = "pd-ssd"
-  
+
   # Image destination
   image_name        = "company-ubuntu-${replace(var.version, ".", "-")}-${local.timestamp}"
   image_description = "Company Ubuntu 22.04 base image v${var.version}"
   image_family      = "company-ubuntu"
-  
+
   # Image storage locations
   image_storage_locations = ["us"]
-  
+
   # Authentication
   ssh_username = var.ssh_username
-  
+
   # Labels
   image_labels = {
     environment = var.environment
@@ -382,13 +389,13 @@ build {
     playbook_file = "ansible/playbook.yml"
     user          = var.ssh_username
     use_proxy     = false
-    
+
     extra_arguments = [
       "--extra-vars", "environment=${var.environment}",
       "--extra-vars", "version=${var.version}",
       "-vv"
     ]
-    
+
     ansible_env_vars = [
       "ANSIBLE_HOST_KEY_CHECKING=False"
     ]
@@ -675,31 +682,31 @@ echo "==> Cleanup complete"
 - name: Configure base image
   hosts: all
   become: true
-  
+
   vars:
     environment: "{{ lookup('env', 'ENVIRONMENT') | default('dev') }}"
     version: "{{ lookup('env', 'VERSION') | default('1.0.0') }}"
-  
+
   tasks:
     - name: Set hostname pattern
       ansible.builtin.hostname:
-        name: "{{ environment }}-instance"
-    
+        name: '{{ environment }}-instance'
+
     - name: Install monitoring agents
       ansible.builtin.include_role:
         name: monitoring
       vars:
         datadog_enabled: "{{ environment == 'prod' }}"
-    
+
     - name: Configure log shipping
       ansible.builtin.include_role:
         name: logging
-    
+
     - name: Apply CIS benchmarks
       ansible.builtin.include_role:
         name: cis_hardening
       when: environment == 'prod'
-    
+
     - name: Add version file
       ansible.builtin.copy:
         dest: /etc/image-version

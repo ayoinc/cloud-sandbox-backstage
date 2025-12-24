@@ -53,60 +53,71 @@ aws cloudformation describe-stacks \
 
 ## Features
 
-| Feature | Description | Benefit |
-|---------|-------------|---------|
-| **Nested Stacks** | Modular, reusable components | DRY principle, maintainability |
-| **Cross-Stack References** | Export/Import values | Loose coupling, independence |
-| **Drift Detection** | Detect manual changes | Configuration compliance |
-| **Change Sets** | Preview changes before apply | Safe deployments |
-| **StackSets** | Multi-account/region deploy | Enterprise scale |
-| **Custom Resources** | Lambda-backed resources | Extend capabilities |
-| **Macros** | Template transformations | Code generation |
-| **Guard Rails** | IAM boundaries, SCPs | Security compliance |
+| Feature                    | Description                  | Benefit                        |
+| -------------------------- | ---------------------------- | ------------------------------ |
+| **Nested Stacks**          | Modular, reusable components | DRY principle, maintainability |
+| **Cross-Stack References** | Export/Import values         | Loose coupling, independence   |
+| **Drift Detection**        | Detect manual changes        | Configuration compliance       |
+| **Change Sets**            | Preview changes before apply | Safe deployments               |
+| **StackSets**              | Multi-account/region deploy  | Enterprise scale               |
+| **Custom Resources**       | Lambda-backed resources      | Extend capabilities            |
+| **Macros**                 | Template transformations     | Code generation                |
+| **Guard Rails**            | IAM boundaries, SCPs         | Security compliance            |
 
 ## Architecture Overview
 
-```
-+------------------------------------------------------------------+
-|                    CloudFormation Template Library                 |
-+------------------------------------------------------------------+
-|                                                                   |
-|  templates/                                                       |
-|  ├── networking/                                                  |
-|  │   ├── vpc.yaml              # VPC with subnets, NAT, IGW      |
-|  │   ├── security-groups.yaml  # Security group definitions       |
-|  │   ├── transit-gateway.yaml  # Multi-VPC connectivity          |
-|  │   └── vpn.yaml              # Site-to-site VPN                |
-|  │                                                                |
-|  ├── compute/                                                     |
-|  │   ├── ec2-asg.yaml          # Auto Scaling Groups             |
-|  │   ├── ecs-cluster.yaml      # ECS Fargate/EC2 cluster         |
-|  │   ├── eks-cluster.yaml      # Kubernetes cluster               |
-|  │   └── lambda.yaml           # Serverless functions            |
-|  │                                                                |
-|  ├── database/                                                    |
-|  │   ├── rds-aurora.yaml       # Aurora PostgreSQL/MySQL         |
-|  │   ├── dynamodb.yaml         # NoSQL tables                    |
-|  │   ├── elasticache.yaml      # Redis/Memcached                 |
-|  │   └── documentdb.yaml       # MongoDB-compatible              |
-|  │                                                                |
-|  ├── storage/                                                     |
-|  │   ├── s3.yaml               # S3 buckets with encryption      |
-|  │   ├── efs.yaml              # Elastic File System             |
-|  │   └── fsx.yaml              # FSx for Windows/Lustre          |
-|  │                                                                |
-|  ├── security/                                                    |
-|  │   ├── iam-roles.yaml        # IAM roles and policies          |
-|  │   ├── kms.yaml              # Encryption keys                 |
-|  │   ├── waf.yaml              # Web Application Firewall        |
-|  │   └── guardduty.yaml        # Threat detection                |
-|  │                                                                |
-|  └── observability/                                               |
-|      ├── cloudwatch.yaml       # Dashboards, alarms, logs        |
-|      ├── x-ray.yaml            # Distributed tracing             |
-|      └── config.yaml           # AWS Config rules                |
-|                                                                   |
-+------------------------------------------------------------------+
+```d2
+direction: right
+
+library: CloudFormation Template Library {
+  style.fill: "#e3f2fd"
+
+  networking: networking/ {
+    style.fill: "#e8f5e9"
+    vpc: vpc.yaml
+    sg: security-groups.yaml
+    tgw: transit-gateway.yaml
+    vpn: vpn.yaml
+  }
+
+  compute: compute/ {
+    style.fill: "#fff3e0"
+    ec2: ec2-asg.yaml
+    ecs: ecs-cluster.yaml
+    eks: eks-cluster.yaml
+    lambda: lambda.yaml
+  }
+
+  database: database/ {
+    style.fill: "#fce4ec"
+    aurora: rds-aurora.yaml
+    dynamo: dynamodb.yaml
+    cache: elasticache.yaml
+    docdb: documentdb.yaml
+  }
+
+  storage: storage/ {
+    style.fill: "#f3e5f5"
+    s3: s3.yaml
+    efs: efs.yaml
+    fsx: fsx.yaml
+  }
+
+  security: security/ {
+    style.fill: "#ffebee"
+    iam: iam-roles.yaml
+    kms: kms.yaml
+    waf: waf.yaml
+    guardduty: guardduty.yaml
+  }
+
+  observability: observability/ {
+    style.fill: "#e0f7fa"
+    cw: cloudwatch.yaml
+    xray: x-ray.yaml
+    config: config.yaml
+  }
+}
 ```
 
 ## Template Structure
@@ -136,7 +147,7 @@ Parameters:
     Type: String
     AllowedValues: [development, staging, production]
     Default: development
-  
+
   VpcCIDR:
     Type: String
     Default: 10.0.0.0/16
@@ -151,7 +162,11 @@ Mappings:
 
 Conditions:
   IsProduction: !Equals [!Ref Environment, production]
-  CreateNatGateway: !Or [!Equals [!Ref Environment, staging], !Equals [!Ref Environment, production]]
+  CreateNatGateway:
+    !Or [
+      !Equals [!Ref Environment, staging],
+      !Equals [!Ref Environment, production],
+    ]
 
 Resources:
   # Resource definitions...

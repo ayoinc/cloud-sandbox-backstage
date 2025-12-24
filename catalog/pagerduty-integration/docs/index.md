@@ -82,70 +82,99 @@ curl -s -X POST \
 
 ## Features
 
-| Feature | Description | Plan Required |
-|---------|-------------|---------------|
-| **Incident Management** | Create, acknowledge, resolve incidents | All |
-| **On-Call Scheduling** | Rotation schedules with overrides | All |
-| **Escalation Policies** | Multi-level escalation chains | All |
-| **Event Intelligence** | AIOps noise reduction, alert grouping | Business+ |
-| **Service Dependencies** | Map service relationships | Business+ |
-| **Analytics** | MTTA, MTTR, incident metrics | Business+ |
-| **Automation Actions** | Runbook automation, diagnostics | Digital Ops |
-| **Status Dashboard** | Public status page integration | Business+ |
-| **Change Events** | Correlate deployments with incidents | All |
-| **Webhooks** | Real-time event notifications | All |
+| Feature                  | Description                            | Plan Required |
+| ------------------------ | -------------------------------------- | ------------- |
+| **Incident Management**  | Create, acknowledge, resolve incidents | All           |
+| **On-Call Scheduling**   | Rotation schedules with overrides      | All           |
+| **Escalation Policies**  | Multi-level escalation chains          | All           |
+| **Event Intelligence**   | AIOps noise reduction, alert grouping  | Business+     |
+| **Service Dependencies** | Map service relationships              | Business+     |
+| **Analytics**            | MTTA, MTTR, incident metrics           | Business+     |
+| **Automation Actions**   | Runbook automation, diagnostics        | Digital Ops   |
+| **Status Dashboard**     | Public status page integration         | Business+     |
+| **Change Events**        | Correlate deployments with incidents   | All           |
+| **Webhooks**             | Real-time event notifications          | All           |
 
 ## Architecture Overview
 
-```
-+------------------+     +-------------------+     +------------------+
-|   Monitoring     |     |    PagerDuty      |     |   Responders     |
-|    Systems       |     |     Platform      |     |                  |
-+------------------+     +-------------------+     +------------------+
-        |                         |                        |
-        v                         v                        v
-+------------------+     +-------------------+     +------------------+
-| Prometheus       |---->| Events API v2     |     | Mobile App       |
-| Datadog          |     | (Ingest)          |     | (iOS/Android)    |
-| New Relic        |     +-------------------+     +------------------+
-| Custom Apps      |              |                        |
-+------------------+              v                        v
-        |            +------------------------+    +------------------+
-        |            |   Event Intelligence   |    | Email / SMS      |
-        |            |   - Deduplication      |    | Phone Calls      |
-        |            |   - Grouping           |    | Slack / Teams    |
-        |            |   - Suppression        |    +------------------+
-        |            +------------------------+            |
-        |                        |                         |
-        v                        v                         v
-+------------------+     +-------------------+     +------------------+
-| Integration Key  |     | Service           |     | Escalation       |
-| (per service)    |     | (Incident mgmt)   |     | Policy           |
-+------------------+     +-------------------+     +------------------+
-                                 |
-                                 v
-                    +------------------------+
-                    |   Incident Lifecycle   |
-                    |   Triggered -> Ack'd   |
-                    |   -> Resolved          |
-                    +------------------------+
-                                 |
-                                 v
-                    +------------------------+
-                    |   Postmortem / Review  |
-                    |   Analytics / Reports  |
-                    +------------------------+
+```d2
+direction: down
+
+monitoring: Monitoring Systems {
+  style.fill: "#e8f5e9"
+  prometheus: Prometheus
+  datadog: Datadog
+  newrelic: New Relic
+  custom: Custom Apps
+}
+
+pagerduty: PagerDuty Platform {
+  style.fill: "#e3f2fd"
+
+  events: Events API v2 {
+    style.fill: "#fff3e0"
+  }
+
+  intelligence: Event Intelligence {
+    style.fill: "#fce4ec"
+    dedup: Deduplication
+    grouping: Grouping
+    suppression: Suppression
+  }
+
+  service: Service {
+    style.fill: "#f3e5f5"
+  }
+
+  integration: Integration Key {
+    style.fill: "#e0f7fa"
+  }
+
+  lifecycle: Incident Lifecycle {
+    style.fill: "#fff8e1"
+    triggered: Triggered
+    ack: Acknowledged
+    resolved: Resolved
+  }
+
+  postmortem: Postmortem / Review {
+    style.fill: "#efebe9"
+    analytics: Analytics
+    reports: Reports
+  }
+}
+
+responders: Responders {
+  style.fill: "#f3e5f5"
+  mobile: Mobile App (iOS/Android)
+  email: Email / SMS
+  phone: Phone Calls
+  slack: Slack / Teams
+  escalation: Escalation Policy
+}
+
+monitoring -> pagerduty.events: alerts
+pagerduty.events -> pagerduty.intelligence
+pagerduty.intelligence -> pagerduty.service
+pagerduty.integration -> pagerduty.service
+pagerduty.service -> pagerduty.lifecycle
+pagerduty.lifecycle -> pagerduty.postmortem
+pagerduty.service -> responders.escalation: notify
+responders.escalation -> responders.mobile
+responders.escalation -> responders.email
+responders.escalation -> responders.phone
+responders.escalation -> responders.slack
 ```
 
 ## Integration Methods
 
-| Method | Use Case | Endpoint |
-|--------|----------|----------|
-| **Events API v2** | Send alerts from monitoring | `events.pagerduty.com/v2/enqueue` |
-| **REST API v2** | Manage services, users, incidents | `api.pagerduty.com/*` |
-| **Webhooks v3** | Receive incident updates | Your endpoint |
-| **Email Integration** | Legacy email-based alerts | `your-service@your-subdomain.pagerduty.com` |
-| **Native Integrations** | Pre-built 700+ integrations | Various |
+| Method                  | Use Case                          | Endpoint                                    |
+| ----------------------- | --------------------------------- | ------------------------------------------- |
+| **Events API v2**       | Send alerts from monitoring       | `events.pagerduty.com/v2/enqueue`           |
+| **REST API v2**         | Manage services, users, incidents | `api.pagerduty.com/*`                       |
+| **Webhooks v3**         | Receive incident updates          | Your endpoint                               |
+| **Email Integration**   | Legacy email-based alerts         | `your-service@your-subdomain.pagerduty.com` |
+| **Native Integrations** | Pre-built 700+ integrations       | Various                                     |
 
 ## CLI Installation
 
