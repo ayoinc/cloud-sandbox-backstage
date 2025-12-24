@@ -47,6 +47,8 @@ import {
 } from '@backstage/core-components';
 import { createApp } from '@backstage/app-defaults';
 import { AppRouter, FlatRoutes } from '@backstage/core-app-api';
+import { gitHubDarkTheme, gitHubLightTheme } from './theme';
+import { UnifiedThemeProvider } from '@backstage/theme';
 import { CatalogGraphPage } from '@backstage/plugin-catalog-graph';
 import { RequirePermission } from '@backstage/plugin-permission-react';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
@@ -65,6 +67,24 @@ const githubProvider = {
 
 const app = createApp({
   apis,
+  themes: [
+    {
+      id: 'github-dark',
+      title: 'GitHub Dark',
+      variant: 'dark',
+      Provider: ({ children }) => (
+        <UnifiedThemeProvider theme={gitHubDarkTheme} children={children} />
+      ),
+    },
+    {
+      id: 'github-light',
+      title: 'GitHub Light',
+      variant: 'light',
+      Provider: ({ children }) => (
+        <UnifiedThemeProvider theme={gitHubLightTheme} children={children} />
+      ),
+    },
+  ],
   bindRoutes({ bind }) {
     bind(catalogPlugin.externalRoutes, {
       createComponent: scaffolderPlugin.routes.root,
@@ -97,7 +117,10 @@ const app = createApp({
 const routes = (
   <FlatRoutes>
     <Route path="/" element={<Navigate to="catalog" />} />
-    <Route path="/catalog" element={<CatalogIndexPage columns={customCatalogColumns} />} />
+    <Route
+      path="/catalog"
+      element={<CatalogIndexPage columns={customCatalogColumns} />}
+    />
     <Route
       path="/catalog/:namespace/:kind/:name"
       element={<CatalogEntityPage />}

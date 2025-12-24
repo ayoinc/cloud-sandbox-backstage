@@ -7,7 +7,7 @@ const useStyles = makeStyles({
     height: 28,
   },
   path: {
-    fill: '#7df3e1',
+    fill: '#238636',
   },
   img: {
     width: 28,
