@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Content,
   Header,
@@ -123,7 +123,7 @@ export const OwnershipManagementPage = () => {
         const data = await groupsRes.json();
         setGroups(data.groups || []);
       }
-    } catch (error) {
+    } catch {
       alertApi.post({
         message: 'Failed to load ownership data',
         severity: 'error',
@@ -172,7 +172,7 @@ export const OwnershipManagementPage = () => {
           severity: 'error',
         });
       }
-    } catch (error) {
+    } catch {
       alertApi.post({
         message: 'Failed to reassign ownership',
         severity: 'error',

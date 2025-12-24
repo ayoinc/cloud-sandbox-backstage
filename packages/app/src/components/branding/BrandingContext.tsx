@@ -1,11 +1,11 @@
-import React, {
+import {
   createContext,
   useContext,
   useState,
   useEffect,
   useCallback,
-  ReactNode,
 } from 'react';
+import type { ReactNode } from 'react';
 import { useApi, fetchApiRef, identityApiRef } from '@backstage/core-plugin-api';
 
 /**

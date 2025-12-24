@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -21,7 +21,7 @@ import RefreshIcon from '@material-ui/icons/Refresh';
 import SaveIcon from '@material-ui/icons/Save';
 import { useBranding } from './BrandingContext';
 
-const useStyles = makeStyles((theme) => ({
+const useStyles = makeStyles(theme => ({
   root: {
     marginBottom: theme.spacing(3),
   },
@@ -98,7 +98,9 @@ export const BrandingSettingsPanel: React.FC = () => {
     resetAll,
   } = useBranding();
 
-  const [organizationName, setOrganizationName] = useState(settings.organizationName || '');
+  const [organizationName, setOrganizationName] = useState(
+    settings.organizationName || '',
+  );
   const [primaryColor, setPrimaryColor] = useState(settings.primaryColor || '');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -108,7 +110,7 @@ export const BrandingSettingsPanel: React.FC = () => {
   const logoIconInputRef = useRef<HTMLInputElement>(null);
 
   // Sync local state when settings change
-  React.useEffect(() => {
+  useEffect(() => {
     setOrganizationName(settings.organizationName || '');
     setPrimaryColor(settings.primaryColor || '');
   }, [settings]);
@@ -118,7 +120,8 @@ export const BrandingSettingsPanel: React.FC = () => {
       <Card className={classes.root}>
         <CardContent>
           <Alert severity="warning">
-            You need to be a member of the <strong>admins</strong> group to access branding settings.
+            You need to be a member of the <strong>admins</strong> group to
+            access branding settings.
           </Alert>
         </CardContent>
       </Card>
@@ -134,7 +137,7 @@ export const BrandingSettingsPanel: React.FC = () => {
         primaryColor: primaryColor || null,
       });
       setSuccessMessage('Settings saved successfully');
-    } catch (err) {
+    } catch {
       // Error is handled in context
     } finally {
       setSaving(false);
@@ -150,8 +153,10 @@ export const BrandingSettingsPanel: React.FC = () => {
       } else {
         await uploadLogo(undefined, file);
       }
-      setSuccessMessage(`Logo ${type === 'full' ? '(full)' : '(icon)'} uploaded successfully`);
-    } catch (err) {
+      setSuccessMessage(
+        `Logo ${type === 'full' ? '(full)' : '(icon)'} uploaded successfully`,
+      );
+    } catch {
       // Error is handled in context
     } finally {
       setUploading(false);
@@ -159,14 +164,17 @@ export const BrandingSettingsPanel: React.FC = () => {
   };
 
   const handleResetLogo = async () => {
-    if (!window.confirm('Are you sure you want to reset the logo to default?')) {
+    // eslint-disable-next-line no-alert
+    if (
+      !window.confirm('Are you sure you want to reset the logo to default?')
+    ) {
       return;
     }
     try {
       setSaving(true);
       await resetLogo();
       setSuccessMessage('Logo reset to default');
-    } catch (err) {
+    } catch {
       // Error is handled in context
     } finally {
       setSaving(false);
@@ -174,14 +182,19 @@ export const BrandingSettingsPanel: React.FC = () => {
   };
 
   const handleResetAll = async () => {
-    if (!window.confirm('Are you sure you want to reset ALL branding settings to default? This cannot be undone.')) {
+    // eslint-disable-next-line no-alert
+    if (
+      !window.confirm(
+        'Are you sure you want to reset ALL branding settings to default? This cannot be undone.',
+      )
+    ) {
       return;
     }
     try {
       setSaving(true);
       await resetAll();
       setSuccessMessage('All branding settings reset to default');
-    } catch (err) {
+    } catch {
       // Error is handled in context
     } finally {
       setSaving(false);
@@ -234,7 +247,7 @@ export const BrandingSettingsPanel: React.FC = () => {
             fullWidth
             label="Organization / Team Name"
             value={organizationName}
-            onChange={(e) => setOrganizationName(e.target.value)}
+            onChange={e => setOrganizationName(e.target.value)}
             placeholder="e.g., Platform Team, Acme Corp"
             helperText="This name will appear in the sidebar and page titles"
             variant="outlined"
@@ -249,7 +262,7 @@ export const BrandingSettingsPanel: React.FC = () => {
           <Typography variant="h6" className={classes.sectionTitle}>
             Logo
           </Typography>
-          
+
           <Grid container spacing={4}>
             {/* Full Logo */}
             <Grid item xs={12} md={6}>
@@ -264,7 +277,12 @@ export const BrandingSettingsPanel: React.FC = () => {
                     className={classes.logoPreview}
                   />
                 ) : (
-                  <Box className={classes.logoPreview} display="flex" alignItems="center" justifyContent="center">
+                  <Box
+                    className={classes.logoPreview}
+                    display="flex"
+                    alignItems="center"
+                    justifyContent="center"
+                  >
                     <Typography variant="caption" color="textSecondary">
                       Default Logo
                     </Typography>
@@ -276,7 +294,7 @@ export const BrandingSettingsPanel: React.FC = () => {
                 ref={logoFullInputRef}
                 className={classes.fileInput}
                 accept="image/png,image/jpeg,image/svg+xml,image/webp,image/gif"
-                onChange={(e) => {
+                onChange={e => {
                   const file = e.target.files?.[0];
                   if (file) handleLogoUpload('full', file);
                 }}
@@ -290,7 +308,12 @@ export const BrandingSettingsPanel: React.FC = () => {
               >
                 Upload Full Logo
               </Button>
-              <Typography variant="caption" display="block" color="textSecondary" style={{ marginTop: 8 }}>
+              <Typography
+                variant="caption"
+                display="block"
+                color="textSecondary"
+                style={{ marginTop: 8 }}
+              >
                 Recommended: SVG or PNG, height ~30px
               </Typography>
             </Grid>
@@ -308,7 +331,12 @@ export const BrandingSettingsPanel: React.FC = () => {
                     className={classes.logoIconPreview}
                   />
                 ) : (
-                  <Box className={classes.logoIconPreview} display="flex" alignItems="center" justifyContent="center">
+                  <Box
+                    className={classes.logoIconPreview}
+                    display="flex"
+                    alignItems="center"
+                    justifyContent="center"
+                  >
                     <Typography variant="caption" color="textSecondary">
                       Default
                     </Typography>
@@ -320,7 +348,7 @@ export const BrandingSettingsPanel: React.FC = () => {
                 ref={logoIconInputRef}
                 className={classes.fileInput}
                 accept="image/png,image/jpeg,image/svg+xml,image/webp,image/gif"
-                onChange={(e) => {
+                onChange={e => {
                   const file = e.target.files?.[0];
                   if (file) handleLogoUpload('icon', file);
                 }}
@@ -334,7 +362,12 @@ export const BrandingSettingsPanel: React.FC = () => {
               >
                 Upload Icon Logo
               </Button>
-              <Typography variant="caption" display="block" color="textSecondary" style={{ marginTop: 8 }}>
+              <Typography
+                variant="caption"
+                display="block"
+                color="textSecondary"
+                style={{ marginTop: 8 }}
+              >
                 Recommended: Square SVG or PNG, ~28x28px
               </Typography>
             </Grid>
@@ -366,11 +399,11 @@ export const BrandingSettingsPanel: React.FC = () => {
             fullWidth
             label="Primary Color"
             value={primaryColor}
-            onChange={(e) => setPrimaryColor(e.target.value)}
+            onChange={e => setPrimaryColor(e.target.value)}
             placeholder="#7df3e1"
             helperText="Hex color code for primary brand color (feature coming soon)"
             variant="outlined"
-            disabled={true}
+            disabled
           />
         </div>
 
@@ -401,8 +434,8 @@ export const BrandingSettingsPanel: React.FC = () => {
             Danger Zone
           </Typography>
           <Typography variant="body2" paragraph>
-            Reset all branding settings to their default values. This will remove custom logos
-            and organization name.
+            Reset all branding settings to their default values. This will
+            remove custom logos and organization name.
           </Typography>
           <Button
             variant="outlined"

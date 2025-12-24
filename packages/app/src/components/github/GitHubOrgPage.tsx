@@ -1,4 +1,4 @@
-import React from 'react';
+import type { ReactNode } from 'react';
 import {
   Content,
   ContentHeader,
@@ -62,7 +62,7 @@ const useStyles = makeStyles((theme) => ({
 interface ActionCardProps {
   title: string;
   description: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   buttonText: string;
   templateName: string;
 }

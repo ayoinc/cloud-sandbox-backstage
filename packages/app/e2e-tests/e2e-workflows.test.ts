@@ -80,7 +80,7 @@ test.describe('E2E Tests - Catalog Browsing', () => {
     }
     
     // Look for filter dropdown or tabs
-    const kindFilter = page.locator('text=/component|service|api|system/i').first();
+    const _kindFilter = page.locator('text=/component|service|api|system/i').first();
     
     // Click on Components filter if available
     const componentsTab = page.getByRole('tab', { name: /component/i })
@@ -452,12 +452,12 @@ test.describe('E2E Tests - Navigation Flow', () => {
 test.describe('E2E Tests - Error Handling', () => {
   test('404 page shows for invalid routes', async ({ page }) => {
     await page.goto(`${BASE_URL}/this-page-does-not-exist-12345`);
-    const signedIn = await handleSignIn(page);
+    await handleSignIn(page);
     await waitForPageReady(page);
     
     // Should show some kind of error or redirect
     const errorText = page.locator('text=/not found|404|error/i').first();
-    const hasError = await errorText.isVisible().catch(() => false);
+    const _hasError = await errorText.isVisible().catch(() => false);
     
     // Either shows error or redirects to a valid page
     expect(page.url()).toBeDefined();

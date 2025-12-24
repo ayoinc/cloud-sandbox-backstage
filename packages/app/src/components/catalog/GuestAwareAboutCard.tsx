@@ -1,8 +1,8 @@
-import React from 'react';
+import type { ComponentProps } from 'react';
 import { EntityAboutCard } from '@backstage/plugin-catalog';
 import { useIsGuest } from '../../hooks/useIsGuest';
 
-type EntityAboutCardProps = React.ComponentProps<typeof EntityAboutCard>;
+type EntityAboutCardProps = ComponentProps<typeof EntityAboutCard>;
 
 export const GuestAwareAboutCard = (props: EntityAboutCardProps) => {
   const isGuest = useIsGuest();

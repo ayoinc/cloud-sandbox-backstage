@@ -102,7 +102,8 @@ export const brandingSettingsPlugin = createBackendPlugin({
           userInfo,
         });
 
-        httpRouter.use(router);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        httpRouter.use(router as any);
         httpRouter.addAuthPolicy({
           path: '/',
           allow: 'unauthenticated',

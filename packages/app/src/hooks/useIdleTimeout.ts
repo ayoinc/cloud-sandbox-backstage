@@ -29,7 +29,7 @@ export function useIdleTimeout() {
       await identityApi.signOut();
       // Redirect to sign-in page
       window.location.href = '/';
-    } catch (error) {
+    } catch {
       errorApi.post(new Error('Failed to sign out due to inactivity'));
       isSigningOutRef.current = false;
     }

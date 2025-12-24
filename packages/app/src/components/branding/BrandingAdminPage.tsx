@@ -1,4 +1,4 @@
-import React from 'react';
+import type { FC } from 'react';
 import { Content, Header, Page } from '@backstage/core-components';
 import { Grid } from '@material-ui/core';
 import { BrandingProvider } from './BrandingContext';
@@ -9,7 +9,7 @@ import { BrandingAdminManagement } from './BrandingAdminManagement';
  * Admin page for branding settings.
  * Only visible to admin users.
  */
-export const BrandingAdminPage: React.FC = () => {
+export const BrandingAdminPage: FC = () => {
   return (
     <BrandingProvider>
       <Page themeId="tool">
