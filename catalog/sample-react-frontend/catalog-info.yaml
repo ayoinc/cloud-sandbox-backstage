@@ -13,3 +13,4 @@ spec:
   type: website
   lifecycle: experimental
   owner: platform-team
+  system: sample-applications

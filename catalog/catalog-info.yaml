@@ -1,21 +1,21 @@
 apiVersion: backstage.io/v1alpha1
 kind: Location
 metadata:
-  name: awx-backstage-catalog
-  description: Main catalog for AWX Backstage Platform
+  name: cloud-sandbox-catalog
+  description: Main catalog for Cloud Sandbox Backstage Platform
 spec:
   type: file
   targets:
-    - ./awx-core.yaml
-    - ./awx-operator.yaml
-    - ./cloud-components.yaml
-    - ./data-components.yaml
-    - ./devops-domains.yaml
-    - ./devops-systems.yaml
-    - ./domains.yaml
-    - ./infrastructure-components.yaml
-    - ./observability-components.yaml
-    - ./sample-components.yaml
-    - ./systems.yaml
-    - ./testing-components.yaml
+    # Users and Groups
     - ./users.yaml
+
+    # Domains
+    - ./domains.yaml
+    - ./devops-domains.yaml
+
+    # Systems
+    - ./systems.yaml
+    - ./devops-systems.yaml
+
+    # APIs and Resources
+    - ./apis-and-resources.yaml

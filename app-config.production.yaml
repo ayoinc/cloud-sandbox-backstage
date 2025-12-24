@@ -99,7 +99,18 @@ catalog:
   # Refresh entities automatically - check every 30 seconds for changes
   processingInterval: { seconds: 30 }
   rules:
-    - allow: [Component, System, API, Resource, Location, Domain, Template, User, Group]
+    - allow:
+        [
+          Component,
+          System,
+          API,
+          Resource,
+          Location,
+          Domain,
+          Template,
+          User,
+          Group,
+        ]
 
   # GitHub Organization Entity Provider - syncs teams and members
   providers:
@@ -277,6 +288,158 @@ catalog:
         - allow: [Template]
     - type: file
       target: ./templates/github-team-member/template.yaml
+      rules:
+        - allow: [Template]
+
+    # AWS Cloud Templates
+    - type: file
+      target: ./templates/aws-vpc/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/aws-lambda/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/aws-s3/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/aws-rds/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/aws-eks/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/aws-cloudfront/template.yaml
+      rules:
+        - allow: [Template]
+
+    # Azure Cloud Templates
+    - type: file
+      target: ./templates/azure-vnet/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/azure-aks/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/azure-static-web/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/azure-functions/template.yaml
+      rules:
+        - allow: [Template]
+
+    # GCP Cloud Templates
+    - type: file
+      target: ./templates/gcp-vpc/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/gcp-gke/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/gcp-cloud-run/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/gcp-cloud-sql/template.yaml
+      rules:
+        - allow: [Template]
+
+    # Data Engineering Templates
+    - type: file
+      target: ./templates/data-airflow/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/data-dbt/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/data-superset/template.yaml
+      rules:
+        - allow: [Template]
+
+    # Application Templates
+    - type: file
+      target: ./templates/app-nodejs-api/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/app-nextjs/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/app-springboot/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/python-api/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/react-frontend/template.yaml
+      rules:
+        - allow: [Template]
+
+    # SRE/Observability Templates
+    - type: file
+      target: ./templates/sre-monitoring/template.yaml
+      rules:
+        - allow: [Template]
+
+    # Automation Templates
+    - type: file
+      target: ./templates/ansible-docker/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/ansible-nginx/template.yaml
+      rules:
+        - allow: [Template]
+
+    # Marketing Templates
+    - type: file
+      target: ./templates/marketing-static-site/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/marketing-landing-page/template.yaml
+      rules:
+        - allow: [Template]
+
+    # Testing Templates
+    - type: file
+      target: ./templates/test-playwright/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/test-k6-load/template.yaml
+      rules:
+        - allow: [Template]
+
+    # Documentation Templates
+    - type: file
+      target: ./templates/docs-project/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/docs-adr/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/docs-runbook/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/docs-d2-guide/template.yaml
       rules:
         - allow: [Template]
 

@@ -118,3 +118,18 @@ metadata:
 spec:
   owner: platform-team
   domain: cloud-sandbox
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: sample-applications
+  title: Sample Applications
+  description: Example applications demonstrating best practices and template usage
+  tags:
+    - sample
+    - example
+    - demo
+    - applications
+spec:
+  owner: platform-team
+  domain: cloud-sandbox

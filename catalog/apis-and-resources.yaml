@@ -1339,7 +1339,7 @@ spec:
 apiVersion: backstage.io/v1alpha1
 kind: Resource
 metadata:
-  name: awx-operator
+  name: awx-operator-resource
   title: AWX Operator Resource
   description: AWX Operator for Kubernetes deployment
   tags:

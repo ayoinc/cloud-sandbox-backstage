@@ -31,7 +31,7 @@ backend:
     # Fallback to in-memory SQLite for local development without Docker
     # client: better-sqlite3
     # connection: ':memory:'
-  
+
   # Redis cache - improves performance for catalog, auth, and plugin data
   # See: https://backstage.io/docs/backend-system/core-services/cache
   cache:
@@ -80,7 +80,18 @@ catalog:
     entityFilename: catalog-info.yaml
     pullRequestBranchName: backstage-integration
   rules:
-    - allow: [Component, System, API, Resource, Location, Domain, Template, User, Group]
+    - allow:
+        [
+          Component,
+          System,
+          API,
+          Resource,
+          Location,
+          Domain,
+          Template,
+          User,
+          Group,
+        ]
   locations:
     # Users and Groups
     - type: file
@@ -110,21 +121,89 @@ catalog:
 
     # Components
     - type: file
-      target: ../../catalog/sample-components.yaml
+      target: ../../catalog/aws-services/catalog-info.yaml
     - type: file
-      target: ../../catalog/cloud-components.yaml
+      target: ../../catalog/azure-services/catalog-info.yaml
     - type: file
-      target: ../../catalog/data-components.yaml
+      target: ../../catalog/gcp-services/catalog-info.yaml
     - type: file
-      target: ../../catalog/infrastructure-components.yaml
+      target: ../../catalog/multi-cloud-management/catalog-info.yaml
     - type: file
-      target: ../../catalog/observability-components.yaml
+      target: ../../catalog/ansible-webserver/catalog-info.yaml
     - type: file
-      target: ../../catalog/testing-components.yaml
+      target: ../../catalog/ansible-docker-host/catalog-info.yaml
     - type: file
-      target: ../../catalog/awx-core.yaml
+      target: ../../catalog/sample-nodejs-api/catalog-info.yaml
     - type: file
-      target: ../../catalog/awx-operator.yaml
+      target: ../../catalog/sample-react-frontend/catalog-info.yaml
+    - type: file
+      target: ../../catalog/cloudformation-templates/catalog-info.yaml
+    - type: file
+      target: ../../catalog/pulumi-projects/catalog-info.yaml
+    - type: file
+      target: ../../catalog/helm-charts/catalog-info.yaml
+    - type: file
+      target: ../../catalog/docker-images/catalog-info.yaml
+    - type: file
+      target: ../../catalog/packer/catalog-info.yaml
+    - type: file
+      target: ../../catalog/prometheus-stack/catalog-info.yaml
+    - type: file
+      target: ../../catalog/elk-stack/catalog-info.yaml
+    - type: file
+      target: ../../catalog/jaeger-tracing/catalog-info.yaml
+    - type: file
+      target: ../../catalog/datadog-integration/catalog-info.yaml
+    - type: file
+      target: ../../catalog/new-relic-integration/catalog-info.yaml
+    - type: file
+      target: ../../catalog/splunk-enterprise/catalog-info.yaml
+    - type: file
+      target: ../../catalog/pagerduty-integration/catalog-info.yaml
+    - type: file
+      target: ../../catalog/testing-frameworks/catalog-info.yaml
+    - type: file
+      target: ../../catalog/sonarqube/catalog-info.yaml
+    - type: file
+      target: ../../catalog/security-scanning-suite/catalog-info.yaml
+    - type: file
+      target: ../../catalog/performance-testing/catalog-info.yaml
+    - type: file
+      target: ../../catalog/ci-cd-pipelines/catalog-info.yaml
+    - type: file
+      target: ../../catalog/artifact-repository/catalog-info.yaml
+    - type: file
+      target: ../../catalog/postgresql-cluster/catalog-info.yaml
+    - type: file
+      target: ../../catalog/mongodb-cluster/catalog-info.yaml
+    - type: file
+      target: ../../catalog/redis-cluster/catalog-info.yaml
+    - type: file
+      target: ../../catalog/elasticsearch-data/catalog-info.yaml
+    - type: file
+      target: ../../catalog/apache-kafka/catalog-info.yaml
+    - type: file
+      target: ../../catalog/rabbitmq-cluster/catalog-info.yaml
+    - type: file
+      target: ../../catalog/apache-spark/catalog-info.yaml
+    - type: file
+      target: ../../catalog/apache-airflow/catalog-info.yaml
+    - type: file
+      target: ../../catalog/zookeeper-ensemble/catalog-info.yaml
+    - type: file
+      target: ../../catalog/minio-storage/catalog-info.yaml
+    - type: file
+      target: ../../catalog/awx-core/catalog-info.yaml
+    - type: file
+      target: ../../catalog/awx-operator/catalog-info.yaml
+    - type: file
+      target: ../../catalog/awx-helm-chart/catalog-info.yaml
+
+    # APIs and Resources
+    - type: file
+      target: ../../catalog/apis-and-resources.yaml
+      rules:
+        - allow: [API, Resource]
 
     # Components with TechDocs (separate directories for proper mkdocs structure)
     - type: file
@@ -189,6 +268,10 @@ catalog:
       target: ../../templates/aws-eks/template.yaml
       rules:
         - allow: [Template]
+    - type: file
+      target: ../../templates/aws-cloudfront/template.yaml
+      rules:
+        - allow: [Template]
 
     # Azure Cloud Templates
     - type: file
@@ -203,6 +286,10 @@ catalog:
       target: ../../templates/azure-static-web/template.yaml
       rules:
         - allow: [Template]
+    - type: file
+      target: ../../templates/azure-functions/template.yaml
+      rules:
+        - allow: [Template]
 
     # GCP Cloud Templates
     - type: file
@@ -215,6 +302,10 @@ catalog:
         - allow: [Template]
     - type: file
       target: ../../templates/gcp-cloud-run/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/gcp-cloud-sql/template.yaml
       rules:
         - allow: [Template]
 
@@ -295,6 +386,20 @@ catalog:
       target: ../../templates/docs-runbook/template.yaml
       rules:
         - allow: [Template]
+    - type: file
+      target: ../../templates/docs-d2-guide/template.yaml
+      rules:
+        - allow: [Template]
+
+    # Application Templates (additional)
+    - type: file
+      target: ../../templates/python-api/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/react-frontend/template.yaml
+      rules:
+        - allow: [Template]
 
 kubernetes:
   serviceLocatorMethod:
@@ -370,7 +475,6 @@ costInsights:
     bigQuery:
       name: BigQuery
       icon: search
-
 # -----------------------------------------------------------------------------
 # AWX / Ansible Tower - Automation Platform (via Proxy)
 # -----------------------------------------------------------------------------
@@ -393,7 +497,7 @@ costInsights:
 # 1. Uncomment this section
 # 2. Enable elasticsearch module in packages/backend/src/index.ts
 # 3. Disable the pg search module
-# 
+#
 # search:
 #   elasticsearch:
 #     provider: elastic
