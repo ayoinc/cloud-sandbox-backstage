@@ -12,25 +12,28 @@ import {
 } from '@backstage/plugin-permission-node';
 import { policyExtensionPoint } from '@backstage/plugin-permission-node/alpha';
 import { BackstageIdentityResponse } from '@backstage/plugin-auth-node';
+import { catalogServiceRef } from '@backstage/plugin-catalog-node/alpha';
+import type { CatalogApi } from '@backstage/catalog-client';
+import type { LoggerService } from '@backstage/backend-plugin-api';
 
 /**
  * =============================================================================
  * GitHub Organization-Based Permission Policy
  * =============================================================================
- * 
+ *
  * This permission policy grants access based on the user's group membership
  * in the Backstage catalog. Groups are synced from GitHub organization teams.
- * 
+ *
  * Configuration:
  * 1. Set up GitHub OAuth (GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET)
  * 2. Configure GitHub org integration in app-config.yaml
  * 3. Map GitHub teams to Backstage groups in catalog/users.yaml
- * 
+ *
  * Role Hierarchy:
  * - admins: Full access to all features
  * - editors: Can create/modify entities and use scaffolder
  * - viewers: Read-only access (default for authenticated users)
- * 
+ *
  * Users without group membership get viewer-level access by default.
  * =============================================================================
  */
@@ -43,63 +46,160 @@ const ADMIN_PERMISSIONS = [
 
 // Permissions that editors and viewers can use (for scaffolder workflows)
 const SCAFFOLDER_CATALOG_PERMISSIONS = [
-  'catalog.location.create',  // Needed for scaffolder to register new entities
+  'catalog.location.create', // Needed for scaffolder to register new entities
   'catalog.location.read',
 ];
 
-class GitHubOrgPermissionPolicy implements PermissionPolicy {
-  private logger: any;
+// Admin group names (case-insensitive matching)
+const ADMIN_GROUPS = ['admins', 'platform-admins', 'backstage-admins'];
 
-  constructor(logger: any) {
+// Editor group names (case-insensitive matching)
+const EDITOR_GROUPS = ['editors', 'developers', 'platform-editors'];
+
+class GitHubOrgPermissionPolicy implements PermissionPolicy {
+  private logger: LoggerService;
+  private catalog: CatalogApi;
+  private groupMembershipCache: Map<string, { groups: string[]; timestamp: number }> = new Map();
+  private cacheTTL = 5 * 60 * 1000; // 5 minutes cache
+
+  constructor(logger: LoggerService, catalog: CatalogApi) {
     this.logger = logger;
+    this.catalog = catalog;
   }
 
   /**
-   * Check if user belongs to a specific group.
-   * 
-   * This is a placeholder implementation. In production, you would:
-   * 1. Query the catalog for the user entity
-   * 2. Check the user's spec.memberOf field
-   * 3. Or use the identity's group claims from the auth token
-   * 
-   * For GitHub org integration, groups are automatically synced when you
-   * configure @backstage/plugin-catalog-backend-module-github-org
+   * Get user's group memberships from the catalog.
+   * Results are cached to avoid excessive catalog queries.
    */
-  private async isUserInGroup(
+  private async getUserGroups(userEntityRef: string): Promise<string[]> {
+    // Check cache first
+    const cached = this.groupMembershipCache.get(userEntityRef);
+    if (cached && Date.now() - cached.timestamp < this.cacheTTL) {
+      return cached.groups;
+    }
+
+    try {
+      // Parse user entity ref (format: user:default/username)
+      const match = userEntityRef.match(/^user:([^/]+)\/(.+)$/);
+      if (!match) {
+        return [];
+      }
+
+      const [, namespace, name] = match;
+
+      // Fetch the user entity from the catalog
+      const userEntity = await this.catalog.getEntityByRef(`user:${namespace}/${name}`);
+
+      if (!userEntity) {
+        this.logger.debug(`User entity not found: ${userEntityRef}`);
+        return [];
+      }
+
+      // Get memberOf from the user's spec
+      const memberOf = (userEntity.spec as any)?.memberOf || [];
+      const groups: string[] = [];
+
+      for (const groupRef of memberOf) {
+        // Normalize group reference
+        let normalizedRef = groupRef.toLowerCase();
+        if (!normalizedRef.includes(':')) {
+          normalizedRef = `group:default/${normalizedRef}`;
+        } else if (!normalizedRef.includes('/')) {
+          const [kind, groupName] = normalizedRef.split(':');
+          normalizedRef = `${kind}:default/${groupName}`;
+        }
+
+        // Extract just the group name for role checking
+        const groupMatch = normalizedRef.match(/group:[^/]+\/(.+)$/);
+        if (groupMatch) {
+          groups.push(groupMatch[1].toLowerCase());
+        }
+      }
+
+      // Also check for groups that have this user as a member
+      // This handles the reverse relationship (group.members contains user)
+      try {
+        const groupEntities = await this.catalog.getEntities({
+          filter: { kind: 'Group' },
+        });
+
+        for (const group of groupEntities.items) {
+          const members = (group.spec as any)?.members || [];
+          const groupName = group.metadata.name.toLowerCase();
+
+          // Check if user is a member of this group
+          for (const member of members) {
+            const memberNormalized = member.toLowerCase();
+            if (
+              memberNormalized === name.toLowerCase() ||
+              memberNormalized === `user:${namespace}/${name}`.toLowerCase() ||
+              memberNormalized === `user:default/${name}`.toLowerCase()
+            ) {
+              if (!groups.includes(groupName)) {
+                groups.push(groupName);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        this.logger.debug('Error fetching groups for membership check', error as Error);
+      }
+
+      // Update cache
+      this.groupMembershipCache.set(userEntityRef, {
+        groups,
+        timestamp: Date.now(),
+      });
+
+      this.logger.debug(`User ${userEntityRef} belongs to groups: ${groups.join(', ') || 'none'}`);
+      return groups;
+    } catch (error) {
+      this.logger.error(`Failed to get user groups for ${userEntityRef}`, error as Error);
+      return [];
+    }
+  }
+
+  /**
+   * Check if user belongs to any of the specified groups.
+   */
+  private async isUserInAnyGroup(
     userEntityRef: string | undefined,
-    _groupName: string,
+    targetGroups: string[],
   ): Promise<boolean> {
     if (!userEntityRef) {
       return false;
     }
 
-    // Extract user info from entity ref (format: user:default/username)
-    const userMatch = userEntityRef.match(/^user:([^/]+)\/(.+)$/);
-    if (!userMatch) {
-      return false;
+    const userGroups = await this.getUserGroups(userEntityRef);
+
+    for (const group of targetGroups) {
+      if (userGroups.includes(group.toLowerCase())) {
+        return true;
+      }
     }
 
-    // TODO: Implement catalog lookup for user's group membership
-    // For now, all authenticated users get viewer access by default
-    // Admin/editor access requires explicit group assignment
     return false;
   }
 
   /**
    * Determine user's role based on their group membership
    */
-  private async getUserRole(userEntityRef: string | undefined): Promise<'admin' | 'editor' | 'viewer' | 'guest'> {
+  private async getUserRole(
+    userEntityRef: string | undefined,
+  ): Promise<'admin' | 'editor' | 'viewer' | 'guest'> {
     if (!userEntityRef) {
       return 'guest';
     }
 
     // Check for admin group membership
-    if (await this.isUserInGroup(userEntityRef, 'admins')) {
+    if (await this.isUserInAnyGroup(userEntityRef, ADMIN_GROUPS)) {
+      this.logger.debug(`User ${userEntityRef} has admin role`);
       return 'admin';
     }
 
     // Check for editor group membership
-    if (await this.isUserInGroup(userEntityRef, 'editors')) {
+    if (await this.isUserInAnyGroup(userEntityRef, EDITOR_GROUPS)) {
+      this.logger.debug(`User ${userEntityRef} has editor role`);
       return 'editor';
     }
 
@@ -131,8 +231,10 @@ class GitHubOrgPermissionPolicy implements PermissionPolicy {
         return { result: AuthorizeResult.ALLOW };
       }
       // Allow catalog read access for browsing entities
-      if (permissionName === 'catalog.entity.read' ||
-          permissionName.startsWith('catalog.entity.read')) {
+      if (
+        permissionName === 'catalog.entity.read' ||
+        permissionName.startsWith('catalog.entity.read')
+      ) {
         return { result: AuthorizeResult.ALLOW };
       }
       this.logger.info(`Denying ${permissionName} for unauthenticated user`);
@@ -158,7 +260,7 @@ class GitHubOrgPermissionPolicy implements PermissionPolicy {
       if (ADMIN_PERMISSIONS.includes(permissionName)) {
         return { result: AuthorizeResult.DENY };
       }
-      
+
       // Allow scaffolder permissions for authenticated users
       // They can view templates and create tasks from them
       if (permissionName.startsWith('scaffolder.')) {
@@ -188,14 +290,18 @@ export default createBackendModule({
       deps: {
         policy: policyExtensionPoint,
         logger: coreServices.logger,
+        catalog: catalogServiceRef,
       },
-      async init({ policy, logger }) {
+      async init({ policy, logger, catalog }) {
         logger.info('Initializing GitHub organization-based permission policy');
-        logger.info('Users are granted access based on their GitHub org team membership:');
-        logger.info('  - admins group: Full access');
-        logger.info('  - editors group: Create/modify access');
-        logger.info('  - viewers group: Read-only access (default for authenticated users)');
-        policy.setPolicy(new GitHubOrgPermissionPolicy(logger));
+        logger.info(
+          'Users are granted access based on their GitHub org team membership:',
+        );
+        logger.info(`  - Admin groups (${ADMIN_GROUPS.join(', ')}): Full access`);
+        logger.info(`  - Editor groups (${EDITOR_GROUPS.join(', ')}): Create/modify access`);
+        logger.info('  - All authenticated users: Read-only access (viewer)');
+        logger.info('Group membership is now resolved via catalog lookup');
+        policy.setPolicy(new GitHubOrgPermissionPolicy(logger, catalog as CatalogApi));
       },
     });
   },

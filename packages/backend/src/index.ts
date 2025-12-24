@@ -52,7 +52,7 @@ backend.add(import('@backstage/plugin-permission-backend'));
 backend.add(import('./permissionPolicy'));
 
 // Branding settings plugin - admin-only logo and org name customization
-backend.add(import('./brandingSettingsPlugin'));
+backend.add(import('./branding'));
 
 // GitHub Team Sync plugin - bi-directional sync between Backstage groups and GitHub teams
 backend.add(import('./githubTeamSyncPlugin'));

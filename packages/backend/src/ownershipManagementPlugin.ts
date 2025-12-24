@@ -17,6 +17,7 @@ import express from 'express';
  * - Detects orphaned entities (owned by non-existent groups)
  * - Logs warnings when orphans are detected
  * - Provides API endpoints for manual ownership reassignment
+ * - Stores ownership overrides in database for catalog-managed entities
  * - Works with GitHub team sync - when a team is deleted in GitHub,
  *   the GithubOrgEntityProvider removes the group, and this plugin
  *   detects any entities that were owned by that group
@@ -26,6 +27,7 @@ import express from 'express';
  * - GET /api/ownership-management/groups - List all groups for reassignment dropdown
  * - GET /api/ownership-management/entities - List all ownable entities
  * - POST /api/ownership-management/reassign - Reassign ownership of an entity
+ * - GET /api/ownership-management/overrides - Get all ownership overrides
  *
  * SCHEDULED TASKS:
  * - Runs every 10 minutes to detect and handle orphaned entities
@@ -49,6 +51,14 @@ interface GroupInfo {
   entityRef: string;
 }
 
+interface OwnershipOverride {
+  entityRef: string;
+  newOwner: string;
+  previousOwner: string;
+  overriddenAt: string;
+  overriddenBy: string;
+}
+
 export const ownershipManagementPlugin = createBackendPlugin({
   pluginId: 'ownership-management',
   register(env) {
@@ -59,12 +69,82 @@ export const ownershipManagementPlugin = createBackendPlugin({
         scheduler: coreServices.scheduler,
         catalog: catalogServiceRef,
         httpRouter: coreServices.httpRouter,
+        database: coreServices.database,
+        httpAuth: coreServices.httpAuth,
+        userInfo: coreServices.userInfo,
       },
-      async init({ logger, scheduler, catalog, httpRouter }) {
+      async init({ logger, scheduler, catalog, httpRouter, database, httpAuth, userInfo }) {
         const DEFAULT_ORPHAN_GROUP = 'unassigned';
         
         // Track last orphan count to avoid duplicate log spam
         let lastOrphanCount = 0;
+
+        // Get database client and initialize tables
+        const knex = await database.getClient();
+
+        // Create ownership_overrides table if not exists
+        const hasTable = await knex.schema.hasTable('ownership_overrides');
+        if (!hasTable) {
+          logger.info('Creating ownership_overrides table');
+          await knex.schema.createTable('ownership_overrides', (table) => {
+            table.string('entity_ref').primary();
+            table.string('new_owner').notNullable();
+            table.string('previous_owner').nullable();
+            table.timestamp('overridden_at').defaultTo(knex.fn.now());
+            table.string('overridden_by').nullable();
+          });
+        }
+
+        // Helper: Get ownership override for an entity
+        async function getOwnershipOverride(entityRef: string): Promise<OwnershipOverride | null> {
+          const row = await knex('ownership_overrides')
+            .where('entity_ref', entityRef.toLowerCase())
+            .first();
+          
+          if (!row) return null;
+          
+          return {
+            entityRef: row.entity_ref,
+            newOwner: row.new_owner,
+            previousOwner: row.previous_owner,
+            overriddenAt: row.overridden_at,
+            overriddenBy: row.overridden_by,
+          };
+        }
+
+        // Helper: Get all ownership overrides
+        async function getAllOverrides(): Promise<OwnershipOverride[]> {
+          const rows = await knex('ownership_overrides')
+            .select('*')
+            .orderBy('overridden_at', 'desc');
+          
+          return rows.map((row: any) => ({
+            entityRef: row.entity_ref,
+            newOwner: row.new_owner,
+            previousOwner: row.previous_owner,
+            overriddenAt: row.overridden_at,
+            overriddenBy: row.overridden_by,
+          }));
+        }
+
+        // Helper: Set ownership override
+        async function setOwnershipOverride(
+          entityRef: string,
+          newOwner: string,
+          previousOwner: string,
+          overriddenBy: string,
+        ): Promise<void> {
+          await knex('ownership_overrides')
+            .insert({
+              entity_ref: entityRef.toLowerCase(),
+              new_owner: newOwner,
+              previous_owner: previousOwner,
+              overridden_at: new Date().toISOString(),
+              overridden_by: overriddenBy,
+            })
+            .onConflict('entity_ref')
+            .merge(['new_owner', 'previous_owner', 'overridden_at', 'overridden_by']);
+        }
 
         // Helper: Get all groups
         async function getAllGroups(): Promise<Map<string, GroupInfo>> {
@@ -92,6 +172,12 @@ export const ownershipManagementPlugin = createBackendPlugin({
           return groups;
         }
 
+        // Helper: Get effective owner (considering overrides)
+        async function getEffectiveOwner(entityRef: string, catalogOwner: string): Promise<string> {
+          const override = await getOwnershipOverride(entityRef);
+          return override ? override.newOwner : catalogOwner;
+        }
+
         // Helper: Get all ownable entities
         async function getOwnableEntities(): Promise<OrphanedEntity[]> {
           const ownableKinds = ['Component', 'API', 'Resource', 'System', 'Domain'];
@@ -104,14 +190,17 @@ export const ownershipManagementPlugin = createBackendPlugin({
               });
 
               for (const entity of result.items) {
-                const owner = (entity.spec as any)?.owner;
-                if (owner) {
+                const catalogOwner = (entity.spec as any)?.owner;
+                if (catalogOwner) {
+                  const entityRef = `${kind.toLowerCase()}:${entity.metadata.namespace || 'default'}/${entity.metadata.name}`;
+                  const effectiveOwner = await getEffectiveOwner(entityRef, catalogOwner);
+                  
                   entities.push({
-                    entityRef: `${kind.toLowerCase()}:${entity.metadata.namespace || 'default'}/${entity.metadata.name}`,
+                    entityRef,
                     kind,
                     name: entity.metadata.name,
                     namespace: entity.metadata.namespace || 'default',
-                    currentOwner: owner,
+                    currentOwner: effectiveOwner,
                     title: entity.metadata.title,
                   });
                 }
@@ -123,6 +212,22 @@ export const ownershipManagementPlugin = createBackendPlugin({
           return entities;
         }
 
+        // Helper: Normalize owner reference
+        function normalizeOwnerRef(owner: string): string {
+          let ownerRef = owner.toLowerCase();
+          
+          if (!ownerRef.includes(':')) {
+            // Simple name like "platform-team" - assume it's a group
+            ownerRef = `group:default/${ownerRef}`;
+          } else if (!ownerRef.includes('/')) {
+            // Format like "group:platform-team" - add default namespace
+            const [kind, name] = ownerRef.split(':');
+            ownerRef = `${kind}:default/${name}`;
+          }
+          
+          return ownerRef;
+        }
+
         // Helper: Find orphaned entities
         async function findOrphanedEntities(): Promise<OrphanedEntity[]> {
           const groups = await getAllGroups();
@@ -130,18 +235,7 @@ export const ownershipManagementPlugin = createBackendPlugin({
           const orphans: OrphanedEntity[] = [];
 
           for (const entity of entities) {
-            // Normalize owner reference
-            let ownerRef = entity.currentOwner.toLowerCase();
-            
-            // Handle various owner formats
-            if (!ownerRef.includes(':')) {
-              // Simple name like "platform-team" - assume it's a group
-              ownerRef = `group:default/${ownerRef}`;
-            } else if (!ownerRef.includes('/')) {
-              // Format like "group:platform-team" - add default namespace
-              const [kind, name] = ownerRef.split(':');
-              ownerRef = `${kind}:default/${name}`;
-            }
+            const ownerRef = normalizeOwnerRef(entity.currentOwner);
 
             // Check if owner exists
             if (!groups.has(ownerRef)) {
@@ -198,6 +292,17 @@ export const ownershipManagementPlugin = createBackendPlugin({
         const router = Router();
         router.use(express.json());
 
+        // Helper to get current user
+        async function getCurrentUser(req: any): Promise<string | null> {
+          try {
+            const credentials = await httpAuth.credentials(req, { allow: ['user'] });
+            const user = await userInfo.getUserInfo(credentials);
+            return user.userEntityRef || null;
+          } catch {
+            return null;
+          }
+        }
+
         // GET /api/ownership/orphans - List orphaned entities
         router.get('/orphans', async (_req, res) => {
           try {
@@ -237,14 +342,7 @@ export const ownershipManagementPlugin = createBackendPlugin({
 
             // Enrich with owner validity
             const enrichedEntities = entities.map(entity => {
-              let ownerRef = entity.currentOwner.toLowerCase();
-              if (!ownerRef.includes(':')) {
-                ownerRef = `group:default/${ownerRef}`;
-              } else if (!ownerRef.includes('/')) {
-                const [kind, name] = ownerRef.split(':');
-                ownerRef = `${kind}:default/${name}`;
-              }
-
+              const ownerRef = normalizeOwnerRef(entity.currentOwner);
               return {
                 ...entity,
                 ownerExists: groups.has(ownerRef) || ownerRef.startsWith('user:'),
@@ -261,8 +359,21 @@ export const ownershipManagementPlugin = createBackendPlugin({
           }
         });
 
+        // GET /api/ownership/overrides - Get all ownership overrides
+        router.get('/overrides', async (_req, res) => {
+          try {
+            const overrides = await getAllOverrides();
+            res.json({
+              count: overrides.length,
+              overrides,
+            });
+          } catch (error) {
+            logger.error('Failed to get ownership overrides', error as Error);
+            res.status(500).json({ error: 'Failed to get ownership overrides' });
+          }
+        });
+
         // POST /api/ownership/reassign - Reassign entity ownership
-        // Note: This stores the reassignment intent - actual catalog update depends on source
         router.post('/reassign', async (req, res) => {
           try {
             const { entityRef, newOwner } = req.body;
@@ -272,26 +383,23 @@ export const ownershipManagementPlugin = createBackendPlugin({
               return;
             }
 
-            // Verify the new owner exists
-            const groups = await getAllGroups();
-            let ownerRef = newOwner.toLowerCase();
-            if (!ownerRef.includes(':')) {
-              ownerRef = `group:default/${ownerRef}`;
-            } else if (!ownerRef.includes('/')) {
-              const [kind, name] = ownerRef.split(':');
-              ownerRef = `${kind}:default/${name}`;
+            // Get current user for audit
+            const currentUser = await getCurrentUser(req);
+            if (!currentUser) {
+              res.status(401).json({ error: 'Authentication required' });
+              return;
             }
 
-            if (!groups.has(ownerRef)) {
+            // Verify the new owner exists
+            const groups = await getAllGroups();
+            const normalizedNewOwner = normalizeOwnerRef(newOwner);
+
+            if (!groups.has(normalizedNewOwner)) {
               res.status(400).json({ error: `Owner group '${newOwner}' not found` });
               return;
             }
 
-            // For entities managed by annotations or file-based catalog,
-            // we need to update the source. For now, we'll use annotations
-            // to track ownership overrides.
-            
-            // Get the entity to verify it exists
+            // Get the entity to verify it exists and get current owner
             try {
               const entity = await catalog.getEntityByRef(entityRef);
               if (!entity) {
@@ -299,20 +407,37 @@ export const ownershipManagementPlugin = createBackendPlugin({
                 return;
               }
 
-              // Log the reassignment request
-              logger.info(`Ownership reassignment requested: ${entityRef} -> ${newOwner}`);
+              const catalogOwner = (entity.spec as any)?.owner || 'unknown';
+              const previousOwner = await getEffectiveOwner(entityRef, catalogOwner);
 
-              // In a real implementation, you would:
-              // 1. Update the entity in the catalog database (if using database backend)
-              // 2. Create a PR to update the entity file (if using git backend)
-              // 3. Use the catalog API to refresh the entity
+              // Store the ownership override in the database
+              await setOwnershipOverride(
+                entityRef,
+                normalizedNewOwner,
+                previousOwner,
+                currentUser,
+              );
+
+              logger.info(
+                `Ownership reassigned: ${entityRef} from ${previousOwner} to ${normalizedNewOwner} by ${currentUser}`,
+              );
+
+              // Trigger a catalog refresh for this entity to pick up the change
+              try {
+                await catalog.refreshEntity(entityRef);
+                logger.info(`Triggered catalog refresh for ${entityRef}`);
+              } catch (refreshError) {
+                logger.warn(`Could not trigger catalog refresh for ${entityRef}:`, refreshError as Error);
+              }
 
               res.json({
                 success: true,
-                message: `Ownership reassignment of ${entityRef} to ${newOwner} has been recorded. Note: For file-based entities, update the catalog-info.yaml in the source repository.`,
+                message: `Ownership of ${entityRef} has been reassigned to ${normalizedNewOwner}`,
                 entityRef,
-                previousOwner: (entity.spec as any)?.owner,
-                newOwner,
+                previousOwner,
+                newOwner: normalizedNewOwner,
+                overriddenBy: currentUser,
+                overriddenAt: new Date().toISOString(),
               });
             } catch (error) {
               res.status(404).json({ error: `Entity '${entityRef}' not found` });
@@ -321,6 +446,41 @@ export const ownershipManagementPlugin = createBackendPlugin({
           } catch (error) {
             logger.error('Failed to reassign ownership', error as Error);
             res.status(500).json({ error: 'Failed to reassign ownership' });
+          }
+        });
+
+        // DELETE /api/ownership/overrides/:entityRef - Remove an ownership override
+        router.delete('/overrides/:entityRef(*)', async (req, res) => {
+          try {
+            const { entityRef } = req.params;
+
+            const currentUser = await getCurrentUser(req);
+            if (!currentUser) {
+              res.status(401).json({ error: 'Authentication required' });
+              return;
+            }
+
+            const existing = await getOwnershipOverride(entityRef);
+            if (!existing) {
+              res.status(404).json({ error: 'Override not found' });
+              return;
+            }
+
+            await knex('ownership_overrides')
+              .where('entity_ref', entityRef.toLowerCase())
+              .delete();
+
+            logger.info(`Ownership override removed for ${entityRef} by ${currentUser}`);
+
+            res.json({
+              success: true,
+              message: `Ownership override removed for ${entityRef}`,
+              entityRef,
+              previousOverride: existing,
+            });
+          } catch (error) {
+            logger.error('Failed to remove ownership override', error as Error);
+            res.status(500).json({ error: 'Failed to remove ownership override' });
           }
         });
 

@@ -14,7 +14,10 @@ backend:
   csp:
     connect-src: ["'self'", 'http:', 'https:']
   cors:
-    origin: '*'
+    # SECURITY: Restrict CORS to specific origins
+    # Set CORS_ORIGIN environment variable to your frontend domain
+    # Examples: "https://backstage.example.com" or "http://localhost:3000"
+    origin: ${CORS_ORIGIN:-http://localhost}
     methods: [GET, HEAD, PATCH, POST, PUT, DELETE]
     credentials: true
 
@@ -66,9 +69,11 @@ techdocs:
 auth:
   environment: production
   providers:
-    # Guest auth enabled as fallback
+    # SECURITY: Guest auth is DISABLED by default in production
+    # To enable for demo purposes, set GUEST_AUTH_ENABLED=true in environment
+    # WARNING: Enabling guest auth allows unauthenticated access
     guest:
-      dangerouslyAllowOutsideDevelopment: true
+      dangerouslyAllowOutsideDevelopment: ${GUEST_AUTH_ENABLED:-false}
     # GitHub OAuth for real GitHub users
     github:
       production:
@@ -444,4 +449,6 @@ catalog:
         - allow: [Template]
 
 permission:
-  enabled: false
+  # SECURITY: Permission system is enabled in production
+  # See packages/backend/src/permissionPolicy.ts for the policy implementation
+  enabled: true

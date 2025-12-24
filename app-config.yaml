@@ -6,10 +6,9 @@ organization:
   name: Platform Team
 
 backend:
-  # Allow unauthenticated access to certain endpoints (TechDocs)
-  # This is required for public documentation access
-  auth:
-    dangerouslyDisableDefaultAuthPolicy: true
+  # SECURITY: Default auth policy is enabled
+  # Individual plugins that need public access configure their own auth policies
+  # via httpRouter.addAuthPolicy() - see brandingSettingsPlugin.ts for example
   baseUrl: http://localhost
   listen:
     port: 7007
@@ -63,9 +62,14 @@ auth:
   session:
     secret: ${AUTH_SESSION_SECRET}
   providers:
-    # Guest auth provider - allows unauthenticated access to TechDocs
+    # Guest auth provider for development/demo purposes only
+    # SECURITY WARNING: This allows unauthenticated access to Backstage
+    # In production with GITHUB_CLIENT_ID set, consider removing guest auth entirely
+    # and relying solely on GitHub OAuth for authentication
     guest:
-      dangerouslyAllowOutsideDevelopment: true
+      # DEVELOPMENT ONLY: Set to false in production to disable guest access
+      # When enabled, users can browse without authentication (limited to read-only)
+      dangerouslyAllowOutsideDevelopment: ${GUEST_AUTH_ENABLED:-false}
     # GitHub OAuth for real GitHub users
     github:
       development:
