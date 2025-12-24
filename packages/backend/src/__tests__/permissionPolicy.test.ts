@@ -260,7 +260,7 @@ describe('Permission Policy - Edge Cases', () => {
   });
 
   test('handles very long permission names', () => {
-    const longPermission = 'permission.' + 'a'.repeat(1000);
+    const longPermission = `permission.${'a'.repeat(1000)}`;
     const result = handlePermission(
       { permission: { name: longPermission } },
       { identity: { userEntityRef: 'user:default/test' } }

@@ -401,7 +401,7 @@ export const githubTeamSyncPlugin = createBackendPlugin({
         });
 
         logger.info('GitHub Team Sync plugin initialized');
-        logger.info('Sync state is persisted to database table: ' + SYNC_STATE_TABLE);
+        logger.info(`Sync state is persisted to database table: ${SYNC_STATE_TABLE}`);
         logger.info('To sync a group to GitHub, add annotation: github.com/sync: "true"');
         logger.info('To map a group to a role, add annotation: backstage.io/role: "editors"');
       },

@@ -115,20 +115,20 @@ export function createRouter(deps: RouterDeps): Router {
   // =======================================================================
   // GET / - Get current branding settings (public)
   // =======================================================================
-  router.get('/', async (_req: Request, res: Response) => {
+  router.get('/', async (_req: Request, res: Response): Promise<void> => {
     try {
       const settings = await getCurrentSettings(knex);
-      return res.json(settings);
+      res.json(settings);
     } catch (error) {
       logger.error('Failed to get branding settings', error as Error);
-      return res.status(500).json({ error: 'Failed to get branding settings' });
+      res.status(500).json({ error: 'Failed to get branding settings' });
     }
   });
 
   // =======================================================================
   // POST / - Update branding settings (admin only)
   // =======================================================================
-  router.post('/', async (req: Request, res: Response) => {
+  router.post('/', async (req: Request, res: Response): Promise<void> => {
     const userEntityRef = await requireAdmin(req, res);
     if (!userEntityRef) return;
 
@@ -158,10 +158,10 @@ export function createRouter(deps: RouterDeps): Router {
       logger.info(`Branding settings updated by ${userEntityRef}`);
 
       const newSettings = await getCurrentSettings(knex);
-      return res.json(newSettings);
+      res.json(newSettings);
     } catch (error) {
       logger.error('Failed to update branding settings', error as Error);
-      return res.status(500).json({ error: 'Failed to update branding settings' });
+      res.status(500).json({ error: 'Failed to update branding settings' });
     }
   });
 
@@ -178,7 +178,7 @@ export function createRouter(deps: RouterDeps): Router {
     (req, res, next) => {
       uploadMiddleware(req as any, res as any, next);
     },
-    async (req: Request, res: Response) => {
+    async (req: Request, res: Response): Promise<void> => {
       const userEntityRef = await requireAdmin(req, res);
       if (!userEntityRef) return;
 
@@ -221,10 +221,10 @@ export function createRouter(deps: RouterDeps): Router {
         logger.info(`Logo uploaded by ${userEntityRef}`);
 
         const newSettings = await getCurrentSettings(knex);
-        return res.json(newSettings);
+        res.json(newSettings);
       } catch (error) {
         logger.error('Failed to upload logo', error as Error);
-        return res.status(500).json({ error: 'Failed to upload logo' });
+        res.status(500).json({ error: 'Failed to upload logo' });
       }
     },
   );
@@ -232,7 +232,7 @@ export function createRouter(deps: RouterDeps): Router {
   // =======================================================================
   // DELETE /logo - Reset logo to default (admin only)
   // =======================================================================
-  router.delete('/logo', async (req: Request, res: Response) => {
+  router.delete('/logo', async (req: Request, res: Response): Promise<void> => {
     const userEntityRef = await requireAdmin(req, res);
     if (!userEntityRef) return;
 
@@ -249,17 +249,17 @@ export function createRouter(deps: RouterDeps): Router {
       logger.info(`Logo reset by ${userEntityRef}`);
 
       const newSettings = await getCurrentSettings(knex);
-      return res.json(newSettings);
+      res.json(newSettings);
     } catch (error) {
       logger.error('Failed to reset logo', error as Error);
-      return res.status(500).json({ error: 'Failed to reset logo' });
+      res.status(500).json({ error: 'Failed to reset logo' });
     }
   });
 
   // =======================================================================
   // DELETE / - Reset all branding to default (admin only)
   // =======================================================================
-  router.delete('/', async (req: Request, res: Response) => {
+  router.delete('/', async (req: Request, res: Response): Promise<void> => {
     const userEntityRef = await requireAdmin(req, res);
     if (!userEntityRef) return;
 
@@ -277,17 +277,17 @@ export function createRouter(deps: RouterDeps): Router {
 
       logger.info(`All branding settings reset by ${userEntityRef}`);
 
-      return res.json(DEFAULT_SETTINGS);
+      res.json(DEFAULT_SETTINGS);
     } catch (error) {
       logger.error('Failed to reset branding settings', error as Error);
-      return res.status(500).json({ error: 'Failed to reset branding settings' });
+      res.status(500).json({ error: 'Failed to reset branding settings' });
     }
   });
 
   // =======================================================================
   // GET /admin-check - Check if current user is admin
   // =======================================================================
-  router.get('/admin-check', async (req: Request, res: Response) => {
+  router.get('/admin-check', async (req: Request, res: Response): Promise<void> => {
     try {
       const credentials = await httpAuth.credentials(req, {
         allow: ['user'],
@@ -297,36 +297,37 @@ export function createRouter(deps: RouterDeps): Router {
       const userEntityRef = user.userEntityRef;
 
       if (!userEntityRef) {
-        return res.json({ isAdmin: false });
+        res.json({ isAdmin: false });
+        return;
       }
 
       const isAdmin = await checkIsAdmin(knex, userEntityRef, logger);
-      return res.json({ isAdmin, userEntityRef });
+      res.json({ isAdmin, userEntityRef });
     } catch {
-      return res.json({ isAdmin: false });
+      res.json({ isAdmin: false });
     }
   });
 
   // =======================================================================
   // GET /admins - List branding admins (admin only)
   // =======================================================================
-  router.get('/admins', async (req: Request, res: Response) => {
+  router.get('/admins', async (req: Request, res: Response): Promise<void> => {
     const userEntityRef = await requireAdmin(req, res);
     if (!userEntityRef) return;
 
     try {
       const admins = await getAdmins(knex);
-      return res.json({ admins });
+      res.json({ admins });
     } catch (error) {
       logger.error('Failed to list branding admins', error as Error);
-      return res.status(500).json({ error: 'Failed to list admins' });
+      res.status(500).json({ error: 'Failed to list admins' });
     }
   });
 
   // =======================================================================
   // POST /admins - Add a branding admin (admin only)
   // =======================================================================
-  router.post('/admins', async (req: Request, res: Response) => {
+  router.post('/admins', async (req: Request, res: Response): Promise<void> => {
     const userEntityRef = await requireAdmin(req, res);
     if (!userEntityRef) return;
 
@@ -334,7 +335,8 @@ export function createRouter(deps: RouterDeps): Router {
       const { entityRef } = req.body;
 
       if (!entityRef || typeof entityRef !== 'string') {
-        return res.status(400).json({ error: 'entityRef is required' });
+        res.status(400).json({ error: 'entityRef is required' });
+        return;
       }
 
       // Normalize entity ref
@@ -345,10 +347,11 @@ export function createRouter(deps: RouterDeps): Router {
 
       // Validate format
       if (!normalizedRef.match(/^(user|group):[^/]+\/.+$/)) {
-        return res.status(400).json({
+        res.status(400).json({
           error:
             'Invalid entityRef format. Use user:default/username or group:default/teamname',
         });
+        return;
       }
 
       // Check if already exists
@@ -357,24 +360,25 @@ export function createRouter(deps: RouterDeps): Router {
         .first();
 
       if (existing) {
-        return res.status(409).json({ error: 'Admin already exists' });
+        res.status(409).json({ error: 'Admin already exists' });
+        return;
       }
 
       await addAdmin(knex, normalizedRef, userEntityRef);
       logger.info(`Branding admin added: ${normalizedRef} by ${userEntityRef}`);
 
       const admins = await getAdmins(knex);
-      return res.json({ admins });
+      res.json({ admins });
     } catch (error) {
       logger.error('Failed to add branding admin', error as Error);
-      return res.status(500).json({ error: 'Failed to add admin' });
+      res.status(500).json({ error: 'Failed to add admin' });
     }
   });
 
   // =======================================================================
   // DELETE /admins/:id - Remove a branding admin (admin only)
   // =======================================================================
-  router.delete('/admins/:id', async (req: Request, res: Response) => {
+  router.delete('/admins/:id', async (req: Request, res: Response): Promise<void> => {
     const userEntityRef = await requireAdmin(req, res);
     if (!userEntityRef) return;
 
@@ -386,17 +390,20 @@ export function createRouter(deps: RouterDeps): Router {
       const targetAdmin = await getAdminById(knex, numId);
 
       if (!targetAdmin) {
-        return res.status(404).json({ error: 'Admin not found' });
+        res.status(404).json({ error: 'Admin not found' });
+        return;
       }
 
       if (adminCount <= 1) {
-        return res.status(400).json({ error: 'Cannot remove the last admin' });
+        res.status(400).json({ error: 'Cannot remove the last admin' });
+        return;
       }
 
       if (targetAdmin.entity_ref === userEntityRef.toLowerCase()) {
-        return res.status(400).json({
+        res.status(400).json({
           error: 'Cannot remove yourself. Ask another admin to remove you.',
         });
+        return;
       }
 
       await removeAdmin(knex, numId);
@@ -405,10 +412,10 @@ export function createRouter(deps: RouterDeps): Router {
       );
 
       const admins = await getAdmins(knex);
-      return res.json({ admins });
+      res.json({ admins });
     } catch (error) {
       logger.error('Failed to remove branding admin', error as Error);
-      return res.status(500).json({ error: 'Failed to remove admin' });
+      res.status(500).json({ error: 'Failed to remove admin' });
     }
   });
 
