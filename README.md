@@ -324,27 +324,56 @@ devbox run reset
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Nginx (Reverse Proxy)                    │
-│                            Port 80/443                           │
-└─────────────────────────────────────────────────────────────────┘
-                                   │
-                    ┌──────────────┴──────────────┐
-                    │                             │
-            ┌───────▼───────┐           ┌────────▼────────┐
-            │   Frontend    │           │   Backend API   │
-            │   (React)     │           │   (Node.js)     │
-            │   Port 3000   │           │   Port 7007     │
-            └───────────────┘           └────────┬────────┘
-                                                 │
-        ┌────────────────────────────────────────┼────────────────┐
-        │                        │               │                │
-┌───────▼───────┐    ┌──────────▼──────────┐ ┌──▼───┐     ┌──────▼──────┐
-│  PostgreSQL   │    │       MinIO         │ │Redis │     │   GitHub    │
-│   Database    │    │  (TechDocs/Assets)  │ │Cache │     │     API     │
-│   Port 5432   │    │   Port 9000/9001    │ │ 6379 │     │             │
-└───────────────┘    └─────────────────────┘ └──────┘     └─────────────┘
+```d2
+direction: down
+
+nginx: Nginx Reverse Proxy {
+  shape: rectangle
+  style.fill: "#4A90A4"
+}
+
+nginx -> frontend: Routes /
+nginx -> backend: Routes /api
+
+frontend: Frontend (React) {
+  shape: rectangle
+  style.fill: "#61DAFB"
+  port: "3000"
+}
+
+backend: Backend API (Node.js) {
+  shape: rectangle
+  style.fill: "#68A063"
+  port: "7007"
+}
+
+backend -> postgres: Queries
+backend -> redis: Cache
+backend -> minio: Assets
+backend -> github: API
+
+postgres: PostgreSQL {
+  shape: cylinder
+  style.fill: "#336791"
+  port: "5432"
+}
+
+redis: Redis Cache {
+  shape: cylinder
+  style.fill: "#DC382D"
+  port: "6379"
+}
+
+minio: MinIO Storage {
+  shape: cylinder
+  style.fill: "#C72C48"
+  port: "9000/9001"
+}
+
+github: GitHub API {
+  shape: cloud
+  style.fill: "#333333"
+}
 ```
 
 ### Key Components

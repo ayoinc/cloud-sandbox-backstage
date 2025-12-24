@@ -55,65 +55,130 @@ Google Cloud VPC (Virtual Private Cloud) provides a scalable and flexible networ
 
 ### VPC Topology for GKE
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                   Global VPC Network                    │
-│                                                         │
-│  ┌─────────────┐            ┌─────────────┐           │
-│  │ us-central1 │            │ europe-west1│           │
-│  │  Subnet A   │            │  Subnet B   │           │
-│  │ 10.0.1.0/24 │            │ 10.0.2.0/24 │           │
-│  │             │            │             │           │
-│  │ Secondary:  │            │ Secondary:  │           │
-│  │ - Pods:     │            │ - Pods:     │           │
-│  │  10.1.0.0/16│            │  10.3.0.0/16│           │
-│  │ - Services: │            │ - Services: │           │
-│  │  10.2.0.0/20│            │  10.4.0.0/20│           │
-│  └──────┬──────┘            └──────┬──────┘           │
-│         │                          │                  │
-│         │                          │                  │
-│  ┌──────▼──────┐            ┌──────▼──────┐          │
-│  │  GKE Nodes  │            │  GKE Nodes  │          │
-│  │  (VMs)      │            │  (VMs)      │          │
-│  └──────┬──────┘            └──────┬──────┘          │
-│         │                          │                 │
-│         └──────────┬────────────────┘                 │
-│                    │ Cloud NAT (Egress)               │
-│                    │  (us-central1, europe-west1)    │
-│                    │                                  │
-└────────────────────┼──────────────────────────────────┘
-                     │
-              Private Google Access
-                     │
-              ┌──────▼────────┐
-              │ GCP Services  │
-              │ (GCS, APIs)   │
-              └───────────────┘
+```d2
+direction: down
+
+title: GCP VPC Topology for GKE {
+  shape: text
+  near: top-center
+  style.font-size: 20
+  style.bold: true
+}
+
+vpc: Global VPC Network {
+  style.fill: "#e3f2fd"
+  style.stroke: "#1565c2"
+  
+  us: us-central1 Subnet A {
+    style.fill: "#c8e6c9"
+    style.stroke: "#2e7d32"
+    
+    label: "10.0.1.0/24\n\nSecondary:\n- Pods: 10.1.0.0/16\n- Services: 10.2.0.0/20"
+    
+    gke_us: GKE Nodes (VMs) {
+      shape: cylinder
+      style.fill: "#4caf50"
+      style.font-color: white
+    }
+  }
+  
+  eu: europe-west1 Subnet B {
+    style.fill: "#fff3e0"
+    style.stroke: "#ef6c00"
+    
+    label: "10.0.2.0/24\n\nSecondary:\n- Pods: 10.3.0.0/16\n- Services: 10.4.0.0/20"
+    
+    gke_eu: GKE Nodes (VMs) {
+      shape: cylinder
+      style.fill: "#ff9800"
+      style.font-color: white
+    }
+  }
+}
+
+nat: Cloud NAT (Egress) {
+  shape: hexagon
+  style.fill: "#9c27b0"
+  style.font-color: white
+  label: "us-central1, europe-west1"
+}
+
+pga: Private Google Access {
+  shape: diamond
+  style.fill: "#2196f3"
+  style.font-color: white
+}
+
+gcp_services: GCP Services (GCS, APIs) {
+  shape: cloud
+  style.fill: "#e0e0e0"
+}
+
+vpc.us.gke_us -> nat
+vpc.eu.gke_eu -> nat
+nat -> pga
+pga -> gcp_services
 ```
 
 ### Shared VPC for Multi-Project
 
-```
-┌─────────────────────────────────────────┐
-│         Host Project                    │
-│  ┌─────────────────────────────────┐    │
-│  │  Shared VPC Network              │    │
-│  │  - Centralized Networking        │    │
-│  │  - Firewall Rules                │    │
-│  │  - Cloud NAT                     │    │
-│  └──────────┬──────────────────────┘    │
-│             │                           │
-│             │ Shared VPC                │
-└─────────────┼───────────────────────────┘
-              │ IAM: compute.networkUser
-              │
-    ┌─────────▼────────┬──────────┬────────────┐
-    │                  │          │            │
-┌───▼───┐        ┌───▼───┐  ┌──▼──┐    ┌────▼────┐
-│Service│        │Service│  │Service│   │Service │
-│Proj 1 │        │Proj 2 │  │Proj 3 │   │Proj 4  │
-│Dev    │        │Staging│  │Prod   │   │Data    │
-└───────┘        └───────┘  └───────┘   └────────┘
+```d2
+direction: down
+
+title: Shared VPC Architecture {
+  shape: text
+  near: top-center
+  style.font-size: 18
+  style.bold: true
+}
+
+host: Host Project {
+  style.fill: "#e8f5e9"
+  style.stroke: "#2e7d32"
+  
+  shared_vpc: Shared VPC Network {
+    style.fill: "#c8e6c9"
+    
+    central: Centralized Networking {shape: rectangle}
+    firewall: Firewall Rules {shape: rectangle}
+    nat: Cloud NAT {shape: hexagon; style.fill: "#ff9800"}
+    
+    central -> firewall -> nat
+  }
+}
+
+iam: "IAM: compute.networkUser" {
+  shape: text
+  style.font-size: 12
+}
+
+service_projects: Service Projects {
+  style.fill: "#fff3e0"
+  style.stroke: "#ef6c00"
+  
+  proj1: Service Proj 1\nDev {
+    shape: rectangle
+    style.fill: "#ffcc80"
+  }
+  proj2: Service Proj 2\nStaging {
+    shape: rectangle
+    style.fill: "#ffcc80"
+  }
+  proj3: Service Proj 3\nProd {
+    shape: rectangle
+    style.fill: "#ffcc80"
+  }
+  proj4: Service Proj 4\nData {
+    shape: rectangle
+    style.fill: "#ffcc80"
+  }
+}
+
+host.shared_vpc -> iam: "Shared VPC"
+iam -> service_projects.proj1
+iam -> service_projects.proj2
+iam -> service_projects.proj3
+iam -> service_projects.proj4
 ```
 
 **Use Cases for Shared VPC:**

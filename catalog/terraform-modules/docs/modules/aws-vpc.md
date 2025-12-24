@@ -36,28 +36,68 @@ AWS VPC is the foundation of AWS networking, providing:
 
 The module creates a dual-tier network architecture:
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        AWS VPC                               │
-│  CIDR: 10.0.0.0/16                                          │
-└─────────────────────────────────────────────────────────────┘
-                                 │
-                    ┌────────────┴────────────┐
-                    │                         │
-            Internet Gateway              NAT Gateway
-                    │                         │
-        ┌───────────┴───────────┐   ┌─────────┴─────────┐
-        │                       │   │                   │
-┌───────▼────────┐      ┌──────▼───┐         ┌────────▼──────┐
-│ Public Subnets │      │Private   │         │Private       │
-│ (3 AZs)        │      │Subnets   │         │Subnets       │
-│ 10.0.1.0/24    │      │(3 AZs)   │         │(3 AZs)       │
-│ 10.0.2.0/24    │      │10.0.11.0/24       │10.0.12.0/24   │
-│ 10.0.3.0/24    │      └──────────┘         └──────────────┘
-└────────────────┘             │                       │
-                              │                       │
-                              └────── Internet ───────┘
-                                     (via NAT)
+```d2
+direction: down
+
+title: AWS VPC Architecture {
+  shape: text
+  near: top-center
+  style.font-size: 20
+  style.bold: true
+}
+
+vpc: AWS VPC {
+  style.fill: "#e3f2fd"
+  style.stroke: "#1565c2"
+  
+  label: "AWS VPC\nCIDR: 10.0.0.0/16"
+}
+
+gateways: Gateways {
+  style.fill: transparent
+  style.stroke: transparent
+  
+  igw: Internet Gateway {
+    shape: hexagon
+    style.fill: "#4caf50"
+    style.font-color: white
+  }
+  
+  nat: NAT Gateway {
+    shape: hexagon
+    style.fill: "#ff9800"
+    style.font-color: white
+  }
+}
+
+subnets: Subnet Tiers {
+  style.fill: transparent
+  style.stroke: transparent
+  
+  public: Public Subnets (3 AZs) {
+    style.fill: "#c8e6c9"
+    style.stroke: "#2e7d32"
+    label: "Public Subnets\n10.0.1.0/24\n10.0.2.0/24\n10.0.3.0/24"
+  }
+  
+  private: Private Subnets (3 AZs) {
+    style.fill: "#fff3e0"
+    style.stroke: "#ef6c00"
+    label: "Private Subnets\n10.0.11.0/24\n10.0.12.0/24\n10.0.13.0/24"
+  }
+}
+
+internet: Internet {
+  shape: cloud
+  style.fill: "#e0e0e0"
+}
+
+vpc -> gateways.igw
+vpc -> gateways.nat
+gateways.igw -> subnets.public: "Direct access"
+gateways.nat -> subnets.private: "Outbound only"
+subnets.private -> internet: "via NAT" {style.stroke-dash: 3}
+subnets.public -> internet: "Direct"
 ```
 
 **Public Subnets:**
@@ -522,20 +562,65 @@ output "vpc_endpoint_s3_id" {
 
 ### CIDR Allocation Strategy
 
-```
-Recommended Allocation for /16 VPC (10.0.0.0/16):
+```d2
+direction: right
 
-Zone 1 (10.0.0-63.x.x)    Zone 2 (10.0.64-127.x.x)    Zone 3 (10.0.128-191.x.x)
-┌────────────────────┐    ┌─────────────────────┐    ┌─────────────────────┐
-│ 10.0.0.0/18        │    │ 10.0.64.0/18        │    │ 10.0.128.0/18       │
-└────────────────────┘    └─────────────────────┘    └─────────────────────┘
-         │                          │                          │
-    ┌────┴────┐              ┌─────┴──────┐              ┌─────┴───────┐
-    │         │              │            │              │             │
-┌───▼──┐  ┌──▼──┐      ┌────▼──┐     ┌───▼──┐      ┌────▼──┐     ┌───▼──┐
-│Public│  │Priv │      │Public │     │Priv  │      │Public │     │Priv  │
-│ .1/24│  │.11/24│     │ .65/24│     │.75/24│      │.129/24│     │.139/24│
-└──────┘  └─────┘      └───────┘     └──────┘      └───────┘     └───────┘
+title: Recommended Allocation for /16 VPC (10.0.0.0/16) {
+  shape: text
+  near: top-center
+  style.font-size: 16
+  style.bold: true
+}
+
+zone1: Zone 1 {
+  style.fill: "#e3f2fd"
+  style.stroke: "#1565c2"
+  
+  label: "10.0.0-63.x.x\n(10.0.0.0/18)"
+  
+  public1: Public {
+    style.fill: "#c8e6c9"
+    label: ".1/24"
+  }
+  private1: Private {
+    style.fill: "#fff3e0"
+    label: ".11/24"
+  }
+}
+
+zone2: Zone 2 {
+  style.fill: "#e3f2fd"
+  style.stroke: "#1565c2"
+  
+  label: "10.0.64-127.x.x\n(10.0.64.0/18)"
+  
+  public2: Public {
+    style.fill: "#c8e6c9"
+    label: ".65/24"
+  }
+  private2: Private {
+    style.fill: "#fff3e0"
+    label: ".75/24"
+  }
+}
+
+zone3: Zone 3 {
+  style.fill: "#e3f2fd"
+  style.stroke: "#1565c2"
+  
+  label: "10.0.128-191.x.x\n(10.0.128.0/18)"
+  
+  public3: Public {
+    style.fill: "#c8e6c9"
+    label: ".129/24"
+  }
+  private3: Private {
+    style.fill: "#fff3e0"
+    label: ".139/24"
+  }
+}
+
+zone1 -> zone2 -> zone3
 ```
 
 ### Sizing Formulas
