@@ -193,7 +193,16 @@ test.describe('GitHub OAuth Interactive Flow', () => {
     // Handle GitHub OAuth page
     await page.waitForURL(/github\.com/, { timeout: 10000 }).catch(() => {});
 
-    if (page.url().includes('github.com')) {
+    let isOnGitHub = false;
+    try {
+      const currentUrl = new URL(page.url());
+      const allowedGitHubHosts = ['github.com', 'www.github.com'];
+      isOnGitHub = allowedGitHubHosts.includes(currentUrl.hostname);
+    } catch {
+      isOnGitHub = false;
+    }
+
+    if (isOnGitHub) {
       // Fill GitHub credentials
       await page.fill('input[name="login"]', GITHUB_USERNAME!);
       await page.fill('input[name="password"]', GITHUB_PASSWORD!);
