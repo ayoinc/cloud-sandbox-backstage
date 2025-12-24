@@ -137,6 +137,18 @@ export const ownershipManagementPlugin = createBackendPlugin({
           }));
         }
 
+        // Helper: Get all ownership overrides as a Map for fast lookup
+        async function getAllOverridesMap(): Promise<
+          Map<string, OwnershipOverride>
+        > {
+          const overrides = await getAllOverrides();
+          const map = new Map<string, OwnershipOverride>();
+          for (const override of overrides) {
+            map.set(override.entityRef.toLowerCase(), override);
+          }
+          return map;
+        }
+
         // Helper: Set ownership override
         async function setOwnershipOverride(
           entityRef: string,
@@ -187,7 +199,7 @@ export const ownershipManagementPlugin = createBackendPlugin({
           return groups;
         }
 
-        // Helper: Get effective owner (considering overrides)
+        // Helper: Get effective owner (considering overrides) - for single entity lookup
         async function getEffectiveOwner(
           entityRef: string,
           catalogOwner: string,
@@ -196,7 +208,17 @@ export const ownershipManagementPlugin = createBackendPlugin({
           return override ? override.newOwner : catalogOwner;
         }
 
-        // Helper: Get all ownable entities
+        // Helper: Get effective owner using pre-loaded overrides map - for bulk operations
+        function getEffectiveOwnerFromMap(
+          entityRef: string,
+          catalogOwner: string,
+          overridesMap: Map<string, OwnershipOverride>,
+        ): string {
+          const override = overridesMap.get(entityRef.toLowerCase());
+          return override ? override.newOwner : catalogOwner;
+        }
+
+        // Helper: Get all ownable entities - optimized to avoid N+1 queries
         async function getOwnableEntities(): Promise<OrphanedEntity[]> {
           const ownableKinds = [
             'Component',
@@ -208,20 +230,30 @@ export const ownershipManagementPlugin = createBackendPlugin({
           const entities: OrphanedEntity[] = [];
 
           try {
-            for (const kind of ownableKinds) {
-              const result = await catalog.getEntities({
-                filter: { kind },
-              });
+            // Fetch all overrides once upfront to avoid N+1 queries
+            const overridesMap = await getAllOverridesMap();
 
-              for (const entity of result.items) {
+            // Fetch all kinds in parallel instead of sequentially
+            const kindResults = await Promise.all(
+              ownableKinds.map(kind =>
+                catalog.getEntities({ filter: { kind } }).then(result => ({
+                  kind,
+                  items: result.items,
+                })),
+              ),
+            );
+
+            for (const { kind, items } of kindResults) {
+              for (const entity of items) {
                 const catalogOwner = (entity.spec as any)?.owner;
                 if (catalogOwner) {
                   const entityRef = `${kind.toLowerCase()}:${
                     entity.metadata.namespace || 'default'
                   }/${entity.metadata.name}`;
-                  const effectiveOwner = await getEffectiveOwner(
+                  const effectiveOwner = getEffectiveOwnerFromMap(
                     entityRef,
                     catalogOwner,
+                    overridesMap,
                   );
 
                   entities.push({
@@ -259,8 +291,11 @@ export const ownershipManagementPlugin = createBackendPlugin({
 
         // Helper: Find orphaned entities
         async function findOrphanedEntities(): Promise<OrphanedEntity[]> {
-          const groups = await getAllGroups();
-          const entities = await getOwnableEntities();
+          // Fetch groups and entities in parallel
+          const [groups, entities] = await Promise.all([
+            getAllGroups(),
+            getOwnableEntities(),
+          ]);
           const orphans: OrphanedEntity[] = [];
 
           for (const entity of entities) {
@@ -374,8 +409,11 @@ export const ownershipManagementPlugin = createBackendPlugin({
         // GET /api/ownership/entities - List all ownable entities with their owners
         router.get('/entities', async (_req, res) => {
           try {
-            const entities = await getOwnableEntities();
-            const groups = await getAllGroups();
+            // Fetch entities and groups in parallel
+            const [entities, groups] = await Promise.all([
+              getOwnableEntities(),
+              getAllGroups(),
+            ]);
 
             // Enrich with owner validity
             const enrichedEntities = entities.map(entity => {

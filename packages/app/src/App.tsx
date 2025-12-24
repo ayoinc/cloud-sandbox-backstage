@@ -29,62 +29,21 @@ import { searchPage } from './components/search/SearchPage';
 import { Root } from './components/Root';
 import { IdleTimeoutMonitor } from './components/IdleTimeoutMonitor';
 import { GitHubOrgPage } from './components/github';
+import { ThemeProvider } from './components/ThemeProvider';
 
-// New plugins
-// import { EntityGithubActionsContent } from '@backstage/plugin-github-actions';
-
-// =============================================================================
-// PLACEHOLDER: Enterprise Plugin Imports (uncomment when configured)
-// =============================================================================
-// Cost Insights - Cloud cost management
-// Requires custom CostInsightsClient implementation or mock data
-// import { CostInsightsPage } from '@backstage/plugin-cost-insights';
-
-import {
-  AlertDisplay,
-  OAuthRequestDialog,
-  SignInPage,
-} from '@backstage/core-components';
+import { AlertDisplay, OAuthRequestDialog } from '@backstage/core-components';
+import { CustomSignInPage } from './components/SignIn';
 import { createApp } from '@backstage/app-defaults';
 import { AppRouter, FlatRoutes } from '@backstage/core-app-api';
-import { gitHubDarkTheme, gitHubLightTheme } from './theme';
-import { UnifiedThemeProvider } from '@backstage/theme';
 import { CatalogGraphPage } from '@backstage/plugin-catalog-graph';
 import { RequirePermission } from '@backstage/plugin-permission-react';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
 import { NotificationsPage } from '@backstage/plugin-notifications';
 import { SignalsDisplay } from '@backstage/plugin-signals';
-import { githubAuthApiRef } from '@backstage/core-plugin-api';
 import { taskCreatePermission } from '@backstage/plugin-scaffolder-common/alpha';
-
-// GitHub auth provider for real GitHub users
-const githubProvider = {
-  id: 'github-auth-provider',
-  title: 'GitHub',
-  message: 'Sign in using GitHub',
-  apiRef: githubAuthApiRef,
-};
 
 const app = createApp({
   apis,
-  themes: [
-    {
-      id: 'github-dark',
-      title: 'GitHub Dark',
-      variant: 'dark',
-      Provider: ({ children }) => (
-        <UnifiedThemeProvider theme={gitHubDarkTheme} children={children} />
-      ),
-    },
-    {
-      id: 'github-light',
-      title: 'GitHub Light',
-      variant: 'light',
-      Provider: ({ children }) => (
-        <UnifiedThemeProvider theme={gitHubLightTheme} children={children} />
-      ),
-    },
-  ],
   bindRoutes({ bind }) {
     bind(catalogPlugin.externalRoutes, {
       createComponent: scaffolderPlugin.routes.root,
@@ -103,14 +62,7 @@ const app = createApp({
     });
   },
   components: {
-    SignInPage: props => (
-      <SignInPage
-        {...props}
-        providers={[githubProvider]}
-        title="Welcome to Cloud Sandbox"
-        align="center"
-      />
-    ),
+    SignInPage: props => <CustomSignInPage {...props} />,
   },
 });
 
@@ -162,18 +114,12 @@ const routes = (
     <Route path="/catalog-graph" element={<CatalogGraphPage />} />
     <Route path="/notifications" element={<NotificationsPage />} />
     <Route path="/github-org" element={<GitHubOrgPage />} />
-    {/* =============================================================================
-        PLACEHOLDER: Cost Insights Route (uncomment when CostInsightsClient is implemented)
-        =============================================================================
-        Requires: @backstage/plugin-cost-insights and custom CostInsightsClient
-        See: https://backstage.io/docs/features/cost-insights/
-        <Route path="/cost-insights" element={<CostInsightsPage />} />
-    */}
   </FlatRoutes>
 );
 
+// Wrap the entire app with ThemeProvider so ThemeSwitcher works everywhere
 export default app.createRoot(
-  <>
+  <ThemeProvider>
     <AlertDisplay />
     <OAuthRequestDialog />
     <SignalsDisplay />
@@ -181,5 +127,5 @@ export default app.createRoot(
     <AppRouter>
       <Root>{routes}</Root>
     </AppRouter>
-  </>,
+  </ThemeProvider>,
 );

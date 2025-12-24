@@ -9,11 +9,7 @@ import {
   WarningPanel,
   InfoCard,
 } from '@backstage/core-components';
-import {
-  useApi,
-  fetchApiRef,
-  alertApiRef,
-} from '@backstage/core-plugin-api';
+import { useApi, fetchApiRef, alertApiRef } from '@backstage/core-plugin-api';
 import {
   Button,
   Chip,
@@ -94,6 +90,7 @@ export const OwnershipManagementPage = () => {
 
   const [tabValue, setTabValue] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [entities, setEntities] = useState<EntityInfo[]>([]);
   const [orphans, setOrphans] = useState<EntityInfo[]>([]);
   const [groups, setGroups] = useState<GroupInfo[]>([]);
@@ -104,6 +101,7 @@ export const OwnershipManagementPage = () => {
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const [entitiesRes, orphansRes, groupsRes] = await Promise.all([
         fetchApi.fetch('/api/ownership-management/entities'),
@@ -111,19 +109,36 @@ export const OwnershipManagementPage = () => {
         fetchApi.fetch('/api/ownership-management/groups'),
       ]);
 
+      const errors: string[] = [];
+
       if (entitiesRes.ok) {
         const data = await entitiesRes.json();
         setEntities(data.entities || []);
+      } else {
+        errors.push(`Entities: ${entitiesRes.statusText}`);
+        setEntities([]);
       }
       if (orphansRes.ok) {
         const data = await orphansRes.json();
         setOrphans(data.orphans || []);
+      } else {
+        errors.push(`Orphans: ${orphansRes.statusText}`);
+        setOrphans([]);
       }
       if (groupsRes.ok) {
         const data = await groupsRes.json();
         setGroups(data.groups || []);
+      } else {
+        errors.push(`Groups: ${groupsRes.statusText}`);
+        setGroups([]);
       }
-    } catch {
+
+      if (errors.length > 0) {
+        setError(`Failed to load some data: ${errors.join(', ')}`);
+      }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Unknown error';
+      setError(`Failed to load ownership data: ${message}`);
       alertApi.post({
         message: 'Failed to load ownership data',
         severity: 'error',
@@ -148,14 +163,17 @@ export const OwnershipManagementPage = () => {
 
     setReassigning(true);
     try {
-      const response = await fetchApi.fetch('/api/ownership-management/reassign', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          entityRef: selectedEntity.entityRef,
-          newOwner: selectedNewOwner,
-        }),
-      });
+      const response = await fetchApi.fetch(
+        '/api/ownership-management/reassign',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            entityRef: selectedEntity.entityRef,
+            newOwner: selectedNewOwner,
+          }),
+        },
+      );
 
       const data = await response.json();
 
@@ -270,7 +288,10 @@ export const OwnershipManagementPage = () => {
   if (loading) {
     return (
       <Page themeId="tool">
-        <Header title="Ownership Management" subtitle="Manage entity ownership and orphans" />
+        <Header
+          title="Ownership Management"
+          subtitle="Manage entity ownership and orphans"
+        />
         <Content>
           <Progress />
         </Content>
@@ -280,9 +301,21 @@ export const OwnershipManagementPage = () => {
 
   return (
     <Page themeId="tool">
-      <Header title="Ownership Management" subtitle="Manage entity ownership and orphans" />
+      <Header
+        title="Ownership Management"
+        subtitle="Manage entity ownership and orphans"
+      />
       <Content>
         <Grid container spacing={3}>
+          {/* Error Panel */}
+          {error && (
+            <Grid item xs={12}>
+              <WarningPanel severity="error" title="Error loading data">
+                {error}
+              </WarningPanel>
+            </Grid>
+          )}
+
           {/* Stats Cards */}
           <Grid item xs={12} md={4}>
             <InfoCard title="Total Entities" className={classes.statsCard}>
@@ -294,7 +327,10 @@ export const OwnershipManagementPage = () => {
           </Grid>
           <Grid item xs={12} md={4}>
             <InfoCard title="Orphaned Entities" className={classes.statsCard}>
-              <Typography variant="h3" color={orphans.length > 0 ? 'error' : 'inherit'}>
+              <Typography
+                variant="h3"
+                color={orphans.length > 0 ? 'error' : 'inherit'}
+              >
                 {orphans.length}
               </Typography>
               <Typography variant="body2" color="textSecondary">
@@ -318,7 +354,8 @@ export const OwnershipManagementPage = () => {
                 severity="warning"
                 title={`${orphans.length} orphaned entities found`}
               >
-                These entities have owners that no longer exist. Please reassign them to active groups.
+                These entities have owners that no longer exist. Please reassign
+                them to active groups.
               </WarningPanel>
             </Grid>
           )}
@@ -374,13 +411,23 @@ export const OwnershipManagementPage = () => {
         </Grid>
 
         {/* Reassign Dialog */}
-        <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
+        <Dialog
+          open={dialogOpen}
+          onClose={() => setDialogOpen(false)}
+          maxWidth="sm"
+          fullWidth
+        >
           <DialogTitle>Reassign Ownership</DialogTitle>
           <DialogContent>
             <DialogContentText>
-              Select a new owner for <strong>{selectedEntity?.title || selectedEntity?.name}</strong>
+              Select a new owner for{' '}
+              <strong>{selectedEntity?.title || selectedEntity?.name}</strong>
             </DialogContentText>
-            <FormControl fullWidth className={classes.formControl} style={{ marginTop: 16 }}>
+            <FormControl
+              fullWidth
+              className={classes.formControl}
+              style={{ marginTop: 16 }}
+            >
               <InputLabel id="new-owner-label">New Owner</InputLabel>
               <MuiSelect
                 labelId="new-owner-label"
@@ -395,12 +442,21 @@ export const OwnershipManagementPage = () => {
               </MuiSelect>
             </FormControl>
             {selectedEntity && (
-              <Typography variant="body2" color="textSecondary" style={{ marginTop: 16 }}>
+              <Typography
+                variant="body2"
+                color="textSecondary"
+                style={{ marginTop: 16 }}
+              >
                 Current owner: {selectedEntity.currentOwner}
               </Typography>
             )}
-            <Typography variant="body2" color="textSecondary" style={{ marginTop: 8 }}>
-              Note: For file-based entities, you will also need to update the catalog-info.yaml in the source repository.
+            <Typography
+              variant="body2"
+              color="textSecondary"
+              style={{ marginTop: 8 }}
+            >
+              Note: For file-based entities, you will also need to update the
+              catalog-info.yaml in the source repository.
             </Typography>
           </DialogContent>
           <DialogActions>
