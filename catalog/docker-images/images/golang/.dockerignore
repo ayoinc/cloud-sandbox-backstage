@@ -1,0 +1,71 @@
+# .dockerignore for Go applications
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Documentation
+README.md
+CHANGELOG.md
+LICENSE
+docs/
+*.md
+
+# IDE and editors
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Go
+# Don't ignore vendor if you're using it for reproducible builds
+# vendor/
+
+# Build artifacts
+bin/
+dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test files
+*_test.go
+testdata/
+.coverprofile
+coverage.out
+coverage.html
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# Air (live reload)
+tmp/
+
+# Delve debugger
+debug
+
+# GoReleaser
+dist/
+
+# Miscellaneous
+*.prof
+*.test
+*.out

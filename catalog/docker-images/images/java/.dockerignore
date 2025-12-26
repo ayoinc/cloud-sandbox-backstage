@@ -1,0 +1,77 @@
+# .dockerignore for Java/Spring Boot applications
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Documentation
+README.md
+CHANGELOG.md
+LICENSE
+docs/
+*.md
+
+# IDE and editors
+.vscode
+.idea
+*.swp
+*.swo
+*~
+*.iml
+*.ipr
+*.iws
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+
+# Test files
+src/test/
+*.test.java
+*Test.java
+*Tests.java
+*Spec.java
+
+# Environment files
+.env
+.env.*
+!.env.example
+application-local.yml
+application-local.properties
+
+# Logs
+*.log
+logs/
+
+# JVM crash logs
+hs_err_pid*
+
+# Generated files
+bin/
+out/
+classes/
+generated/
+
+# Wrapper downloaded (if not committed)
+# gradle/wrapper/gradle-wrapper.jar
+
+# Local configuration
+*.local
