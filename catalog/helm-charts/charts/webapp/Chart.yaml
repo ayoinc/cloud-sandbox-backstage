@@ -1,0 +1,40 @@
+apiVersion: v2
+name: webapp
+description: A production-ready Helm chart for deploying web applications
+type: application
+version: 2.5.0
+appVersion: '1.0.0'
+
+# Keywords for search
+keywords:
+  - web
+  - http
+  - application
+  - microservice
+
+# Maintainers
+maintainers:
+  - name: Platform Team
+    email: platform@company.com
+
+# Source repository
+home: https://github.com/company/helm-charts
+sources:
+  - https://github.com/company/helm-charts
+
+# Kubernetes version constraint
+kubeVersion: '>=1.25.0-0'
+
+# Dependencies
+dependencies:
+  - name: redis
+    version: 18.x.x
+    repository: 'https://charts.bitnami.com/bitnami'
+    condition: redis.enabled
+    tags:
+      - cache
+  - name: postgresql
+    version: 14.x.x
+    repository: 'https://charts.bitnami.com/bitnami'
+    condition: postgresql.enabled
+    alias: db

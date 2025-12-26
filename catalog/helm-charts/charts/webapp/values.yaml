@@ -1,0 +1,287 @@
+# Default values for webapp.
+# This is a YAML-formatted file.
+
+# -- Number of replicas
+replicaCount: 2
+
+# Image configuration
+image:
+  # -- Container image repository
+  repository: company/webapp
+  # -- Image pull policy
+  pullPolicy: IfNotPresent
+  # -- Image tag (defaults to chart appVersion)
+  tag: ''
+
+# -- Image pull secrets
+imagePullSecrets: []
+
+# -- Override the name
+nameOverride: ''
+# -- Override the fullname
+fullnameOverride: ''
+
+# Service Account
+serviceAccount:
+  # -- Create service account
+  create: true
+  # -- Service account annotations
+  annotations: {}
+  # -- Service account name
+  name: ''
+
+# -- Pod annotations
+podAnnotations: {}
+
+# -- Pod labels
+podLabels: {}
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 1000
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+# Container security context
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  capabilities:
+    drop:
+      - ALL
+
+# Service configuration
+service:
+  # -- Service type
+  type: ClusterIP
+  # -- Service port
+  port: 80
+  # -- Target container port
+  targetPort: 8080
+  # -- Node port (when type is NodePort)
+  nodePort: ''
+  # -- Service annotations
+  annotations: {}
+
+# Ingress configuration
+ingress:
+  # -- Enable ingress
+  enabled: false
+  # -- Ingress class name
+  className: 'nginx'
+  # -- Ingress annotations
+  annotations:
+    {}
+    # kubernetes.io/tls-acme: "true"
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  # -- Ingress hosts
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: Prefix
+  # -- TLS configuration
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+# Resource limits
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Autoscaling configuration
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 15
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 15
+        - type: Pods
+          value: 4
+          periodSeconds: 15
+      selectPolicy: Max
+
+# -- Node selector
+nodeSelector: {}
+
+# -- Tolerations
+tolerations: []
+
+# -- Affinity rules
+affinity: {}
+
+# -- Topology spread constraints
+topologySpreadConstraints: []
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+  # maxUnavailable: 1
+
+# Liveness probe
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# Readiness probe
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# Startup probe (for slow starting containers)
+startupProbe:
+  enabled: false
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 30
+
+# Environment variables
+env:
+  []
+  # - name: LOG_LEVEL
+  #   value: "info"
+  # - name: DATABASE_URL
+  #   valueFrom:
+  #     secretKeyRef:
+  #       name: db-secret
+  #       key: url
+
+# Environment variables from secrets/configmaps
+envFrom:
+  []
+  # - secretRef:
+  #     name: app-secrets
+  # - configMapRef:
+  #     name: app-config
+
+# ConfigMap data
+configMap:
+  # -- Create ConfigMap
+  enabled: false
+  # -- ConfigMap data
+  data:
+    {}
+    # config.yaml: |
+    #   key: value
+
+# -- Extra volumes
+extraVolumes:
+  []
+  # - name: config
+  #   configMap:
+  #     name: app-config
+
+# -- Extra volume mounts
+extraVolumeMounts:
+  []
+  # - name: config
+  #   mountPath: /app/config
+  #   readOnly: true
+
+# -- Additional labels
+labels: {}
+
+# -- Additional annotations
+annotations: {}
+
+# Metrics/Prometheus
+metrics:
+  enabled: false
+  port: 9090
+  path: /metrics
+  serviceMonitor:
+    enabled: false
+    namespace: ''
+    interval: 30s
+    scrapeTimeout: 10s
+    labels: {}
+    relabelings: []
+    metricRelabelings: []
+
+# Network Policy
+networkPolicy:
+  enabled: false
+  ingress:
+    # -- Allow ingress from ingress-nginx namespace
+    allowIngressNginx: true
+    # -- Additional ingress rules
+    extraRules: []
+  egress:
+    # -- Allow DNS egress
+    allowDns: true
+    # -- Allow egress to postgresql
+    allowPostgresql: false
+    # -- Allow egress to redis
+    allowRedis: false
+    # -- Additional egress rules
+    extraRules: []
+
+# Init containers
+initContainers:
+  []
+  # - name: init-myservice
+  #   image: busybox:1.36
+  #   command: ['sh', '-c', 'until nslookup myservice; do echo waiting; sleep 2; done']
+
+# Sidecar containers
+sidecars: []
+
+# Database migration hook
+migration:
+  enabled: false
+  command: ['./migrate.sh']
+  env: []
+
+# Redis subchart
+redis:
+  enabled: false
+  architecture: standalone
+  auth:
+    enabled: true
+    existingSecret: ''
+
+# PostgreSQL subchart
+postgresql:
+  enabled: false
+  auth:
+    database: app
+    existingSecret: ''
