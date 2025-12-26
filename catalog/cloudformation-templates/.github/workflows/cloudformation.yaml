@@ -1,0 +1,146 @@
+name: CloudFormation Validation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'catalog/cloudformation-templates/templates/**'
+      - '.github/workflows/cloudformation.yaml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'catalog/cloudformation-templates/templates/**'
+      - '.github/workflows/cloudformation.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  lint:
+    name: Lint CloudFormation Templates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install cfn-lint
+        run: pip install cfn-lint
+
+      - name: Run cfn-lint
+        run: |
+          cfn-lint catalog/cloudformation-templates/templates/**/*.yaml \
+            --format parseable \
+            --config-file .cfnlintrc.yaml || true
+
+          # Generate SARIF for GitHub Security tab
+          cfn-lint catalog/cloudformation-templates/templates/**/*.yaml \
+            --format sarif \
+            --output-file cfn-lint-results.sarif || true
+
+      - name: Upload SARIF results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: cfn-lint-results.sarif
+        continue-on-error: true
+
+  security:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+
+      - name: Install cfn-nag
+        run: gem install cfn-nag
+
+      - name: Run cfn-nag
+        run: |
+          cfn_nag_scan \
+            --input-path catalog/cloudformation-templates/templates \
+            --output-format txt || true
+
+      - name: Run checkov
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: catalog/cloudformation-templates/templates
+          framework: cloudformation
+          output_format: cli,sarif
+          output_file_path: console,checkov-results.sarif
+          soft_fail: true
+
+      - name: Upload Checkov SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: checkov-results.sarif
+        continue-on-error: true
+
+  validate:
+    name: Validate Templates
+    runs-on: ubuntu-latest
+    needs: [lint]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+        continue-on-error: true
+
+      - name: Validate CloudFormation Templates
+        if: env.AWS_ACCESS_KEY_ID != ''
+        run: |
+          for template in $(find catalog/cloudformation-templates/templates -name "*.yaml" -type f); do
+            echo "Validating $template..."
+            aws cloudformation validate-template \
+              --template-body file://$template || true
+          done
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+
+  taskcat:
+    name: TaskCat Testing
+    runs-on: ubuntu-latest
+    needs: [lint, security]
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install taskcat
+        run: pip install taskcat
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Run TaskCat
+        run: |
+          cd catalog/cloudformation-templates
+          taskcat test run
+        continue-on-error: true

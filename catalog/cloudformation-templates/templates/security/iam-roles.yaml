@@ -1,0 +1,534 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: |
+  IAM Roles and Policies for secure AWS deployments.
+  Includes roles for EC2, ECS, Lambda, and cross-account access.
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Environment Configuration
+        Parameters:
+          - Environment
+          - ProjectName
+      - Label:
+          default: Role Configuration
+        Parameters:
+          - CreateEC2Role
+          - CreateECSTaskRole
+          - CreateLambdaRole
+          - CreateCrossAccountRole
+      - Label:
+          default: Cross-Account Configuration
+        Parameters:
+          - TrustedAccountId
+          - ExternalId
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+    Description: Environment name
+
+  ProjectName:
+    Type: String
+    Default: myproject
+    Description: Project name for resource naming
+    AllowedPattern: ^[a-z0-9-]+$
+    ConstraintDescription: Must be lowercase alphanumeric with hyphens
+
+  CreateEC2Role:
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Create EC2 instance role
+
+  CreateECSTaskRole:
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Create ECS task execution and task roles
+
+  CreateLambdaRole:
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Create Lambda execution role
+
+  CreateCrossAccountRole:
+    Type: String
+    Default: 'false'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Create cross-account access role
+
+  TrustedAccountId:
+    Type: String
+    Default: ''
+    Description: AWS Account ID for cross-account trust (required if CreateCrossAccountRole is true)
+
+  ExternalId:
+    Type: String
+    Default: ''
+    NoEcho: true
+    Description: External ID for cross-account role assumption
+
+Conditions:
+  ShouldCreateEC2Role: !Equals [!Ref CreateEC2Role, 'true']
+  ShouldCreateECSTaskRole: !Equals [!Ref CreateECSTaskRole, 'true']
+  ShouldCreateLambdaRole: !Equals [!Ref CreateLambdaRole, 'true']
+  ShouldCreateCrossAccountRole: !And
+    - !Equals [!Ref CreateCrossAccountRole, 'true']
+    - !Not [!Equals [!Ref TrustedAccountId, '']]
+  HasExternalId: !Not [!Equals [!Ref ExternalId, '']]
+  IsProd: !Equals [!Ref Environment, 'prod']
+
+Resources:
+  #############################################################################
+  # EC2 Instance Role
+  #############################################################################
+  EC2InstanceRole:
+    Type: AWS::IAM::Role
+    Condition: ShouldCreateEC2Role
+    Properties:
+      RoleName: !Sub ${ProjectName}-${Environment}-ec2-role
+      Description: IAM role for EC2 instances
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-${Environment}-ec2-role
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Condition: ShouldCreateEC2Role
+    Properties:
+      InstanceProfileName: !Sub ${ProjectName}-${Environment}-ec2-profile
+      Roles:
+        - !Ref EC2InstanceRole
+
+  EC2S3AccessPolicy:
+    Type: AWS::IAM::Policy
+    Condition: ShouldCreateEC2Role
+    Properties:
+      PolicyName: !Sub ${ProjectName}-${Environment}-ec2-s3-policy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:GetObjectVersion
+              - s3:ListBucket
+            Resource:
+              - !Sub arn:aws:s3:::${ProjectName}-${Environment}-*
+              - !Sub arn:aws:s3:::${ProjectName}-${Environment}-*/*
+          - Effect: Allow
+            Action:
+              - s3:PutObject
+              - s3:DeleteObject
+            Resource:
+              - !Sub arn:aws:s3:::${ProjectName}-${Environment}-data/*
+            Condition:
+              StringEquals:
+                s3:x-amz-server-side-encryption: AES256
+      Roles:
+        - !Ref EC2InstanceRole
+
+  #############################################################################
+  # ECS Task Roles
+  #############################################################################
+  ECSTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Condition: ShouldCreateECSTaskRole
+    Properties:
+      RoleName: !Sub ${ProjectName}-${Environment}-ecs-execution-role
+      Description: ECS task execution role for pulling images and logging
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: SecretsAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource:
+                  - !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${ProjectName}/${Environment}/*
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameters
+                  - ssm:GetParameter
+                Resource:
+                  - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${ProjectName}/${Environment}/*
+              - Effect: Allow
+                Action:
+                  - kms:Decrypt
+                Resource:
+                  - !Sub arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/*
+                Condition:
+                  StringEquals:
+                    kms:ViaService: !Sub secretsmanager.${AWS::Region}.amazonaws.com
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-${Environment}-ecs-execution-role
+        - Key: Environment
+          Value: !Ref Environment
+
+  ECSTaskRole:
+    Type: AWS::IAM::Role
+    Condition: ShouldCreateECSTaskRole
+    Properties:
+      RoleName: !Sub ${ProjectName}-${Environment}-ecs-task-role
+      Description: ECS task role for application permissions
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ApplicationAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # S3 Access
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub arn:aws:s3:::${ProjectName}-${Environment}-*
+                  - !Sub arn:aws:s3:::${ProjectName}-${Environment}-*/*
+              # SQS Access
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource:
+                  - !Sub arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:${ProjectName}-${Environment}-*
+              # SNS Access
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource:
+                  - !Sub arn:aws:sns:${AWS::Region}:${AWS::AccountId}:${ProjectName}-${Environment}-*
+              # DynamoDB Access
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                Resource:
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ProjectName}-${Environment}-*
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ProjectName}-${Environment}-*/index/*
+              # X-Ray Tracing
+              - Effect: Allow
+                Action:
+                  - xray:PutTraceSegments
+                  - xray:PutTelemetryRecords
+                Resource: '*'
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-${Environment}-ecs-task-role
+        - Key: Environment
+          Value: !Ref Environment
+
+  #############################################################################
+  # Lambda Execution Role
+  #############################################################################
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Condition: ShouldCreateLambdaRole
+    Properties:
+      RoleName: !Sub ${ProjectName}-${Environment}-lambda-role
+      Description: Lambda execution role with VPC and logging access
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+      Policies:
+        - PolicyName: LambdaAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # CloudWatch Logs
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${ProjectName}-${Environment}-*
+                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${ProjectName}-${Environment}-*:*
+              # Secrets Manager
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource:
+                  - !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${ProjectName}/${Environment}/*
+              # S3 Access
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource:
+                  - !Sub arn:aws:s3:::${ProjectName}-${Environment}-*/*
+              # SQS Access
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource:
+                  - !Sub arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:${ProjectName}-${Environment}-*
+              # X-Ray
+              - Effect: Allow
+                Action:
+                  - xray:PutTraceSegments
+                  - xray:PutTelemetryRecords
+                Resource: '*'
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-${Environment}-lambda-role
+        - Key: Environment
+          Value: !Ref Environment
+
+  #############################################################################
+  # Cross-Account Access Role
+  #############################################################################
+  CrossAccountRole:
+    Type: AWS::IAM::Role
+    Condition: ShouldCreateCrossAccountRole
+    Properties:
+      RoleName: !Sub ${ProjectName}-${Environment}-cross-account-role
+      Description: Role for cross-account access
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::${TrustedAccountId}:root
+            Action: sts:AssumeRole
+            Condition: !If
+              - HasExternalId
+              - StringEquals:
+                  sts:ExternalId: !Ref ExternalId
+              - !Ref AWS::NoValue
+      Policies:
+        - PolicyName: CrossAccountAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub arn:aws:s3:::${ProjectName}-${Environment}-shared
+                  - !Sub arn:aws:s3:::${ProjectName}-${Environment}-shared/*
+              - Effect: Allow
+                Action:
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                  - ecr:BatchCheckLayerAvailability
+                Resource:
+                  - !Sub arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/${ProjectName}-*
+              - Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                Resource: '*'
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-${Environment}-cross-account-role
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: TrustedAccount
+          Value: !Ref TrustedAccountId
+
+  #############################################################################
+  # Security Groups (for reference in other stacks)
+  #############################################################################
+  ApplicationSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${ProjectName}-${Environment}-app-sg
+      GroupDescription: Security group for application tier
+      VpcId: !ImportValue
+        Fn::Sub: ${ProjectName}-${Environment}-VpcId
+      SecurityGroupIngress:
+        - Description: HTTPS from load balancer
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+        - Description: HTTP from load balancer
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+      SecurityGroupEgress:
+        - Description: HTTPS outbound
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - Description: Database access
+          IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          DestinationSecurityGroupId: !Ref DatabaseSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-${Environment}-app-sg
+        - Key: Environment
+          Value: !Ref Environment
+
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${ProjectName}-${Environment}-alb-sg
+      GroupDescription: Security group for application load balancer
+      VpcId: !ImportValue
+        Fn::Sub: ${ProjectName}-${Environment}-VpcId
+      SecurityGroupIngress:
+        - Description: HTTPS from internet
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - Description: HTTP from internet (redirect to HTTPS)
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-${Environment}-alb-sg
+        - Key: Environment
+          Value: !Ref Environment
+
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${ProjectName}-${Environment}-db-sg
+      GroupDescription: Security group for database tier
+      VpcId: !ImportValue
+        Fn::Sub: ${ProjectName}-${Environment}-VpcId
+      SecurityGroupIngress:
+        - Description: PostgreSQL from application
+          IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref ApplicationSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-${Environment}-db-sg
+        - Key: Environment
+          Value: !Ref Environment
+
+Outputs:
+  EC2InstanceRoleArn:
+    Description: ARN of EC2 instance role
+    Value: !If [ShouldCreateEC2Role, !GetAtt EC2InstanceRole.Arn, '']
+    Condition: ShouldCreateEC2Role
+    Export:
+      Name: !Sub ${ProjectName}-${Environment}-EC2RoleArn
+
+  EC2InstanceProfileArn:
+    Description: ARN of EC2 instance profile
+    Value: !If [ShouldCreateEC2Role, !GetAtt EC2InstanceProfile.Arn, '']
+    Condition: ShouldCreateEC2Role
+    Export:
+      Name: !Sub ${ProjectName}-${Environment}-EC2ProfileArn
+
+  ECSTaskExecutionRoleArn:
+    Description: ARN of ECS task execution role
+    Value: !If [ShouldCreateECSTaskRole, !GetAtt ECSTaskExecutionRole.Arn, '']
+    Condition: ShouldCreateECSTaskRole
+    Export:
+      Name: !Sub ${ProjectName}-${Environment}-ECSExecutionRoleArn
+
+  ECSTaskRoleArn:
+    Description: ARN of ECS task role
+    Value: !If [ShouldCreateECSTaskRole, !GetAtt ECSTaskRole.Arn, '']
+    Condition: ShouldCreateECSTaskRole
+    Export:
+      Name: !Sub ${ProjectName}-${Environment}-ECSTaskRoleArn
+
+  LambdaExecutionRoleArn:
+    Description: ARN of Lambda execution role
+    Value: !If [ShouldCreateLambdaRole, !GetAtt LambdaExecutionRole.Arn, '']
+    Condition: ShouldCreateLambdaRole
+    Export:
+      Name: !Sub ${ProjectName}-${Environment}-LambdaRoleArn
+
+  CrossAccountRoleArn:
+    Description: ARN of cross-account role
+    Value: !If [ShouldCreateCrossAccountRole, !GetAtt CrossAccountRole.Arn, '']
+    Condition: ShouldCreateCrossAccountRole
+    Export:
+      Name: !Sub ${ProjectName}-${Environment}-CrossAccountRoleArn
+
+  ApplicationSecurityGroupId:
+    Description: ID of application security group
+    Value: !Ref ApplicationSecurityGroup
+    Export:
+      Name: !Sub ${ProjectName}-${Environment}-AppSgId
+
+  LoadBalancerSecurityGroupId:
+    Description: ID of load balancer security group
+    Value: !Ref LoadBalancerSecurityGroup
+    Export:
+      Name: !Sub ${ProjectName}-${Environment}-AlbSgId
+
+  DatabaseSecurityGroupId:
+    Description: ID of database security group
+    Value: !Ref DatabaseSecurityGroup
+    Export:
+      Name: !Sub ${ProjectName}-${Environment}-DbSgId

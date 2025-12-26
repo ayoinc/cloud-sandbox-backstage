@@ -1,0 +1,315 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: RDS Aurora PostgreSQL Cluster with Multi-AZ deployment
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Environment Configuration
+        Parameters:
+          - Environment
+          - ProjectName
+      - Label:
+          default: Network Configuration
+        Parameters:
+          - VpcStackName
+      - Label:
+          default: Database Configuration
+        Parameters:
+          - DatabaseName
+          - MasterUsername
+          - InstanceClass
+          - EngineVersion
+      - Label:
+          default: Backup Configuration
+        Parameters:
+          - BackupRetentionPeriod
+          - DeletionProtection
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues:
+      - development
+      - staging
+      - production
+
+  ProjectName:
+    Type: String
+    Default: myproject
+
+  VpcStackName:
+    Type: String
+    Description: Name of VPC stack for cross-stack references
+
+  DatabaseName:
+    Type: String
+    Default: appdb
+    AllowedPattern: ^[a-zA-Z][a-zA-Z0-9_]*$
+    Description: Initial database name
+
+  MasterUsername:
+    Type: String
+    Default: postgres
+    AllowedPattern: ^[a-zA-Z][a-zA-Z0-9_]*$
+    Description: Master username
+
+  InstanceClass:
+    Type: String
+    Default: db.r6g.large
+    AllowedValues:
+      - db.t4g.medium
+      - db.t4g.large
+      - db.r6g.large
+      - db.r6g.xlarge
+      - db.r6g.2xlarge
+    Description: Database instance class
+
+  EngineVersion:
+    Type: String
+    Default: '15.4'
+    AllowedValues:
+      - '14.9'
+      - '15.4'
+      - '16.1'
+    Description: PostgreSQL engine version
+
+  BackupRetentionPeriod:
+    Type: Number
+    Default: 7
+    MinValue: 1
+    MaxValue: 35
+    Description: Backup retention period in days
+
+  DeletionProtection:
+    Type: String
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Default: 'true'
+    Description: Enable deletion protection
+
+Conditions:
+  IsProduction: !Equals [!Ref Environment, production]
+
+Resources:
+  # =============================================================================
+  # DB Subnet Group
+  # =============================================================================
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupName: !Sub ${ProjectName}-${Environment}-db-subnet-group
+      DBSubnetGroupDescription: Subnet group for Aurora cluster
+      SubnetIds:
+        - Fn::ImportValue: !Sub ${VpcStackName}-PrivateSubnet1Id
+        - Fn::ImportValue: !Sub ${VpcStackName}-PrivateSubnet2Id
+        - Fn::ImportValue: !Sub ${VpcStackName}-PrivateSubnet3Id
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # =============================================================================
+  # Security Group
+  # =============================================================================
+  DBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Aurora cluster
+      GroupName: !Sub ${ProjectName}-${Environment}-aurora-sg
+      VpcId:
+        Fn::ImportValue: !Sub ${VpcStackName}-VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp:
+            Fn::ImportValue: !Sub ${VpcStackName}-VpcCidr
+          Description: Allow PostgreSQL from VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-${Environment}-aurora-sg
+
+  # =============================================================================
+  # Secrets Manager - Master Password
+  # =============================================================================
+  DBMasterSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub ${ProjectName}/${Environment}/aurora/master
+      Description: Aurora master password
+      GenerateSecretString:
+        SecretStringTemplate: !Sub '{"username": "${MasterUsername}"}'
+        GenerateStringKey: password
+        PasswordLength: 32
+        ExcludePunctuation: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # =============================================================================
+  # Parameter Group
+  # =============================================================================
+  DBClusterParameterGroup:
+    Type: AWS::RDS::DBClusterParameterGroup
+    Properties:
+      Family: !Sub aurora-postgresql${EngineVersion}
+      Description: !Sub ${ProjectName} ${Environment} cluster parameters
+      Parameters:
+        log_statement: all
+        log_min_duration_statement: 1000
+        shared_preload_libraries: pg_stat_statements
+        pg_stat_statements.track: all
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  DBParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Family: !Sub aurora-postgresql${EngineVersion}
+      Description: !Sub ${ProjectName} ${Environment} instance parameters
+      Parameters:
+        log_connections: '1'
+        log_disconnections: '1'
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # =============================================================================
+  # Aurora Cluster
+  # =============================================================================
+  AuroraCluster:
+    Type: AWS::RDS::DBCluster
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      DBClusterIdentifier: !Sub ${ProjectName}-${Environment}-aurora
+      Engine: aurora-postgresql
+      EngineVersion: !Ref EngineVersion
+      DatabaseName: !Ref DatabaseName
+      MasterUsername: !Sub '{{resolve:secretsmanager:${DBMasterSecret}:SecretString:username}}'
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${DBMasterSecret}:SecretString:password}}'
+      DBClusterParameterGroupName: !Ref DBClusterParameterGroup
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      VpcSecurityGroupIds:
+        - !Ref DBSecurityGroup
+      Port: 5432
+      BackupRetentionPeriod: !Ref BackupRetentionPeriod
+      PreferredBackupWindow: 03:00-04:00
+      PreferredMaintenanceWindow: Mon:04:00-Mon:05:00
+      DeletionProtection: !Ref DeletionProtection
+      StorageEncrypted: true
+      EnableCloudwatchLogsExports:
+        - postgresql
+      EnableIAMDatabaseAuthentication: true
+      CopyTagsToSnapshot: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # =============================================================================
+  # Aurora Instances
+  # =============================================================================
+  AuroraInstance1:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: !Sub ${ProjectName}-${Environment}-aurora-1
+      DBClusterIdentifier: !Ref AuroraCluster
+      DBInstanceClass: !Ref InstanceClass
+      Engine: aurora-postgresql
+      DBParameterGroupName: !Ref DBParameterGroup
+      PubliclyAccessible: false
+      EnablePerformanceInsights: true
+      PerformanceInsightsRetentionPeriod: !If [IsProduction, 731, 7]
+      MonitoringInterval: 60
+      MonitoringRoleArn: !GetAtt EnhancedMonitoringRole.Arn
+      AutoMinorVersionUpgrade: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  AuroraInstance2:
+    Type: AWS::RDS::DBInstance
+    Condition: IsProduction
+    Properties:
+      DBInstanceIdentifier: !Sub ${ProjectName}-${Environment}-aurora-2
+      DBClusterIdentifier: !Ref AuroraCluster
+      DBInstanceClass: !Ref InstanceClass
+      Engine: aurora-postgresql
+      DBParameterGroupName: !Ref DBParameterGroup
+      PubliclyAccessible: false
+      EnablePerformanceInsights: true
+      PerformanceInsightsRetentionPeriod: 731
+      MonitoringInterval: 60
+      MonitoringRoleArn: !GetAtt EnhancedMonitoringRole.Arn
+      AutoMinorVersionUpgrade: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # =============================================================================
+  # Enhanced Monitoring Role
+  # =============================================================================
+  EnhancedMonitoringRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ProjectName}-${Environment}-rds-monitoring-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: monitoring.rds.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole
+
+  # =============================================================================
+  # Secret Attachment
+  # =============================================================================
+  SecretAttachment:
+    Type: AWS::SecretsManager::SecretTargetAttachment
+    Properties:
+      SecretId: !Ref DBMasterSecret
+      TargetId: !Ref AuroraCluster
+      TargetType: AWS::RDS::DBCluster
+
+Outputs:
+  ClusterEndpoint:
+    Description: Aurora cluster endpoint
+    Value: !GetAtt AuroraCluster.Endpoint.Address
+    Export:
+      Name: !Sub ${AWS::StackName}-ClusterEndpoint
+
+  ClusterReaderEndpoint:
+    Description: Aurora cluster reader endpoint
+    Value: !GetAtt AuroraCluster.ReadEndpoint.Address
+    Export:
+      Name: !Sub ${AWS::StackName}-ClusterReaderEndpoint
+
+  ClusterPort:
+    Description: Aurora cluster port
+    Value: !GetAtt AuroraCluster.Endpoint.Port
+    Export:
+      Name: !Sub ${AWS::StackName}-ClusterPort
+
+  DatabaseName:
+    Description: Database name
+    Value: !Ref DatabaseName
+    Export:
+      Name: !Sub ${AWS::StackName}-DatabaseName
+
+  SecretArn:
+    Description: Secrets Manager secret ARN
+    Value: !Ref DBMasterSecret
+    Export:
+      Name: !Sub ${AWS::StackName}-SecretArn
+
+  SecurityGroupId:
+    Description: Database security group ID
+    Value: !Ref DBSecurityGroup
+    Export:
+      Name: !Sub ${AWS::StackName}-SecurityGroupId
