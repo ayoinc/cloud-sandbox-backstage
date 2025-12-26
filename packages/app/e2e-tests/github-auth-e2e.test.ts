@@ -58,7 +58,9 @@ test.describe('GitHub OAuth E2E Tests', () => {
       console.log('GitHub sign-in option is available');
     } else {
       // Check if we're already signed in or if there's a different flow
-      console.log('GitHub sign-in option not immediately visible - may need different flow');
+      console.log(
+        'GitHub sign-in option not immediately visible - may need different flow',
+      );
     }
   });
 
@@ -73,10 +75,17 @@ test.describe('GitHub OAuth E2E Tests', () => {
     expect(hasCatalog).toBeTruthy();
 
     // Check for catalog content
-    const catalogContent = page.locator('text=/component|service|template|system/i');
-    const hasContent = await catalogContent.first().isVisible().catch(() => false);
+    const catalogContent = page.locator(
+      'text=/component|service|template|system/i',
+    );
+    const hasContent = await catalogContent
+      .first()
+      .isVisible()
+      .catch(() => false);
 
-    console.log(`Catalog page accessible: ${hasContent ? 'with content' : 'loading'}`);
+    console.log(
+      `Catalog page accessible: ${hasContent ? 'with content' : 'loading'}`,
+    );
   });
 
   test('4. TechDocs page is accessible', async ({ page }) => {
@@ -101,10 +110,17 @@ test.describe('GitHub OAuth E2E Tests', () => {
     expect(url).toContain('/create');
 
     // Look for template cards or list
-    const templateContent = page.locator('[class*="template"], [data-testid*="template"]');
-    const hasTemplates = await templateContent.first().isVisible().catch(() => false);
+    const templateContent = page.locator(
+      '[class*="template"], [data-testid*="template"]',
+    );
+    const hasTemplates = await templateContent
+      .first()
+      .isVisible()
+      .catch(() => false);
 
-    console.log(`Templates page: ${hasTemplates ? 'has templates' : 'loading'}`);
+    console.log(
+      `Templates page: ${hasTemplates ? 'has templates' : 'loading'}`,
+    );
   });
 
   test('6. Search functionality works', async ({ page }) => {
@@ -112,8 +128,13 @@ test.describe('GitHub OAuth E2E Tests', () => {
     await waitForPageReady(page);
 
     // Look for search input
-    const searchInput = page.getByRole('searchbox').or(page.getByPlaceholder(/search/i));
-    const hasSearch = await searchInput.first().isVisible().catch(() => false);
+    const searchInput = page
+      .getByRole('searchbox')
+      .or(page.getByPlaceholder(/search/i));
+    const hasSearch = await searchInput
+      .first()
+      .isVisible()
+      .catch(() => false);
 
     if (hasSearch) {
       // Perform a search
@@ -122,7 +143,7 @@ test.describe('GitHub OAuth E2E Tests', () => {
       await page.waitForTimeout(2000);
 
       // Check for results
-      const results = page.locator('[class*="result"], [class*="search"]');
+      const _results = page.locator('[class*="result"], [class*="search"]');
       console.log('Search functionality works');
     } else {
       console.log('Search page accessible but input not found immediately');
@@ -133,13 +154,17 @@ test.describe('GitHub OAuth E2E Tests', () => {
     request,
   }) => {
     // Test catalog API
-    const catalogResponse = await request.get(`${BASE_URL}/api/catalog/entities?limit=5`);
+    const catalogResponse = await request.get(
+      `${BASE_URL}/api/catalog/entities?limit=5`,
+    );
     expect(catalogResponse.status()).toBe(200);
     const catalogData = await catalogResponse.json();
     console.log(`Catalog API: ${catalogData.length || 0} entities returned`);
 
     // Test search API
-    const searchResponse = await request.get(`${BASE_URL}/api/search/query?term=`);
+    const searchResponse = await request.get(
+      `${BASE_URL}/api/search/query?term=`,
+    );
     expect(searchResponse.status()).toBe(200);
     const searchData = await searchResponse.json();
     console.log(`Search API: ${searchData.numberOfResults || 0} results`);
@@ -152,17 +177,24 @@ test.describe('GitHub OAuth E2E Tests', () => {
     console.log('TechDocs sync API: 200 OK (FIXED!)');
 
     // Test scaffolder actions API
-    const scaffolderResponse = await request.get(`${BASE_URL}/api/scaffolder/v2/actions`);
+    const scaffolderResponse = await request.get(
+      `${BASE_URL}/api/scaffolder/v2/actions`,
+    );
     expect(scaffolderResponse.status()).toBe(200);
     const scaffolderData = await scaffolderResponse.json();
-    console.log(`Scaffolder API: ${scaffolderData.length || 0} actions available`);
+    console.log(
+      `Scaffolder API: ${scaffolderData.length || 0} actions available`,
+    );
   });
 
   test('8. Permission system is active', async ({ request }) => {
-    const response = await request.post(`${BASE_URL}/api/permission/authorize`, {
-      data: { items: [] },
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const response = await request.post(
+      `${BASE_URL}/api/permission/authorize`,
+      {
+        data: { items: [] },
+        headers: { 'Content-Type': 'application/json' },
+      },
+    );
     expect(response.status()).toBe(200);
     console.log('Permission API: responding correctly');
   });
@@ -218,18 +250,28 @@ test.describe('GitHub OAuth Interactive Flow', () => {
       }
 
       // Wait for redirect back to Backstage
-      await page.waitForURL(new RegExp(BASE_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), {
-        timeout: 30000,
-      });
+      await page.waitForURL(
+        new RegExp(BASE_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+        {
+          timeout: 30000,
+        },
+      );
     }
 
     // Verify signed in
     await waitForPageReady(page);
 
     // Should see user profile or signed-in state
-    const userProfile = page.locator('[class*="user"], [class*="profile"], [class*="avatar"]');
-    const isSignedIn = await userProfile.first().isVisible().catch(() => false);
+    const userProfile = page.locator(
+      '[class*="user"], [class*="profile"], [class*="avatar"]',
+    );
+    const isSignedIn = await userProfile
+      .first()
+      .isVisible()
+      .catch(() => false);
 
-    console.log(`Sign-in complete: ${isSignedIn ? 'success' : 'may need verification'}`);
+    console.log(
+      `Sign-in complete: ${isSignedIn ? 'success' : 'may need verification'}`,
+    );
   });
 });
