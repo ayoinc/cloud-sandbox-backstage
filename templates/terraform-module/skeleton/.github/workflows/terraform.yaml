@@ -1,3 +1,4 @@
+{% raw %}
 name: Terraform Module CI
 
 on:
@@ -66,7 +67,9 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: '⚠️ **Terraform Format Check Failed**\n\nPlease run `terraform fmt -recursive` to fix formatting issues.'
+              body: '⚠️ **Terraform Format Check Failed**
+
+Please run `terraform fmt -recursive` to fix formatting issues.'
             })
 
   # ============================================
@@ -147,7 +150,9 @@ jobs:
             const status = exitCode === '0' ? 'All tests passed' : 'Some tests failed';
 
             const truncatedOutput = testOutput.length > 30000 
-              ? testOutput.substring(0, 30000) + '\n\n... (truncated)'
+              ? testOutput.substring(0, 30000) + '
+
+... (truncated)'
               : testOutput;
 
             const body = `### Terraform Test Results
@@ -435,13 +440,18 @@ jobs:
               docs: '${{ needs.docs.result }}'
             };
 
-            let summary = '## Terraform Module CI Summary\n\n';
-            summary += '| Job | Status |\n';
-            summary += '|-----|--------|\n';
+            let summary = '## Terraform Module CI Summary
+
+';
+            summary += '| Job | Status |
+';
+            summary += '|-----|--------|
+';
 
             for (const [job, status] of Object.entries(jobs)) {
               const emoji = status === 'success' ? '✅' : status === 'failure' ? '❌' : '⏭️';
-              summary += `| ${job} | ${emoji} ${status} |\n`;
+              summary += `| ${job} | ${emoji} ${status} |
+`;
             }
 
             const failed = Object.values(jobs).some(s => s === 'failure');
@@ -450,3 +460,4 @@ jobs:
             }
 
             await core.summary.addRaw(summary).write();
+{% endraw %}

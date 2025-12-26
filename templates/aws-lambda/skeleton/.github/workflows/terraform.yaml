@@ -1,3 +1,4 @@
+{% raw %}
 # =============================================================================
 # AWS Lambda Function Pipeline
 # =============================================================================
@@ -351,7 +352,9 @@ jobs:
             // Truncate if too long
             const maxLength = 30000;
             const truncatedOutput = testOutput.length > maxLength 
-              ? testOutput.substring(0, maxLength) + '\n\n... (truncated)'
+              ? testOutput.substring(0, maxLength) + '
+
+... (truncated)'
               : testOutput;
 
             const body = `### Terraform Test Results
@@ -679,7 +682,8 @@ jobs:
           script: |
             const fs = require('fs');
             const plan = fs.readFileSync('plan-output.txt', 'utf8');
-            const truncated = plan.length > 60000 ? plan.substring(0, 60000) + '\n...(truncated)' : plan;
+            const truncated = plan.length > 60000 ? plan.substring(0, 60000) + '
+...(truncated)' : plan;
 
             const body = `### Lambda Plan (dev)
 
@@ -1031,3 +1035,4 @@ jobs:
             echo "::error::Rollback verification failed"
             exit 1
           fi
+{% endraw %}

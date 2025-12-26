@@ -1,3 +1,4 @@
+{% raw %}
 name: CI/CD Pipeline
 
 on:
@@ -358,3 +359,4 @@ jobs:
       - name: Fail if any job failed
         if: contains(needs.*.result, 'failure')
         run: exit 1
+{% endraw %}

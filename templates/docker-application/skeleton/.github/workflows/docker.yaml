@@ -1,3 +1,4 @@
+{% raw %}
 name: Docker Application CI/CD
 
 on:
@@ -288,3 +289,4 @@ jobs:
             console.log(`Overall status: ${status}`);
 
             // Add Slack/Teams webhook notification here
+{% endraw %}

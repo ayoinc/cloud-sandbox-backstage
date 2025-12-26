@@ -1,3 +1,4 @@
+{% raw %}
 # =============================================================================
 # AWS RDS Infrastructure Pipeline
 # =============================================================================
@@ -329,7 +330,9 @@ jobs:
             // Truncate if too long
             const maxLength = 30000;
             const truncatedOutput = testOutput.length > maxLength 
-              ? testOutput.substring(0, maxLength) + '\n\n... (truncated)'
+              ? testOutput.substring(0, maxLength) + '
+
+... (truncated)'
               : testOutput;
 
             const body = `### Terraform Test Results ${icon}
@@ -584,7 +587,9 @@ jobs:
             // Truncate if too long
             const maxLength = 60000;
             const truncatedPlan = plan.length > maxLength 
-              ? plan.substring(0, maxLength) + '\n\n... (truncated, see workflow logs for full output)'
+              ? plan.substring(0, maxLength) + '
+
+... (truncated, see workflow logs for full output)'
               : plan;
 
             const icon = hasChanges ? '!' : '';
@@ -817,9 +822,9 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Credentials are stored in AWS Secrets Manager:" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-          echo "aws secretsmanager get-secret-value \\" >> $GITHUB_STEP_SUMMARY
-          echo "  --secret-id ${{ values.name }}-${{ steps.env-map.outputs.tf_env }}-db-credentials \\" >> $GITHUB_STEP_SUMMARY
-          echo "  --region ${{ env.AWS_REGION }} \\" >> $GITHUB_STEP_SUMMARY
+          echo "aws secretsmanager get-secret-value \" >> $GITHUB_STEP_SUMMARY
+          echo "  --secret-id ${{ values.name }}-${{ steps.env-map.outputs.tf_env }}-db-credentials \" >> $GITHUB_STEP_SUMMARY
+          echo "  --region ${{ env.AWS_REGION }} \" >> $GITHUB_STEP_SUMMARY
           echo "  --query SecretString --output text | jq ." >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
@@ -1011,9 +1016,13 @@ jobs:
               'plan-dev': '${{ needs.plan-dev.result }}'
             };
 
-            let summary = '## AWS RDS Pipeline Summary\n\n';
-            summary += '| Stage | Status |\n';
-            summary += '|-------|--------|\n';
+            let summary = '## AWS RDS Pipeline Summary
+
+';
+            summary += '| Stage | Status |
+';
+            summary += '|-------|--------|
+';
 
             const statusEmoji = {
               success: 'Passed',
@@ -1024,23 +1033,39 @@ jobs:
 
             for (const [job, status] of Object.entries(jobs)) {
               const emoji = status === 'success' ? '' : status === 'failure' ? '' : '';
-              summary += `| ${job} | ${statusEmoji[status] || status} |\n`;
+              summary += `| ${job} | ${statusEmoji[status] || status} |
+`;
             }
 
-            summary += '\n### RDS Instance Information\n\n';
-            summary += '- **Instance Name:** ${{ values.name }}\n';
-            summary += '- **Engine:** ${{ values.engine }}\n';
-            summary += '- **Instance Class:** ${{ values.instanceClass }}\n';
-            summary += '- **Region:** ${{ env.AWS_REGION }}\n';
-            summary += '\n### Next Steps\n\n';
+            summary += '
+### RDS Instance Information
+
+';
+            summary += '- **Instance Name:** ${{ values.name }}
+';
+            summary += '- **Engine:** ${{ values.engine }}
+';
+            summary += '- **Instance Class:** ${{ values.instanceClass }}
+';
+            summary += '- **Region:** ${{ env.AWS_REGION }}
+';
+            summary += '
+### Next Steps
+
+';
 
             if (jobs.validate === 'success' && jobs.security === 'success') {
-              summary += '1. Review the plan output in the PR comments\n';
-              summary += '2. Merge the PR to main branch\n';
-              summary += '3. Manually trigger the Apply workflow from Actions tab\n';
-              summary += '4. Retrieve credentials from Secrets Manager after deployment\n';
+              summary += '1. Review the plan output in the PR comments
+';
+              summary += '2. Merge the PR to main branch
+';
+              summary += '3. Manually trigger the Apply workflow from Actions tab
+';
+              summary += '4. Retrieve credentials from Secrets Manager after deployment
+';
             } else {
-              summary += 'Fix the failing checks before proceeding.\n';
+              summary += 'Fix the failing checks before proceeding.
+';
             }
 
             await core.summary.addRaw(summary).write();
@@ -1049,3 +1074,4 @@ jobs:
             if (failed) {
               core.setFailed('One or more pipeline stages failed');
             }
+{% endraw %}

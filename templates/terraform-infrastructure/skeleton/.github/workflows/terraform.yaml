@@ -1,3 +1,4 @@
+{% raw %}
 name: Terraform Infrastructure
 
 on:
@@ -148,7 +149,9 @@ jobs:
             const status = exitCode === '0' ? 'All tests passed' : 'Some tests failed';
 
             const truncatedOutput = testOutput.length > 30000 
-              ? testOutput.substring(0, 30000) + '\n\n... (truncated)'
+              ? testOutput.substring(0, 30000) + '
+
+... (truncated)'
               : testOutput;
 
             const body = `### Terraform Test Results
@@ -314,7 +317,9 @@ jobs:
             const fs = require('fs');
             const plan = fs.readFileSync('plan-output.txt', 'utf8');
             const truncatedPlan = plan.length > 65000 
-              ? plan.substring(0, 65000) + '\n\n... (truncated)'
+              ? plan.substring(0, 65000) + '
+
+... (truncated)'
               : plan;
 
             const output = `### Terraform Plan (dev) 📋
@@ -577,3 +582,4 @@ jobs:
         with:
           script: |
             console.log('Infrastructure destroyed for ${{ github.event.inputs.environment }}');
+{% endraw %}

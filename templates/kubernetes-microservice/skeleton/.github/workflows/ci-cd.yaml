@@ -1,3 +1,4 @@
+{% raw %}
 {% if values.ci_cd_platform == 'github-actions' %}
 name: CI/CD Pipeline
 
@@ -424,3 +425,4 @@ jobs:
         K6_CLOUD_TOKEN: ${{ secrets.K6_CLOUD_TOKEN }}
         TARGET_URL: https://${{ values.name }}.company.com
 {% endif %}
+{% endraw %}

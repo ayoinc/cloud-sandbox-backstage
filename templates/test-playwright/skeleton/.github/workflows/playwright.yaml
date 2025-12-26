@@ -1,3 +1,4 @@
+{% raw %}
 name: Playwright Tests
 
 on:
@@ -88,3 +89,4 @@ jobs:
           name: smoke-test-report
           path: playwright-report/
           retention-days: 7
+{% endraw %}

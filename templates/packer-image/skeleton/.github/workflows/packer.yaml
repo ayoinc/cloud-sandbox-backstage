@@ -1,3 +1,4 @@
+{% raw %}
 name: Packer Image CI/CD
 
 on:
@@ -347,10 +348,11 @@ jobs:
               gcp: '${{ needs.build-gcp.result }}'
             };
 
-            let summary = '## Packer Build Summary\\n\\n';
+            let summary = '## Packer Build Summary\n\n';
             for (const [provider, result] of Object.entries(results)) {
               const emoji = result === 'success' ? '✅' : result === 'failure' ? '❌' : '⏭️';
-              summary += `- ${provider.toUpperCase()}: ${emoji} ${result}\\n`;
+              summary += `- ${provider.toUpperCase()}: ${emoji} ${result}\n`;
             }
 
             console.log(summary);
+{% endraw %}

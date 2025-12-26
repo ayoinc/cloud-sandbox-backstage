@@ -1,3 +1,4 @@
+{% raw %}
 # =============================================================================
 # Azure Static Web App - Terraform CI/CD Pipeline
 # =============================================================================
@@ -341,7 +342,8 @@ jobs:
             const fs = require('fs');
             const testResults = fs.readFileSync('test-results.txt', 'utf8');
             const truncatedResults = testResults.length > 3000 
-              ? testResults.substring(0, 3000) + '\n...(truncated)'
+              ? testResults.substring(0, 3000) + '
+...(truncated)'
               : testResults;
 
             const output = `## Terraform Test Results
@@ -596,7 +598,8 @@ jobs:
             const fs = require('fs');
             const planOutput = fs.readFileSync('plan-output.txt', 'utf8');
             const truncatedPlan = planOutput.length > 60000 
-              ? planOutput.substring(0, 60000) + '\n...(truncated due to size)'
+              ? planOutput.substring(0, 60000) + '
+...(truncated due to size)'
               : planOutput;
 
             const exitCode = '${{ steps.plan.outputs.exit_code }}';
@@ -1151,7 +1154,8 @@ jobs:
             const fs = require('fs');
             const driftOutput = fs.readFileSync('drift-output.txt', 'utf8');
             const truncatedOutput = driftOutput.length > 60000 
-              ? driftOutput.substring(0, 60000) + '\n...(truncated)'
+              ? driftOutput.substring(0, 60000) + '
+...(truncated)'
               : driftOutput;
 
             github.rest.issues.create({
@@ -1223,3 +1227,4 @@ jobs:
           echo "**Triggered by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
           echo "**Event:** \`${{ github.event_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Ref:** \`${{ github.ref }}\`" >> $GITHUB_STEP_SUMMARY
+{% endraw %}

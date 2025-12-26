@@ -1,3 +1,4 @@
+{% raw %}
 # =============================================================================
 # AWS EKS Infrastructure Pipeline
 # =============================================================================
@@ -322,7 +323,9 @@ jobs:
             // Truncate if too long
             const maxLength = 30000;
             const truncatedOutput = testOutput.length > maxLength 
-              ? testOutput.substring(0, maxLength) + '\n\n... (truncated)'
+              ? testOutput.substring(0, maxLength) + '
+
+... (truncated)'
               : testOutput;
 
             const body = `### Terraform Test Results ${icon}
@@ -577,7 +580,9 @@ jobs:
             // Truncate if too long
             const maxLength = 60000;
             const truncatedPlan = plan.length > maxLength 
-              ? plan.substring(0, maxLength) + '\n\n... (truncated, see workflow logs for full output)'
+              ? plan.substring(0, maxLength) + '
+
+... (truncated, see workflow logs for full output)'
               : plan;
 
             const icon = hasChanges ? '!' : '';
@@ -963,9 +968,13 @@ jobs:
               'plan-dev': '${{ needs.plan-dev.result }}'
             };
 
-            let summary = '## AWS EKS Pipeline Summary\n\n';
-            summary += '| Stage | Status |\n';
-            summary += '|-------|--------|\n';
+            let summary = '## AWS EKS Pipeline Summary
+
+';
+            summary += '| Stage | Status |
+';
+            summary += '|-------|--------|
+';
 
             const statusEmoji = {
               success: 'Passed',
@@ -976,22 +985,37 @@ jobs:
 
             for (const [job, status] of Object.entries(jobs)) {
               const emoji = status === 'success' ? '' : status === 'failure' ? '' : '';
-              summary += `| ${job} | ${statusEmoji[status] || status} |\n`;
+              summary += `| ${job} | ${statusEmoji[status] || status} |
+`;
             }
 
-            summary += '\n### EKS Cluster Information\n\n';
-            summary += '- **Cluster Name:** ${{ values.name }}\n';
-            summary += '- **Region:** ${{ env.AWS_REGION }}\n';
-            summary += '- **Kubernetes Version:** ${{ values.kubernetes_version }}\n';
-            summary += '\n### Next Steps\n\n';
+            summary += '
+### EKS Cluster Information
+
+';
+            summary += '- **Cluster Name:** ${{ values.name }}
+';
+            summary += '- **Region:** ${{ env.AWS_REGION }}
+';
+            summary += '- **Kubernetes Version:** ${{ values.kubernetes_version }}
+';
+            summary += '
+### Next Steps
+
+';
 
             if (jobs.validate === 'success' && jobs.security === 'success') {
-              summary += '1. Review the plan output in the PR comments\n';
-              summary += '2. Merge the PR to main branch\n';
-              summary += '3. Manually trigger the Apply workflow from Actions tab\n';
-              summary += '4. Configure kubectl: `aws eks update-kubeconfig --name <cluster-name> --region <region>`\n';
+              summary += '1. Review the plan output in the PR comments
+';
+              summary += '2. Merge the PR to main branch
+';
+              summary += '3. Manually trigger the Apply workflow from Actions tab
+';
+              summary += '4. Configure kubectl: `aws eks update-kubeconfig --name <cluster-name> --region <region>`
+';
             } else {
-              summary += 'Fix the failing checks before proceeding.\n';
+              summary += 'Fix the failing checks before proceeding.
+';
             }
 
             await core.summary.addRaw(summary).write();
@@ -1000,3 +1024,4 @@ jobs:
             if (failed) {
               core.setFailed('One or more pipeline stages failed');
             }
+{% endraw %}

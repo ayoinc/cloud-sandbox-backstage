@@ -1,3 +1,4 @@
+{% raw %}
 # =============================================================================
 # GCP Cloud SQL - Terraform CI/CD Pipeline
 # =============================================================================
@@ -340,7 +341,8 @@ jobs:
             const fs = require('fs');
             const testResults = fs.readFileSync('test-results.txt', 'utf8');
             const truncatedResults = testResults.length > 3000 
-              ? testResults.substring(0, 3000) + '\n...(truncated)'
+              ? testResults.substring(0, 3000) + '
+...(truncated)'
               : testResults;
 
             const output = `## Terraform Test Results
@@ -641,3 +643,4 @@ jobs:
           echo "**Triggered by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
           echo "**Event:** \`${{ github.event_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Ref:** \`${{ github.ref }}\`" >> $GITHUB_STEP_SUMMARY
+{% endraw %}

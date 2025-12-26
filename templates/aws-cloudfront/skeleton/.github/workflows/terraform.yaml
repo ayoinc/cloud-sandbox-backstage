@@ -1,3 +1,4 @@
+{% raw %}
 # =============================================================================
 # AWS CloudFront Infrastructure Pipeline
 # =============================================================================
@@ -495,7 +496,9 @@ jobs:
             // Truncate if too long
             const maxLength = 60000;
             const truncatedPlan = plan.length > maxLength 
-              ? plan.substring(0, maxLength) + '\n\n... (truncated, see workflow logs for full output)'
+              ? plan.substring(0, maxLength) + '
+
+... (truncated, see workflow logs for full output)'
               : plan;
 
             const icon = hasChanges ? '!' : '';
@@ -848,9 +851,13 @@ jobs:
               'plan-dev': '${{ needs.plan-dev.result }}'
             };
 
-            let summary = '## AWS CloudFront Pipeline Summary\n\n';
-            summary += '| Stage | Status |\n';
-            summary += '|-------|--------|\n';
+            let summary = '## AWS CloudFront Pipeline Summary
+
+';
+            summary += '| Stage | Status |
+';
+            summary += '|-------|--------|
+';
 
             const statusEmoji = {
               success: 'Passed',
@@ -860,23 +867,39 @@ jobs:
             };
 
             for (const [job, status] of Object.entries(jobs)) {
-              summary += `| ${job} | ${statusEmoji[status] || status} |\n`;
+              summary += `| ${job} | ${statusEmoji[status] || status} |
+`;
             }
 
-            summary += '\n### CloudFront Distribution Information\n\n';
-            summary += '- **Distribution Name:** ${{ values.name }}\n';
-            summary += '- **Price Class:** ${{ values.price_class }}\n';
-            summary += '- **Compression:** ${{ values.enable_compression }}\n';
-            summary += '- **Viewer Protocol:** ${{ values.viewer_protocol_policy }}\n';
-            summary += '\n### Next Steps\n\n';
+            summary += '
+### CloudFront Distribution Information
+
+';
+            summary += '- **Distribution Name:** ${{ values.name }}
+';
+            summary += '- **Price Class:** ${{ values.price_class }}
+';
+            summary += '- **Compression:** ${{ values.enable_compression }}
+';
+            summary += '- **Viewer Protocol:** ${{ values.viewer_protocol_policy }}
+';
+            summary += '
+### Next Steps
+
+';
 
             if (jobs.validate === 'success' && jobs.security === 'success') {
-              summary += '1. Review the plan output in the PR comments\n';
-              summary += '2. Merge the PR to main branch\n';
-              summary += '3. Manually trigger the Apply workflow from Actions tab\n';
-              summary += '4. Access content via the CloudFront domain\n';
+              summary += '1. Review the plan output in the PR comments
+';
+              summary += '2. Merge the PR to main branch
+';
+              summary += '3. Manually trigger the Apply workflow from Actions tab
+';
+              summary += '4. Access content via the CloudFront domain
+';
             } else {
-              summary += 'Fix the failing checks before proceeding.\n';
+              summary += 'Fix the failing checks before proceeding.
+';
             }
 
             await core.summary.addRaw(summary).write();
@@ -885,3 +908,4 @@ jobs:
             if (failed) {
               core.setFailed('One or more pipeline stages failed');
             }
+{% endraw %}
