@@ -1,0 +1,103 @@
+name: Terraform AWS Services
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'catalog/aws-services/modules/**'
+      - '.github/workflows/terraform-aws.yaml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'catalog/aws-services/modules/**'
+      - '.github/workflows/terraform-aws.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  validate:
+    name: Validate Terraform
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - lambda
+          - s3-bucket
+          - rds-aurora
+          - ecs-service
+          - api-gateway
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.6'
+
+      - name: Terraform Format
+        run: terraform fmt -check -recursive
+        working-directory: catalog/aws-services/modules/${{ matrix.module }}
+        continue-on-error: true
+
+      - name: Terraform Init
+        run: terraform init -backend=false
+        working-directory: catalog/aws-services/modules/${{ matrix.module }}
+
+      - name: Terraform Validate
+        run: terraform validate
+        working-directory: catalog/aws-services/modules/${{ matrix.module }}
+
+  security:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    needs: [validate]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run tfsec
+        uses: aquasecurity/tfsec-action@v1.0.0
+        with:
+          working_directory: catalog/aws-services/modules
+          soft_fail: true
+
+      - name: Run checkov
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: catalog/aws-services/modules
+          framework: terraform
+          output_format: cli,sarif
+          output_file_path: console,checkov-results.sarif
+          soft_fail: true
+
+      - name: Upload Checkov SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: checkov-results.sarif
+        continue-on-error: true
+
+  docs:
+    name: Generate Documentation
+    runs-on: ubuntu-latest
+    needs: [validate]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Generate terraform-docs
+        uses: terraform-docs/gh-actions@v1.0.0
+        with:
+          working-dir: catalog/aws-services/modules/lambda,catalog/aws-services/modules/s3-bucket
+          output-file: README.md
+          output-method: inject
+          git-push: 'true'
