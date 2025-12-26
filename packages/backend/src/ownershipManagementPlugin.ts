@@ -4,7 +4,7 @@ import {
 } from '@backstage/backend-plugin-api';
 import { catalogServiceRef } from '@backstage/plugin-catalog-node/alpha';
 import { Router } from 'express';
-import express from 'express';
+import * as express from 'express';
 
 /**
  * =============================================================================
@@ -541,10 +541,18 @@ export const ownershipManagementPlugin = createBackendPlugin({
           }
         });
 
-        // DELETE /api/ownership/overrides/:entityRef - Remove an ownership override
-        router.delete('/overrides/:entityRef(*)', async (req, res) => {
+        // DELETE /api/ownership/overrides - Remove an ownership override
+        // entityRef is passed as a query parameter since it contains slashes (e.g., component:default/my-app)
+        router.delete('/overrides', async (req, res) => {
           try {
-            const { entityRef } = req.params;
+            const entityRef = req.query.entityRef as string;
+
+            if (!entityRef) {
+              res
+                .status(400)
+                .json({ error: 'entityRef query parameter is required' });
+              return;
+            }
 
             const currentUser = await getCurrentUser(req);
             if (!currentUser) {

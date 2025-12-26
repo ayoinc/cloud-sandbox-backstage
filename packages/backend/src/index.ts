@@ -60,6 +60,12 @@ backend.add(import('./githubTeamSyncPlugin'));
 // Ownership Management plugin - orphan detection and ownership reassignment
 backend.add(import('./ownershipManagementPlugin'));
 
+// Catalog Cleanup plugin - automatically removes orphaned locations
+backend.add(import('./catalogCleanupPlugin'));
+
+// TechDocs Build Queue plugin - proactively builds docs with retry logic
+backend.add(import('./techdocsQueuePlugin'));
+
 // search plugin
 backend.add(import('@backstage/plugin-search-backend'));
 
@@ -96,11 +102,11 @@ backend.add(import('@backstage/plugin-signals-backend'));
 // =============================================================================
 // The events backend provides infrastructure for event publishing/subscribing
 // Used by catalog, scaffolder, and other plugins to emit events
-// 
+//
 // NOTE: Disabled due to TypeScript bundler module resolution issues.
 // The @backstage/plugin-events-backend package cannot be resolved during
 // live TypeScript compilation in development mode.
-// 
+//
 // RabbitMQ is available in the Docker Compose stack for future integration.
 // To implement RabbitMQ events, consider:
 // 1. Pre-compiling the backend before running

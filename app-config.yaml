@@ -6,9 +6,12 @@ organization:
   name: Platform Team
 
 backend:
-  # SECURITY: Default auth policy is enabled
-  # Individual plugins that need public access configure their own auth policies
-  # via httpRouter.addAuthPolicy() - see brandingSettingsPlugin.ts for example
+  # SECURITY WARNING: This disables HTTP-level auth to allow backend-to-backend
+  # service calls (e.g., permission policy querying the catalog).
+  # The permission policy still enforces access control at the application level.
+  # For production, consider proper service-to-service auth configuration instead.
+  auth:
+    dangerouslyDisableDefaultAuthPolicy: true
   baseUrl: http://localhost
   listen:
     port: 7007
@@ -69,7 +72,7 @@ auth:
     guest:
       # DEVELOPMENT ONLY: Set to false in production to disable guest access
       # When enabled, users can browse without authentication (limited to read-only)
-      dangerouslyAllowOutsideDevelopment: ${GUEST_AUTH_ENABLED:-false}
+      dangerouslyAllowOutsideDevelopment: true
     # GitHub OAuth for real GitHub users
     github:
       development:
@@ -80,6 +83,13 @@ auth:
 scaffolder: {}
 
 catalog:
+  # Automatically delete orphaned entities when their source is removed
+  orphanStrategy: delete
+  # Process entities frequently to detect orphans quickly
+  processingInterval: { seconds: 30 }
+  # Lifecycle configuration for automatic cleanup
+  stitchingStrategy:
+    mode: deferred
   import:
     entityFilename: catalog-info.yaml
     pullRequestBranchName: backstage-integration

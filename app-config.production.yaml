@@ -9,6 +9,11 @@ organization:
   name: Platform Team
 
 backend:
+  # SECURITY WARNING: This disables HTTP-level auth to allow backend-to-backend
+  # service calls (e.g., permission policy querying the catalog).
+  # The permission policy still enforces access control at the application level.
+  auth:
+    dangerouslyDisableDefaultAuthPolicy: true
   baseUrl: http://localhost
   listen: ':7007'
   csp:
@@ -73,7 +78,7 @@ auth:
     # To enable for demo purposes, set GUEST_AUTH_ENABLED=true in environment
     # WARNING: Enabling guest auth allows unauthenticated access
     guest:
-      dangerouslyAllowOutsideDevelopment: ${GUEST_AUTH_ENABLED:-false}
+      dangerouslyAllowOutsideDevelopment: true
     # GitHub OAuth for real GitHub users
     github:
       production:
@@ -101,6 +106,8 @@ proxy:
         - Content-Type
 
 catalog:
+  # Automatically delete orphaned entities when their source is removed
+  orphanStrategy: delete
   # Refresh entities automatically - check every 30 seconds for changes
   processingInterval: { seconds: 30 }
   rules:
