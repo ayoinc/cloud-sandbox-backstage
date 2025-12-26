@@ -1,0 +1,17 @@
+---
+# Ansible Galaxy requirements file
+# Install with: ansible-galaxy install -r requirements.yml
+
+collections:
+  # Community Docker collection for container management
+  - name: community.docker
+    version: ">=3.4.0"
+  
+  # Community General collection for common modules
+  - name: community.general
+    version: ">=7.0.0"
+
+roles: []
+  # Add external roles here if needed
+  # - name: geerlingguy.docker
+  #   version: "6.1.0"

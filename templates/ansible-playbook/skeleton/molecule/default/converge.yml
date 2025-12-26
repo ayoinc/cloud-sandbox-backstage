@@ -1,0 +1,12 @@
+---
+- name: Converge
+  hosts: all
+  become: true
+
+  vars:
+    # Define variables needed for testing
+    app_name: "${{ values.name }}"
+
+  tasks:
+    - name: Include the main playbook
+      ansible.builtin.include_tasks: ../../playbook.yml

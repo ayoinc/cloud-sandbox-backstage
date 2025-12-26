@@ -1,0 +1,26 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+
+    - name: Gather package facts
+      ansible.builtin.package_facts:
+        manager: auto
+
+    - name: Verify playbook executed successfully
+      ansible.builtin.debug:
+        msg: "Verification complete - playbook executed successfully"
+
+    # Add your verification tasks below
+    # Example: Check if a service is running
+    # - name: Verify service is running
+    #   ansible.builtin.assert:
+    #     that:
+    #       - "'my_service' in ansible_facts.services"
+    #       - "ansible_facts.services['my_service'].state == 'running'"
+    #     fail_msg: "Service is not running"
+    #     success_msg: "Service is running as expected"

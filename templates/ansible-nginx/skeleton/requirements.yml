@@ -1,0 +1,17 @@
+---
+# Ansible Galaxy requirements file
+# Install with: ansible-galaxy install -r requirements.yml
+
+collections:
+  # Community General collection for common modules
+  - name: community.general
+    version: ">=7.0.0"
+  
+  # Ansible POSIX collection for authorized_key, sysctl, etc.
+  - name: ansible.posix
+    version: ">=1.5.0"
+
+roles: []
+  # Add external roles here if needed
+  # - name: geerlingguy.nginx
+  #   version: "3.2.0"

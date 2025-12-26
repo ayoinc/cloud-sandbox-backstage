@@ -1,0 +1,10 @@
+site_name: "${{ values.name }}"
+site_description: "Documentation for ${{ values.name }} Kubernetes Microservice"
+docs_dir: docs
+repo_url: https://github.com/${{ values.owner }}/${{ values.name }}
+
+nav:
+  - Home: index.md
+
+plugins:
+  - techdocs-core
