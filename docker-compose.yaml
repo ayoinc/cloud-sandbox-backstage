@@ -10,16 +10,7 @@ x-healthcheck-defaults: &healthcheck-defaults
   retries: 3
   start_period: 40s
 
-# Fluentd logging driver configuration for OpenSearch integration
-x-logging-fluentd: &logging-fluentd
-  driver: fluentd
-  options:
-    fluentd-address: 'localhost:24224'
-    fluentd-async: 'true'
-    fluentd-retry-wait: '1s'
-    fluentd-max-retries: '30'
-
-# JSON logging driver as fallback (when Fluentd not running)
+# JSON logging driver
 x-logging-json: &logging-json
   driver: json-file
   options:
@@ -42,8 +33,6 @@ volumes:
     driver: local
   techdocs_data:
     driver: local
-  opensearch_data:
-    driver: local
 
 services:
   # Nginx reverse proxy - main entry point
@@ -61,13 +50,7 @@ services:
     networks:
       - backstage-network
     logging:
-      <<: *logging-fluentd
-      options:
-        fluentd-address: 'localhost:24224'
-        fluentd-async: 'true'
-        fluentd-retry-wait: '1s'
-        fluentd-max-retries: '30'
-        tag: docker.backstage-nginx
+      <<: *logging-json
     healthcheck:
       <<: *healthcheck-defaults
       test:
@@ -120,13 +103,7 @@ services:
     networks:
       - backstage-network
     logging:
-      <<: *logging-fluentd
-      options:
-        fluentd-address: 'localhost:24224'
-        fluentd-async: 'true'
-        fluentd-retry-wait: '1s'
-        fluentd-max-retries: '30'
-        tag: docker.backstage-app
+      <<: *logging-json
     healthcheck:
       <<: *healthcheck-defaults
       test:
