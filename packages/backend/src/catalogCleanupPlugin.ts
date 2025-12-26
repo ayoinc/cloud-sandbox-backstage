@@ -97,9 +97,20 @@ export default createBackendPlugin({
         const GITHUB_VALIDATION_ENABLED = true;
 
         // GitHub configuration
-        const githubToken =
-          config.getOptionalString('integrations.github.0.token') ||
-          process.env.GITHUB_TOKEN;
+        // Try to get GitHub token from integrations config (first GitHub integration)
+        let githubToken: string | undefined;
+        try {
+          const githubConfigs = config.getOptionalConfigArray(
+            'integrations.github',
+          );
+          if (githubConfigs && githubConfigs.length > 0) {
+            githubToken = githubConfigs[0].getOptionalString('token');
+          }
+        } catch {
+          // Ignore config errors, fall back to env var
+        }
+        githubToken = githubToken || process.env.GITHUB_TOKEN;
+
         const webhookSecret =
           config.getOptionalString('catalogCleanup.webhookSecret') ||
           process.env.GITHUB_WEBHOOK_SECRET;
