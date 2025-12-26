@@ -170,9 +170,6 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
-    outputs:
-      eslint_issues: ${{ steps.lint_results.outputs.eslint_issues }}
-      prettier_status: ${{ steps.lint_results.outputs.prettier_status }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -191,43 +188,11 @@ jobs:
 
       - name: Run ESLint
         id: eslint
-        run: |
-          yarn lint:all --format json --output-file eslint-results.json 2>/dev/null || true
-          yarn lint:all
-        continue-on-error: true
+        run: yarn lint:all
 
       - name: Check Prettier formatting
         id: prettier
         run: yarn prettier:check
-        continue-on-error: true
-
-      - name: Collect lint results
-        id: lint_results
-        if: always()
-        run: |
-          # Count ESLint issues
-          if [ -f eslint-results.json ]; then
-            errors=$(jq '[.[].errorCount] | add // 0' eslint-results.json)
-            warnings=$(jq '[.[].warningCount] | add // 0' eslint-results.json)
-            echo "eslint_issues=${errors} errors, ${warnings} warnings" >> $GITHUB_OUTPUT
-          else
-            echo "eslint_issues=N/A" >> $GITHUB_OUTPUT
-          fi
-
-          # Prettier status
-          if [ "${{ steps.prettier.outcome }}" == "success" ]; then
-            echo "prettier_status=Passed" >> $GITHUB_OUTPUT
-          else
-            echo "prettier_status=Failed" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Upload lint results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: lint-results
-          path: eslint-results.json
-          retention-days: 7
 
       - name: Generate lint summary
         if: always()
@@ -236,13 +201,17 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| ESLint | ${{ steps.lint_results.outputs.eslint_issues }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Prettier | ${{ steps.lint_results.outputs.prettier_status }} |" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.eslint.outcome }}" == "success" ]; then
+            echo "| ESLint | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| ESLint | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ steps.prettier.outcome }}" == "success" ]; then
+            echo "| Prettier | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Prettier | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "" >> $GITHUB_STEP_SUMMARY
-
-      - name: Fail if lint errors
-        if: steps.eslint.outcome == 'failure' || steps.prettier.outcome == 'failure'
-        run: exit 1
 
   # ===========================================================================
   # Docker Build and Push Job
