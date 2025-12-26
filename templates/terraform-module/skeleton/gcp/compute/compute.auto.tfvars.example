@@ -1,0 +1,129 @@
+# -----------------------------------------------------------------------------
+# GCP Compute Module - Example tfvars
+# -----------------------------------------------------------------------------
+
+# Project Configuration
+project_id  = "my-gcp-project"
+region      = "us-central1"
+zone        = "us-central1-a"
+environment = "dev"
+
+# Network Configuration (from network module)
+network_self_link    = "projects/my-gcp-project/global/networks/my-vpc"
+subnetwork_self_link = "projects/my-gcp-project/regions/us-central1/subnetworks/my-subnet"
+enable_external_ip   = false
+
+# Instance Configuration
+machine_type      = "e2-medium"
+source_image      = ""  # Leave empty for latest Debian 12
+boot_disk_size_gb = 20
+boot_disk_type    = "pd-balanced"
+data_disk_size_gb = 0   # Set > 0 to add data disk
+preemptible       = false
+enable_os_login   = true
+
+# Shielded Instance Configuration
+enable_secure_boot          = true
+enable_vtpm                 = true
+enable_integrity_monitoring = true
+
+# Auto Scaling Configuration
+min_replicas                 = 1
+max_replicas                 = 5
+target_cpu_utilization       = 0.6
+autoscaler_cooldown_period   = 60
+predictive_autoscaling_mode  = "NONE"
+autoscaler_mode              = "ON"
+scale_in_control_max_replicas = 1
+scale_in_control_time_window_sec = 600
+
+# Instance Group Manager Configuration
+distribution_policy_zones = ["us-central1-a", "us-central1-b", "us-central1-c"]
+distribution_policy_target_shape = "EVEN"
+
+named_ports = [
+  {
+    name = "http"
+    port = 80
+  },
+  {
+    name = "https"
+    port = 443
+  }
+]
+
+# Update Policy
+update_policy_type                   = "PROACTIVE"
+update_policy_minimal_action         = "REPLACE"
+update_policy_most_disruptive_action = "REPLACE"
+update_policy_max_surge_fixed        = 1
+update_policy_max_unavailable_fixed  = 1
+update_policy_replacement_method     = "SUBSTITUTE"
+
+auto_healing_initial_delay_sec = 300
+
+# Health Check Configuration
+health_check_type              = "HTTP"
+health_check_port              = 80
+health_check_path              = "/health"
+health_check_interval_sec      = 10
+health_check_timeout_sec       = 5
+health_check_healthy_threshold = 2
+health_check_unhealthy_threshold = 3
+enable_health_check_logging    = false
+
+# Service Account Configuration
+service_account_roles = [
+  "roles/logging.logWriter",
+  "roles/monitoring.metricWriter",
+  "roles/monitoring.viewer"
+]
+
+service_account_scopes = [
+  "https://www.googleapis.com/auth/cloud-platform"
+]
+
+# Firewall Configuration
+internal_source_ranges = ["10.0.0.0/8"]
+enable_ssh_firewall    = false
+ssh_source_ranges      = ["10.0.0.0/8"]
+enable_http_firewall   = true
+http_source_ranges     = ["0.0.0.0/0"]
+
+# Network Tags
+tags = ["compute-instance", "web-server"]
+
+# Labels
+labels = {
+  team        = "platform"
+  cost_center = "engineering"
+  application = "web-app"
+}
+
+# Optional: Scaling Schedules
+# scaling_schedules = {
+#   "business-hours" = {
+#     description           = "Scale up during business hours"
+#     min_required_replicas = 3
+#     schedule              = "0 8 * * MON-FRI"
+#     time_zone             = "America/New_York"
+#     duration_sec          = 36000  # 10 hours
+#     disabled              = false
+#   }
+# }
+
+# Optional: Custom Firewall Rules
+# custom_firewall_rules = {
+#   "allow-custom-port" = {
+#     description   = "Allow custom application port"
+#     direction     = "INGRESS"
+#     priority      = 1000
+#     source_ranges = ["10.0.0.0/8"]
+#     allow = [
+#       {
+#         protocol = "tcp"
+#         ports    = ["8080"]
+#       }
+#     ]
+#   }
+# }

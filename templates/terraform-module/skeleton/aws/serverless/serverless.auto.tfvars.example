@@ -1,0 +1,58 @@
+# -----------------------------------------------------------------------------
+# AWS Serverless Module - Example tfvars
+# -----------------------------------------------------------------------------
+
+project     = "myproject"
+environment = "dev"
+
+# VPC Configuration (optional - for VPC-enabled Lambda)
+vpc_id     = null
+subnet_ids = []
+
+# Encryption
+kms_key_arn = null
+
+# Lambda Configuration
+runtime    = "python3.11"
+handler    = "handler.main"
+memory_size = 256
+timeout     = 30
+
+# Deployment
+deployment_package = null  # Path to zip file
+image_uri          = null  # Container image URI
+
+# Environment Variables
+environment_variables = {
+  LOG_LEVEL = "INFO"
+}
+
+# Concurrency
+reserved_concurrency    = -1  # No limit
+provisioned_concurrency = 0   # No provisioned concurrency
+
+# Tracing
+enable_xray = true
+
+# Logging
+log_retention_days = 30
+
+# API Gateway
+enable_api_gateway   = true
+cors_allowed_origins = ["*"]
+api_throttle_burst   = 100
+api_throttle_rate    = 50
+
+# Scheduled Execution (optional)
+schedule_expression = null  # e.g., "rate(5 minutes)" or "cron(0 12 * * ? *)"
+
+# SQS Configuration
+enable_sqs     = false
+enable_dlq     = true
+sqs_batch_size = 10
+
+# Tags
+tags = {
+  Team       = "platform"
+  CostCenter = "engineering"
+}

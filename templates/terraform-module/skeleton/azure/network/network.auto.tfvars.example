@@ -1,0 +1,29 @@
+# -----------------------------------------------------------------------------
+# Azure Network Module - Example tfvars
+# -----------------------------------------------------------------------------
+
+project     = "myproject"
+environment = "dev"
+location    = "eastus2"
+
+# Resource Group (optional - leave null to create a new one)
+# resource_group_name = "rg-existing-network"
+
+# Virtual Network Configuration
+vnet_cidr    = "10.0.0.0/16"
+subnet_count = 3
+
+# NAT Gateway Configuration
+enable_nat       = true
+nat_idle_timeout = 10  # Minutes (4-120)
+
+# High Availability Options
+enable_zone_redundancy   = true   # Zone-redundant NAT Gateway public IP
+enable_service_endpoints = true   # Enable service endpoints on subnets
+
+# Tags
+tags = {
+  Team        = "platform"
+  CostCenter  = "engineering"
+  Application = "network-infrastructure"
+}

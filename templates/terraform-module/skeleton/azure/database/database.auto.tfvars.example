@@ -1,0 +1,182 @@
+# -----------------------------------------------------------------------------
+# Azure Database Module - Example Configuration
+# -----------------------------------------------------------------------------
+# Copy this file to database.auto.tfvars and customize for your environment
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# Common Settings
+# -----------------------------------------------------------------------------
+
+project             = "myproject"
+environment         = "dev"
+location            = "eastus"
+resource_group_name = "rg-myproject-dev"
+
+# -----------------------------------------------------------------------------
+# Network Settings
+# -----------------------------------------------------------------------------
+
+# Virtual network ID for private DNS zone linking
+vnet_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-myproject-dev/providers/Microsoft.Network/virtualNetworks/vnet-myproject-dev"
+
+# Delegated subnet for PostgreSQL Flexible Server (must have Microsoft.DBforPostgreSQL/flexibleServers delegation)
+subnet_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-myproject-dev/providers/Microsoft.Network/virtualNetworks/vnet-myproject-dev/subnets/snet-database"
+
+# Optional: Separate subnet for private endpoints
+# private_endpoint_subnet_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-myproject-dev/providers/Microsoft.Network/virtualNetworks/vnet-myproject-dev/subnets/snet-private-endpoints"
+
+# Set to true only if not using VNet integration (delegated subnet)
+create_private_endpoint = false
+
+# -----------------------------------------------------------------------------
+# Key Vault Settings
+# -----------------------------------------------------------------------------
+
+# Key Vault for storing database credentials
+key_vault_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-myproject-dev/providers/Microsoft.KeyVault/vaults/kv-myproject-dev"
+
+# -----------------------------------------------------------------------------
+# PostgreSQL Server Settings
+# -----------------------------------------------------------------------------
+
+# PostgreSQL version (11, 12, 13, 14, 15, 16)
+postgresql_version = "15"
+
+# SKU options:
+# Burstable: B_Standard_B1ms, B_Standard_B2s, B_Standard_B2ms, B_Standard_B4ms, B_Standard_B8ms
+# General Purpose: GP_Standard_D2s_v3, GP_Standard_D4s_v3, GP_Standard_D8s_v3, GP_Standard_D16s_v3
+# Memory Optimized: MO_Standard_E2s_v3, MO_Standard_E4s_v3, MO_Standard_E8s_v3
+sku_name = "B_Standard_B1ms"
+
+# Storage in MB (32 GB to 16 TB)
+storage_mb        = 32768
+auto_grow_enabled = true
+
+# Admin credentials
+admin_username = "psqladmin"
+database_name  = "appdb"
+
+# Availability zone (1, 2, or 3)
+availability_zone = "1"
+
+# -----------------------------------------------------------------------------
+# Backup Settings
+# -----------------------------------------------------------------------------
+
+# Backup retention (7-35 days)
+backup_retention_days = 7
+
+# Geo-redundant backup (requires General Purpose or Memory Optimized SKU)
+geo_redundant_backup = false
+
+# -----------------------------------------------------------------------------
+# High Availability Settings
+# -----------------------------------------------------------------------------
+
+# Enable high availability (requires General Purpose or Memory Optimized SKU)
+enable_high_availability = false
+
+# High availability mode: SameZone or ZoneRedundant
+high_availability_mode = "ZoneRedundant"
+
+# Standby availability zone (different from primary zone)
+standby_availability_zone = "2"
+
+# -----------------------------------------------------------------------------
+# Authentication Settings
+# -----------------------------------------------------------------------------
+
+enable_password_auth = true
+enable_aad_auth      = false
+# tenant_id          = "00000000-0000-0000-0000-000000000000"
+
+# -----------------------------------------------------------------------------
+# Firewall Rules
+# -----------------------------------------------------------------------------
+
+# Note: When using VNet integration, firewall rules are typically not needed
+
+firewall_rules = {
+  # "office-ip" = {
+  #   start_ip_address = "203.0.113.0"
+  #   end_ip_address   = "203.0.113.255"
+  # }
+  # "vpn-ip" = {
+  #   start_ip_address = "198.51.100.1"
+  #   end_ip_address   = "198.51.100.1"
+  # }
+}
+
+# Allow Azure services to access (set to true for App Service, Functions, etc.)
+allow_azure_services = false
+
+# -----------------------------------------------------------------------------
+# PostgreSQL Configuration
+# -----------------------------------------------------------------------------
+
+postgresql_configurations = {
+  "azure.extensions"      = "PG_TRGM,BTREE_GIST,UUID-OSSP"
+  "log_checkpoints"       = "on"
+  "log_connections"       = "on"
+  "log_disconnections"    = "on"
+  "connection_throttling" = "on"
+}
+
+# Maintenance window (optional)
+# maintenance_window = {
+#   day_of_week  = 0  # 0 = Sunday, 6 = Saturday
+#   start_hour   = 2
+#   start_minute = 0
+# }
+
+# -----------------------------------------------------------------------------
+# Redis Cache Settings (Optional)
+# -----------------------------------------------------------------------------
+
+# Enable Redis Cache
+enable_redis = false
+
+# Redis SKU: Basic, Standard, or Premium
+# Basic: No SLA, no replication
+# Standard: SLA, primary/replica replication
+# Premium: SLA, clustering, VNet support, persistence
+redis_sku = "Standard"
+
+# Capacity (0-6 for Basic/Standard using C family, 1-4 for Premium using P family)
+redis_capacity = 1
+
+# Family: C for Basic/Standard, P for Premium
+redis_family = "C"
+
+# Eviction policy
+redis_maxmemory_policy = "volatile-lru"
+
+# Memory reservation (Standard and Premium only)
+redis_maxmemory_reserved              = 50
+redis_maxfragmentationmemory_reserved = 50
+
+# AOF backup (Premium only)
+redis_aof_backup_enabled = false
+# redis_aof_storage_connection_string = "DefaultEndpointsProtocol=https;..."
+
+# Patch schedule (optional)
+# redis_patch_schedule = {
+#   day_of_week        = "Sunday"
+#   start_hour_utc     = 2
+#   maintenance_window = "PT5H"
+# }
+
+# Private DNS zone for Redis (Premium only)
+# redis_private_dns_zone_id = "/subscriptions/.../privatelink.redis.cache.windows.net"
+
+# -----------------------------------------------------------------------------
+# Tags
+# -----------------------------------------------------------------------------
+
+tags = {
+  Project     = "myproject"
+  Environment = "dev"
+  ManagedBy   = "Terraform"
+  Owner       = "platform-team"
+}

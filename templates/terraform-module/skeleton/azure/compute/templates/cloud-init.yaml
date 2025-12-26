@@ -1,0 +1,139 @@
+#cloud-config
+# -----------------------------------------------------------------------------
+# Cloud-Init Configuration
+# Project: ${project}
+# Environment: ${environment}
+# -----------------------------------------------------------------------------
+
+# Update and upgrade packages on first boot
+package_update: true
+package_upgrade: true
+
+# Install required packages
+packages:
+  - apt-transport-https
+  - ca-certificates
+  - curl
+  - gnupg
+  - lsb-release
+  - jq
+  - htop
+  - vim
+  - git
+  - unzip
+  - net-tools
+  - software-properties-common
+
+# Configure system
+write_files:
+  # System banner
+  - path: /etc/motd
+    content: |
+      ================================================================================
+        Project:     ${project}
+        Environment: ${environment}
+        Managed by:  Terraform
+      ================================================================================
+    permissions: '0644'
+
+  # Azure CLI repository
+  - path: /etc/apt/sources.list.d/azure-cli.list
+    content: |
+      deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-archive-keyring.gpg] https://packages.microsoft.com/repos/azure-cli/ jammy main
+    permissions: '0644'
+
+  # Sysctl configuration for performance
+  - path: /etc/sysctl.d/99-custom.conf
+    content: |
+      # Network performance tuning
+      net.core.somaxconn = 65535
+      net.core.netdev_max_backlog = 65535
+      net.ipv4.tcp_max_syn_backlog = 65535
+      net.ipv4.tcp_fin_timeout = 30
+      net.ipv4.tcp_keepalive_time = 300
+      net.ipv4.tcp_keepalive_probes = 5
+      net.ipv4.tcp_keepalive_intvl = 15
+
+      # Memory tuning
+      vm.swappiness = 10
+      vm.dirty_ratio = 60
+      vm.dirty_background_ratio = 2
+    permissions: '0644'
+
+  # Simple health check endpoint
+  - path: /var/www/html/health
+    content: |
+      {"status": "healthy", "project": "${project}", "environment": "${environment}"}
+    permissions: '0644'
+
+  # Logrotate configuration for application logs
+  - path: /etc/logrotate.d/application
+    content: |
+      /var/log/application/*.log {
+          daily
+          missingok
+          rotate 14
+          compress
+          delaycompress
+          notifempty
+          create 0640 app app
+          sharedscripts
+      }
+    permissions: '0644'
+
+# Run commands on first boot
+runcmd:
+  # Import Microsoft signing key for Azure CLI
+  - curl -sL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-archive-keyring.gpg
+
+  # Install Azure CLI
+  - apt-get update
+  - apt-get install -y azure-cli
+
+  # Apply sysctl settings
+  - sysctl --system
+
+  # Create application user
+  - useradd -r -m -s /bin/bash app || true
+  - mkdir -p /var/log/application
+  - chown app:app /var/log/application
+
+  # Set up a minimal health check web server
+  - mkdir -p /var/www/html
+  - |
+    cat > /etc/systemd/system/health-server.service << 'EOF'
+    [Unit]
+    Description=Simple Health Check Server
+    After=network.target
+
+    [Service]
+    Type=simple
+    ExecStart=/usr/bin/python3 -m http.server 80 --directory /var/www/html
+    Restart=always
+    RestartSec=5
+
+    [Install]
+    WantedBy=multi-user.target
+    EOF
+
+  # Enable and start health check server
+  - systemctl daemon-reload
+  - systemctl enable health-server
+  - systemctl start health-server
+
+  # Configure automatic security updates
+  - |
+    cat > /etc/apt/apt.conf.d/20auto-upgrades << EOF
+    APT::Periodic::Update-Package-Lists "1";
+    APT::Periodic::Unattended-Upgrade "1";
+    APT::Periodic::AutocleanInterval "7";
+    EOF
+
+  # Set timezone
+  - timedatectl set-timezone UTC
+
+  # Log completion
+  - echo "Cloud-init completed for ${project}-${environment}" >> /var/log/cloud-init-output.log
+
+# Final message
+final_message: 'Cloud-init completed for ${project}-${environment} at $UPTIME seconds'

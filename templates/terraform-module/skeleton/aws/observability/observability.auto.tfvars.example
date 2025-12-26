@@ -1,0 +1,36 @@
+# -----------------------------------------------------------------------------
+# AWS Observability Module - Example tfvars
+# -----------------------------------------------------------------------------
+
+project     = "myproject"
+environment = "dev"
+
+# Encryption
+kms_key_arn = null  # Use KMS key from security module
+
+# Log Retention
+log_retention_days          = 30
+security_log_retention_days = 365
+
+# Dashboard
+enable_dashboard = true
+
+# Alarms
+enable_alarms   = true
+alarm_email     = "alerts@example.com"
+
+# Alarm Thresholds
+cpu_alarm_threshold         = 80
+memory_alarm_threshold      = 80
+rds_cpu_alarm_threshold     = 80
+rds_storage_alarm_threshold = 10  # GB
+error_log_threshold         = 10
+
+# X-Ray
+enable_xray = true
+
+# Tags
+tags = {
+  Team       = "platform"
+  CostCenter = "engineering"
+}

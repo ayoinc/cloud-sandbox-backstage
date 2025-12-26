@@ -1,0 +1,57 @@
+# -----------------------------------------------------------------------------
+# AWS Database Module - Example tfvars
+# -----------------------------------------------------------------------------
+
+project     = "myproject"
+environment = "dev"
+
+# Network Configuration
+vpc_id     = "vpc-xxxxxxxxx"
+subnet_ids = ["subnet-xxx", "subnet-yyy", "subnet-zzz"]
+
+# Security
+allowed_security_groups = ["sg-xxxxxxxxx"]
+kms_key_arn             = null  # Use default AWS managed key
+
+# RDS Configuration
+engine         = "postgres"
+engine_version = "15.4"
+instance_class = "db.t3.micro"
+
+# Storage
+allocated_storage     = 20
+max_allocated_storage = 100
+storage_type          = "gp3"
+
+# Database
+db_name     = "app"
+db_username = "dbadmin"
+
+# High Availability
+multi_az = false  # Set true for production
+
+# Maintenance
+maintenance_window = "sun:04:00-sun:05:00"
+backup_window      = "03:00-04:00"
+backup_retention_period = 7
+
+# Protection
+deletion_protection = false  # Set true for production
+
+# Monitoring
+performance_insights_enabled   = true
+performance_insights_retention = 7
+enhanced_monitoring_interval   = 60
+cloudwatch_logs_exports        = ["postgresql", "upgrade"]
+
+# ElastiCache (Redis)
+enable_elasticache       = true
+cache_node_type          = "cache.t3.micro"
+cache_num_nodes          = 1
+cache_snapshot_retention = 7
+
+# Tags
+tags = {
+  Team       = "platform"
+  CostCenter = "engineering"
+}

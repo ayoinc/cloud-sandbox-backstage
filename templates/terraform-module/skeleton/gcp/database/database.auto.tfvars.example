@@ -1,0 +1,81 @@
+# -----------------------------------------------------------------------------
+# GCP Database Module - Example tfvars
+# -----------------------------------------------------------------------------
+
+project_id  = "my-gcp-project"
+region      = "us-central1"
+environment = "dev"
+
+# Network Configuration
+network_self_link = "projects/my-gcp-project/global/networks/my-vpc"
+enable_private_ip = true
+enable_public_ip  = false
+require_ssl       = true
+
+# Cloud SQL Instance Configuration
+database_version  = "POSTGRES_15"
+tier              = "db-f1-micro"  # Use db-custom-2-4096 for production
+edition           = "ENTERPRISE"
+availability_type = "ZONAL"        # Use REGIONAL for production HA
+
+# Storage Configuration
+disk_size      = 10
+disk_type      = "PD_SSD"
+disk_autoresize = true
+
+# Database and User
+database_name = "appdb"
+user_name     = "dbadmin"
+
+# Backup Configuration
+backup_enabled                 = true
+backup_start_time              = "03:00"
+point_in_time_recovery_enabled = true
+transaction_log_retention_days = 7
+retained_backups               = 7
+
+# Maintenance Window (Sunday 4 AM UTC)
+maintenance_window_day          = 7
+maintenance_window_hour         = 4
+maintenance_window_update_track = "stable"
+
+# Query Insights
+query_insights_enabled  = true
+query_string_length     = 1024
+record_application_tags = true
+record_client_address   = true
+query_plans_per_minute  = 5
+
+# Database Flags (optional)
+database_flags = [
+  # {
+  #   name  = "log_min_duration_statement"
+  #   value = "1000"
+  # },
+  # {
+  #   name  = "log_connections"
+  #   value = "on"
+  # }
+]
+
+# Deletion Protection
+deletion_protection = false  # Set true for production
+
+# Memorystore Redis (optional)
+enable_redis         = false
+redis_tier           = "BASIC"       # Use STANDARD_HA for production
+redis_memory_size_gb = 1
+redis_version        = "REDIS_7_0"
+redis_auth_enabled   = true
+
+# Redis Configuration
+redis_configs = {
+  maxmemory-policy = "volatile-lru"
+}
+
+# Labels
+labels = {
+  team        = "platform"
+  cost_center = "engineering"
+  application = "myapp"
+}

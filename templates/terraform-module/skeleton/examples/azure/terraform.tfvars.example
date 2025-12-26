@@ -1,0 +1,11 @@
+# Azure Example Configuration
+environment               = "dev"
+project_name              = "my-project"
+azure_location            = "eastus"
+azure_resource_group_name = ""  # Leave empty to auto-generate
+azure_vnet_cidr           = "10.1.0.0/16"
+
+tags = {
+  CostCenter = "engineering"
+  Team       = "platform"
+}

@@ -1,0 +1,54 @@
+# -----------------------------------------------------------------------------
+# GCP Security Module - Example tfvars
+# -----------------------------------------------------------------------------
+
+project_id  = "my-gcp-project"
+region      = "us-central1"
+environment = "dev"
+
+# KMS Configuration
+kms_key_rotation_period  = "7776000s"  # 90 days
+kms_key_algorithm        = "GOOGLE_SYMMETRIC_ENCRYPTION"
+kms_key_protection_level = "SOFTWARE"  # Use "HSM" for hardware security module
+
+# Additional KMS key access (beyond the service account)
+kms_encrypter_decrypters = [
+  # "user:admin@example.com",
+  # "group:security-team@example.com",
+  # "serviceAccount:another-sa@my-gcp-project.iam.gserviceaccount.com"
+]
+
+# Service Account Roles
+service_account_roles = [
+  "roles/logging.logWriter",
+  "roles/monitoring.metricWriter",
+  "roles/monitoring.viewer",
+  "roles/cloudtrace.agent",
+  "roles/storage.objectViewer"
+]
+
+# Secret Accessors (beyond the service account)
+secret_accessors = [
+  # "user:developer@example.com",
+  # "group:dev-team@example.com",
+  # "serviceAccount:cicd@my-gcp-project.iam.gserviceaccount.com"
+]
+
+# Create service account key (use with caution - prefer workload identity)
+create_service_account_key = false
+
+# Organization Policies (requires org policy admin permissions)
+enable_org_policies          = false
+require_os_login             = true
+restrict_vm_external_ips     = false
+# allowed_policy_member_domains = ["example.com", "C0xxxxxxxx"]
+
+# Audit Logging
+enable_audit_logs = true
+
+# Labels
+labels = {
+  team        = "platform"
+  cost_center = "engineering"
+  owner       = "devops"
+}

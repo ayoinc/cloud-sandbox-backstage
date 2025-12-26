@@ -1,0 +1,113 @@
+# -----------------------------------------------------------------------------
+# GCP Storage Module - Example tfvars
+# -----------------------------------------------------------------------------
+
+project_id  = "my-gcp-project"
+environment = "dev"
+region      = "us-central1"
+
+# Cloud Storage Bucket Configuration
+bucket_suffix     = "data"
+storage_class     = "STANDARD"
+enable_versioning = true
+force_destroy     = false  # Set to true for dev environments
+
+# Encryption (use Cloud KMS key from security module)
+kms_key_name = null  # Uses Google-managed encryption if null
+# kms_key_name = "projects/my-gcp-project/locations/us-central1/keyRings/my-keyring/cryptoKeys/my-key"
+
+# Lifecycle Rules
+lifecycle_rules = [
+  {
+    action_type                          = "SetStorageClass"
+    action_storage_class                 = "NEARLINE"
+    condition_age_days                   = 30
+    condition_created_before             = null
+    condition_with_state                 = null
+    condition_matches_storage_class      = ["STANDARD"]
+    condition_num_newer_versions         = null
+    condition_days_since_noncurrent_time = null
+  },
+  {
+    action_type                          = "SetStorageClass"
+    action_storage_class                 = "COLDLINE"
+    condition_age_days                   = 90
+    condition_created_before             = null
+    condition_with_state                 = null
+    condition_matches_storage_class      = ["NEARLINE"]
+    condition_num_newer_versions         = null
+    condition_days_since_noncurrent_time = null
+  },
+  {
+    action_type                          = "Delete"
+    action_storage_class                 = null
+    condition_age_days                   = 365
+    condition_created_before             = null
+    condition_with_state                 = null
+    condition_matches_storage_class      = null
+    condition_num_newer_versions         = null
+    condition_days_since_noncurrent_time = null
+  }
+]
+
+# CORS Configuration (Optional - uncomment to enable)
+# cors_config = {
+#   origins          = ["https://example.com", "https://app.example.com"]
+#   methods          = ["GET", "HEAD", "PUT", "POST", "DELETE"]
+#   response_headers = ["Content-Type", "x-goog-meta-*"]
+#   max_age_seconds  = 3600
+# }
+
+# Logging Configuration (Optional - uncomment to enable)
+# logging_bucket = "my-gcp-project-logs-bucket"
+# logging_prefix = "storage-access-logs/"
+
+# Retention Policy (Optional - uncomment to enable)
+# retention_period_seconds = 2592000  # 30 days
+# retention_policy_is_locked = false
+
+# IAM Configuration
+bucket_viewers = [
+  # "user:viewer@example.com",
+  # "serviceAccount:my-sa@my-gcp-project.iam.gserviceaccount.com"
+]
+
+bucket_admins = [
+  # "user:admin@example.com",
+  # "group:storage-admins@example.com"
+]
+
+bucket_creators = [
+  # "serviceAccount:data-pipeline@my-gcp-project.iam.gserviceaccount.com"
+]
+
+# custom_iam_bindings = [
+#   {
+#     role   = "roles/storage.legacyBucketReader"
+#     member = "serviceAccount:legacy-app@my-gcp-project.iam.gserviceaccount.com"
+#   }
+# ]
+
+# Filestore Configuration (NFS Storage - Optional)
+enable_filestore      = false
+filestore_tier        = "BASIC_HDD"  # BASIC_HDD, BASIC_SSD, HIGH_SCALE_SSD, ENTERPRISE
+filestore_capacity_gb = 1024          # Minimum 1024 GB for BASIC tiers
+filestore_zone        = null          # Defaults to {region}-a
+filestore_share_name  = "share"
+filestore_network     = "default"
+# filestore_reserved_ip_range = "10.0.0.0/29"
+
+# filestore_nfs_export_options = [
+#   {
+#     ip_ranges   = ["10.0.0.0/8"]
+#     access_mode = "READ_WRITE"
+#     squash_mode = "NO_ROOT_SQUASH"
+#   }
+# ]
+
+# Labels
+labels = {
+  team        = "platform"
+  cost_center = "engineering"
+  application = "data-storage"
+}

@@ -1,0 +1,68 @@
+# -----------------------------------------------------------------------------
+# Azure Storage Module - Example tfvars
+# -----------------------------------------------------------------------------
+
+project             = "myproject"
+environment         = "dev"
+location            = "eastus"
+resource_group_name = "rg-myproject-dev"
+
+# Storage Account Configuration
+account_tier     = "Standard"
+replication_type = "LRS"  # Use GRS or RAGRS for production
+
+# Blob Settings
+enable_versioning               = true
+delete_retention_days           = 7
+container_delete_retention_days = 7
+
+# Containers to create
+container_names = ["data", "logs", "backups"]
+
+# Lifecycle Rules
+lifecycle_rules = [
+  {
+    name                                 = "archive-old-blobs"
+    enabled                              = true
+    prefix_match                         = [""]
+    blob_types                           = ["blockBlob"]
+    base_blob_tier_to_cool_after_days    = 30
+    base_blob_tier_to_archive_after_days = 90
+    base_blob_delete_after_days          = null
+    snapshot_delete_after_days           = 30
+    version_delete_after_days            = 90
+  },
+  {
+    name                                 = "cleanup-logs"
+    enabled                              = true
+    prefix_match                         = ["logs/"]
+    blob_types                           = ["blockBlob"]
+    base_blob_tier_to_cool_after_days    = 14
+    base_blob_tier_to_archive_after_days = 30
+    base_blob_delete_after_days          = 365
+    snapshot_delete_after_days           = 7
+    version_delete_after_days            = 30
+  }
+]
+
+# Azure File Share (Optional)
+enable_file_share      = true
+file_share_quota_gb    = 100
+file_share_access_tier = "Hot"
+
+# Network Rules (Optional - uncomment to enable)
+# network_default_action = "Deny"
+# allowed_subnet_ids = [
+#   "/subscriptions/xxx/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-main/subnets/subnet-app"
+# ]
+# allowed_ip_ranges = ["203.0.113.0/24"]
+
+# Monitoring (Optional)
+# log_analytics_workspace_id = "/subscriptions/xxx/resourceGroups/rg-monitoring/providers/Microsoft.OperationalInsights/workspaces/law-main"
+
+# Tags
+tags = {
+  Team       = "platform"
+  CostCenter = "engineering"
+  ManagedBy  = "terraform"
+}

@@ -4,69 +4,174 @@ ${{ values.description }}
 
 ## Overview
 
-This Terraform module is designed for **${{ values.provider | upper }}** and manages **${{ values.resource_type }}** resources.
+This Terraform module provides production-ready infrastructure components for **{%- if values.provider == 'aws' %}Amazon Web Services (AWS){%- elif values.provider == 'azure' %}Microsoft Azure{%- elif values.provider == 'gcp' %}Google Cloud Platform (GCP){%- else %}Multi-Cloud{%- endif %}**.
 
-## Requirements
+## Module Structure
 
-| Name | Version |
-|------|---------|
-| terraform | ${{ values.terraform_version }} |
-| ${{ values.provider }} | >= 4.0 |
-
-## Usage
-
-```hcl
-module "${{ values.name | replace('terraform-', '') }}" {
-  source = "github.com/${{ values.destination.owner }}/${{ values.destination.repo }}"
-
-  # Add your variables here
-}
+```
+.
+{%- if values.provider == 'aws' or values.provider == 'multi-cloud' %}
+├── aws/
+│   ├── compute/       # EC2, Auto Scaling Groups, Launch Templates
+│   ├── network/       # VPC, Subnets, NAT Gateway, Security Groups
+│   ├── storage/       # S3 Buckets, EFS
+│   ├── database/      # RDS, ElastiCache
+│   ├── security/      # KMS, Secrets Manager, IAM
+│   ├── observability/ # CloudWatch, SNS Alerts
+│   ├── kubernetes/    # EKS, Node Groups, ECR
+│   └── serverless/    # Lambda, API Gateway, SQS
+{%- endif %}
+{%- if values.provider == 'azure' or values.provider == 'multi-cloud' %}
+├── azure/
+│   ├── compute/       # Virtual Machine Scale Sets
+│   ├── network/       # VNet, Subnets, NSGs, NAT Gateway
+│   ├── storage/       # Storage Account, Containers
+│   ├── database/      # PostgreSQL Flexible, Redis Cache
+│   ├── security/      # Key Vault, Managed Identity
+│   ├── observability/ # Log Analytics, Application Insights
+│   ├── kubernetes/    # AKS, Node Pools, ACR
+│   └── serverless/    # Function App, API Management, Service Bus
+{%- endif %}
+{%- if values.provider == 'gcp' or values.provider == 'multi-cloud' %}
+├── gcp/
+│   ├── compute/       # Managed Instance Groups, Instance Templates
+│   ├── network/       # VPC, Subnets, Cloud NAT, Firewall
+│   ├── storage/       # Cloud Storage, Filestore
+│   ├── database/      # Cloud SQL, Memorystore
+│   ├── security/      # KMS, Secret Manager, Service Accounts
+│   ├── observability/ # Cloud Monitoring, Log Sink, Alerts
+│   ├── kubernetes/    # GKE, Node Pools, Artifact Registry
+│   └── serverless/    # Cloud Functions, Cloud Run, Pub/Sub
+{%- endif %}
+├── examples/          # Usage examples
+├── tests/             # Terraform tests
+└── docs/              # Additional documentation
 ```
 
-## Inputs
+## Prerequisites
 
-| Name | Description | Type | Default | Required |
-|------|-------------|------|---------|:--------:|
-| See `variables.tf` for complete list | | | | |
+- Terraform >= ${{ values.terraform_version }}
+  {%- if values.provider == 'aws' or values.provider == 'multi-cloud' %}
+- AWS CLI configured with appropriate credentials
+  {%- endif %}
+  {%- if values.provider == 'azure' or values.provider == 'multi-cloud' %}
+- Azure CLI configured with appropriate credentials
+  {%- endif %}
+  {%- if values.provider == 'gcp' or values.provider == 'multi-cloud' %}
+- Google Cloud SDK configured with appropriate credentials
+  {%- endif %}
 
-## Outputs
+## Quick Start
 
-| Name | Description |
-|------|-------------|
-| See `outputs.tf` for complete list | |
-
-## Examples
-
-See the [examples](./examples) directory for usage examples.
-
-{% if values.include_testing %}
-## Testing
-
-This module includes tests using Terratest. To run tests:
+### 1. Initialize the module
 
 ```bash
-cd test
-go test -v -timeout 30m
+terraform init
 ```
-{% endif %}
 
-{% if values.enable_compliance %}
-## Compliance
+### 2. Configure your deployment
 
-This module includes security and compliance validations:
-- tfsec scanning
-- checkov policies
-- AWS Config rules (if applicable)
-{% endif %}
+Copy the example tfvars file and customize:
+
+```bash
+{%- if values.provider == 'aws' %}
+cp aws/compute/compute.auto.tfvars.example aws/compute/compute.auto.tfvars
+{%- elif values.provider == 'azure' %}
+cp azure/compute/compute.auto.tfvars.example azure/compute/compute.auto.tfvars
+{%- elif values.provider == 'gcp' %}
+cp gcp/compute/compute.auto.tfvars.example gcp/compute/compute.auto.tfvars
+{%- endif %}
+```
+
+### 3. Plan and Apply
+
+```bash
+terraform plan
+terraform apply
+```
+
+## Module Components
+
+### Compute
+
+Virtual machines and auto-scaling infrastructure with:
+
+- Configurable instance types and sizes
+- Auto-scaling based on metrics
+- User data/startup scripts for initialization
+
+### Network
+
+Complete networking infrastructure with:
+
+- VPC/VNet with configurable CIDR
+- Public and private subnets
+- NAT Gateway for private subnet egress
+- Security groups/NSGs with minimal required rules
+
+### Storage
+
+Object and file storage with:
+
+- Encrypted storage buckets
+- Lifecycle policies
+- Versioning support
+
+### Database
+
+Managed database services with:
+
+- High availability configurations
+- Encryption at rest
+- Automated backups
+
+### Security
+
+Security infrastructure with:
+
+- Key management (KMS)
+- Secrets management
+- IAM roles and policies
+
+### Observability
+
+Monitoring and alerting with:
+
+- Centralized logging
+- Metrics and dashboards
+- Alert policies
+
+### Kubernetes
+
+Container orchestration with:
+
+- Managed Kubernetes cluster
+- Node pools with auto-scaling
+- Container registry
+
+### Serverless
+
+Serverless compute with:
+
+- Functions/Lambda
+- API Gateway
+- Message queues
+
+## Testing
+
+Run Terraform tests:
+
+```bash
+terraform test
+```
 
 ## Contributing
 
-1. Fork this repository
-2. Create a feature branch
-3. Make your changes
-4. Run `terraform fmt` and `terraform validate`
-5. Submit a pull request
+1. Create a feature branch
+2. Make your changes
+3. Run `terraform fmt` and `terraform validate`
+4. Submit a pull request
 
 ## License
 
-Apache 2.0 Licensed. See [LICENSE](LICENSE) for full details.
+This module is maintained by ${{ values.owner }}.

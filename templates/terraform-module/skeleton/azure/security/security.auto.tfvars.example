@@ -1,0 +1,123 @@
+# -----------------------------------------------------------------------------
+# Azure Security Module - Example Configuration
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# Required Variables
+# -----------------------------------------------------------------------------
+
+project             = "myproject"
+environment         = "dev"
+location            = "eastus"
+resource_group_name = "rg-myproject-dev"
+
+# -----------------------------------------------------------------------------
+# Key Vault Configuration
+# -----------------------------------------------------------------------------
+
+# SKU for Key Vault: "standard" or "premium" (HSM-backed keys)
+key_vault_sku = "standard"
+
+# Enable purge protection - RECOMMENDED for production (cannot be disabled once enabled)
+enable_purge_protection = true
+
+# Soft delete retention (7-90 days)
+soft_delete_retention_days = 90
+
+# Key Vault deployment options
+enabled_for_deployment          = false
+enabled_for_disk_encryption     = true
+enabled_for_template_deployment = false
+
+# Use RBAC authorization instead of access policies (recommended)
+enable_rbac_authorization = true
+
+# -----------------------------------------------------------------------------
+# Network ACLs Configuration
+# -----------------------------------------------------------------------------
+
+network_acls = {
+  # Deny all traffic by default (recommended for production)
+  default_action = "Deny"
+
+  # Allow Azure services to bypass the firewall
+  bypass = "AzureServices"
+
+  # List of allowed public IP addresses or CIDR ranges
+  ip_rules = [
+    # "203.0.113.0/24",  # Example: Office IP range
+    # "198.51.100.10"    # Example: CI/CD runner IP
+  ]
+
+  # List of allowed virtual network subnet IDs
+  virtual_network_subnet_ids = [
+    # "/subscriptions/xxx/resourceGroups/xxx/providers/Microsoft.Network/virtualNetworks/xxx/subnets/xxx"
+  ]
+}
+
+# -----------------------------------------------------------------------------
+# Encryption Key Configuration
+# -----------------------------------------------------------------------------
+
+# Key type: RSA, RSA-HSM (requires premium SKU), EC, EC-HSM
+encryption_key_type = "RSA"
+
+# Key size in bits: 2048, 3072, or 4096
+encryption_key_size = 2048
+
+# Key rotation settings (ISO 8601 duration format)
+key_rotation_time_before_expiry = "P30D"  # Rotate 30 days before expiry
+key_expiration_period           = "P365D" # Key expires after 1 year
+key_notify_before_expiry        = "P30D"  # Notify 30 days before expiry
+
+# -----------------------------------------------------------------------------
+# Log Analytics Configuration
+# -----------------------------------------------------------------------------
+
+# SKU: Free, PerNode, Premium, Standard, Standalone, Unlimited, CapacityReservation, PerGB2018
+log_analytics_sku = "PerGB2018"
+
+# Log retention in days (30-730)
+log_retention_days = 90
+
+# -----------------------------------------------------------------------------
+# Microsoft Defender for Cloud (Optional)
+# -----------------------------------------------------------------------------
+
+# Enable Microsoft Defender pricing tiers for enhanced security
+# Note: This enables subscription-wide Defender and may incur additional costs
+enable_defender = false
+
+# -----------------------------------------------------------------------------
+# Application Insights (Optional)
+# -----------------------------------------------------------------------------
+
+# Enable Application Insights for application monitoring
+enable_application_insights = false
+
+# Application type: ios, java, MobileCenter, Node.JS, other, phone, store, web
+application_insights_type = "web"
+
+# Data retention: 30, 60, 90, 120, 180, 270, 365, 550, 730 days
+application_insights_retention_days = 90
+
+# Sampling percentage (0-100) - lower values reduce costs
+application_insights_sampling_percentage = 100
+
+# Security settings
+application_insights_disable_ip_masking   = false
+application_insights_local_auth_disabled  = true  # Recommended for security
+application_insights_internet_ingestion   = true
+application_insights_internet_query       = true
+
+# -----------------------------------------------------------------------------
+# Tags
+# -----------------------------------------------------------------------------
+
+tags = {
+  Team        = "platform"
+  CostCenter  = "12345"
+  Owner       = "security-team@example.com"
+  Compliance  = "SOC2"
+  DataClass   = "confidential"
+}

@@ -1,0 +1,137 @@
+# -----------------------------------------------------------------------------
+# Azure Serverless Module - Example Variables
+# -----------------------------------------------------------------------------
+# Copy this file to serverless.auto.tfvars and customize for your environment
+
+# -----------------------------------------------------------------------------
+# Core Configuration
+# -----------------------------------------------------------------------------
+
+project             = "myapp"
+environment         = "dev"
+location            = "eastus"
+resource_group_name = "myapp-dev-rg"
+
+# -----------------------------------------------------------------------------
+# Function App Configuration
+# -----------------------------------------------------------------------------
+
+# SKU options:
+#   Y1 = Consumption (serverless, pay-per-execution)
+#   EP1/EP2/EP3 = Elastic Premium (pre-warmed instances, VNet support)
+#   B1/B2/B3 = Basic
+#   S1/S2/S3 = Standard
+#   P1v2/P2v2/P3v2 = Premium v2
+#   P1v3/P2v3/P3v3 = Premium v3
+sku_name = "Y1"
+
+# Maximum workers for Elastic Premium plans (ignored for Consumption)
+# maximum_elastic_worker_count = 20
+
+# Runtime stack options: python, node, java, dotnet
+runtime_stack = "python"
+
+# Runtime version examples:
+#   Python: "3.11", "3.10", "3.9"
+#   Node: "20", "18", "16"
+#   Java: "17", "11", "8"
+#   .NET: "8.0", "7.0", "6.0"
+runtime_version = "3.11"
+
+# Custom application settings
+app_settings = {
+  # "MY_SETTING" = "my-value"
+  # "DATABASE_URL" = "postgresql://..."
+}
+
+# CORS configuration (leave empty to disable)
+# cors_allowed_origins     = ["https://myapp.com", "https://www.myapp.com"]
+# cors_support_credentials = true
+
+# Health check path (for premium plans only)
+# health_check_path = "/api/health"
+
+# -----------------------------------------------------------------------------
+# Storage Configuration
+# -----------------------------------------------------------------------------
+
+# Replication type: LRS, GRS, RAGRS, ZRS, GZRS, RAGZRS
+storage_replication_type = "LRS"
+
+# -----------------------------------------------------------------------------
+# Networking
+# -----------------------------------------------------------------------------
+
+# VNet integration (optional, requires Premium plan for full VNet integration)
+# vnet_integration_subnet_id = "/subscriptions/xxx/resourceGroups/xxx/providers/Microsoft.Network/virtualNetworks/xxx/subnets/xxx"
+
+# -----------------------------------------------------------------------------
+# Application Insights
+# -----------------------------------------------------------------------------
+
+# Leave null to create a new Application Insights instance
+# Or provide connection string to use existing:
+# application_insights_connection_string = "InstrumentationKey=xxx;..."
+
+# Retention period: 30, 60, 90, 120, 180, 270, 365, 550, 730 days
+application_insights_retention_days = 30
+
+# -----------------------------------------------------------------------------
+# API Management (Optional)
+# -----------------------------------------------------------------------------
+
+enable_api_management = false
+
+# Uncomment to configure API Management:
+# apim_publisher_name  = "My Company"
+# apim_publisher_email = "api-team@mycompany.com"
+
+# SKU options: Consumption_0, Developer_1, Basic_1-2, Standard_1-4, Premium_1-10
+# apim_sku_name = "Consumption_0"
+
+# VNet integration for APIM:
+# apim_subnet_id = "/subscriptions/xxx/resourceGroups/xxx/providers/Microsoft.Network/virtualNetworks/xxx/subnets/xxx"
+
+# API path prefix:
+# apim_api_path = "v1"
+
+# Require subscription key:
+# apim_subscription_required = true
+
+# -----------------------------------------------------------------------------
+# Service Bus (Optional)
+# -----------------------------------------------------------------------------
+
+enable_service_bus = false
+
+# Uncomment to configure Service Bus:
+# service_bus_sku                 = "Standard"  # Basic, Standard, Premium
+# service_bus_capacity            = 1           # For Premium: 1, 2, 4, 8, 16
+# service_bus_max_delivery_count  = 10
+# service_bus_lock_duration       = "PT1M"      # ISO 8601 format
+# service_bus_max_size_mb         = 1024
+# service_bus_message_ttl         = "P14D"      # ISO 8601 format (14 days)
+# service_bus_enable_partitioning = false       # Not available for Premium
+
+# -----------------------------------------------------------------------------
+# Event Grid (Optional)
+# -----------------------------------------------------------------------------
+
+enable_event_grid = false
+
+# Uncomment to configure Event Grid:
+# event_grid_public_access           = true
+# event_grid_function_name           = "EventGridTrigger"
+# event_grid_max_events_per_batch    = 1
+# event_grid_preferred_batch_size_kb = 64
+
+# -----------------------------------------------------------------------------
+# Tags
+# -----------------------------------------------------------------------------
+
+tags = {
+  Project     = "myapp"
+  Environment = "dev"
+  ManagedBy   = "terraform"
+  Team        = "platform"
+}

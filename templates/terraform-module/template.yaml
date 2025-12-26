@@ -3,7 +3,7 @@ kind: Template
 metadata:
   name: terraform-module-template
   title: Terraform Module
-  description: Create a production-ready Terraform module with best practices
+  description: Create a production-ready Terraform module with best practices for AWS, Azure, or GCP
   annotations:
     backstage.io/techdocs-ref: dir:.
   tags:
@@ -17,7 +17,7 @@ spec:
   owner: platform-team
   type: infrastructure
   parameters:
-    - title: Basic Information
+    - title: Module Information
       required:
         - name
         - description
@@ -28,7 +28,7 @@ spec:
           title: Module Name
           type: string
           description: Name of the Terraform module
-          pattern: '^terraform-[a-z0-9\-]+$'
+          pattern: '^terraform-[a-z0-9-]+$'
           ui:autofocus: true
           ui:help: 'Must start with "terraform-" and use lowercase letters, numbers, and hyphens'
         description:
@@ -46,7 +46,7 @@ spec:
         provider:
           title: Cloud Provider
           type: string
-          description: Primary cloud provider for this module
+          description: Select the cloud provider for this module
           default: aws
           enum:
             - aws
@@ -57,7 +57,8 @@ spec:
             - Amazon Web Services
             - Microsoft Azure
             - Google Cloud Platform
-            - Multi-Cloud
+            - Multi-Cloud (All Providers)
+          ui:widget: radio
     - title: Repository Information
       required:
         - repoUrl
@@ -70,65 +71,21 @@ spec:
             allowedHosts:
               - github.com
               - gitlab.com
-    - title: Module Configuration
+    - title: Configuration Options
       properties:
         terraform_version:
           title: Terraform Version Constraint
           type: string
           description: Minimum Terraform version required
-          default: '>= 1.0'
+          default: '>= 1.5'
           enum:
-            - '>= 0.14'
-            - '>= 0.15'
             - '>= 1.0'
             - '>= 1.3'
             - '>= 1.5'
-        resource_type:
-          title: Resource Types
-          type: array
-          description: Types of resources this module creates (select one or more)
-          uniqueItems: true
-          ui:widget: checkboxes
-          items:
-            type: string
-            enum:
-              - compute
-              - network
-              - storage
-              - database
-              - security
-              - observability
-              - serverless
-              - container
-            enumNames:
-              - Virtual Machines / Compute Instances
-              - Network Resources (VPC, Subnets, Load Balancers)
-              - Storage Accounts / Object Storage
-              - Databases (SQL, NoSQL, Cache)
-              - Security (IAM, Policies, Secrets)
-              - Observability (Monitoring, Logging, Alerts)
-              - Serverless Functions
-              - Container Orchestration (Kubernetes, etc.)
-          default:
-            - compute
-        include_examples:
-          title: Include Usage Examples
-          type: boolean
-          description: Include example usage scenarios
-          default: true
-        include_testing:
-          title: Include Testing Framework
-          type: boolean
-          description: Include Terratest or similar testing
-          default: true
-        enable_compliance:
-          title: Enable Compliance Checks
-          type: boolean
-          description: Include security and compliance validations
-          default: true
+            - '>= 1.6'
   steps:
-    - id: fetch
-      name: Fetch Template
+    - id: fetch-base
+      name: Fetch Base Template
       action: fetch:template
       input:
         url: ./skeleton
@@ -138,11 +95,39 @@ spec:
           owner: ${{ parameters.owner }}
           provider: ${{ parameters.provider }}
           terraform_version: ${{ parameters.terraform_version }}
-          resource_type: ${{ parameters.resource_type }}
-          include_examples: ${{ parameters.include_examples }}
-          include_testing: ${{ parameters.include_testing }}
-          enable_compliance: ${{ parameters.enable_compliance }}
           destination: ${{ parameters.repoUrl | parseRepoUrl }}
+        # Copy only the selected provider folder(s)
+        copyWithoutTemplating:
+          - '**/*.sh'
+          - '**/*.tpl'
+          - '**/user_data.sh'
+          - '**/startup.sh'
+          - '**/cloud-init.yaml'
+
+    - id: remove-aws
+      name: Remove AWS folder (not selected)
+      if: ${{ parameters.provider !== 'aws' and parameters.provider !== 'multi-cloud' }}
+      action: fs:delete
+      input:
+        files:
+          - aws
+
+    - id: remove-azure
+      name: Remove Azure folder (not selected)
+      if: ${{ parameters.provider !== 'azure' and parameters.provider !== 'multi-cloud' }}
+      action: fs:delete
+      input:
+        files:
+          - azure
+
+    - id: remove-gcp
+      name: Remove GCP folder (not selected)
+      if: ${{ parameters.provider !== 'gcp' and parameters.provider !== 'multi-cloud' }}
+      action: fs:delete
+      input:
+        files:
+          - gcp
+
     - id: publish
       name: Publish to Repository
       action: publish:github
@@ -150,15 +135,21 @@ spec:
         description: ${{ parameters.description }}
         repoUrl: ${{ parameters.repoUrl }}
         defaultBranch: main
-        gitCommitMessage: 'Initial commit from DevOps Backstage template'
+        gitCommitMessage: 'Initial commit: ${{ parameters.name }} Terraform module'
         gitAuthorName: 'DevOps Backstage'
         gitAuthorEmail: 'backstage@devops.company.com'
+        topics:
+          - terraform
+          - infrastructure-as-code
+          - ${{ parameters.provider }}
+
     - id: register
       name: Register in Software Catalog
       action: catalog:register
       input:
         repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
         catalogInfoPath: '/catalog-info.yaml'
+
   output:
     links:
       - title: Repository
@@ -166,3 +157,26 @@ spec:
       - title: Open in catalog
         icon: catalog
         entityRef: ${{ steps.register.output.entityRef }}
+    text:
+      - title: Next Steps
+        content: |
+          ## Your Terraform module has been created!
+
+          ### Getting Started
+          1. Clone the repository
+          2. Copy `terraform.tfvars.example` to `terraform.tfvars`
+          3. Update the values for your environment
+          4. Run `terraform init` and `terraform plan`
+
+          ### Module Structure
+          Your module includes pre-configured resources for:
+          - **Compute** - Virtual machines and auto-scaling
+          - **Network** - VPC/VNet, subnets, NAT
+          - **Storage** - Object and file storage
+          - **Database** - Managed databases and caching
+          - **Security** - KMS, secrets, IAM
+          - **Observability** - Monitoring and alerting
+          - **Kubernetes** - Managed K8s clusters
+          - **Serverless** - Functions and API gateways
+
+          Enable/disable modules using feature flags in `terraform.tfvars`.

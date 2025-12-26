@@ -1,0 +1,58 @@
+# -----------------------------------------------------------------------------
+# AWS Kubernetes (EKS) Module - Example tfvars
+# -----------------------------------------------------------------------------
+
+project     = "myproject"
+environment = "dev"
+
+# Network
+vpc_id     = "vpc-xxxxxxxxx"
+subnet_ids = ["subnet-xxx", "subnet-yyy", "subnet-zzz"]
+
+# Encryption
+kms_key_arn = null  # Use KMS key from security module
+
+# Cluster Configuration
+cluster_version      = "1.28"
+enable_public_access = true
+public_access_cidrs  = ["0.0.0.0/0"]  # Restrict in production
+
+# Control Plane Logging
+enabled_log_types = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
+
+# Node Group Configuration
+node_instance_types = ["t3.medium"]
+capacity_type       = "ON_DEMAND"  # Use SPOT for cost savings in dev
+node_disk_size      = 50
+
+# Node Scaling
+node_min_size     = 1
+node_max_size     = 5
+node_desired_size = 2
+
+# Node Labels and Taints
+node_labels = {
+  workload = "general"
+}
+
+node_taints = []
+# Example taint:
+# node_taints = [
+#   {
+#     key    = "dedicated"
+#     value  = "gpu"
+#     effect = "NO_SCHEDULE"
+#   }
+# ]
+
+# Addons
+enable_ebs_csi_driver = true
+
+# Logging
+log_retention_days = 30
+
+# Tags
+tags = {
+  Team       = "platform"
+  CostCenter = "engineering"
+}

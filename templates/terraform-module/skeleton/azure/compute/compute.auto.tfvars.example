@@ -1,0 +1,50 @@
+# -----------------------------------------------------------------------------
+# Azure Compute Module - Example tfvars
+# -----------------------------------------------------------------------------
+
+project     = "myproject"
+environment = "dev"
+
+# Azure Region
+location            = "eastus"
+resource_group_name = "myproject-dev-rg"
+
+# Network Configuration (from network module)
+vnet_id   = "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/myproject-dev-rg/providers/Microsoft.Network/virtualNetworks/myproject-dev-vnet"
+subnet_id = "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/myproject-dev-rg/providers/Microsoft.Network/virtualNetworks/myproject-dev-vnet/subnets/compute"
+
+# VM Configuration
+vm_size         = "Standard_B2s"
+os_disk_size_gb = 30
+admin_username  = "azureuser"
+
+# SSH Key (provide either ssh_public_key or ssh_public_key_path)
+ssh_public_key      = "" # Paste your SSH public key here
+ssh_public_key_path = "~/.ssh/id_rsa.pub"
+
+# Scaling Configuration
+instances_min     = 1
+instances_max     = 5
+instances_default = 2
+
+# Security
+ssh_allowed_cidrs = ["10.0.0.0/8", "172.16.0.0/12"]
+enable_public_ip  = false
+
+# OS Upgrades
+enable_automatic_os_upgrade = false
+
+# Autoscale Thresholds
+scale_out_cpu_threshold          = 75
+scale_in_cpu_threshold           = 25
+scale_out_memory_threshold_bytes = 1073741824 # 1 GB
+
+# Notifications
+autoscale_notification_emails = ["platform-team@example.com"]
+
+# Tags
+tags = {
+  Team       = "platform"
+  CostCenter = "engineering"
+  ManagedBy  = "terraform"
+}

@@ -1,0 +1,74 @@
+# =============================================================================
+# GCP Observability Module - Example Configuration
+# =============================================================================
+# Copy this file to observability.auto.tfvars and update the values
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# General Configuration
+# -----------------------------------------------------------------------------
+
+project_id  = "my-gcp-project"
+region      = "us-central1"
+environment = "prod"
+
+labels = {
+  team        = "platform"
+  cost_center = "engineering"
+  application = "my-app"
+}
+
+# -----------------------------------------------------------------------------
+# Notification Configuration
+# -----------------------------------------------------------------------------
+
+notification_email = "alerts@example.com"
+
+# Uncomment and set to enable Slack notifications
+# slack_webhook_url  = "xoxb-your-slack-token"
+# slack_channel_name = "#production-alerts"
+
+# Uncomment and set to enable PagerDuty notifications
+# pagerduty_service_key = "your-pagerduty-service-key"
+
+# -----------------------------------------------------------------------------
+# Log Sink Configuration
+# -----------------------------------------------------------------------------
+
+enable_log_sink        = true
+log_filter             = "severity >= WARNING"
+log_sink_storage_class = "STANDARD"
+log_retention_days     = 90
+log_archive_days       = 30
+
+# Set to true only for dev/test environments
+force_destroy_log_bucket = false
+
+# -----------------------------------------------------------------------------
+# Alert Configuration
+# -----------------------------------------------------------------------------
+
+enable_alerts       = true
+cpu_threshold       = 80  # Percentage
+memory_threshold    = 85  # Percentage
+error_log_threshold = 10  # Errors per minute
+alert_duration      = "300s"
+
+# -----------------------------------------------------------------------------
+# Uptime Check Configuration
+# -----------------------------------------------------------------------------
+
+# Set to null to disable uptime checks
+uptime_check_host = "api.example.com"
+
+uptime_check_path          = "/health"
+uptime_check_timeout       = "10s"
+uptime_check_period        = "60s"
+uptime_check_content_match = "ok"
+uptime_check_regions       = ["USA", "EUROPE", "ASIA_PACIFIC"]
+
+# -----------------------------------------------------------------------------
+# Dashboard Configuration
+# -----------------------------------------------------------------------------
+
+dashboard_display_name = "Production Observability Dashboard"

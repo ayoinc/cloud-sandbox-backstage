@@ -1,0 +1,56 @@
+# -----------------------------------------------------------------------------
+# AWS Storage Module - Example tfvars
+# -----------------------------------------------------------------------------
+
+project     = "myproject"
+environment = "dev"
+
+# S3 Configuration
+bucket_suffix     = "data"
+enable_versioning = true
+force_destroy     = false  # Set true for dev environments
+
+# Encryption (use KMS key from security module)
+kms_key_arn = null  # Uses AES256 if null
+
+# Lifecycle Rules
+lifecycle_rules = [
+  {
+    id                        = "archive-old-objects"
+    enabled                   = true
+    prefix                    = ""
+    expiration_days           = null
+    noncurrent_expiration_days = 90
+    transitions = [
+      {
+        days          = 30
+        storage_class = "STANDARD_IA"
+      },
+      {
+        days          = 60
+        storage_class = "GLACIER"
+      }
+    ]
+    noncurrent_transitions = [
+      {
+        days          = 30
+        storage_class = "GLACIER"
+      }
+    ]
+  }
+]
+
+# EFS Configuration
+enable_efs                  = true
+efs_subnet_ids              = ["subnet-xxx", "subnet-yyy", "subnet-zzz"]
+efs_allowed_security_groups = ["sg-xxxxxxxxx"]
+efs_performance_mode        = "generalPurpose"
+efs_throughput_mode         = "bursting"
+efs_lifecycle_policy        = "AFTER_30_DAYS"
+efs_enable_backup           = true
+
+# Tags
+tags = {
+  Team       = "platform"
+  CostCenter = "engineering"
+}

@@ -1,0 +1,262 @@
+# -----------------------------------------------------------------------------
+# GCP Serverless Module - Example Configuration
+# -----------------------------------------------------------------------------
+# Copy this file to serverless.auto.tfvars and customize for your environment.
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# Project and Environment (Required)
+# -----------------------------------------------------------------------------
+
+project_id  = "my-gcp-project"
+region      = "us-central1"
+environment = "dev"
+
+# -----------------------------------------------------------------------------
+# Function/Service Configuration (Required)
+# -----------------------------------------------------------------------------
+
+function_name = "my-api-handler"
+description   = "API handler for processing requests"
+
+# Choose deployment type: "function" or "run"
+deploy_type = "function"
+
+# Runtime for Cloud Functions (ignored for Cloud Run)
+runtime     = "python311"
+entry_point = "main"
+
+# Container image for Cloud Run (required when deploy_type is "run")
+# container_image = "gcr.io/my-project/my-image:latest"
+# container_port  = 8080
+
+# -----------------------------------------------------------------------------
+# Source Configuration (Required for Cloud Functions)
+# -----------------------------------------------------------------------------
+
+source_archive_path = "./src.zip"
+source_archive_hash = "abc123"
+
+# -----------------------------------------------------------------------------
+# Resource Limits
+# -----------------------------------------------------------------------------
+
+memory          = "512Mi"
+cpu             = "1"
+timeout_seconds = 120
+min_instances   = 0
+max_instances   = 10
+max_concurrency = 80
+
+# CPU and startup options (Cloud Run only)
+cpu_idle          = true
+startup_cpu_boost = false
+
+# -----------------------------------------------------------------------------
+# Environment Variables
+# -----------------------------------------------------------------------------
+
+environment_variables = {
+  LOG_LEVEL    = "INFO"
+  SERVICE_NAME = "my-api-handler"
+  DEBUG_MODE   = "false"
+}
+
+# Build-time environment variables (Cloud Functions only)
+build_environment_variables = {
+  GOOGLE_FUNCTION_SOURCE = "main.py"
+}
+
+# Secret environment variables from Secret Manager
+# secret_environment_variables = [
+#   {
+#     key         = "API_KEY"
+#     secret_name = "api-key-secret"
+#     version     = "latest"
+#   },
+#   {
+#     key         = "DATABASE_PASSWORD"
+#     secret_name = "db-password"
+#     version     = "1"
+#   }
+# ]
+
+# -----------------------------------------------------------------------------
+# Networking
+# -----------------------------------------------------------------------------
+
+# VPC connector for private network access
+# vpc_connector = "projects/my-project/locations/us-central1/connectors/my-connector"
+# vpc_egress    = "PRIVATE_RANGES_ONLY"
+
+ingress_settings = "ALLOW_ALL"
+
+# -----------------------------------------------------------------------------
+# Event Trigger Configuration (Cloud Functions)
+# -----------------------------------------------------------------------------
+
+# Example: Pub/Sub event trigger
+# event_trigger = {
+#   event_type   = "google.cloud.pubsub.topic.v1.messagePublished"
+#   pubsub_topic = "projects/my-project/topics/my-topic"
+#   retry_policy = "RETRY_POLICY_RETRY"
+# }
+
+# Example: Cloud Storage event trigger
+# event_trigger = {
+#   event_type   = "google.cloud.storage.object.v1.finalized"
+#   retry_policy = "RETRY_POLICY_RETRY"
+#   event_filters = [
+#     {
+#       attribute = "bucket"
+#       value     = "my-bucket"
+#     }
+#   ]
+# }
+
+# -----------------------------------------------------------------------------
+# Health Probes (Cloud Run only)
+# -----------------------------------------------------------------------------
+
+# startup_probe = {
+#   initial_delay_seconds = 5
+#   timeout_seconds       = 3
+#   period_seconds        = 10
+#   failure_threshold     = 3
+#   http_get = {
+#     path = "/health"
+#     port = 8080
+#   }
+# }
+
+# liveness_probe = {
+#   initial_delay_seconds = 10
+#   timeout_seconds       = 3
+#   period_seconds        = 30
+#   failure_threshold     = 3
+#   http_get = {
+#     path = "/health"
+#     port = 8080
+#   }
+# }
+
+# -----------------------------------------------------------------------------
+# IAM Configuration
+# -----------------------------------------------------------------------------
+
+allow_unauthenticated = false
+
+# IAM members that can invoke the function/service
+# invoker_members = [
+#   "serviceAccount:my-service@my-project.iam.gserviceaccount.com",
+#   "user:developer@example.com",
+#   "group:team@example.com"
+# ]
+
+# IAM roles for the service account
+service_account_roles = [
+  "roles/logging.logWriter",
+  "roles/monitoring.metricWriter",
+  "roles/cloudtrace.agent",
+  # Add additional roles as needed:
+  # "roles/secretmanager.secretAccessor",
+  # "roles/storage.objectViewer",
+  # "roles/pubsub.publisher"
+]
+
+# -----------------------------------------------------------------------------
+# API Gateway Configuration
+# -----------------------------------------------------------------------------
+
+enable_api_gateway = false
+
+# OpenAPI specification for API Gateway
+# api_gateway_openapi_spec = <<EOF
+# swagger: "2.0"
+# info:
+#   title: "My API"
+#   version: "1.0.0"
+# paths:
+#   /hello:
+#     get:
+#       summary: "Say hello"
+#       operationId: "hello"
+#       x-google-backend:
+#         address: "https://my-function-url"
+#       responses:
+#         200:
+#           description: "Success"
+# EOF
+
+# -----------------------------------------------------------------------------
+# Pub/Sub Configuration
+# -----------------------------------------------------------------------------
+
+enable_pubsub = false
+
+# Pub/Sub topic settings
+pubsub_message_retention_duration = "604800s" # 7 days
+
+# Pub/Sub subscription settings
+pubsub_ack_deadline_seconds            = 20
+pubsub_subscription_retention_duration = "604800s" # 7 days
+pubsub_retain_acked_messages           = false
+pubsub_enable_message_ordering         = false
+pubsub_subscription_expiration_ttl     = ""
+
+# Retry policy
+pubsub_retry_minimum_backoff = "10s"
+pubsub_retry_maximum_backoff = "600s"
+
+# Push configuration (for push subscriptions)
+# pubsub_push_endpoint = "https://my-endpoint.example.com/push"
+# pubsub_push_attributes = {
+#   x-custom-header = "value"
+# }
+
+# Dead letter configuration
+# pubsub_dead_letter_topic     = "projects/my-project/topics/dead-letter"
+# pubsub_max_delivery_attempts = 5
+
+# -----------------------------------------------------------------------------
+# Cloud Scheduler Configuration
+# -----------------------------------------------------------------------------
+
+# Cron schedule (empty to disable)
+schedule_cron = ""
+
+# Example: Run every hour
+# schedule_cron     = "0 * * * *"
+# schedule_timezone = "America/New_York"
+
+# Scheduler retry configuration
+schedule_attempt_deadline     = "320s"
+schedule_retry_count          = 3
+schedule_max_retry_duration   = "0s"
+schedule_min_backoff_duration = "5s"
+schedule_max_backoff_duration = "3600s"
+schedule_max_doublings        = 5
+
+# HTTP target configuration
+schedule_http_method = "POST"
+# schedule_http_body = "{\"action\": \"process\"}"
+# schedule_http_headers = {
+#   "Content-Type" = "application/json"
+# }
+
+# Use Pub/Sub target instead of HTTP
+schedule_use_pubsub = false
+# schedule_pubsub_data = "{\"action\": \"process\"}"
+# schedule_pubsub_attributes = {
+#   "source" = "scheduler"
+# }
+
+# -----------------------------------------------------------------------------
+# Labels
+# -----------------------------------------------------------------------------
+
+labels = {
+  team        = "platform"
+  cost_center = "engineering"
+  service     = "api-handler"
+}

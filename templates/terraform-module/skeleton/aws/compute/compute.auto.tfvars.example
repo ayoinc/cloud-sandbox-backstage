@@ -1,0 +1,40 @@
+# -----------------------------------------------------------------------------
+# AWS Compute Module - Example tfvars
+# -----------------------------------------------------------------------------
+
+project     = "myproject"
+environment = "dev"
+
+# VPC Configuration (from network module)
+vpc_id     = "vpc-xxxxxxxxx"
+subnet_ids = ["subnet-xxx", "subnet-yyy", "subnet-zzz"]
+
+# Instance Configuration
+instance_type    = "t3.micro"
+ami_id           = ""  # Leave empty for latest Amazon Linux 2023
+root_volume_size = 20
+
+# Auto Scaling Configuration
+min_size         = 1
+max_size         = 3
+desired_capacity = 2
+
+# Security
+ssh_allowed_cidrs = ["10.0.0.0/8"]
+
+# Load Balancer Integration
+target_group_arns = []
+health_check_type = "EC2"
+
+# Monitoring
+enable_detailed_monitoring = true
+
+# Scaling Thresholds
+scale_up_threshold   = 80
+scale_down_threshold = 20
+
+# Tags
+tags = {
+  Team       = "platform"
+  CostCenter = "engineering"
+}

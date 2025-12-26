@@ -1,0 +1,24 @@
+# -----------------------------------------------------------------------------
+# AWS Network Module - Example tfvars
+# -----------------------------------------------------------------------------
+
+project     = "myproject"
+environment = "dev"
+
+# VPC Configuration
+vpc_cidr = "10.0.0.0/16"
+az_count = 3
+
+# NAT Gateway Configuration
+enable_nat = true
+single_nat = true  # Use single NAT for dev (cost saving)
+
+# Flow Logs
+enable_flow_logs         = true
+flow_logs_retention_days = 30
+
+# Tags
+tags = {
+  Team        = "platform"
+  CostCenter  = "engineering"
+}

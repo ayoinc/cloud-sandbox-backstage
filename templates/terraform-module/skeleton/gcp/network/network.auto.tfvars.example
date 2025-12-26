@@ -1,0 +1,66 @@
+# -----------------------------------------------------------------------------
+# GCP Network Module - Example tfvars
+# -----------------------------------------------------------------------------
+
+# Project Configuration
+project_id  = "my-gcp-project"
+region      = "us-central1"
+environment = "dev"
+
+# Network Configuration
+network_name          = "myapp"
+routing_mode          = "GLOBAL"
+delete_default_routes = false
+
+# Subnet CIDRs
+subnet_cidrs = {
+  public   = "10.0.1.0/24"
+  private  = "10.0.2.0/24"
+  database = "10.0.3.0/24"
+}
+
+# GKE Secondary Ranges (for private subnet)
+enable_gke_secondary_ranges = true
+secondary_ranges = {
+  pods     = "10.1.0.0/16"   # 65,536 pod IPs
+  services = "10.2.0.0/20"   # 4,096 service IPs
+}
+
+# Private Google Access (allows VMs without external IPs to reach Google APIs)
+enable_private_google_access = true
+
+# Cloud NAT Configuration
+enable_nat            = true
+nat_ip_allocate_option = "AUTO_ONLY"  # Use "MANUAL_ONLY" for static IPs
+nat_ip_count          = 2              # Only used with MANUAL_ONLY
+nat_min_ports_per_vm  = 64
+nat_log_filter        = "ERRORS_ONLY"
+
+# Cloud Router BGP Configuration
+router_asn = 64514
+router_advertised_ip_ranges = []
+
+# Firewall Source Ranges
+ssh_source_ranges   = ["35.235.240.0/20"]  # IAP range for secure SSH
+http_source_ranges  = ["0.0.0.0/0"]
+https_source_ranges = ["0.0.0.0/0"]
+enable_iap_access   = true
+
+# Private Service Access (for Cloud SQL, Memorystore, etc.)
+enable_private_service_access        = true
+private_service_access_prefix_length = 16
+# private_service_access_address     = "10.100.0.0"  # Optional: specific address
+
+# Private DNS (optional)
+enable_private_dns = false
+private_dns_domain = "internal.myapp.local."
+
+# Shared VPC (advanced use case)
+enable_shared_vpc_host = false
+
+# Labels
+tags = {
+  team        = "platform"
+  cost_center = "engineering"
+  owner       = "devops"
+}

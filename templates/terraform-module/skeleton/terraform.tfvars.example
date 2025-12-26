@@ -1,0 +1,57 @@
+# ==============================================================================
+# ${{ values.name }} - Terraform Variables
+# ==============================================================================
+# Copy this file to terraform.tfvars and update the values
+
+# Common Settings
+environment  = "dev"
+project_name = "${{ values.name }}"
+
+# Additional tags
+tags = {
+  CostCenter = "engineering"
+  Team       = "platform"
+}
+
+{%- if values.provider == 'aws' or values.provider == 'multi-cloud' %}
+
+# ==============================================================================
+# AWS Settings
+# ==============================================================================
+aws_region             = "us-east-1"
+aws_vpc_cidr           = "10.0.0.0/16"
+aws_availability_zones = ["us-east-1a", "us-east-1b", "us-east-1c"]
+{%- endif %}
+
+{%- if values.provider == 'azure' or values.provider == 'multi-cloud' %}
+
+# ==============================================================================
+# Azure Settings
+# ==============================================================================
+azure_location            = "eastus"
+azure_resource_group_name = ""  # Leave empty to auto-generate
+azure_vnet_cidr           = "10.1.0.0/16"
+{%- endif %}
+
+{%- if values.provider == 'gcp' or values.provider == 'multi-cloud' %}
+
+# ==============================================================================
+# GCP Settings
+# ==============================================================================
+gcp_project_id   = "your-project-id"
+gcp_region       = "us-central1"
+gcp_zone         = "us-central1-a"
+gcp_network_cidr = "10.2.0.0/16"
+{%- endif %}
+
+# ==============================================================================
+# Feature Flags - Enable/Disable resource groups
+# ==============================================================================
+enable_compute       = true
+enable_network       = true
+enable_storage       = true
+enable_database      = false
+enable_security      = true
+enable_observability = true
+enable_kubernetes    = false
+enable_serverless    = false
