@@ -10,6 +10,22 @@ x-healthcheck-defaults: &healthcheck-defaults
   retries: 3
   start_period: 40s
 
+# Fluentd logging driver configuration for OpenSearch integration
+x-logging-fluentd: &logging-fluentd
+  driver: fluentd
+  options:
+    fluentd-address: 'localhost:24224'
+    fluentd-async: 'true'
+    fluentd-retry-wait: '1s'
+    fluentd-max-retries: '30'
+
+# JSON logging driver as fallback (when Fluentd not running)
+x-logging-json: &logging-json
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+
 networks:
   backstage-network:
     driver: bridge
@@ -26,6 +42,8 @@ volumes:
     driver: local
   techdocs_data:
     driver: local
+  opensearch_data:
+    driver: local
 
 services:
   # Nginx reverse proxy - main entry point
@@ -35,16 +53,32 @@ services:
       dockerfile: Dockerfile
     container_name: backstage-nginx
     ports:
-      - "80:80"
+      - '80:80'
     depends_on:
       backstage:
         condition: service_healthy
     restart: unless-stopped
     networks:
       - backstage-network
+    logging:
+      <<: *logging-fluentd
+      options:
+        fluentd-address: 'localhost:24224'
+        fluentd-async: 'true'
+        fluentd-retry-wait: '1s'
+        fluentd-max-retries: '30'
+        tag: docker.backstage-nginx
     healthcheck:
       <<: *healthcheck-defaults
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      test:
+        [
+          'CMD',
+          'wget',
+          '--no-verbose',
+          '--tries=1',
+          '--spider',
+          'http://127.0.0.1/health',
+        ]
       start_period: 10s
 
   # Backstage application
@@ -74,6 +108,7 @@ services:
       GITHUB_ORG: ${GITHUB_ORG}
       AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:-supersecret}
       TECHDOCS_BUCKET: techdocs
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
       postgres:
         condition: service_healthy
@@ -84,7 +119,21 @@ services:
     restart: unless-stopped
     networks:
       - backstage-network
+    logging:
+      <<: *logging-fluentd
+      options:
+        fluentd-address: 'localhost:24224'
+        fluentd-async: 'true'
+        fluentd-retry-wait: '1s'
+        fluentd-max-retries: '30'
+        tag: docker.backstage-app
     healthcheck:
       <<: *healthcheck-defaults
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:7007/healthcheck', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "require('http').get('http://localhost:7007/healthcheck', (r) => process.exit(r.statusCode === 200 ? 0 : 1))",
+        ]
       start_period: 60s

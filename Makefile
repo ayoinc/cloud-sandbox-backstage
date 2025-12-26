@@ -1,11 +1,17 @@
-.PHONY: help build start stop restart logs clean dev prod shell test health devbox
+.PHONY: help build start stop restart logs clean dev prod shell test health devbox up down
 
 # Default target
 help:
 	@echo "Cloud Sandbox Backstage - Available Commands"
 	@echo "============================================="
 	@echo ""
-	@echo "🚀 Devbox Development (Recommended):"
+	@echo "🚀 Quick Start:"
+	@echo "  make up               - Start entire stack (recommended)"
+	@echo "  make down             - Stop entire stack (preserves data)"
+	@echo "  make down-clean       - Stop and remove all data (DESTRUCTIVE)"
+	@echo "  make restart-full     - Full restart with proper sequencing"
+	@echo ""
+	@echo "🔧 Devbox Development:"
 	@echo "  make devbox           - Enter Devbox shell with all tools"
 	@echo "  make devbox-services  - Start services via Devbox"
 	@echo "  make devbox-dev       - Start Backstage via Devbox"
@@ -17,7 +23,7 @@ help:
 	@echo ""
 	@echo "📦 Production (Docker):"
 	@echo "  make build            - Build all Docker images"
-	@echo "  make start            - Start all services in production mode"
+	@echo "  make start            - Start all services (simple, may fail on cold start)"
 	@echo "  make stop             - Stop all services"
 	@echo "  make restart          - Restart all services"
 	@echo "  make logs             - View all service logs"
@@ -25,9 +31,15 @@ help:
 	@echo ""
 	@echo "🔧 Maintenance:"
 	@echo "  make health           - Check health of all services"
+	@echo "  make status           - Show container status"
 	@echo "  make shell            - Open shell in backstage container"
 	@echo "  make clean            - Remove all containers and images"
 	@echo "  make clean-volumes    - Remove all data volumes (DESTRUCTIVE)"
+	@echo ""
+	@echo "📊 Observability:"
+	@echo "  make logs-opensearch  - View OpenSearch indices"
+	@echo "  make logs-fluentd     - View Fluentd logs"
+	@echo "  make dashboards       - Open OpenSearch Dashboards"
 	@echo ""
 	@echo "📚 TechDocs:"
 	@echo "  make techdocs         - Generate TechDocs locally (Devbox)"
@@ -43,6 +55,36 @@ help:
 	@echo "  make logs-redis       - View Redis logs"
 	@echo "  make logs-minio       - View MinIO logs"
 	@echo "  make logs-nginx       - View Nginx logs"
+
+# =============================================================================
+# Quick Start (Recommended)
+# =============================================================================
+
+up:
+	@echo "Starting Backstage Cloud Sandbox..."
+	@./scripts/stack-up.sh
+
+up-clean:
+	@echo "Starting Backstage Cloud Sandbox (clean)..."
+	@./scripts/stack-up.sh --clean
+
+up-build:
+	@echo "Starting Backstage Cloud Sandbox (rebuild)..."
+	@./scripts/stack-up.sh --build
+
+down:
+	@echo "Stopping Backstage Cloud Sandbox..."
+	@./scripts/stack-down.sh
+
+down-clean:
+	@echo "Stopping and removing all data..."
+	@./scripts/stack-down.sh --volumes
+
+restart-full: down up
+
+status:
+	@echo "Container Status:"
+	@docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" --filter "name=backstage"
 
 # =============================================================================
 # Devbox Development (Recommended)
@@ -144,6 +186,33 @@ logs-nginx:
 	docker compose -f docker-compose.yaml -f docker-compose.services.yaml logs -f nginx
 
 # =============================================================================
+# Observability (OpenSearch Stack)
+# =============================================================================
+
+logs-opensearch:
+	@echo "OpenSearch Indices:"
+	@curl -s 'http://localhost:9200/_cat/indices?v&h=index,docs.count,store.size' 2>/dev/null || echo "OpenSearch not running"
+
+logs-fluentd:
+	docker compose -f docker-compose.yaml -f docker-compose.services.yaml logs -f fluentd
+
+logs-all-containers:
+	@echo "Log counts by container (last 24h):"
+	@curl -s 'http://localhost:9200/backstage-*,nginx-*,infrastructure-*/_search' \
+		-H "Content-Type: application/json" \
+		-d '{"size":0,"aggs":{"by_container":{"terms":{"field":"container_name","size":20}}}}' 2>/dev/null \
+		| jq -r '.aggregations.by_container.buckets[] | "\(.key): \(.doc_count) logs"' 2>/dev/null \
+		|| echo "OpenSearch not running"
+
+dashboards:
+	@echo "Opening OpenSearch Dashboards..."
+	@open http://localhost:5601 2>/dev/null || xdg-open http://localhost:5601 2>/dev/null || echo "Visit: http://localhost:5601"
+
+opensearch-setup:
+	@echo "Running OpenSearch setup (creates dashboards, visualizations)..."
+	docker compose -f docker-compose.yaml -f docker-compose.services.yaml up opensearch-setup
+
+# =============================================================================
 # Maintenance
 # =============================================================================
 
@@ -164,6 +233,15 @@ health:
 	@echo ""
 	@echo "MinIO:"
 	@curl -sf http://localhost:9000/minio/health/live && echo " OK" || echo " FAILED"
+	@echo ""
+	@echo "OpenSearch:"
+	@curl -sf http://localhost:9200/_cluster/health && echo " OK" || echo " FAILED"
+	@echo ""
+	@echo "Fluentd:"
+	@curl -sf http://localhost:24220/api/plugins.json > /dev/null && echo " OK" || echo " FAILED"
+	@echo ""
+	@echo "OpenSearch Dashboards:"
+	@curl -sf http://localhost:5601/api/status > /dev/null && echo " OK" || echo " FAILED"
 
 shell:
 	docker compose -f docker-compose.yaml -f docker-compose.services.yaml exec backstage /bin/sh

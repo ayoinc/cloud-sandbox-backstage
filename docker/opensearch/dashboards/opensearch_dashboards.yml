@@ -1,0 +1,32 @@
+# OpenSearch Dashboards Configuration
+# Backstage Cloud Sandbox
+# Security is disabled via DISABLE_SECURITY_DASHBOARDS_PLUGIN env var
+
+server.name: opensearch-dashboards
+server.host: '0.0.0.0'
+server.port: 5601
+
+# OpenSearch connection
+opensearch.hosts: ['http://opensearch:9200']
+opensearch.ssl.verificationMode: none
+
+# Logging
+logging.dest: stdout
+logging.verbose: false
+
+# Enable data source management for multiple data sources
+data_source.enabled: true
+
+# Saved Objects - increase import size limit
+savedObjects.maxImportPayloadBytes: 26214400
+
+# Enable Timeline visualization
+vis_type_timeline.enabled: true
+
+# UI Settings - set defaults
+uiSettings.overrides:
+  defaultRoute: /app/home
+  theme:darkMode: false
+
+# Home page settings
+home.disableWelcomeScreen: false

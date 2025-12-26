@@ -15,12 +15,20 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     ports:
-      - "5432:5432"
+      - '5432:5432'
     restart: unless-stopped
     networks:
       - backstage-network
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        fluentd-async: 'true'
+        fluentd-retry-wait: '1s'
+        fluentd-max-retries: '30'
+        tag: docker.backstage-postgres
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U backstage -d backstage"]
+      test: ['CMD-SHELL', 'pg_isready -U backstage']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -30,16 +38,24 @@ services:
   redis:
     image: redis:7-alpine
     container_name: backstage-redis
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
     ports:
-      - "6379:6379"
+      - '6379:6379'
     restart: unless-stopped
     networks:
       - backstage-network
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        fluentd-async: 'true'
+        fluentd-retry-wait: '1s'
+        fluentd-max-retries: '30'
+        tag: docker.backstage-redis
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -56,13 +72,21 @@ services:
     volumes:
       - minio_data:/data
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - '9000:9000'
+      - '9001:9001'
     restart: unless-stopped
     networks:
       - backstage-network
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        fluentd-async: 'true'
+        fluentd-retry-wait: '1s'
+        fluentd-max-retries: '30'
+        tag: docker.backstage-minio
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -84,6 +108,7 @@ services:
       mc mb --ignore-existing local/techdocs;
       mc mb --ignore-existing local/scaffolder;
       mc mb --ignore-existing local/backstage-assets;
+      mc mb --ignore-existing local/log-archive;
       mc anonymous set download local/techdocs;
       mc anonymous set download local/backstage-assets;
       echo 'MinIO buckets initialized successfully';
@@ -111,3 +136,158 @@ services:
       - backstage-network
     profiles:
       - tools
+
+  # ============================================
+  # OpenSearch Stack - Logging and Observability
+  # ============================================
+
+  # OpenSearch - Search and Analytics Engine (Elasticsearch alternative)
+  opensearch:
+    image: opensearchproject/opensearch:2.11.1
+    container_name: backstage-opensearch
+    environment:
+      - cluster.name=backstage-cluster
+      - node.name=opensearch-node1
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - plugins.security.disabled=true
+      - OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g
+      - DISABLE_INSTALL_DEMO_CONFIG=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    ports:
+      - '9200:9200'
+      - '9600:9600'
+    restart: unless-stopped
+    networks:
+      - backstage-network
+    # Use JSON logging - can't use fluentd as it depends on OpenSearch
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'curl -s http://localhost:9200/_cluster/health | grep -E "green|yellow" || exit 1',
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # OpenSearch Dashboards - Visualization (Kibana alternative)
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:2.11.1
+    container_name: backstage-opensearch-dashboards
+    depends_on:
+      opensearch:
+        condition: service_healthy
+    environment:
+      - OPENSEARCH_HOSTS=["http://opensearch:9200"]
+      - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
+    volumes:
+      - ./docker/opensearch/dashboards/opensearch_dashboards.yml:/usr/share/opensearch-dashboards/config/opensearch_dashboards.yml:ro
+    ports:
+      - '5601:5601'
+    restart: unless-stopped
+    networks:
+      - backstage-network
+    # Use JSON logging - part of logging stack
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'curl -s http://localhost:5601/api/status | grep -q "green" || exit 1',
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
+  # Fluentd - Log Collection and Forwarding
+  fluentd:
+    build:
+      context: ./docker/opensearch/fluentd
+      dockerfile: Dockerfile
+    container_name: backstage-fluentd
+    depends_on:
+      opensearch:
+        condition: service_healthy
+    volumes:
+      - ./docker/opensearch/fluentd/fluent.conf:/fluentd/etc/fluent.conf:ro
+      - fluentd_buffer:/fluentd/log
+    ports:
+      - '24224:24224'
+      - '24224:24224/udp'
+      - '9880:9880'
+      - '24220:24220'
+    restart: unless-stopped
+    networks:
+      - backstage-network
+    # Use JSON logging to avoid circular dependency
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'curl -sf http://localhost:24220/api/plugins.json > /dev/null || exit 1',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  # OpenSearch Setup - Initializes index templates and dashboards
+  opensearch-setup:
+    image: curlimages/curl:latest
+    container_name: backstage-opensearch-setup
+    depends_on:
+      opensearch:
+        condition: service_healthy
+      opensearch-dashboards:
+        condition: service_healthy
+    volumes:
+      - ./docker/opensearch/setup:/setup:ro
+    entrypoint: ['/bin/sh', '/setup/setup.sh']
+    environment:
+      OPENSEARCH_HOST: opensearch:9200
+      DASHBOARDS_HOST: opensearch-dashboards:5601
+    networks:
+      - backstage-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  minio_data:
+    driver: local
+  techdocs_data:
+    driver: local
+  opensearch_data:
+    driver: local
+  fluentd_buffer:
+    driver: local
+
+networks:
+  backstage-network:
+    driver: bridge
