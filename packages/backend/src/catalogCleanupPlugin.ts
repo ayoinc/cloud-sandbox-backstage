@@ -331,6 +331,78 @@ export default createBackendPlugin({
           }
         }
 
+        /**
+         * Delete all entities associated with a GitHub repository.
+         * This performs a cascading delete - finds all entities from the repo and removes them.
+         */
+        async function deleteAllEntitiesForRepo(
+          owner: string,
+          repo: string,
+          token: string,
+        ): Promise<{ found: number; deleted: number }> {
+          const repoSlug = `${owner}/${repo}`;
+          logger.info(`🧹 Cascading delete for all entities from ${repoSlug}`);
+
+          const { items: allEntities } = await catalogClient.getEntities(
+            {},
+            { token },
+          );
+
+          const entitiesToDelete: Entity[] = [];
+
+          for (const entity of allEntities) {
+            // Check if entity belongs to this repo
+            const ghRepo = getGitHubRepo(entity);
+            if (ghRepo && `${ghRepo.owner}/${ghRepo.repo}` === repoSlug) {
+              entitiesToDelete.push(entity);
+              continue;
+            }
+
+            // Also check source-location annotation for components registered by the location
+            const sourceLocation =
+              entity.metadata.annotations?.['backstage.io/source-location'];
+            if (sourceLocation?.includes(`github.com/${repoSlug}`)) {
+              entitiesToDelete.push(entity);
+              continue;
+            }
+
+            // Check managed-by-location annotation
+            const managedBy =
+              entity.metadata.annotations?.['backstage.io/managed-by-location'];
+            if (managedBy?.includes(`github.com/${repoSlug}`)) {
+              entitiesToDelete.push(entity);
+            }
+          }
+
+          logger.info(
+            `Found ${entitiesToDelete.length} entities to delete for ${repoSlug}`,
+          );
+
+          // Sort to delete locations last (they may have dependencies)
+          entitiesToDelete.sort((a, b) => {
+            if (a.kind === 'Location' && b.kind !== 'Location') return 1;
+            if (a.kind !== 'Location' && b.kind === 'Location') return -1;
+            return 0;
+          });
+
+          let deleted = 0;
+          for (const entity of entitiesToDelete) {
+            const entityRef = getEntityRef(entity);
+            logger.info(`  🗑️  Deleting ${entityRef}`);
+            const success = await deleteEntity(entity, token);
+            if (success) {
+              deleted++;
+              failedEntities.delete(entityRef);
+            }
+          }
+
+          logger.info(
+            `✅ Cascading delete complete: ${deleted}/${entitiesToDelete.length} entities removed for ${repoSlug}`,
+          );
+
+          return { found: entitiesToDelete.length, deleted };
+        }
+
         // =========================================================================
         // Main Cleanup Logic
         // =========================================================================
@@ -470,16 +542,33 @@ export default createBackendPlugin({
                     `🗑️  Removing orphaned entity: ${entityRef} (after ${MAX_FAILURES} failures)`,
                   );
 
-                  const deleted = await deleteEntity(entity, token);
-                  if (deleted) {
-                    stats.deleted++;
-                    failedEntities.delete(entityRef);
+                  // If repo was deleted, perform cascading delete of ALL entities from that repo
+                  if (repoDeleted && ghRepo) {
+                    const result = await deleteAllEntitiesForRepo(
+                      ghRepo.owner,
+                      ghRepo.repo,
+                      token,
+                    );
+                    stats.deleted += result.deleted;
 
                     await sendNotification(
-                      'Entity Removed',
-                      `Orphaned entity "${entityRef}" has been automatically removed.`,
+                      'Repository Cleanup Complete',
+                      `Repository "${ghRepo.owner}/${ghRepo.repo}" was deleted. ${result.deleted} catalog entities have been automatically removed.`,
                       'info',
                     );
+                  } else {
+                    // Single entity deletion (not repo-related)
+                    const deleted = await deleteEntity(entity, token);
+                    if (deleted) {
+                      stats.deleted++;
+                      failedEntities.delete(entityRef);
+
+                      await sendNotification(
+                        'Entity Removed',
+                        `Orphaned entity "${entityRef}" has been automatically removed.`,
+                        'info',
+                      );
+                    }
                   }
                 }
               } else {
@@ -523,54 +612,19 @@ export default createBackendPlugin({
           });
 
           const token = await getToken();
-          const repoSlug = `${owner}/${repo}`;
 
-          // Find all entities referencing this repo
-          const { items: entities } = await catalogClient.getEntities(
-            {},
-            { token },
-          );
+          // Use cascading delete to remove all entities from this repo
+          const result = await deleteAllEntitiesForRepo(owner, repo, token);
 
-          let affected = 0;
-          let removed = 0;
-
-          for (const entity of entities) {
-            const ghRepo = getGitHubRepo(entity);
-            if (ghRepo && `${ghRepo.owner}/${ghRepo.repo}` === repoSlug) {
-              const entityRef = getEntityRef(entity);
-              affected++;
-
-              // Fast-track deletion for webhook-detected deletions
-              // (Skip the 3-failure count since we have definitive info)
-              failedEntities.set(entityRef, {
-                count: MAX_FAILURES,
-                lastSeen: new Date(),
-                reason: `Repository deleted (webhook): ${repoSlug}`,
-                repoDeleted: true,
-                repoSlug,
-              });
-
-              logger.info(
-                `🗑️  Fast-track removing entity: ${entityRef} (repo deleted via webhook)`,
-              );
-
-              const deleted = await deleteEntity(entity, token);
-              if (deleted) {
-                removed++;
-                failedEntities.delete(entityRef);
-              }
-            }
-          }
-
-          if (affected > 0) {
+          if (result.found > 0) {
             await sendNotification(
               'Repository Deleted',
-              `Repository ${repoSlug} was deleted. ${removed}/${affected} associated entities have been removed.`,
+              `Repository ${owner}/${repo} was deleted. ${result.deleted}/${result.found} associated entities have been removed.`,
               'warning',
             );
           }
 
-          return { affected, removed };
+          return { affected: result.found, removed: result.deleted };
         }
 
         // =========================================================================
