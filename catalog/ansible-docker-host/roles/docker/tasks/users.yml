@@ -1,0 +1,25 @@
+---
+# Configure Docker users
+
+- name: Create docker group
+  ansible.builtin.group:
+    name: docker
+    state: present
+
+- name: Add users to docker group
+  ansible.builtin.user:
+    name: '{{ item }}'
+    groups: docker
+    append: true
+  loop: '{{ docker_users }}'
+  notify: Reset connection
+
+- name: Configure user-specific Docker settings
+  ansible.builtin.file:
+    path: '/home/{{ item }}/.docker'
+    state: directory
+    mode: '0700'
+    owner: '{{ item }}'
+    group: '{{ item }}'
+  loop: '{{ docker_users }}'
+  when: docker_configure_user_settings | bool

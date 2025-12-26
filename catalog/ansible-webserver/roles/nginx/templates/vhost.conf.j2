@@ -1,0 +1,66 @@
+# {{ ansible_managed }}
+# Virtual host: {{ item.name }}
+
+{% if item.ssl | default(false) %}
+# Redirect HTTP to HTTPS
+server {
+    listen {{ nginx_listen_port }};
+    listen [::]:{{ nginx_listen_port }};
+    server_name {{ item.server_name | default(item.name) }};
+    return 301 https://$host$request_uri;
+}
+{% endif %}
+
+server {
+{% if item.ssl | default(false) %}
+    listen {{ nginx_listen_port_ssl }} ssl http2;
+    listen [::]:{{ nginx_listen_port_ssl }} ssl http2;
+
+    ssl_certificate {{ item.ssl_certificate }};
+    ssl_certificate_key {{ item.ssl_certificate_key }};
+    include {{ nginx_conf_dir }}/snippets/ssl-params.conf;
+{% else %}
+    listen {{ nginx_listen_port }};
+    listen [::]:{{ nginx_listen_port }};
+{% endif %}
+
+    server_name {{ item.server_name | default(item.name) }};
+    root {{ item.root | default(nginx_webroot + '/' + item.name) }};
+    index {{ item.index | default('index.html index.htm') }};
+
+    # Logging
+    access_log {{ nginx_log_dir }}/{{ item.name }}-access.log {{ item.log_format | default(nginx_access_log_format) }};
+    error_log {{ nginx_log_dir }}/{{ item.name }}-error.log {{ item.error_log_level | default(nginx_error_log_level) }};
+
+{% if nginx_security_headers_enabled | bool %}
+    include {{ nginx_conf_dir }}/snippets/security-headers.conf;
+{% endif %}
+
+{% if item.rate_limiting | default(nginx_rate_limiting_enabled) | bool %}
+    limit_req zone=general burst={{ nginx_rate_limit_burst }} nodelay;
+{% endif %}
+
+{% if item.locations is defined %}
+{% for location in item.locations %}
+    location {{ location.path }} {
+{{ location.content | indent(8, true) }}
+    }
+
+{% endfor %}
+{% else %}
+    location / {
+        try_files $uri $uri/ =404;
+    }
+{% endif %}
+
+{% if item.extra_config is defined %}
+{{ item.extra_config | indent(4, true) }}
+{% endif %}
+
+    # Deny access to hidden files
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+}

@@ -1,0 +1,14 @@
+---
+# Configure Docker networks
+
+- name: Create Docker networks
+  community.docker.docker_network:
+    name: '{{ item.name }}'
+    driver: "{{ item.driver | default('bridge') }}"
+    driver_options: '{{ item.driver_options | default(omit) }}'
+    ipam_config: '{{ item.ipam_config | default(omit) }}'
+    internal: '{{ item.internal | default(false) }}'
+    attachable: '{{ item.attachable | default(true) }}'
+    labels: '{{ item.labels | default(omit) }}'
+    state: present
+  loop: '{{ docker_networks }}'

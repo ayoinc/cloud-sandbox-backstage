@@ -1,0 +1,84 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Check Docker is installed
+      ansible.builtin.command: docker --version
+      register: docker_version
+      changed_when: false
+
+    - name: Assert Docker is installed
+      ansible.builtin.assert:
+        that:
+          - docker_version.rc == 0
+          - "'Docker version' in docker_version.stdout"
+        fail_msg: 'Docker is not installed correctly'
+        success_msg: 'Docker is installed: {{ docker_version.stdout }}'
+
+    - name: Check Docker service is running
+      ansible.builtin.systemd:
+        name: docker
+        state: started
+      check_mode: true
+      register: docker_service
+
+    - name: Assert Docker service is running
+      ansible.builtin.assert:
+        that:
+          - docker_service.status.ActiveState == 'active'
+        fail_msg: 'Docker service is not running'
+        success_msg: 'Docker service is running'
+
+    - name: Check Docker Compose is installed
+      ansible.builtin.command: docker compose version
+      register: compose_version
+      changed_when: false
+
+    - name: Assert Docker Compose is installed
+      ansible.builtin.assert:
+        that:
+          - compose_version.rc == 0
+        fail_msg: 'Docker Compose is not installed'
+        success_msg: 'Docker Compose is installed: {{ compose_version.stdout }}'
+
+    - name: Check Docker daemon configuration exists
+      ansible.builtin.stat:
+        path: /etc/docker/daemon.json
+      register: daemon_config
+
+    - name: Assert Docker daemon config exists
+      ansible.builtin.assert:
+        that:
+          - daemon_config.stat.exists
+        fail_msg: 'Docker daemon configuration not found'
+        success_msg: 'Docker daemon configuration exists'
+
+    - name: Check Docker network was created
+      ansible.builtin.command: docker network ls --filter name=test-network --format {% raw %}'{{ "{{" }}.Name{{ "}}" }}'{% endraw %}
+      register: docker_network
+      changed_when: false
+
+    - name: Assert Docker network exists
+      ansible.builtin.assert:
+        that:
+          - "'test-network' in docker_network.stdout"
+        fail_msg: "Docker network 'test-network' not found"
+        success_msg: "Docker network 'test-network' exists"
+
+    - name: Run hello-world container
+      community.docker.docker_container:
+        name: hello-test
+        image: hello-world
+        state: started
+        auto_remove: true
+      register: hello_world
+
+    - name: Assert hello-world ran successfully
+      ansible.builtin.assert:
+        that:
+          - hello_world is not failed
+        fail_msg: 'Failed to run hello-world container'
+        success_msg: 'hello-world container ran successfully'

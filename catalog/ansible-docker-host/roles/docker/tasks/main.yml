@@ -1,0 +1,63 @@
+---
+# Docker Host Installation and Configuration
+# Supports: Ubuntu 20.04/22.04, Debian 11/12, RHEL 8/9, Amazon Linux 2
+
+- name: Include OS-specific variables
+  ansible.builtin.include_vars: '{{ item }}'
+  with_first_found:
+    - '{{ ansible_distribution | lower }}-{{ ansible_distribution_major_version }}.yml'
+    - '{{ ansible_distribution | lower }}.yml'
+    - '{{ ansible_os_family | lower }}.yml'
+    - default.yml
+
+- name: Install prerequisites
+  ansible.builtin.include_tasks: prerequisites.yml
+  tags:
+    - docker
+    - prerequisites
+
+- name: Install Docker Engine
+  ansible.builtin.include_tasks: 'install-{{ ansible_os_family | lower }}.yml'
+  tags:
+    - docker
+    - install
+
+- name: Configure Docker daemon
+  ansible.builtin.include_tasks: configure.yml
+  tags:
+    - docker
+    - configure
+
+- name: Configure Docker users
+  ansible.builtin.include_tasks: users.yml
+  when: docker_users | length > 0
+  tags:
+    - docker
+    - users
+
+- name: Install Docker Compose
+  ansible.builtin.include_tasks: compose.yml
+  when: docker_install_compose | bool
+  tags:
+    - docker
+    - compose
+
+- name: Configure Docker network
+  ansible.builtin.include_tasks: network.yml
+  when: docker_networks | length > 0
+  tags:
+    - docker
+    - network
+
+- name: Setup Docker cleanup cron
+  ansible.builtin.include_tasks: cleanup.yml
+  when: docker_cleanup_enabled | bool
+  tags:
+    - docker
+    - cleanup
+
+- name: Verify Docker installation
+  ansible.builtin.include_tasks: verify.yml
+  tags:
+    - docker
+    - verify

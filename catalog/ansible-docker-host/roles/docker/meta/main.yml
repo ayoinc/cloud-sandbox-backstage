@@ -1,0 +1,33 @@
+---
+galaxy_info:
+  author: DevOps Team
+  description: Install and configure Docker Engine
+  company: Cloud Sandbox
+  license: MIT
+  min_ansible_version: '2.12'
+
+  platforms:
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+    - name: EL
+      versions:
+        - '8'
+        - '9'
+    - name: Amazon
+      versions:
+        - '2'
+        - '2023'
+
+  galaxy_tags:
+    - docker
+    - containers
+    - containerization
+    - devops
+
+dependencies: []

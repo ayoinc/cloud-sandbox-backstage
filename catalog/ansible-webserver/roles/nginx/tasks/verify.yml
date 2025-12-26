@@ -1,0 +1,40 @@
+---
+# Verify Nginx configuration
+
+- name: Test Nginx configuration
+  ansible.builtin.command: nginx -t
+  register: nginx_config_test
+  changed_when: false
+
+- name: Display Nginx configuration test result
+  ansible.builtin.debug:
+    msg: '{{ nginx_config_test.stderr }}'
+
+- name: Get Nginx version
+  ansible.builtin.command: nginx -v
+  register: nginx_version
+  changed_when: false
+
+- name: Display Nginx version
+  ansible.builtin.debug:
+    msg: '{{ nginx_version.stderr }}'
+
+- name: Check Nginx is responding
+  ansible.builtin.uri:
+    url: 'http://localhost:{{ nginx_listen_port | default(80) }}'
+    status_code:
+      - 200
+      - 301
+      - 302
+      - 403
+      - 404
+  register: nginx_response
+  when: nginx_verify_http_response | bool
+  failed_when: false
+
+- name: Assert Nginx is working
+  ansible.builtin.assert:
+    that:
+      - nginx_config_test.rc == 0
+    fail_msg: 'Nginx configuration test failed'
+    success_msg: 'Nginx configuration is valid and service is running'

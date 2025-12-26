@@ -1,0 +1,22 @@
+---
+# Setup Docker cleanup cron job
+
+- name: Create Docker cleanup script
+  ansible.builtin.template:
+    src: docker-cleanup.sh.j2
+    dest: /usr/local/bin/docker-cleanup.sh
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Setup Docker cleanup cron job
+  ansible.builtin.cron:
+    name: 'Docker system cleanup'
+    minute: '{{ docker_cleanup_cron_minute }}'
+    hour: '{{ docker_cleanup_cron_hour }}'
+    day: '{{ docker_cleanup_cron_day }}'
+    month: '{{ docker_cleanup_cron_month }}'
+    weekday: '{{ docker_cleanup_cron_weekday }}'
+    job: '/usr/local/bin/docker-cleanup.sh >> /var/log/docker-cleanup.log 2>&1'
+    user: root
+    state: present

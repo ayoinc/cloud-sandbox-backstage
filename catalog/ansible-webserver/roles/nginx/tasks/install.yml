@@ -1,0 +1,29 @@
+---
+# Install Nginx
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  when: ansible_os_family == 'Debian'
+
+- name: Install Nginx (Debian/Ubuntu)
+  ansible.builtin.apt:
+    name: '{{ nginx_package_name }}'
+    state: '{{ nginx_package_state }}'
+  when: ansible_os_family == 'Debian'
+  notify: Restart nginx
+
+- name: Install Nginx (RedHat)
+  ansible.builtin.yum:
+    name: '{{ nginx_package_name }}'
+    state: '{{ nginx_package_state }}'
+  when: ansible_os_family == 'RedHat'
+  notify: Restart nginx
+
+- name: Ensure Nginx service is started and enabled
+  ansible.builtin.systemd:
+    name: nginx
+    state: started
+    enabled: true
+    daemon_reload: true

@@ -1,0 +1,38 @@
+{
+{% set config = docker_daemon_config | default({}) %}
+{% if docker_log_driver is defined %}
+  "log-driver": "{{ docker_log_driver }}",
+{% endif %}
+{% if docker_log_opts | default({}) | length > 0 %}
+  "log-opts": {{ docker_log_opts | to_nice_json }},
+{% endif %}
+{% if docker_default_ulimits | default({}) | length > 0 %}
+  "default-ulimits": {{ docker_default_ulimits | to_nice_json }},
+{% endif %}
+{% if docker_insecure_registries | default([]) | length > 0 %}
+  "insecure-registries": {{ docker_insecure_registries | to_nice_json }},
+{% endif %}
+{% if docker_registry_mirrors | default([]) | length > 0 %}
+  "registry-mirrors": {{ docker_registry_mirrors | to_nice_json }},
+{% endif %}
+{% if docker_dns | default([]) | length > 0 %}
+  "dns": {{ docker_dns | to_nice_json }},
+{% endif %}
+{% if docker_dns_search | default([]) | length > 0 %}
+  "dns-search": {{ docker_dns_search | to_nice_json }},
+{% endif %}
+{% if docker_storage_opts | default({}) | length > 0 %}
+  "storage-opts": {{ docker_storage_opts | to_nice_json }},
+{% endif %}
+{% for key, value in config.items() %}
+{% if value is mapping %}
+  "{{ key }}": {{ value | to_nice_json }}{{ "," if not loop.last else "" }}
+{% elif value is iterable and value is not string %}
+  "{{ key }}": {{ value | to_nice_json }}{{ "," if not loop.last else "" }}
+{% elif value is boolean %}
+  "{{ key }}": {{ value | lower }}{{ "," if not loop.last else "" }}
+{% else %}
+  "{{ key }}": "{{ value }}"{{ "," if not loop.last else "" }}
+{% endif %}
+{% endfor %}
+}

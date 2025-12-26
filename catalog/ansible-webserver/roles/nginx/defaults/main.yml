@@ -1,0 +1,148 @@
+---
+# Default variables for Nginx role
+
+# Package settings
+nginx_package_name: nginx
+nginx_package_state: present
+
+# User/Group
+nginx_user: www-data
+nginx_group: www-data
+
+# Directories
+nginx_conf_dir: /etc/nginx
+nginx_webroot: /var/www/html
+nginx_log_dir: /var/log/nginx
+nginx_ssl_dir: /etc/nginx/ssl
+
+# Main configuration
+nginx_worker_processes: auto
+nginx_worker_connections: 1024
+nginx_multi_accept: 'on'
+nginx_sendfile: 'on'
+nginx_tcp_nopush: 'on'
+nginx_tcp_nodelay: 'on'
+nginx_keepalive_timeout: 65
+nginx_types_hash_max_size: 2048
+nginx_server_tokens: 'off'
+nginx_client_max_body_size: '64m'
+nginx_client_body_timeout: 60
+nginx_client_header_timeout: 60
+nginx_send_timeout: 60
+
+# Listen ports
+nginx_listen_port: 80
+nginx_listen_port_ssl: 443
+
+# Remove default site
+nginx_remove_default_site: true
+
+# SSL/TLS settings
+nginx_ssl_enabled: false
+nginx_ssl_generate_dhparam: true
+nginx_ssl_dhparam_size: 2048
+nginx_ssl_protocols: 'TLSv1.2 TLSv1.3'
+nginx_ssl_ciphers: 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384'
+nginx_ssl_prefer_server_ciphers: 'on'
+nginx_ssl_session_timeout: '1d'
+nginx_ssl_session_cache: 'shared:SSL:50m'
+nginx_ssl_session_tickets: 'off'
+nginx_ssl_stapling: 'on'
+nginx_ssl_stapling_verify: 'on'
+nginx_ssl_certificates: []
+
+# Let's Encrypt settings
+nginx_letsencrypt_enabled: false
+nginx_letsencrypt_email: ''
+nginx_letsencrypt_domains: []
+nginx_letsencrypt_webroot: /var/www/letsencrypt
+
+# Security headers
+nginx_security_headers_enabled: true
+nginx_hsts_enabled: true
+nginx_hsts_max_age: 31536000
+nginx_hsts_include_subdomains: true
+nginx_hsts_preload: true
+nginx_x_frame_options: 'SAMEORIGIN'
+nginx_x_content_type_options: 'nosniff'
+nginx_x_xss_protection: '1; mode=block'
+nginx_referrer_policy: 'strict-origin-when-cross-origin'
+nginx_content_security_policy: ''
+nginx_permissions_policy: ''
+
+# Rate limiting
+nginx_rate_limiting_enabled: true
+nginx_rate_limit_zone: 'limit_req_zone $binary_remote_addr zone=general:10m rate=10r/s'
+nginx_rate_limit_burst: 20
+
+# IP blocking
+nginx_blocked_ips: []
+
+# Gzip settings
+nginx_gzip_enabled: true
+nginx_gzip_vary: 'on'
+nginx_gzip_proxied: 'any'
+nginx_gzip_comp_level: 6
+nginx_gzip_buffers: '16 8k'
+nginx_gzip_http_version: '1.1'
+nginx_gzip_types:
+  - text/plain
+  - text/css
+  - text/xml
+  - text/javascript
+  - application/json
+  - application/javascript
+  - application/x-javascript
+  - application/xml
+  - application/xml+rss
+  - application/xhtml+xml
+  - application/x-font-ttf
+  - application/x-font-opentype
+  - application/vnd.ms-fontobject
+  - image/svg+xml
+  - image/x-icon
+
+# Proxy settings
+nginx_proxy_buffer_size: '128k'
+nginx_proxy_buffers: '4 256k'
+nginx_proxy_busy_buffers_size: '256k'
+nginx_proxy_connect_timeout: 60
+nginx_proxy_send_timeout: 60
+nginx_proxy_read_timeout: 60
+
+# Logging
+nginx_access_log_format: combined
+nginx_error_log_level: warn
+
+# Logrotate
+nginx_logrotate_enabled: true
+nginx_logrotate_frequency: daily
+nginx_logrotate_rotate: 14
+nginx_logrotate_compress: true
+nginx_logrotate_delaycompress: true
+nginx_logrotate_notifempty: true
+nginx_logrotate_create: '0640 www-data adm'
+
+# Virtual hosts
+nginx_vhosts: []
+# Example:
+# nginx_vhosts:
+#   - name: example.com
+#     server_name: example.com www.example.com
+#     root: /var/www/example.com
+#     index: index.html index.htm
+#     ssl: true
+#     ssl_certificate: /etc/letsencrypt/live/example.com/fullchain.pem
+#     ssl_certificate_key: /etc/letsencrypt/live/example.com/privkey.pem
+#     locations:
+#       - path: /
+#         content: |
+#           try_files $uri $uri/ =404;
+#       - path: /api
+#         content: |
+#           proxy_pass http://localhost:3000;
+#           include snippets/proxy-params.conf;
+#     enabled: true
+
+# Verification
+nginx_verify_http_response: true

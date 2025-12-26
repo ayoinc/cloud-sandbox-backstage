@@ -1,0 +1,24 @@
+# {{ ansible_managed }}
+# Nginx log rotation configuration
+
+{{ nginx_log_dir }}/*.log {
+    {{ nginx_logrotate_frequency }}
+    rotate {{ nginx_logrotate_rotate }}
+    missingok
+{% if nginx_logrotate_compress | bool %}
+    compress
+{% endif %}
+{% if nginx_logrotate_delaycompress | bool %}
+    delaycompress
+{% endif %}
+{% if nginx_logrotate_notifempty | bool %}
+    notifempty
+{% endif %}
+    create {{ nginx_logrotate_create }}
+    sharedscripts
+    postrotate
+        if [ -f /var/run/nginx.pid ]; then
+            kill -USR1 `cat /var/run/nginx.pid`
+        fi
+    endscript
+}

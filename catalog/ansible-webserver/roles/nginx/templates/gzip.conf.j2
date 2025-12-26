@@ -1,0 +1,15 @@
+# {{ ansible_managed }}
+# Gzip compression settings
+
+gzip on;
+gzip_vary {{ nginx_gzip_vary }};
+gzip_proxied {{ nginx_gzip_proxied }};
+gzip_comp_level {{ nginx_gzip_comp_level }};
+gzip_buffers {{ nginx_gzip_buffers }};
+gzip_http_version {{ nginx_gzip_http_version }};
+gzip_types
+{% for type in nginx_gzip_types %}
+    {{ type }}{% if not loop.last %}{% endif %}
+
+{% endfor %}
+    ;

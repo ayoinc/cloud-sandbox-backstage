@@ -1,0 +1,21 @@
+[Service]
+{% if docker_systemd_options.environment is defined %}
+{% for key, value in docker_systemd_options.environment.items() %}
+Environment="{{ key }}={{ value }}"
+{% endfor %}
+{% endif %}
+{% if docker_systemd_options.limit_nofile is defined %}
+LimitNOFILE={{ docker_systemd_options.limit_nofile }}
+{% endif %}
+{% if docker_systemd_options.limit_nproc is defined %}
+LimitNPROC={{ docker_systemd_options.limit_nproc }}
+{% endif %}
+{% if docker_systemd_options.limit_core is defined %}
+LimitCORE={{ docker_systemd_options.limit_core }}
+{% endif %}
+{% if docker_systemd_options.task_max is defined %}
+TasksMax={{ docker_systemd_options.task_max }}
+{% endif %}
+{% if docker_systemd_options.oom_score_adjust is defined %}
+OOMScoreAdjust={{ docker_systemd_options.oom_score_adjust }}
+{% endif %}

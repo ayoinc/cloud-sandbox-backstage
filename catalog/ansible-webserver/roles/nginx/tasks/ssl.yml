@@ -1,0 +1,79 @@
+---
+# Configure SSL/TLS
+
+- name: Create SSL directory
+  ansible.builtin.file:
+    path: '{{ nginx_ssl_dir }}'
+    state: directory
+    mode: '0700'
+    owner: root
+    group: root
+
+- name: Generate DH parameters
+  community.crypto.openssl_dhparam:
+    path: '{{ nginx_ssl_dir }}/dhparam.pem'
+    size: '{{ nginx_ssl_dhparam_size }}'
+    mode: '0600'
+  when: nginx_ssl_generate_dhparam | bool
+
+- name: Configure SSL snippet
+  ansible.builtin.template:
+    src: ssl-params.conf.j2
+    dest: '{{ nginx_conf_dir }}/snippets/ssl-params.conf'
+    mode: '0644'
+    owner: root
+    group: root
+  notify: Reload nginx
+
+- name: Copy SSL certificates
+  ansible.builtin.copy:
+    src: '{{ item.src }}'
+    dest: '{{ item.dest }}'
+    mode: '0600'
+    owner: root
+    group: root
+  loop: '{{ nginx_ssl_certificates }}'
+  when: nginx_ssl_certificates | length > 0
+  notify: Reload nginx
+
+- name: Install certbot for Let's Encrypt
+  ansible.builtin.package:
+    name:
+      - certbot
+      - python3-certbot-nginx
+    state: present
+  when: nginx_letsencrypt_enabled | bool
+
+- name: Create Let's Encrypt webroot directory
+  ansible.builtin.file:
+    path: '{{ nginx_letsencrypt_webroot }}'
+    state: directory
+    mode: '0755'
+    owner: '{{ nginx_user }}'
+    group: '{{ nginx_group }}'
+  when: nginx_letsencrypt_enabled | bool
+
+- name: Request Let's Encrypt certificates
+  ansible.builtin.command: >
+    certbot certonly --webroot
+    --webroot-path {{ nginx_letsencrypt_webroot }}
+    --email {{ nginx_letsencrypt_email }}
+    --agree-tos --non-interactive
+    -d {{ item }}
+  loop: '{{ nginx_letsencrypt_domains }}'
+  when:
+    - nginx_letsencrypt_enabled | bool
+    - nginx_letsencrypt_domains | length > 0
+  register: certbot_result
+  changed_when: "'Certificate not yet due for renewal' not in certbot_result.stdout"
+  failed_when: false
+
+- name: Setup certbot auto-renewal cron
+  ansible.builtin.cron:
+    name: 'Certbot renewal'
+    minute: '0'
+    hour: '3'
+    job: "certbot renew --quiet --post-hook 'systemctl reload nginx'"
+    user: root
+    state: present
+  when: nginx_letsencrypt_enabled | bool

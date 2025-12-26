@@ -1,0 +1,31 @@
+---
+# Configure security headers
+
+- name: Configure security headers snippet
+  ansible.builtin.template:
+    src: security-headers.conf.j2
+    dest: '{{ nginx_conf_dir }}/snippets/security-headers.conf'
+    mode: '0644'
+    owner: root
+    group: root
+  notify: Reload nginx
+
+- name: Configure rate limiting
+  ansible.builtin.template:
+    src: rate-limiting.conf.j2
+    dest: '{{ nginx_conf_dir }}/conf.d/rate-limiting.conf'
+    mode: '0644'
+    owner: root
+    group: root
+  when: nginx_rate_limiting_enabled | bool
+  notify: Reload nginx
+
+- name: Configure IP blocking
+  ansible.builtin.template:
+    src: blocked-ips.conf.j2
+    dest: '{{ nginx_conf_dir }}/conf.d/blocked-ips.conf'
+    mode: '0644'
+    owner: root
+    group: root
+  when: nginx_blocked_ips | length > 0
+  notify: Reload nginx

@@ -1,0 +1,33 @@
+---
+# Verify Docker installation
+
+- name: Get Docker version
+  ansible.builtin.command: docker --version
+  register: docker_version_output
+  changed_when: false
+
+- name: Get Docker info
+  ansible.builtin.command: docker info --format '{{ "{{json .}}" }}'
+  register: docker_info_output
+  changed_when: false
+
+- name: Display Docker version
+  ansible.builtin.debug:
+    msg: 'Docker version: {{ docker_version_output.stdout }}'
+
+- name: Run hello-world container
+  community.docker.docker_container:
+    name: hello-world-test
+    image: hello-world
+    state: started
+    auto_remove: true
+  register: hello_world_result
+  when: docker_run_hello_world | bool
+
+- name: Verify Docker is working
+  ansible.builtin.assert:
+    that:
+      - docker_version_output.rc == 0
+      - docker_info_output.rc == 0
+    fail_msg: 'Docker installation verification failed'
+    success_msg: 'Docker installation verified successfully'

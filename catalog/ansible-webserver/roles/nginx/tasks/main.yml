@@ -1,0 +1,57 @@
+---
+# Nginx Webserver Installation and Configuration
+# Supports: Ubuntu 20.04/22.04, Debian 11/12, RHEL 8/9, Amazon Linux 2
+
+- name: Include OS-specific variables
+  ansible.builtin.include_vars: '{{ item }}'
+  with_first_found:
+    - '{{ ansible_distribution | lower }}-{{ ansible_distribution_major_version }}.yml'
+    - '{{ ansible_distribution | lower }}.yml'
+    - '{{ ansible_os_family | lower }}.yml'
+    - default.yml
+
+- name: Install Nginx
+  ansible.builtin.include_tasks: install.yml
+  tags:
+    - nginx
+    - install
+
+- name: Configure Nginx
+  ansible.builtin.include_tasks: configure.yml
+  tags:
+    - nginx
+    - configure
+
+- name: Configure SSL/TLS
+  ansible.builtin.include_tasks: ssl.yml
+  when: nginx_ssl_enabled | bool
+  tags:
+    - nginx
+    - ssl
+
+- name: Configure virtual hosts
+  ansible.builtin.include_tasks: vhosts.yml
+  when: nginx_vhosts | length > 0
+  tags:
+    - nginx
+    - vhosts
+
+- name: Configure security headers
+  ansible.builtin.include_tasks: security.yml
+  when: nginx_security_headers_enabled | bool
+  tags:
+    - nginx
+    - security
+
+- name: Setup log rotation
+  ansible.builtin.include_tasks: logrotate.yml
+  when: nginx_logrotate_enabled | bool
+  tags:
+    - nginx
+    - logrotate
+
+- name: Verify Nginx configuration
+  ansible.builtin.include_tasks: verify.yml
+  tags:
+    - nginx
+    - verify

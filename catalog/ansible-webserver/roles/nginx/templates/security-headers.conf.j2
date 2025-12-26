@@ -1,0 +1,19 @@
+# {{ ansible_managed }}
+# Security headers
+
+{% if nginx_hsts_enabled | bool %}
+add_header Strict-Transport-Security "max-age={{ nginx_hsts_max_age }}{% if nginx_hsts_include_subdomains %}; includeSubDomains{% endif %}{% if nginx_hsts_preload %}; preload{% endif %}" always;
+{% endif %}
+
+add_header X-Frame-Options "{{ nginx_x_frame_options }}" always;
+add_header X-Content-Type-Options "{{ nginx_x_content_type_options }}" always;
+add_header X-XSS-Protection "{{ nginx_x_xss_protection }}" always;
+add_header Referrer-Policy "{{ nginx_referrer_policy }}" always;
+
+{% if nginx_content_security_policy %}
+add_header Content-Security-Policy "{{ nginx_content_security_policy }}" always;
+{% endif %}
+
+{% if nginx_permissions_policy %}
+add_header Permissions-Policy "{{ nginx_permissions_policy }}" always;
+{% endif %}

@@ -1,0 +1,68 @@
+# {{ ansible_managed }}
+# Nginx main configuration file
+
+user {{ nginx_user }};
+worker_processes {{ nginx_worker_processes }};
+pid /run/nginx.pid;
+include /etc/nginx/modules-enabled/*.conf;
+
+events {
+    worker_connections {{ nginx_worker_connections }};
+    multi_accept {{ nginx_multi_accept }};
+}
+
+http {
+    ##
+    # Basic Settings
+    ##
+    sendfile {{ nginx_sendfile }};
+    tcp_nopush {{ nginx_tcp_nopush }};
+    tcp_nodelay {{ nginx_tcp_nodelay }};
+    keepalive_timeout {{ nginx_keepalive_timeout }};
+    types_hash_max_size {{ nginx_types_hash_max_size }};
+    server_tokens {{ nginx_server_tokens }};
+
+    # Client settings
+    client_max_body_size {{ nginx_client_max_body_size }};
+    client_body_timeout {{ nginx_client_body_timeout }};
+    client_header_timeout {{ nginx_client_header_timeout }};
+    send_timeout {{ nginx_send_timeout }};
+
+    include {{ nginx_conf_dir }}/mime.types;
+    default_type application/octet-stream;
+
+    ##
+    # SSL Settings
+    ##
+{% if nginx_ssl_enabled | bool %}
+    ssl_protocols {{ nginx_ssl_protocols }};
+    ssl_ciphers {{ nginx_ssl_ciphers }};
+    ssl_prefer_server_ciphers {{ nginx_ssl_prefer_server_ciphers }};
+    ssl_session_timeout {{ nginx_ssl_session_timeout }};
+    ssl_session_cache {{ nginx_ssl_session_cache }};
+    ssl_session_tickets {{ nginx_ssl_session_tickets }};
+{% if nginx_ssl_stapling | bool %}
+    ssl_stapling {{ nginx_ssl_stapling }};
+    ssl_stapling_verify {{ nginx_ssl_stapling_verify }};
+{% endif %}
+{% endif %}
+
+    ##
+    # Logging Settings
+    ##
+    access_log {{ nginx_log_dir }}/access.log {{ nginx_access_log_format }};
+    error_log {{ nginx_log_dir }}/error.log {{ nginx_error_log_level }};
+
+    ##
+    # Gzip Settings
+    ##
+{% if nginx_gzip_enabled | bool %}
+    include {{ nginx_conf_dir }}/snippets/gzip.conf;
+{% endif %}
+
+    ##
+    # Virtual Host Configs
+    ##
+    include {{ nginx_conf_dir }}/conf.d/*.conf;
+    include {{ nginx_conf_dir }}/sites-enabled/*;
+}

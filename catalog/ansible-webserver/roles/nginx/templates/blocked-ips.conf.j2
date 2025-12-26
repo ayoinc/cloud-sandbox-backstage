@@ -1,0 +1,9 @@
+# {{ ansible_managed }}
+# Blocked IP addresses
+
+geo $blocked_ip {
+    default 0;
+{% for ip in nginx_blocked_ips %}
+    {{ ip }} 1;
+{% endfor %}
+}

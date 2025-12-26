@@ -1,0 +1,48 @@
+---
+# Configure virtual hosts
+
+- name: Create virtual host configurations
+  ansible.builtin.template:
+    src: vhost.conf.j2
+    dest: '{{ nginx_conf_dir }}/sites-available/{{ item.name }}.conf'
+    mode: '0644'
+    owner: root
+    group: root
+    validate: 'nginx -t -c {{ nginx_conf_dir }}/nginx.conf'
+  loop: '{{ nginx_vhosts }}'
+  loop_control:
+    label: '{{ item.name }}'
+  notify: Reload nginx
+
+- name: Enable virtual hosts
+  ansible.builtin.file:
+    src: '{{ nginx_conf_dir }}/sites-available/{{ item.name }}.conf'
+    dest: '{{ nginx_conf_dir }}/sites-enabled/{{ item.name }}.conf'
+    state: link
+  loop: '{{ nginx_vhosts }}'
+  loop_control:
+    label: '{{ item.name }}'
+  when: item.enabled | default(true)
+  notify: Reload nginx
+
+- name: Disable virtual hosts
+  ansible.builtin.file:
+    path: '{{ nginx_conf_dir }}/sites-enabled/{{ item.name }}.conf'
+    state: absent
+  loop: '{{ nginx_vhosts }}'
+  loop_control:
+    label: '{{ item.name }}'
+  when: not (item.enabled | default(true))
+  notify: Reload nginx
+
+- name: Create virtual host webroot directories
+  ansible.builtin.file:
+    path: "{{ item.root | default(nginx_webroot + '/' + item.name) }}"
+    state: directory
+    mode: '0755'
+    owner: '{{ item.owner | default(nginx_user) }}'
+    group: '{{ item.group | default(nginx_group) }}'
+  loop: '{{ nginx_vhosts }}'
+  loop_control:
+    label: '{{ item.name }}'
+  when: item.create_root | default(true)

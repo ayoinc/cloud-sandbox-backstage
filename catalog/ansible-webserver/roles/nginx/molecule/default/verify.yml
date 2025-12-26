@@ -1,0 +1,75 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Check Nginx is installed
+      ansible.builtin.command: nginx -v
+      register: nginx_version
+      changed_when: false
+
+    - name: Assert Nginx is installed
+      ansible.builtin.assert:
+        that:
+          - nginx_version.rc == 0
+        fail_msg: 'Nginx is not installed correctly'
+        success_msg: 'Nginx is installed: {{ nginx_version.stderr }}'
+
+    - name: Check Nginx service is running
+      ansible.builtin.systemd:
+        name: nginx
+        state: started
+      check_mode: true
+      register: nginx_service
+
+    - name: Assert Nginx service is running
+      ansible.builtin.assert:
+        that:
+          - nginx_service.status.ActiveState == 'active'
+        fail_msg: 'Nginx service is not running'
+        success_msg: 'Nginx service is running'
+
+    - name: Check Nginx configuration is valid
+      ansible.builtin.command: nginx -t
+      register: nginx_config
+      changed_when: false
+
+    - name: Assert Nginx config is valid
+      ansible.builtin.assert:
+        that:
+          - nginx_config.rc == 0
+        fail_msg: 'Nginx configuration is invalid'
+        success_msg: 'Nginx configuration is valid'
+
+    - name: Check Nginx is listening on port 80
+      ansible.builtin.wait_for:
+        port: 80
+        timeout: 5
+      register: port_check
+
+    - name: Check virtual host configuration exists
+      ansible.builtin.stat:
+        path: /etc/nginx/sites-available/test.example.com.conf
+      register: vhost_config
+
+    - name: Assert virtual host config exists
+      ansible.builtin.assert:
+        that:
+          - vhost_config.stat.exists
+        fail_msg: 'Virtual host configuration not found'
+        success_msg: 'Virtual host configuration exists'
+
+    - name: Check virtual host is enabled
+      ansible.builtin.stat:
+        path: /etc/nginx/sites-enabled/test.example.com.conf
+      register: vhost_enabled
+
+    - name: Assert virtual host is enabled
+      ansible.builtin.assert:
+        that:
+          - vhost_enabled.stat.exists
+          - vhost_enabled.stat.islnk
+        fail_msg: 'Virtual host is not enabled'
+        success_msg: 'Virtual host is enabled'

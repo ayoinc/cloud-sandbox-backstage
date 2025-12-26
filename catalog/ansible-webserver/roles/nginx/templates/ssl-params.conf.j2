@@ -1,0 +1,21 @@
+# {{ ansible_managed }}
+# SSL/TLS parameters
+
+ssl_protocols {{ nginx_ssl_protocols }};
+ssl_ciphers {{ nginx_ssl_ciphers }};
+ssl_prefer_server_ciphers {{ nginx_ssl_prefer_server_ciphers }};
+
+ssl_session_timeout {{ nginx_ssl_session_timeout }};
+ssl_session_cache {{ nginx_ssl_session_cache }};
+ssl_session_tickets {{ nginx_ssl_session_tickets }};
+
+{% if nginx_ssl_generate_dhparam | bool %}
+ssl_dhparam {{ nginx_ssl_dir }}/dhparam.pem;
+{% endif %}
+
+{% if nginx_ssl_stapling | bool %}
+ssl_stapling {{ nginx_ssl_stapling }};
+ssl_stapling_verify {{ nginx_ssl_stapling_verify }};
+resolver 8.8.8.8 8.8.4.4 valid=300s;
+resolver_timeout 5s;
+{% endif %}
