@@ -53,73 +53,6 @@ terraform {
   }
 }
 
-# Provider configurations
-{% if values.cloud_provider == 'aws' or values.cloud_provider == 'multi-cloud' %}
-provider "aws" {
-  region = var.aws_region
-  
-  default_tags {
-    tags = local.common_tags
-  }
-}
-{% endif %}
-
-{% if values.cloud_provider == 'azure' or values.cloud_provider == 'multi-cloud' %}
-provider "azurerm" {
-  features {
-    resource_group {
-      prevent_deletion_if_contains_resources = false
-    }
-  }
-}
-{% endif %}
-
-{% if values.cloud_provider == 'gcp' or values.cloud_provider == 'multi-cloud' %}
-provider "google" {
-  project = var.gcp_project_id
-  region  = var.gcp_region
-}
-{% endif %}
-
-{% if values.enable_kubernetes %}
-# Kubernetes provider configuration (configured after cluster creation)
-provider "kubernetes" {
-  {% if values.cloud_provider == 'aws' %}
-  host                   = module.eks[0].cluster_endpoint
-  cluster_ca_certificate = base64decode(module.eks[0].cluster_certificate_authority_data)
-  token                  = data.aws_eks_cluster_auth.cluster[0].token
-  {% elif values.cloud_provider == 'azure' %}
-  host                   = module.aks[0].kube_config.0.host
-  client_certificate     = base64decode(module.aks[0].kube_config.0.client_certificate)
-  client_key             = base64decode(module.aks[0].kube_config.0.client_key)
-  cluster_ca_certificate = base64decode(module.aks[0].kube_config.0.cluster_ca_certificate)
-  {% elif values.cloud_provider == 'gcp' %}
-  host                   = "https://${module.gke[0].endpoint}"
-  token                  = data.google_client_config.default.access_token
-  cluster_ca_certificate = base64decode(module.gke[0].ca_certificate)
-  {% endif %}
-}
-
-provider "helm" {
-  kubernetes {
-    {% if values.cloud_provider == 'aws' %}
-    host                   = module.eks[0].cluster_endpoint
-    cluster_ca_certificate = base64decode(module.eks[0].cluster_certificate_authority_data)
-    token                  = data.aws_eks_cluster_auth.cluster[0].token
-    {% elif values.cloud_provider == 'azure' %}
-    host                   = module.aks[0].kube_config.0.host
-    client_certificate     = base64decode(module.aks[0].kube_config.0.client_certificate)
-    client_key             = base64decode(module.aks[0].kube_config.0.client_key)
-    cluster_ca_certificate = base64decode(module.aks[0].kube_config.0.cluster_ca_certificate)
-    {% elif values.cloud_provider == 'gcp' %}
-    host                   = "https://${module.gke[0].endpoint}"
-    token                  = data.google_client_config.default.access_token
-    cluster_ca_certificate = base64decode(module.gke[0].ca_certificate)
-    {% endif %}
-  }
-}
-{% endif %}
-
 # Local values for common configurations
 locals {
   name_prefix = "${{ values.name }}"
@@ -174,15 +107,11 @@ data "google_client_config" "default" {
 }
 {% endif %}
 
-# Random password for databases and secrets
-resource "random_password" "database_password" {
-  count   = var.enable_database ? 1 : 0
-  length  = 16
-  special = true
-}
+# Common module for shared resources (passwords, suffixes, etc.)
+module "common" {
+  source = "./modules/common"
 
-resource "random_id" "suffix" {
-  byte_length = 4
+  enable_database = var.enable_database
 }
 
 # Infrastructure modules based on cloud provider
@@ -210,7 +139,7 @@ module "aws_infrastructure" {
   
   # Database
   enable_database       = var.enable_database
-  database_password    = var.enable_database ? random_password.database_password[0].result : ""
+  database_password    = module.common.database_password
   
   # Storage
   enable_storage        = var.enable_storage
@@ -257,7 +186,7 @@ module "azure_infrastructure" {
   
   # Database
   enable_database      = var.enable_database
-  database_password   = var.enable_database ? random_password.database_password[0].result : ""
+  database_password   = module.common.database_password
   
   # Storage
   enable_storage       = var.enable_storage
@@ -299,7 +228,7 @@ module "gcp_infrastructure" {
   
   # Database
   enable_database     = var.enable_database
-  database_password  = var.enable_database ? random_password.database_password[0].result : ""
+  database_password  = module.common.database_password
   
   # Storage
   enable_storage      = var.enable_storage
