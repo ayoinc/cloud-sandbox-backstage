@@ -41,9 +41,11 @@ curl -s -X PUT "http://${OPENSEARCH_HOST}/_index_template/backstage-logs" \
       "settings": {
         "number_of_shards": 1,
         "number_of_replicas": 0,
-        "index.refresh_interval": "5s"
+        "index.refresh_interval": "5s",
+        "index.mapping.total_fields.limit": 2000
       },
       "mappings": {
+        "dynamic": "true",
         "properties": {
           "@timestamp": {"type": "date"},
           "message": {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 2048}}},
@@ -60,11 +62,35 @@ curl -s -X PUT "http://${OPENSEARCH_HOST}/_index_template/backstage-logs" \
           "method": {"type": "keyword"},
           "url": {"type": "keyword"},
           "path": {"type": "keyword"},
-          "status": {"type": "integer"},
+          "status": {"type": "keyword"},
           "duration_ms": {"type": "float"},
           "type": {"type": "keyword"},
           "httpVersion": {"type": "keyword"},
-          "userAgent": {"type": "keyword"}
+          "userAgent": {"type": "keyword"},
+          "eventId": {"type": "keyword"},
+          "isAuditEvent": {"type": "boolean"},
+          "severityLevel": {"type": "keyword"},
+          "actor": {
+            "type": "object",
+            "properties": {
+              "actorId": {"type": "keyword"},
+              "hostname": {"type": "keyword"},
+              "ip": {"type": "keyword"},
+              "userAgent": {"type": "keyword"}
+            }
+          },
+          "request": {
+            "type": "object",
+            "properties": {
+              "method": {"type": "keyword"},
+              "url": {"type": "keyword"}
+            }
+          },
+          "meta": {
+            "type": "object",
+            "dynamic": true
+          },
+          "log": {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 2048}}}
         }
       }
     }
