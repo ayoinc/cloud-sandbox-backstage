@@ -8,20 +8,20 @@ This Azure Virtual Network is managed by Terraform for the **${{ values.environm
 
 ## Configuration
 
-| Setting | Value |
-|---------|-------|
-| Location | ${{ values.location }} |
+| Setting       | Value                      |
+| ------------- | -------------------------- |
+| Location      | ${{ values.location }}     |
 | Address Space | ${{ values.addressSpace }} |
-| Environment | ${{ values.environment }} |
+| Environment   | ${{ values.environment }}  |
 
 ## Subnets
 
-| Subnet | Purpose | CIDR |
-|--------|---------|------|
-| snet-public | Public-facing resources (Load Balancers, App Gateways) | /24 |
-| snet-private | Private workloads (VMs, App Services) | /24 |
-| snet-database | Database services (SQL, CosmosDB) | /24 |
-| snet-aks | AKS cluster nodes | /20 |
+| Subnet        | Purpose                                                | CIDR |
+| ------------- | ------------------------------------------------------ | ---- |
+| snet-public   | Public-facing resources (Load Balancers, App Gateways) | /24  |
+| snet-private  | Private workloads (VMs, App Services)                  | /24  |
+| snet-database | Database services (SQL, CosmosDB)                      | /24  |
+| snet-aks      | AKS cluster nodes                                      | /20  |
 
 ## Network Security
 

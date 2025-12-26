@@ -9,12 +9,14 @@ Build high-performance Python APIs with modern async support, automatic document
 ## Features
 
 ### Framework Options
+
 - **FastAPI** (Recommended) - Modern, fast, async-first
 - **Flask + Flask-RESTful** - Lightweight and flexible
 - **Django REST Framework** - Full-featured with admin
 - **Starlette** - Minimal ASGI framework
 
 ### API Types
+
 - REST CRUD API
 - REST Microservice
 - GraphQL API
@@ -22,27 +24,29 @@ Build high-performance Python APIs with modern async support, automatic document
 - Async Task Processor
 
 ### Database Support
-| Database | ORM/ODM |
-|----------|---------|
-| PostgreSQL | SQLAlchemy |
-| MySQL | SQLAlchemy, Tortoise ORM |
-| MongoDB | MongoEngine |
-| Redis | Redis OM |
-| SQLite | SQLAlchemy, Peewee |
+
+| Database   | ORM/ODM                  |
+| ---------- | ------------------------ |
+| PostgreSQL | SQLAlchemy               |
+| MySQL      | SQLAlchemy, Tortoise ORM |
+| MongoDB    | MongoEngine              |
+| Redis      | Redis OM                 |
+| SQLite     | SQLAlchemy, Peewee       |
 
 ## Configuration Options
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `python_version` | Python version | 3.11 |
-| `framework` | Web framework | fastapi |
-| `database_type` | Database | postgresql |
-| `auth_type` | Authentication | jwt |
-| `enable_async` | Async support | true |
+| Parameter        | Description    | Default    |
+| ---------------- | -------------- | ---------- |
+| `python_version` | Python version | 3.11       |
+| `framework`      | Web framework  | fastapi    |
+| `database_type`  | Database       | postgresql |
+| `auth_type`      | Authentication | jwt        |
+| `enable_async`   | Async support  | true       |
 
 ## Getting Started
 
 ### Prerequisites
+
 - Python 3.9+
 - pip or Poetry
 - Docker (optional)
@@ -50,6 +54,7 @@ Build high-performance Python APIs with modern async support, automatic document
 ### Local Development
 
 1. **Create virtual environment**
+
    ```bash
    python -m venv venv
    source venv/bin/activate  # Linux/Mac
@@ -58,6 +63,7 @@ Build high-performance Python APIs with modern async support, automatic document
    ```
 
 2. **Install dependencies**
+
    ```bash
    pip install -r requirements.txt
    # or with Poetry
@@ -65,12 +71,14 @@ Build high-performance Python APIs with modern async support, automatic document
    ```
 
 3. **Set up environment**
+
    ```bash
    cp .env.example .env
    # Edit .env with your configuration
    ```
 
 4. **Run database migrations**
+
    ```bash
    alembic upgrade head
    ```
@@ -83,6 +91,7 @@ Build high-performance Python APIs with modern async support, automatic document
 ### API Documentation
 
 FastAPI automatically generates interactive documentation:
+
 - **Swagger UI**: http://localhost:8000/docs
 - **ReDoc**: http://localhost:8000/redoc
 - **OpenAPI JSON**: http://localhost:8000/openapi.json
@@ -118,6 +127,7 @@ FastAPI automatically generates interactive documentation:
 ## Authentication
 
 ### JWT Authentication
+
 ```python
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
@@ -132,6 +142,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 ```
 
 ### Supported Auth Methods
+
 - JWT Tokens
 - OAuth2 / OpenID Connect
 - API Key Authentication
@@ -156,6 +167,7 @@ alembic downgrade -1
 ## Testing
 
 ### Run Tests
+
 ```bash
 # Run all tests
 pytest
@@ -169,6 +181,7 @@ pytest tests/integration/
 ```
 
 ### Test Configuration
+
 ```python
 # conftest.py
 import pytest
@@ -183,6 +196,7 @@ async def client():
 ## Code Quality
 
 ### Linting and Formatting
+
 ```bash
 # Format code
 black app/ tests/
@@ -196,6 +210,7 @@ mypy app/
 ```
 
 ### Pre-commit Hooks
+
 ```yaml
 # .pre-commit-config.yaml
 repos:
@@ -213,6 +228,7 @@ repos:
 ## Docker Deployment
 
 ### Build and Run
+
 ```bash
 # Build image
 docker build -t my-api:latest .
@@ -225,6 +241,7 @@ docker-compose up -d
 ```
 
 ### Multi-stage Dockerfile
+
 ```dockerfile
 FROM python:3.11-slim as builder
 WORKDIR /app
@@ -241,6 +258,7 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0"]
 ## Monitoring
 
 ### Health Checks
+
 ```python
 @app.get("/health")
 async def health():
@@ -254,6 +272,7 @@ async def readiness():
 ```
 
 ### Prometheus Metrics
+
 ```python
 from prometheus_fastapi_instrumentator import Instrumentator
 

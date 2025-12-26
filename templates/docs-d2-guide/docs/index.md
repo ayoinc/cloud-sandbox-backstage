@@ -17,14 +17,14 @@ D2 is a modern, declarative diagramming language that turns text descriptions in
 
 ### Why D2 for TechDocs?
 
-| Feature | ASCII Art | Mermaid | D2 |
-|---------|-----------|---------|-----|
-| Visual Quality | Low | Medium | High |
-| Styling Options | None | Limited | Extensive |
-| Learning Curve | Easy | Medium | Easy |
-| Layout Control | Manual | Automatic | Both |
-| Container Support | No | Limited | Full |
-| Dark Mode | No | Yes | Yes |
+| Feature           | ASCII Art | Mermaid   | D2        |
+| ----------------- | --------- | --------- | --------- |
+| Visual Quality    | Low       | Medium    | High      |
+| Styling Options   | None      | Limited   | Extensive |
+| Learning Curve    | Easy      | Medium    | Easy      |
+| Layout Control    | Manual    | Automatic | Both      |
+| Container Support | No        | Limited   | Full      |
+| Dark Mode         | No        | Yes       | Yes       |
 
 ## 2. Getting Started
 
@@ -144,7 +144,7 @@ kubernetes: Kubernetes Cluster {
     pod1: API Pod
     pod2: Worker Pod
   }
-  
+
   ingress: Ingress Controller
 }
 
@@ -245,7 +245,7 @@ lb: Load Balancer {
 
 app: Application Tier {
   style.fill: "#E8F5E9"
-  
+
   api1: API Server 1 {
     shape: hexagon
   }
@@ -256,7 +256,7 @@ app: Application Tier {
 
 data: Data Tier {
   style.fill: "#FFF3E0"
-  
+
   db: PostgreSQL {
     shape: cylinder
   }
@@ -304,11 +304,11 @@ internet: Internet {
 
 dmz: DMZ {
   style.fill: "#FFECB3"
-  
+
   firewall: Firewall {
     shape: hexagon
   }
-  
+
   waf: WAF {
     shape: hexagon
   }
@@ -316,7 +316,7 @@ dmz: DMZ {
 
 internal: Internal Network {
   style.fill: "#C8E6C9"
-  
+
   app: Application Servers
   db: Database Servers
 }
@@ -336,7 +336,7 @@ gateway: API Gateway {
 
 services: Services {
   style.fill: "#F5F5F5"
-  
+
   users: User Service {
     shape: hexagon
   }
@@ -377,14 +377,14 @@ services.payments -> messaging.kafka
 
 Create a color palette for your organization:
 
-| Purpose | Fill Color | Stroke Color |
-|---------|------------|--------------|
-| Primary/API | `#E3F2FD` | `#1976D2` |
-| Data/Storage | `#FCE4EC` | `#C2185B` |
-| Processing | `#E8F5E9` | `#388E3C` |
-| External | `#FFF3E0` | `#FF9800` |
-| Warning | `#FFECB3` | `#FFA000` |
-| Error | `#FFCDD2` | `#D32F2F` |
+| Purpose      | Fill Color | Stroke Color |
+| ------------ | ---------- | ------------ |
+| Primary/API  | `#E3F2FD`  | `#1976D2`    |
+| Data/Storage | `#FCE4EC`  | `#C2185B`    |
+| Processing   | `#E8F5E9`  | `#388E3C`    |
+| External     | `#FFF3E0`  | `#FF9800`    |
+| Warning      | `#FFECB3`  | `#FFA000`    |
+| Error        | `#FFCDD2`  | `#D32F2F`    |
 
 ### Name Things Meaningfully
 
@@ -444,12 +444,12 @@ server -> database: SQL
 
 ### Common Issues
 
-| Problem | Solution |
-|---------|----------|
+| Problem               | Solution                               |
+| --------------------- | -------------------------------------- |
 | Diagram not rendering | Check mkdocs.yml has `- d2` in plugins |
-| Build fails | Verify D2 is installed in container |
-| Labels not showing | Ensure quotes around multi-word labels |
-| Layout looks wrong | Try different `direction` values |
+| Build fails           | Verify D2 is installed in container    |
+| Labels not showing    | Ensure quotes around multi-word labels |
+| Layout looks wrong    | Try different `direction` values       |
 
 ### Validation
 
@@ -475,4 +475,4 @@ d2 --watch input.d2 output.svg
 
 ---
 
-*Last Updated: 2025-12-23*
+_Last Updated: 2025-12-23_

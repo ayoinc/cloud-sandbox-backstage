@@ -23,5 +23,5 @@
 
 - name: Display Docker Compose version
   ansible.builtin.debug:
-    msg: "Docker Compose version: {{ compose_version.stdout }}"
+    msg: 'Docker Compose version: {{ compose_version.stdout }}'
   when: compose_version.rc == 0

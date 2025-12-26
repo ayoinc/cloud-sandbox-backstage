@@ -42,9 +42,11 @@ What becomes easier or more difficult to do because of this change?
 Description of the alternative.
 
 **Pros:**
+
 - Pro 1
 
 **Cons:**
+
 - Con 1
 
 ### Alternative 2: Name
@@ -52,9 +54,11 @@ Description of the alternative.
 Description of the alternative.
 
 **Pros:**
+
 - Pro 1
 
 **Cons:**
+
 - Con 1
 
 ## References
@@ -98,13 +102,13 @@ For complex decisions requiring more detail:
 
 ## Metadata
 
-| Field | Value |
-|-------|-------|
-| Status | Proposed |
-| Date | YYYY-MM-DD |
-| Author | @username |
-| Reviewers | @reviewer1, @reviewer2 |
-| Category | architecture / security / infrastructure |
+| Field     | Value                                    |
+| --------- | ---------------------------------------- |
+| Status    | Proposed                                 |
+| Date      | YYYY-MM-DD                               |
+| Author    | @username                                |
+| Reviewers | @reviewer1, @reviewer2                   |
+| Category  | architecture / security / infrastructure |
 
 ## Summary
 
@@ -162,9 +166,9 @@ High-level implementation guidance.
 
 ### Risks
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|------------|--------|------------|
-| Risk 1 | Low | High | Mitigation strategy |
+| Risk   | Likelihood | Impact | Mitigation          |
+| ------ | ---------- | ------ | ------------------- |
+| Risk 1 | Low        | High   | Mitigation strategy |
 
 ## Action Items
 

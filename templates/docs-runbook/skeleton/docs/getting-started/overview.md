@@ -25,12 +25,12 @@ Each runbook follows this structure:
 
 ## Key Dashboards
 
-| Dashboard | Purpose | Link |
-|-----------|---------|------|
-| Service Health | Overall service status | [Link]() |
+| Dashboard      | Purpose                  | Link     |
+| -------------- | ------------------------ | -------- |
+| Service Health | Overall service status   | [Link]() |
 | Infrastructure | Server/container metrics | [Link]() |
-| Logs | Centralized logging | [Link]() |
-| Alerts | Alert history | [Link]() |
+| Logs           | Centralized logging      | [Link]() |
+| Alerts         | Alert history            | [Link]() |
 
 ## Access Requirements
 

@@ -57,6 +57,7 @@ nav:
 ## Deployment
 
 Deploy to GitHub Pages:
+
 ```bash
 mkdocs gh-deploy
 ```

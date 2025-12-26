@@ -32,21 +32,26 @@ Each runbook should include:
 # Service Name Runbook
 
 ## Overview
+
 Brief description of the service.
 
 ## Health Checks
+
 - [ ] Check endpoint: `curl https://service/health`
 - [ ] Verify logs: `kubectl logs -l app=service`
 
 ## Common Issues
 
 ### Issue: High latency
+
 **Symptoms**: Response times > 500ms
-**Resolution**: 
+**Resolution**:
+
 1. Check database connections
 2. Scale pods if needed
 
 ## Escalation
+
 - L1: On-call engineer
 - L2: Service owner
 - L3: Platform team

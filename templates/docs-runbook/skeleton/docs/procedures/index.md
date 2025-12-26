@@ -4,11 +4,11 @@ This section contains standard operational procedures for ${{ values.serviceName
 
 ## Procedure Index
 
-| Procedure | Description | Frequency |
-|-----------|-------------|-----------|
-| [Deployment](deployment.md) | Deploy new versions | As needed |
-| [Rollback](rollback.md) | Rollback to previous version | Emergency |
-| [Scaling](scaling.md) | Scale service up or down | As needed |
+| Procedure                   | Description                  | Frequency |
+| --------------------------- | ---------------------------- | --------- |
+| [Deployment](deployment.md) | Deploy new versions          | As needed |
+| [Rollback](rollback.md)     | Rollback to previous version | Emergency |
+| [Scaling](scaling.md)       | Scale service up or down     | As needed |
 
 ## Before Running Any Procedure
 
@@ -19,11 +19,11 @@ This section contains standard operational procedures for ${{ values.serviceName
 
 ## Standard Maintenance Windows
 
-| Environment | Window | Notification |
-|-------------|--------|--------------|
-| Production | Tue/Thu 2-4 AM UTC | 24 hours notice |
-| Staging | Any time | 1 hour notice |
-| Development | Any time | None required |
+| Environment | Window             | Notification    |
+| ----------- | ------------------ | --------------- |
+| Production  | Tue/Thu 2-4 AM UTC | 24 hours notice |
+| Staging     | Any time           | 1 hour notice   |
+| Development | Any time           | None required   |
 
 ## Change Management
 

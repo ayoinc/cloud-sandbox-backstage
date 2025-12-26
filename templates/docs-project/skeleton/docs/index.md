@@ -8,12 +8,12 @@ Welcome to the documentation for **${{ values.name }}**. This documentation prov
 
 ## Quick Links
 
-| Section | Description |
-|---------|-------------|
-| [Getting Started](getting-started/overview.md) | Begin here if you're new |
-| [User Guide](user-guide/introduction.md) | Learn how to use the project |
-| [Architecture](architecture/overview.md) | Understand the design |
-| [Contributing](contributing.md) | Help improve the project |
+| Section                                        | Description                  |
+| ---------------------------------------------- | ---------------------------- |
+| [Getting Started](getting-started/overview.md) | Begin here if you're new     |
+| [User Guide](user-guide/introduction.md)       | Learn how to use the project |
+| [Architecture](architecture/overview.md)       | Understand the design        |
+| [Contributing](contributing.md)                | Help improve the project     |
 
 ## Features
 

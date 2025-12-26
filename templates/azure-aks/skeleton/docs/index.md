@@ -8,13 +8,13 @@ This Azure Kubernetes Service (AKS) cluster is managed by Terraform for the **${
 
 ## Configuration
 
-| Setting | Value |
-|---------|-------|
+| Setting            | Value                           |
+| ------------------ | ------------------------------- |
 | Kubernetes Version | ${{ values.kubernetesVersion }} |
-| Node VM Size | ${{ values.nodeVmSize }} |
-| Initial Node Count | ${{ values.nodeCount }} |
-| Max Node Count | ${{ values.maxNodeCount }} |
-| Location | ${{ values.location }} |
+| Node VM Size       | ${{ values.nodeVmSize }}        |
+| Initial Node Count | ${{ values.nodeCount }}         |
+| Max Node Count     | ${{ values.maxNodeCount }}      |
+| Location           | ${{ values.location }}          |
 
 ## Features
 
@@ -62,10 +62,10 @@ kubectl apply -f deployment.yaml -n my-app
 
 ## Node Pools
 
-| Pool | Purpose | Taints |
-|------|---------|--------|
-| system | System workloads (CoreDNS, etc.) | None |
-| user | Application workloads | None |
+| Pool   | Purpose                          | Taints |
+| ------ | -------------------------------- | ------ |
+| system | System workloads (CoreDNS, etc.) | None   |
+| user   | Application workloads            | None   |
 
 ## Monitoring
 

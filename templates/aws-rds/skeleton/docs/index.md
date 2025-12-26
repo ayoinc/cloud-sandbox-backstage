@@ -8,14 +8,14 @@ This RDS database is managed by Terraform and provides a managed **${{ values.en
 
 ## Configuration
 
-| Setting | Value |
-|---------|-------|
-| Engine | ${{ values.engine }} ${{ values.engineVersion }} |
-| Instance Class | ${{ values.instanceClass }} |
-| Storage | ${{ values.allocatedStorage }} GB |
-| Multi-AZ | ${{ values.multiAz }} |
-| Region | ${{ values.region }} |
-| Environment | ${{ values.environment }} |
+| Setting        | Value                                            |
+| -------------- | ------------------------------------------------ |
+| Engine         | ${{ values.engine }} ${{ values.engineVersion }} |
+| Instance Class | ${{ values.instanceClass }}                      |
+| Storage        | ${{ values.allocatedStorage }} GB                |
+| Multi-AZ       | ${{ values.multiAz }}                            |
+| Region         | ${{ values.region }}                             |
+| Environment    | ${{ values.environment }}                        |
 
 ## Connection
 

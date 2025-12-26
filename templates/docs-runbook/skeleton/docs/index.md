@@ -4,12 +4,12 @@ ${{ values.description }}
 
 ## Quick Links
 
-| Category | Description |
-|----------|-------------|
-| [Incidents](incidents/index.md) | Response procedures for common incidents |
-| [Procedures](procedures/index.md) | Standard operational procedures |
-| [On-Call Guide](getting-started/oncall-guide.md) | Guide for on-call engineers |
-| [Templates](templates/index.md) | Runbook templates |
+| Category                                         | Description                              |
+| ------------------------------------------------ | ---------------------------------------- |
+| [Incidents](incidents/index.md)                  | Response procedures for common incidents |
+| [Procedures](procedures/index.md)                | Standard operational procedures          |
+| [On-Call Guide](getting-started/oncall-guide.md) | Guide for on-call engineers              |
+| [Templates](templates/index.md)                  | Runbook templates                        |
 
 ## Service Overview
 
@@ -21,11 +21,11 @@ ${{ values.description }}
 
 ## Emergency Contacts
 
-| Role | Contact |
-|------|---------|
+| Role             | Contact                        |
+| ---------------- | ------------------------------ |
 | On-Call Engineer | Check ${{ values.oncallTool }} |
-| Team Lead | @team-lead |
-| Escalation | #incident-response |
+| Team Lead        | @team-lead                     |
+| Escalation       | #incident-response             |
 
 ## How to Use This Runbook
 

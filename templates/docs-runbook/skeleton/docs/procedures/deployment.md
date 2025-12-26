@@ -102,12 +102,14 @@ See [Rollback Procedure](rollback.md) for steps.
 ## Troubleshooting
 
 **Pods not starting:**
+
 ```bash
 kubectl describe pod <pod-name> -n production
 kubectl logs <pod-name> -n production
 ```
 
 **Rollout stuck:**
+
 ```bash
 kubectl rollout status deployment/${{ values.serviceName }} -n production
 kubectl get events --sort-by='.lastTimestamp' -n production

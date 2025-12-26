@@ -3,19 +3,19 @@
 
 - name: Ensure Nginx directories exist
   ansible.builtin.file:
-    path: "{{ item }}"
+    path: '{{ item }}'
     state: directory
     mode: '0755'
   loop:
-    - "{{ nginx_vhost_path }}"
-    - "{{ nginx_vhost_enabled_path }}"
-    - "{{ nginx_conf_d_path }}"
+    - '{{ nginx_vhost_path }}'
+    - '{{ nginx_vhost_enabled_path }}'
+    - '{{ nginx_conf_d_path }}'
   when: ansible_os_family == 'Debian'
 
 - name: Copy Nginx configuration
   ansible.builtin.template:
     src: nginx.conf.j2
-    dest: "{{ nginx_conf_path }}"
+    dest: '{{ nginx_conf_path }}'
     owner: root
     group: root
     mode: '0644'
@@ -24,7 +24,7 @@
 
 - name: Remove default virtual host
   ansible.builtin.file:
-    path: "{{ nginx_vhost_enabled_path }}/default"
+    path: '{{ nginx_vhost_enabled_path }}/default'
     state: absent
   when: nginx_remove_default_vhost
   notify: Reload Nginx

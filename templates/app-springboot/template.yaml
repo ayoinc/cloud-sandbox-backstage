@@ -57,9 +57,9 @@ spec:
           title: Java Version
           type: string
           enum:
-            - "17"
-            - "21"
-          default: "21"
+            - '17'
+            - '21'
+          default: '21'
         serverPort:
           title: Server Port
           type: integer

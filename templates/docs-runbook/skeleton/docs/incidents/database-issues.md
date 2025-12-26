@@ -76,11 +76,12 @@ ORDER BY duration DESC;
 ### Connection Issues
 
 **Too Many Connections:**
+
 ```sql
 -- Terminate idle connections
-SELECT pg_terminate_backend(pid) 
-FROM pg_stat_activity 
-WHERE state = 'idle' 
+SELECT pg_terminate_backend(pid)
+FROM pg_stat_activity
+WHERE state = 'idle'
 AND query_start < now() - interval '10 minutes';
 
 -- Increase max connections (requires restart)
@@ -88,6 +89,7 @@ ALTER SYSTEM SET max_connections = 200;
 ```
 
 **Connection Timeout:**
+
 ```bash
 # Check network path
 traceroute database.example.com
@@ -102,17 +104,19 @@ kubectl rollout restart deployment/${{ values.serviceName }}
 ### Performance Issues
 
 **Kill Long-Running Queries:**
+
 ```sql
 -- Find and kill query
-SELECT pg_cancel_backend(pid) FROM pg_stat_activity 
+SELECT pg_cancel_backend(pid) FROM pg_stat_activity
 WHERE query LIKE '%problematic_pattern%' AND state = 'active';
 
 -- Force terminate if cancel doesn't work
-SELECT pg_terminate_backend(pid) FROM pg_stat_activity 
+SELECT pg_terminate_backend(pid) FROM pg_stat_activity
 WHERE pid = <pid>;
 ```
 
 **Add Missing Index (temporary):**
+
 ```sql
 -- Check for missing indexes
 EXPLAIN ANALYZE <your_query>;

@@ -66,6 +66,7 @@ uptime
 Common causes and checks:
 
 **Traffic Spike:**
+
 ```bash
 # Check request rate
 # (Adjust based on your metrics system)
@@ -73,12 +74,14 @@ curl -s http://localhost:9090/metrics | grep http_requests_total
 ```
 
 **Memory Pressure (causing GC):**
+
 ```bash
 # Check memory usage
 free -m
 ```
 
 **Runaway Loop/Bug:**
+
 ```bash
 # Get stack trace (for Java)
 jstack <pid>

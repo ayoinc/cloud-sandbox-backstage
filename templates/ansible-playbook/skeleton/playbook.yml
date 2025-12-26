@@ -3,23 +3,23 @@
   hosts: all
   become: true
   gather_facts: true
-  
+
   vars:
     # Add your variables here
-    example_var: "example_value"
-  
+    example_var: 'example_value'
+
   pre_tasks:
     - name: Update package cache (Debian/Ubuntu)
       apt:
         update_cache: true
         cache_valid_time: 3600
       when: ansible_os_family == "Debian"
-      
+
     - name: Update package cache (RedHat/CentOS)
       yum:
         update_cache: true
       when: ansible_os_family == "RedHat"
-  
+
   tasks:
     - name: Example task - Display system information
       debug:
@@ -29,7 +29,7 @@
           Architecture: {{ ansible_architecture }}
           Hostname: {{ ansible_hostname }}
           IP Address: {{ ansible_default_ipv4.address | default('N/A') }}
-    
+
     - name: Example task - Ensure a directory exists
       file:
         path: /opt/${{ values.name }}
@@ -37,18 +37,18 @@
         mode: '0755'
         owner: root
         group: root
-    
+
     # Add your tasks here
-    
+
   post_tasks:
     - name: Cleanup temporary files
       file:
         path: /tmp/${{ values.name }}_temp
         state: absent
-      
+
   handlers:
     - name: restart service
       service:
-        name: "{{ service_name }}"
+        name: '{{ service_name }}'
         state: restarted
       when: service_name is defined

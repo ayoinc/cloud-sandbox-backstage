@@ -8,11 +8,11 @@ This Azure Static Web App hosts a **${{ values.framework }}** application for th
 
 ## Configuration
 
-| Setting | Value |
-|---------|-------|
-| Framework | ${{ values.framework }} |
-| SKU Tier | ${{ values.skuTier }} |
-| Location | ${{ values.location }} |
+| Setting     | Value                     |
+| ----------- | ------------------------- |
+| Framework   | ${{ values.framework }}   |
+| SKU Tier    | ${{ values.skuTier }}     |
+| Location    | ${{ values.location }}    |
 | Environment | ${{ values.environment }} |
 
 ## Features
@@ -60,7 +60,7 @@ Set environment variables in Azure Portal or via Terraform:
 ```hcl
 resource "azurerm_static_web_app" "main" {
   # ... existing config
-  
+
   app_settings = {
     "API_URL" = "https://api.example.com"
   }

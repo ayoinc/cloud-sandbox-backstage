@@ -28,8 +28,8 @@
       ansible.builtin.assert:
         that:
           - not docker_service.changed
-        fail_msg: "Docker service is not running"
-        success_msg: "Docker service is running"
+        fail_msg: 'Docker service is not running'
+        success_msg: 'Docker service is running'
 
     - name: Check Docker Compose is installed
       ansible.builtin.command: docker compose version
@@ -51,8 +51,8 @@
       ansible.builtin.assert:
         that:
           - "'docker' in user_groups.stdout"
-        fail_msg: "testuser is not in docker group"
-        success_msg: "testuser is in docker group"
+        fail_msg: 'testuser is not in docker group'
+        success_msg: 'testuser is in docker group'
 
     - name: Run hello-world container
       ansible.builtin.command: docker run --rm hello-world
@@ -63,5 +63,5 @@
       ansible.builtin.assert:
         that:
           - "'Hello from Docker!' in hello_world.stdout"
-        fail_msg: "hello-world container failed"
-        success_msg: "Docker is working correctly"
+        fail_msg: 'hello-world container failed'
+        success_msg: 'Docker is working correctly'

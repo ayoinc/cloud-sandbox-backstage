@@ -16,11 +16,11 @@ app:
 server:
   host: localhost
   port: 3000
-  
+
 logging:
   level: info
   format: json
-  
+
 database:
   host: localhost
   port: 5432
@@ -31,36 +31,36 @@ database:
 
 Configuration can also be set via environment variables:
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `APP_ENV` | Environment (dev/prod) | `development` |
-| `APP_PORT` | Server port | `3000` |
-| `LOG_LEVEL` | Logging level | `info` |
-| `DB_HOST` | Database host | `localhost` |
+| Variable    | Description            | Default       |
+| ----------- | ---------------------- | ------------- |
+| `APP_ENV`   | Environment (dev/prod) | `development` |
+| `APP_PORT`  | Server port            | `3000`        |
+| `LOG_LEVEL` | Logging level          | `info`        |
+| `DB_HOST`   | Database host          | `localhost`   |
 
 ## Configuration Options
 
 ### App Settings
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `app.name` | string | - | Application name |
-| `app.environment` | string | `development` | Environment |
-| `app.debug` | boolean | `false` | Enable debug mode |
+| Option            | Type    | Default       | Description       |
+| ----------------- | ------- | ------------- | ----------------- |
+| `app.name`        | string  | -             | Application name  |
+| `app.environment` | string  | `development` | Environment       |
+| `app.debug`       | boolean | `false`       | Enable debug mode |
 
 ### Server Settings
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `server.host` | string | `localhost` | Bind address |
-| `server.port` | integer | `3000` | Listen port |
+| Option        | Type    | Default     | Description  |
+| ------------- | ------- | ----------- | ------------ |
+| `server.host` | string  | `localhost` | Bind address |
+| `server.port` | integer | `3000`      | Listen port  |
 
 ### Logging Settings
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `logging.level` | string | `info` | Log level |
-| `logging.format` | string | `json` | Output format |
+| Option           | Type   | Default | Description   |
+| ---------------- | ------ | ------- | ------------- |
+| `logging.level`  | string | `info`  | Log level     |
+| `logging.format` | string | `json`  | Output format |
 
 ## Troubleshooting {#troubleshooting}
 
@@ -73,6 +73,7 @@ Error: Could not find config.yaml
 ```
 
 Solution: Create a config file or specify the path:
+
 ```bash
 <command> --config /path/to/config.yaml
 ```

@@ -15,6 +15,7 @@ Ansible is a powerful configuration management and infrastructure automation too
 - **Performance optimizations** for large-scale deployments
 
 This template is ideal for:
+
 - **Server provisioning and configuration**
 - **Application deployment automation**
 - **Multi-tier infrastructure management**
@@ -83,31 +84,35 @@ Before using this template, ensure you have the following:
 
 ### Required Software
 
-| Component | Version | Purpose |
-|-----------|---------|---------|
-| Ansible | ${{ values.ansible_version }}+ | Core automation engine |
-| Python | 3.8+ | Ansible runtime environment |
-| OpenSSH | 7.0+ | Secure remote access |
+| Component | Version                        | Purpose                     |
+| --------- | ------------------------------ | --------------------------- |
+| Ansible   | ${{ values.ansible_version }}+ | Core automation engine      |
+| Python    | 3.8+                           | Ansible runtime environment |
+| OpenSSH   | 7.0+                           | Secure remote access        |
 
 ### Installation Commands
 
 **On macOS (using Homebrew):**
+
 ```bash
 brew install ansible python@3.11
 ```
 
 **On Ubuntu/Debian:**
+
 ```bash
 sudo apt update
 sudo apt install -y ansible python3 python3-pip sshpass
 ```
 
 **On RHEL/CentOS:**
+
 ```bash
 sudo dnf install -y ansible python3 python3-pip openssh-clients
 ```
 
 **Using pip (cross-platform):**
+
 ```bash
 pip3 install ansible>=${{ values.ansible_version }}
 ```
@@ -140,35 +145,39 @@ ssh user@target-server "sudo echo 'Sudo works!'"
 
 The template supports the following parameters during project creation:
 
-| Parameter | Description | Type | Default | Required |
-|-----------|-------------|------|---------|----------|
-| `name` | Unique name of the playbook project | string | - | Yes |
-| `description` | Brief description of the playbook's purpose | string | - | Yes |
-| `owner` | Team or individual responsible for automation | string | - | Yes |
-| `target_os` | Primary operating system for targets | enum | linux | No |
-| `ansible_version` | Minimum Ansible version requirement | enum | 2.9 | No |
-| `collections` | Required Ansible collections | array | `[community.general, ansible.posix]` | No |
-| `galaxy_requirements` | Include requirements.yml for Galaxy | boolean | true | No |
-| `molecule_testing` | Include Molecule testing framework | boolean | true | No |
+| Parameter             | Description                                   | Type    | Default                              | Required |
+| --------------------- | --------------------------------------------- | ------- | ------------------------------------ | -------- |
+| `name`                | Unique name of the playbook project           | string  | -                                    | Yes      |
+| `description`         | Brief description of the playbook's purpose   | string  | -                                    | Yes      |
+| `owner`               | Team or individual responsible for automation | string  | -                                    | Yes      |
+| `target_os`           | Primary operating system for targets          | enum    | linux                                | No       |
+| `ansible_version`     | Minimum Ansible version requirement           | enum    | 2.9                                  | No       |
+| `collections`         | Required Ansible collections                  | array   | `[community.general, ansible.posix]` | No       |
+| `galaxy_requirements` | Include requirements.yml for Galaxy           | boolean | true                                 | No       |
+| `molecule_testing`    | Include Molecule testing framework            | boolean | true                                 | No       |
 
 ### Parameter Details
 
 **`name`** (required)
+
 - Lowercase letters, numbers, and hyphens only
 - Used as project directory name
 - Example: `webserver-deployment`, `database-automation`
 
 **`description`** (required)
+
 - Clear purpose description
 - Displayed in playbook headers
 - Helps with documentation and maintenance
 
 **`target_os`** (optional)
+
 - Determines default task conditions
 - Options: `linux` (default), `windows`, `macos`, `any`
 - Influences module selection and package managers
 
 **`collections`** (optional)
+
 - List of Ansible collections to include
 - Default includes commonly used collections
 - Additional collections can be added during project setup
@@ -214,11 +223,12 @@ Update the inventory files with your target hosts:
 # Edit development inventory
 nano inventories/development/hosts.ini
 
-# Edit production inventory  
+# Edit production inventory
 nano inventories/production/hosts.ini
 ```
 
 Example inventory configuration:
+
 ```ini
 [webservers]
 web01.example.com ansible_host=10.0.1.101
@@ -313,6 +323,7 @@ inventories/
 ```
 
 **Example hosts.ini:**
+
 ```ini
 [webservers]
 web01.dev.example.com ansible_host=192.168.1.101
@@ -348,21 +359,22 @@ playbooks/
 ```
 
 **Example playbook (webservers.yml):**
+
 ```yaml
 ---
 - name: Configure Web Servers
   hosts: webservers
   become: true
-  
+
   vars:
-    nginx_version: "1.24.0"
-    
+    nginx_version: '1.24.0'
+
   roles:
     - common
     - nginx
     - php
     - webapp
-    
+
   tasks:
     - name: Configure nginx firewall
       firewalld:
@@ -371,7 +383,7 @@ playbooks/
         permanent: true
         immediate: true
       notify: restart firewalld
-      
+
   handlers:
     - name: restart firewalld
       service:
@@ -413,6 +425,7 @@ roles/
 ### Configuration Files
 
 **ansible.cfg** - Main Ansible configuration:
+
 ```ini
 [defaults]
 inventory = inventories/production/hosts.ini
@@ -425,6 +438,7 @@ stdout_callback = yaml
 ```
 
 **requirements.yml** - Ansible Galaxy dependencies:
+
 ```yaml
 ---
 collections:
@@ -481,10 +495,11 @@ roles/webapp/
 ### Role Task Example
 
 **tasks/main.yml:**
+
 ```yaml
 ---
 - name: Include OS-specific variables
-  include_vars: "{{ ansible_os_family | lower }}.yml"
+  include_vars: '{{ ansible_os_family | lower }}.yml'
 
 - name: Include installation tasks
   import_tasks: install.yml
@@ -494,56 +509,60 @@ roles/webapp/
 ```
 
 **tasks/install.yml:**
+
 ```yaml
 ---
 - name: Install required packages
   package:
-    name: "{{ item }}"
+    name: '{{ item }}'
     state: present
-  loop: "{{ webapp_packages }}"
+  loop: '{{ webapp_packages }}'
   notify: restart webapp
 ```
 
 **tasks/configure.yml:**
+
 ```yaml
 ---
 - name: Create application directory
   file:
-    path: "{{ webapp_dir }}"
+    path: '{{ webapp_dir }}'
     state: directory
-    owner: "{{ webapp_user }}"
-    group: "{{ webapp_group }}"
+    owner: '{{ webapp_user }}'
+    group: '{{ webapp_group }}'
     mode: '0755'
 
 - name: Deploy application configuration
   template:
     src: config.yml.j2
-    dest: "{{ webapp_config_path }}"
-    owner: "{{ webapp_user }}"
-    group: "{{ webapp_group }}"
+    dest: '{{ webapp_config_path }}'
+    owner: '{{ webapp_user }}'
+    group: '{{ webapp_group }}'
     mode: '0640'
   notify: restart webapp
 ```
 
 **handlers/main.yml:**
+
 ```yaml
 ---
 - name: restart webapp
   systemd:
-    name: "{{ webapp_service_name }}"
+    name: '{{ webapp_service_name }}'
     state: restarted
     enabled: true
 ```
 
 **defaults/main.yml:**
+
 ```yaml
 ---
-webapp_name: "myapp"
-webapp_version: "1.0.0"
-webapp_dir: "/opt/{{ webapp_name }}"
-webapp_user: "{{ webapp_name }}"
-webapp_group: "{{ webapp_name }}"
-webapp_config_path: "{{ webapp_dir }}/config.yml"
+webapp_name: 'myapp'
+webapp_version: '1.0.0'
+webapp_dir: '/opt/{{ webapp_name }}'
+webapp_user: '{{ webapp_name }}'
+webapp_group: '{{ webapp_name }}'
+webapp_config_path: '{{ webapp_dir }}/config.yml'
 webapp_packages:
   - python3
   - python3-pip
@@ -553,12 +572,13 @@ webapp_packages:
 ### Using Roles in Playbooks
 
 **Method 1: Local roles**
+
 ```yaml
 ---
 - name: Deploy web application
   hosts: webservers
   become: true
-  
+
   roles:
     - common
     - database
@@ -566,20 +586,22 @@ webapp_packages:
 ```
 
 **Method 2: With parameters**
+
 ```yaml
 ---
 - name: Deploy web application
   hosts: webservers
   become: true
-  
+
   roles:
     - role: webapp
       vars:
-        webapp_version: "2.1.0"
+        webapp_version: '2.1.0'
         webapp_port: 8080
 ```
 
 **Method 3: Dependencies**
+
 ```yaml
 # In meta/main.yml
 ---
@@ -596,6 +618,7 @@ dependencies:
 Static inventory files define hosts in INI or YAML format:
 
 **INI Format:**
+
 ```ini
 [webservers]
 web01.example.com ansible_host=10.0.1.101
@@ -615,6 +638,7 @@ ansible_python_interpreter=/usr/bin/python3
 ```
 
 **YAML Format:**
+
 ```yaml
 ---
 all:
@@ -639,6 +663,7 @@ all:
 Dynamic inventories fetch hosts from external sources:
 
 **AWS EC2 Dynamic Inventory:**
+
 ```bash
 # Install AWS inventory plugin
 pip3 install ansible[aws]
@@ -652,6 +677,7 @@ ansible-inventory --list -i aws_ec2.yaml
 ```
 
 **aws_ec2.yaml:**
+
 ```yaml
 ---
 plugin: aws_ec2
@@ -671,6 +697,7 @@ compose:
 ```
 
 **VMware vSphere Dynamic Inventory:**
+
 ```yaml
 ---
 plugin: vmware.vmware_rest.vcenter_vm_info
@@ -688,9 +715,10 @@ filters:
 Configure group-specific variables:
 
 **group_vars/webservers.yml:**
+
 ```yaml
 ---
-apache_version: "2.4"
+apache_version: '2.4'
 apache_port: 80
 apache_ssl_port: 443
 apache_document_root: /var/www/html
@@ -702,15 +730,16 @@ firewall_services:
 ```
 
 **group_vars/databases.yml:**
+
 ```yaml
 ---
-postgres_version: "15"
+postgres_version: '15'
 postgres_port: 5432
 postgres_data_dir: /var/lib/postgresql/data
 
 # Performance tuning
 postgres_max_connections: 100
-postgres_shared_buffers: "256MB"
+postgres_shared_buffers: '256MB'
 ```
 
 ### Host Variables
@@ -718,9 +747,10 @@ postgres_shared_buffers: "256MB"
 Configure host-specific overrides:
 
 **host_vars/web01.yml:**
+
 ```yaml
 ---
-apache_vhost_name: "app1.example.com"
+apache_vhost_name: 'app1.example.com'
 apache_custom_config: true
 ```
 
@@ -740,6 +770,7 @@ apache_custom_config: true
 Molecule provides role testing in isolated containers:
 
 **Installation:**
+
 ```bash
 # Install molecule and docker driver
 pip3 install molecule molecule-docker ansible-lint yamllint
@@ -750,6 +781,7 @@ molecule init scenario --driver-name docker
 ```
 
 **molecule/default/molecule.yml:**
+
 ```yaml
 ---
 dependency:
@@ -780,18 +812,20 @@ lint: |
 ```
 
 **molecule/default/converge.yml:**
+
 ```yaml
 ---
 - name: Converge
   hosts: all
   collections: ${{ values.collections | join(', ') }}
   tasks:
-    - name: "Include webapp role"
+    - name: 'Include webapp role'
       include_role:
-        name: "webapp"
+        name: 'webapp'
 ```
 
 **molecule/default/verify.yml:**
+
 ```yaml
 ---
 - name: Verify
@@ -800,18 +834,19 @@ lint: |
   tasks:
     - name: Check if application is present
       stat:
-        path: "/opt/webapp"
+        path: '/opt/webapp'
       register: app_stat
-      
+
     - name: Verify application status
       assert:
         that:
           - app_stat.stat.exists
-        fail_msg: "Application directory not found"
-        success_msg: "Application directory exists"
+        fail_msg: 'Application directory not found'
+        success_msg: 'Application directory exists'
 ```
 
 **Running Molecule Tests:**
+
 ```bash
 # Test all steps
 cd roles/webapp
@@ -831,6 +866,7 @@ molecule test --scenario-name docker
 ### Linting and Syntax Checking
 
 **Syntax Check:**
+
 ```bash
 # Check playbook syntax
 ansible-playbook --syntax-check playbooks/site.yml
@@ -840,6 +876,7 @@ ansible-playbook --syntax-check roles/webapp/tasks/main.yml
 ```
 
 **Ansible Lint:**
+
 ```bash
 # Install ansible-lint
 pip3 install ansible-lint
@@ -855,6 +892,7 @@ ansible-lint --fix playbooks/site.yml
 ```
 
 **YAML Lint:**
+
 ```bash
 # Install yamllint
 pip3 install yamllint
@@ -885,14 +923,15 @@ yamllint -c .yamllint.yml playbooks/
 The template includes pre-configured GitHub Actions for continuous integration:
 
 **.github/workflows/ansible-lint.yml:**
+
 ```yaml
 name: Ansible Lint
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   lint:
@@ -925,14 +964,15 @@ jobs:
 ```
 
 **.github/workflows/molecule-test.yml:**
+
 ```yaml
 name: Molecule Test
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   molecule:
@@ -967,18 +1007,19 @@ jobs:
 ### Deployment Pipeline
 
 **.github/workflows/deploy.yml:**
+
 ```yaml
 name: Deploy to Staging
 
 on:
   push:
-    branches: [ develop ]
+    branches: [develop]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: staging
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -1010,6 +1051,7 @@ jobs:
 ### Pre-commit Hooks
 
 **Installation:**
+
 ```bash
 # Install pre-commit
 pip3 install pre-commit
@@ -1019,6 +1061,7 @@ pre-commit install
 ```
 
 **.pre-commit-config.yaml:**
+
 ```yaml
 repos:
   - repo: https://github.com/ansible-community/ansible-lint
@@ -1044,11 +1087,13 @@ repos:
 ### Ansible Coding Standards
 
 1. **Naming Conventions:**
+
    - Use lowercase with underscores for variables: `app_name`, `db_port`
    - Use descriptive names for tasks: "Install nginx package"
    - Prefix role variables with role name: `webapp_port`
 
 2. **Formatting:**
+
    - Use 2 spaces for indentation (not tabs)
    - Put spaces around operators: `var: "{{ value }}"`
    - Use meaningful names and comments
@@ -1060,10 +1105,11 @@ repos:
    - **`register` and `when`** for conditional execution
 
 **Example of proper task structure:**
+
 ```yaml
 - name: Install Apache web server
   package:
-    name: "{{ apache_package_name }}"
+    name: '{{ apache_package_name }}'
     state: present
   register: apache_install
   until: apache_install is success
@@ -1075,6 +1121,7 @@ repos:
 ### Idempotency
 
 Target: "apache2 state=present"
+
 1. Check if package installed
 2. If not, install
 
@@ -1083,6 +1130,7 @@ Always produce the same result without side effects.
 ### Idempotency Guidelines
 
 **Good Examples:**
+
 ```yaml
 # Idempotent - Ansible checks state before acting
 - name: Ensure Apache is installed
@@ -1101,6 +1149,7 @@ Always produce the same result without side effects.
 ```
 
 **Avoid these patterns:**
+
 ```yaml
 # BAD: Always executes command without checking state
 - name: Start Apache (not idempotent)
@@ -1117,6 +1166,7 @@ Always produce the same result without side effects.
 ### Vault Usage for Secrets
 
 **Create encrypted vault:**
+
 ```bash
 # Create vault password file
 echo "mypassword" > ~/.ansible/vault_password
@@ -1130,17 +1180,19 @@ vault_app_secret_key: "secretkey123"
 ```
 
 **Use vault variables in playbooks:**
+
 ```yaml
 - name: Configure MySQL database
   mysql_user:
     name: app_user
-    password: "{{ vault_mysql_password }}"
-    priv: "mydb.*:ALL"
+    password: '{{ vault_mysql_password }}'
+    priv: 'mydb.*:ALL'
     state: present
-  no_log: true  # Hide output containing secrets
+  no_log: true # Hide output containing secrets
 ```
 
 **Edit vault file:**
+
 ```bash
 # Edit encrypted file
 ansible-vault edit group_vars/all/vault.yml
@@ -1153,6 +1205,7 @@ ansible-vault view group_vars/all/vault.yml
 ```
 
 **Use vault password in playbook:**
+
 ```bash
 ansible-playbook -i inventories/production playbooks/site.yml --vault-password-file ~/.ansible/vault_password
 ```
@@ -1236,7 +1289,7 @@ ansible-doc -l | grep module_name
 - stat:
     path: /etc/config.conf
   register: config_file
-  
+
 - command: configure-script
   when: not config_file.stat.exists
 ```
@@ -1315,11 +1368,11 @@ ansible-playbook playbooks/site.yml --list-hosts
 - name: Debug variable
   debug:
     var: ansible_hostname
-    
+
 # Debug with msg
 - name: Show custom message
   debug:
-    msg: "Installing version {{ app_version }} on {{ inventory_hostname }}"
+    msg: 'Installing version {{ app_version }} on {{ inventory_hostname }}'
 
 # Assert module for validation
 - name: Verify variable is set
@@ -1327,13 +1380,13 @@ ansible-playbook playbooks/site.yml --list-hosts
     that:
       - app_version is defined
       - app_version | length > 0
-    fail_msg: "app_version must be defined and not empty"
-    success_msg: "app_version is valid"
+    fail_msg: 'app_version must be defined and not empty'
+    success_msg: 'app_version is valid'
 
 # Fail module for custom errors
 - name: Check OS version
   fail:
-    msg: "Unsupported OS version: {{ ansible_distribution_version }}"
+    msg: 'Unsupported OS version: {{ ansible_distribution_version }}'
   when: ansible_distribution_version < "7.0"
 ```
 
@@ -1358,7 +1411,7 @@ ansible -i inventories/development all -m raw -a "uptime"
 - **[AWX Deployment](../awx-deployment)** - Deploy and manage AWX automation platform
 - **[Ansible Nginx](../ansible-nginx)** - Specialized template for nginx web server automation
 - **[Docker Application](../docker-application)** - Containerize applications orchestrated by Ansible
-- **[Kubernetes Microservice](../kubernetes-microservice)** - Deploy microservices to Kubernetes clusters  
+- **[Kubernetes Microservice](../kubernetes-microservice)** - Deploy microservices to Kubernetes clusters
 - **Test Playwright** - End-to-end testing for web applications (docs reference: ~350 lines)
 - **Test k6 Load** - Performance testing infrastructure (docs reference: ~200 lines)
 

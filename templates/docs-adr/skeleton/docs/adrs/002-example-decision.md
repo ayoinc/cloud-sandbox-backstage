@@ -46,9 +46,11 @@ Key aspects of this decision:
 Brief description of this alternative.
 
 **Pros:**
+
 - Advantage of this approach
 
 **Cons:**
+
 - Disadvantage of this approach
 - Why we didn't choose this
 
@@ -57,9 +59,11 @@ Brief description of this alternative.
 Brief description of this alternative.
 
 **Pros:**
+
 - Advantage of this approach
 
 **Cons:**
+
 - Disadvantage of this approach
 - Why we didn't choose this
 

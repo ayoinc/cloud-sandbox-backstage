@@ -9,6 +9,7 @@ Proposed | Accepted | Deprecated | Superseded by [ADR XXX](XXX-title.md)
 What is the issue that we're seeing that is motivating this decision or change?
 
 Describe:
+
 - The current situation
 - The problem or opportunity
 - Forces at play (technical, business, organizational)
@@ -43,9 +44,11 @@ What becomes easier or more difficult to do because of this change?
 Description of the alternative.
 
 **Pros:**
+
 - Advantage
 
 **Cons:**
+
 - Disadvantage
 - Why not chosen
 
@@ -54,9 +57,11 @@ Description of the alternative.
 Description of the alternative.
 
 **Pros:**
+
 - Advantage
 
 **Cons:**
+
 - Disadvantage
 - Why not chosen
 

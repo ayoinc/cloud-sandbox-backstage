@@ -9,11 +9,13 @@ This page describes the key features of ${{ values.name }}.
 Description of the first core feature.
 
 **Benefits:**
+
 - Benefit 1
 - Benefit 2
 - Benefit 3
 
 **Usage:**
+
 ```bash
 <command> feature1 --option value
 ```
@@ -23,6 +25,7 @@ Description of the first core feature.
 Description of the second core feature.
 
 **Benefits:**
+
 - Benefit 1
 - Benefit 2
 
@@ -37,7 +40,7 @@ Description of the third core feature.
 For power users who need additional capabilities.
 
 !!! note
-    This feature requires additional configuration.
+This feature requires additional configuration.
 
 ### Advanced Feature 2
 
@@ -45,12 +48,12 @@ Integration with external systems.
 
 ## Feature Matrix
 
-| Feature | Free | Pro | Enterprise |
-|---------|------|-----|------------|
-| Core Feature 1 | ✅ | ✅ | ✅ |
-| Core Feature 2 | ✅ | ✅ | ✅ |
-| Advanced 1 | ❌ | ✅ | ✅ |
-| Advanced 2 | ❌ | ❌ | ✅ |
+| Feature        | Free | Pro | Enterprise |
+| -------------- | ---- | --- | ---------- |
+| Core Feature 1 | ✅   | ✅  | ✅         |
+| Core Feature 2 | ✅   | ✅  | ✅         |
+| Advanced 1     | ❌   | ✅  | ✅         |
+| Advanced 2     | ❌   | ❌  | ✅         |
 
 ## Upcoming Features
 

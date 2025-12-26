@@ -15,16 +15,17 @@ This Ansible playbook was generated using the AWX Backstage platform. It follows
 
 - Ansible >= ${{ values.ansible_version }}
 - Target systems: ${{ values.target_os }}
-{%- if values.collections %}
+  {%- if values.collections %}
 - Required collections:
-{%- for collection in values.collections %}
+  {%- for collection in values.collections %}
   - {{ collection }}
-{%- endfor %}
-{%- endif %}
+    {%- endfor %}
+    {%- endif %}
 
 ## Quick Start
 
 1. **Install dependencies:**
+
    ```bash
    {%- if values.galaxy_requirements %}
    ansible-galaxy install -r requirements.yml
@@ -84,6 +85,7 @@ db1.example.com
 ### Ansible Configuration
 
 Key settings in `ansible.cfg`:
+
 - Parallel execution (forks: 50)
 - Smart gathering for performance
 - Comprehensive logging
@@ -92,26 +94,31 @@ Key settings in `ansible.cfg`:
 ## Usage Examples
 
 ### Basic execution:
+
 ```bash
 ansible-playbook playbook.yml
 ```
 
 ### With specific inventory:
+
 ```bash
 ansible-playbook -i inventory/production playbook.yml
 ```
 
 ### Limit to specific hosts:
+
 ```bash
 ansible-playbook playbook.yml --limit webservers
 ```
 
 ### Check mode (dry run):
+
 ```bash
 ansible-playbook playbook.yml --check
 ```
 
 ### With tags:
+
 ```bash
 ansible-playbook playbook.yml --tags "setup,configure"
 ```
@@ -128,13 +135,14 @@ pip install molecule[docker]
 # Run tests
 molecule test
 ```
+
 {%- else %}
 Testing can be done using:
 
 1. **Check mode:** `ansible-playbook playbook.yml --check`
 2. **Syntax check:** `ansible-playbook playbook.yml --syntax-check`
 3. **Linting:** `ansible-lint playbook.yml`
-{%- endif %}
+   {%- endif %}
 
 ## Best Practices
 
@@ -158,11 +166,13 @@ Testing can be done using:
 ### Common Issues
 
 1. **Connection failures:**
+
    - Verify SSH connectivity
    - Check inventory hostnames
    - Validate SSH keys
 
 2. **Permission errors:**
+
    - Ensure proper sudo configuration
    - Check file permissions
    - Verify user privileges
@@ -175,6 +185,7 @@ Testing can be done using:
 ### Debug Mode
 
 Run with increased verbosity:
+
 ```bash
 ansible-playbook playbook.yml -vvv
 ```

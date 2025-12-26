@@ -14,13 +14,14 @@ This deployment was generated using the AWX Backstage platform and includes:
 
 ## Configuration
 
-| Parameter | Value |
-|-----------|--------|
-| **Instance Name** | ${{ values.name }} |
-| **Namespace** | ${{ values.namespace }} |
-| **Environment** | ${{ values.environment }} |
-| **AWX Version** | ${{ values.awx_version }} |
-| **Service Type** | ${{ values.service_type }} |
+| Parameter         | Value                      |
+| ----------------- | -------------------------- |
+| **Instance Name** | ${{ values.name }}         |
+| **Namespace**     | ${{ values.namespace }}    |
+| **Environment**   | ${{ values.environment }}  |
+| **AWX Version**   | ${{ values.awx_version }}  |
+| **Service Type**  | ${{ values.service_type }} |
+
 {%- if values.ingress_enabled %}
 | **Hostname** | ${{ values.hostname }} |
 | **Ingress Enabled** | Yes |
@@ -45,12 +46,12 @@ This deployment was generated using the AWX Backstage platform and includes:
 2. **kubectl:** Kubernetes command-line tool configured to access your cluster
 3. **AWX Operator:** The AWX operator must be installed in the cluster
 4. **Storage Class:** A configured storage class named `${{ values.storage_class }}`
-{%- if values.ssl_enabled and values.ingress_enabled %}
+   {%- if values.ssl_enabled and values.ingress_enabled %}
 5. **Cert-manager:** For automatic SSL certificate management
-{%- endif %}
-{%- if values.ingress_enabled %}
+   {%- endif %}
+   {%- if values.ingress_enabled %}
 6. **Ingress Controller:** NGINX ingress controller or compatible
-{%- endif %}
+   {%- endif %}
 
 ### Installing AWX Operator
 
@@ -94,13 +95,16 @@ Once deployed, access AWX at: **https://${{ values.hostname }}**
 Access AWX via NodePort (check the deployment output for the exact URL)
 {%- else %}
 For ClusterIP service, use port forwarding:
+
 ```bash
 kubectl port-forward -n ${{ values.namespace }} svc/awx-${{ values.name }}-service 8080:80
 ```
+
 Then access: **http://localhost:8080**
 {%- endif %}
 
 Default credentials:
+
 - **Username:** ${{ values.admin_user }}
 - **Password:** Check the deployment output or get from secret
 
@@ -121,21 +125,25 @@ ${{ values.name }}-awx-deployment/
 ## Deployment Commands
 
 ### Deploy
+
 ```bash
 ./deploy.sh deploy
 ```
 
 ### Check Status
+
 ```bash
 ./deploy.sh status
 ```
 
 ### View Logs
+
 ```bash
 ./deploy.sh logs
 ```
 
 ### Delete (Caution!)
+
 ```bash
 ./deploy.sh delete
 ```
@@ -164,26 +172,27 @@ kubectl apply -k k8s/
 
 {%- if values.environment == 'production' %}
 **Production Configuration:**
+
 - Web containers: 1-2 CPU, 2-4Gi memory
 - Task containers: 0.5-1 CPU, 1-2Gi memory
 - Execution environment: 0.5-1 CPU, 1-2Gi memory
 - Redis: 0.5-1 CPU, 1-2Gi memory
 - High availability: 2 replicas
-{%- elif values.environment == 'staging' %}
-**Staging Configuration:**
+  {%- elif values.environment == 'staging' %}
+  **Staging Configuration:**
 - Web containers: 0.5-1 CPU, 1-2Gi memory
 - Task containers: 0.25-0.5 CPU, 0.5-1Gi memory
 - Execution environment: 0.25-0.5 CPU, 0.5-1Gi memory
 - Redis: 0.25-0.5 CPU, 0.5-1Gi memory
 - Single replica for cost efficiency
-{%- else %}
-**Development Configuration:**
+  {%- else %}
+  **Development Configuration:**
 - Web containers: 0.5-1 CPU, 1-2Gi memory
 - Task containers: 0.25-0.5 CPU, 0.5-1Gi memory
 - Execution environment: 0.25-0.5 CPU, 0.5-1Gi memory
 - Redis: 0.25-0.5 CPU, 0.5-1Gi memory
 - Single replica with auto-upgrade enabled
-{%- endif %}
+  {%- endif %}
 
 ### Storage
 
@@ -194,15 +203,16 @@ kubectl apply -k k8s/
 ### Security
 
 {%- if values.ssl_enabled %}
+
 - **SSL/TLS:** Enabled with automatic certificate management
-{%- else %}
+  {%- else %}
 - **SSL/TLS:** Disabled (not recommended for production)
-{%- endif %}
-{%- if values.ldap_enabled %}
+  {%- endif %}
+  {%- if values.ldap_enabled %}
 - **LDAP:** Configured for external authentication
-{%- else %}
+  {%- else %}
 - **LDAP:** Not configured (using local authentication)
-{%- endif %}
+  {%- endif %}
 - **Admin Password:** Stored in Kubernetes secret
 - **Database Password:** Stored in Kubernetes secret
 
@@ -211,41 +221,45 @@ kubectl apply -k k8s/
 ### Common Issues
 
 1. **AWX not starting:**
+
    ```bash
    # Check AWX resource status
    kubectl describe awx ${{ values.name }} -n ${{ values.namespace }}
-   
+
    # Check operator logs
    kubectl logs -n awx-operator deployment/awx-operator-controller-manager
    ```
 
 2. **Database connection issues:**
+
    ```bash
    # Check PostgreSQL pod
    kubectl get pods -n ${{ values.namespace }} | grep postgres
-   
+
    # Check database secret
    kubectl get secret awx-${{ values.name }}-postgres-configuration -n ${{ values.namespace }} -o yaml
    ```
 
 3. **Storage issues:**
+
    ```bash
    # Check persistent volume claims
    kubectl get pvc -n ${{ values.namespace }}
-   
+
    # Check storage class
    kubectl get storageclass ${{ values.storage_class }}
    ```
 
-{%- if values.ingress_enabled %}
-4. **Ingress not working:**
-   ```bash
-   # Check ingress
-   kubectl describe ingress -n ${{ values.namespace }}
-   
-   # Check ingress controller
-   kubectl get pods -n ingress-nginx
-   ```
+{%- if values.ingress_enabled %} 4. **Ingress not working:**
+
+```bash
+# Check ingress
+kubectl describe ingress -n ${{ values.namespace }}
+
+# Check ingress controller
+kubectl get pods -n ingress-nginx
+```
+
 {%- endif %}
 
 ### Accessing AWX Logs
@@ -305,6 +319,7 @@ kubectl get secrets -n ${{ values.namespace }} -o yaml > secrets-backup.yaml
 ## Security Considerations
 
 {%- if values.environment == 'production' %}
+
 ### Production Security Checklist
 
 - [ ] Change default admin password
@@ -315,7 +330,7 @@ kubectl get secrets -n ${{ values.namespace }} -o yaml > secrets-backup.yaml
 - [ ] Configure LDAP/SSO authentication
 - [ ] Regular security updates
 - [ ] Backup encryption
-{%- endif %}
+      {%- endif %}
 
 ### Security Best Practices
 

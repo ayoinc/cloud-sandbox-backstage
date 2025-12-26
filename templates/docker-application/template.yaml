@@ -92,7 +92,7 @@ spec:
           port: ${{ parameters.port }}
           includeHealthcheck: ${{ parameters.includeHealthcheck }}
           destination: ${{ parameters.repoUrl | parseRepoUrl }}
-    
+
     - id: publish
       name: Publish to GitHub
       action: publish:github
@@ -101,7 +101,7 @@ spec:
         repoUrl: ${{ parameters.repoUrl }}
         defaultBranch: main
         gitCommitMessage: 'Initial commit from Docker Application template'
-    
+
     - id: register
       name: Register in Software Catalog
       action: catalog:register

@@ -4,12 +4,12 @@ ${{ values.description }}
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| **Owner** | ${{ values.owner }} |
+| Property        | Value                     |
+| --------------- | ------------------------- |
+| **Owner**       | ${{ values.owner }}       |
 | **Environment** | ${{ values.environment }} |
-| **Framework** | ${{ values.framework }} |
-| **Port** | ${{ values.port }} |
+| **Framework**   | ${{ values.framework }}   |
+| **Port**        | ${{ values.port }}        |
 
 ## Quick Start
 
@@ -32,12 +32,12 @@ npm start
 
 ## API Endpoints
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/health` | GET | Health check |
-| `/health/ready` | GET | Readiness probe |
-| `/health/live` | GET | Liveness probe |
-| `/api` | GET | API root |
+| Endpoint        | Method | Description     |
+| --------------- | ------ | --------------- |
+| `/health`       | GET    | Health check    |
+| `/health/ready` | GET    | Readiness probe |
+| `/health/live`  | GET    | Liveness probe  |
+| `/api`          | GET    | API root        |
 
 ## Docker
 

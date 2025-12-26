@@ -44,11 +44,11 @@ open http://localhost:8088
 
 Environment variables:
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `SUPERSET_SECRET_KEY` | Secret key | - |
-| `DATABASE_URL` | Metadata DB | SQLite |
-| `REDIS_URL` | Cache/Celery | - |
+| Variable              | Description  | Default |
+| --------------------- | ------------ | ------- |
+| `SUPERSET_SECRET_KEY` | Secret key   | -       |
+| `DATABASE_URL`        | Metadata DB  | SQLite  |
+| `REDIS_URL`           | Cache/Celery | -       |
 
 ## Kubernetes Deployment
 

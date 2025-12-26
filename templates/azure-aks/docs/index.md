@@ -34,12 +34,12 @@ kubectl get nodes
 
 ## Configuration
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `cluster_name` | AKS cluster name | - |
-| `kubernetes_version` | K8s version | `1.28` |
-| `node_count` | Default node count | `3` |
-| `vm_size` | Node VM size | `Standard_D2s_v3` |
+| Variable             | Description        | Default           |
+| -------------------- | ------------------ | ----------------- |
+| `cluster_name`       | AKS cluster name   | -                 |
+| `kubernetes_version` | K8s version        | `1.28`            |
+| `node_count`         | Default node count | `3`               |
+| `vm_size`            | Node VM size       | `Standard_D2s_v3` |
 
 ## Outputs
 

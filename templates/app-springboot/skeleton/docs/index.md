@@ -4,12 +4,12 @@ ${{ values.description }}
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| **Owner** | ${{ values.owner }} |
-| **Environment** | ${{ values.environment }} |
+| Property         | Value                     |
+| ---------------- | ------------------------- |
+| **Owner**        | ${{ values.owner }}       |
+| **Environment**  | ${{ values.environment }} |
 | **Java Version** | ${{ values.javaVersion }} |
-| **Port** | ${{ values.serverPort }} |
+| **Port**         | ${{ values.serverPort }}  |
 
 ## Quick Start
 
@@ -26,8 +26,8 @@ ${{ values.description }}
 
 ## API Endpoints
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api` | GET | API root |
-| `/api/health` | GET | Health check |
-| `/actuator/health` | GET | Spring Actuator health |
+| Endpoint           | Method | Description            |
+| ------------------ | ------ | ---------------------- |
+| `/api`             | GET    | API root               |
+| `/api/health`      | GET    | Health check           |
+| `/actuator/health` | GET    | Spring Actuator health |

@@ -69,10 +69,10 @@ spec:
           title: dbt Version
           type: string
           enum:
-            - "1.7"
-            - "1.6"
-            - "1.5"
-          default: "1.7"
+            - '1.7'
+            - '1.6'
+            - '1.5'
+          default: '1.7'
 
     - title: Repository Configuration
       required:

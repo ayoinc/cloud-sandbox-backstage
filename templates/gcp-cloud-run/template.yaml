@@ -16,7 +16,7 @@ metadata:
 spec:
   owner: group:platform-team
   type: service
-  
+
   parameters:
     - title: Project Information
       required:
@@ -41,7 +41,7 @@ spec:
           ui:options:
             catalogFilter:
               kind: Group
-              
+
     - title: Service Configuration
       required:
         - environment
@@ -84,10 +84,10 @@ spec:
           title: CPU
           type: string
           enum:
-            - "1"
-            - "2"
-            - "4"
-          default: "1"
+            - '1'
+            - '2'
+            - '4'
+          default: '1'
         maxInstances:
           title: Max Instances
           type: integer
@@ -99,7 +99,7 @@ spec:
           type: boolean
           default: false
           description: Allow unauthenticated invocations
-          
+
     - title: Repository Configuration
       required:
         - repoUrl

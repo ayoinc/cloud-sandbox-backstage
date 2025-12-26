@@ -6,13 +6,13 @@ ${{ values.description }}
 
 This is an Apache Airflow DAG project that follows best practices for data pipeline development.
 
-| Property | Value |
-|----------|-------|
-| **Owner** | ${{ values.owner }} |
-| **Environment** | ${{ values.environment }} |
-| **Schedule** | ${{ values.schedule }} |
-| **Start Date** | ${{ values.startDate }} |
-| **Catchup** | ${{ values.catchup }} |
+| Property            | Value                       |
+| ------------------- | --------------------------- |
+| **Owner**           | ${{ values.owner }}         |
+| **Environment**     | ${{ values.environment }}   |
+| **Schedule**        | ${{ values.schedule }}      |
+| **Start Date**      | ${{ values.startDate }}     |
+| **Catchup**         | ${{ values.catchup }}       |
 | **Max Active Runs** | ${{ values.maxActiveRuns }} |
 
 ## Quick Start
@@ -20,6 +20,7 @@ This is an Apache Airflow DAG project that follows best practices for data pipel
 ### Local Development
 
 1. **Create virtual environment**:
+
    ```bash
    python -m venv venv
    source venv/bin/activate
@@ -27,6 +28,7 @@ This is an Apache Airflow DAG project that follows best practices for data pipel
    ```
 
 2. **Run Airflow locally**:
+
    ```bash
    export AIRFLOW_HOME=$(pwd)
    airflow db init

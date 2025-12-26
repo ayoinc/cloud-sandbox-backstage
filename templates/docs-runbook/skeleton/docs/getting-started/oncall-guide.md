@@ -16,12 +16,12 @@ This guide helps you prepare for and execute on-call responsibilities.
 
 Ensure you have access to:
 
-| System | Purpose | How to Get Access |
-|--------|---------|-------------------|
-| ${{ values.oncallTool }} | Alerts | Request from team lead |
-| Monitoring | Dashboards | Self-service |
-| Logging | Log analysis | Self-service |
-| SSH | Server access | Request from security |
+| System                   | Purpose       | How to Get Access      |
+| ------------------------ | ------------- | ---------------------- |
+| ${{ values.oncallTool }} | Alerts        | Request from team lead |
+| Monitoring               | Dashboards    | Self-service           |
+| Logging                  | Log analysis  | Self-service           |
+| SSH                      | Server access | Request from security  |
 
 ## During Your Shift
 
@@ -36,16 +36,17 @@ Ensure you have access to:
 
 ### Severity Levels
 
-| Level | Description | Response Time |
-|-------|-------------|---------------|
-| SEV1 | Complete outage | Immediate |
-| SEV2 | Major degradation | 15 minutes |
-| SEV3 | Minor impact | 1 hour |
-| SEV4 | Informational | Next business day |
+| Level | Description       | Response Time     |
+| ----- | ----------------- | ----------------- |
+| SEV1  | Complete outage   | Immediate         |
+| SEV2  | Major degradation | 15 minutes        |
+| SEV3  | Minor impact      | 1 hour            |
+| SEV4  | Informational     | Next business day |
 
 ### Communication Templates
 
 **Incident Start:**
+
 ```
 🔴 Incident Started
 Service: ${{ values.serviceName }}
@@ -54,6 +55,7 @@ Status: Investigating
 ```
 
 **Incident Update:**
+
 ```
 🟡 Incident Update
 Service: ${{ values.serviceName }}
@@ -62,6 +64,7 @@ ETA: [If known]
 ```
 
 **Incident Resolved:**
+
 ```
 🟢 Incident Resolved
 Service: ${{ values.serviceName }}

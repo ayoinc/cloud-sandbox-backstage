@@ -26,19 +26,19 @@ ADRs are numbered sequentially: `001`, `002`, `003`, etc.
 
 ### ADR Status
 
-| Status | Description |
-|--------|-------------|
-| **Proposed** | Under discussion |
-| **Accepted** | Decision made and approved |
-| **Deprecated** | No longer valid |
-| **Superseded** | Replaced by another ADR |
+| Status         | Description                |
+| -------------- | -------------------------- |
+| **Proposed**   | Under discussion           |
+| **Accepted**   | Decision made and approved |
+| **Deprecated** | No longer valid            |
+| **Superseded** | Replaced by another ADR    |
 
 ## Current ADRs
 
-| # | Title | Status | Date |
-|---|-------|--------|------|
-| [001](adrs/001-use-adrs.md) | Use ADRs for Architecture Decisions | Accepted | 2024-01-01 |
-| [002](adrs/002-example-decision.md) | Example Decision | Proposed | 2024-01-15 |
+| #                                   | Title                               | Status   | Date       |
+| ----------------------------------- | ----------------------------------- | -------- | ---------- |
+| [001](adrs/001-use-adrs.md)         | Use ADRs for Architecture Decisions | Accepted | 2024-01-01 |
+| [002](adrs/002-example-decision.md) | Example Decision                    | Proposed | 2024-01-15 |
 
 ## Resources
 

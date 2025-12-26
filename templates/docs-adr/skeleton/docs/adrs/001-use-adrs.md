@@ -55,10 +55,12 @@ Each ADR will:
 Using a wiki for architectural documentation.
 
 **Pros:**
+
 - Easier to edit
 - Better for collaborative editing
 
 **Cons:**
+
 - Disconnected from code
 - No review process
 - Easy to become outdated
@@ -68,10 +70,12 @@ Using a wiki for architectural documentation.
 Using a documentation platform.
 
 **Pros:**
+
 - Rich formatting
 - Search functionality
 
 **Cons:**
+
 - External dependency
 - Not in version control
 - May require licenses

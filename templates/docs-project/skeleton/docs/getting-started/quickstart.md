@@ -56,10 +56,10 @@ Now that you have ${{ values.name }} running:
 
 ## Quick Reference
 
-| Command | Description |
-|---------|-------------|
-| `<command> init` | Initialize project |
-| `<command> start` | Start application |
-| `<command> stop` | Stop application |
-| `<command> status` | Check status |
-| `<command> help` | Show help |
+| Command            | Description        |
+| ------------------ | ------------------ |
+| `<command> init`   | Initialize project |
+| `<command> start`  | Start application  |
+| `<command> stop`   | Stop application   |
+| `<command> status` | Check status       |
+| `<command> help`   | Show help          |

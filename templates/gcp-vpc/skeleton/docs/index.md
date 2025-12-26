@@ -8,20 +8,20 @@ This GCP VPC Network is managed by Terraform for the **${{ values.environment }}
 
 ## Configuration
 
-| Setting | Value |
-|---------|-------|
-| Region | ${{ values.region }} |
-| CIDR Range | ${{ values.cidrRange }} |
-| GCP Project | ${{ values.gcpProject }} |
+| Setting     | Value                     |
+| ----------- | ------------------------- |
+| Region      | ${{ values.region }}      |
+| CIDR Range  | ${{ values.cidrRange }}   |
+| GCP Project | ${{ values.gcpProject }}  |
 | Environment | ${{ values.environment }} |
 
 ## Subnets
 
-| Subnet | Purpose | CIDR |
-|--------|---------|------|
-| public | Public-facing resources | /24 |
-| private | Private workloads | /24 |
-| gke | GKE cluster nodes and pods | /20 |
+| Subnet  | Purpose                    | CIDR |
+| ------- | -------------------------- | ---- |
+| public  | Public-facing resources    | /24  |
+| private | Private workloads          | /24  |
+| gke     | GKE cluster nodes and pods | /20  |
 
 ## Features
 
@@ -33,12 +33,12 @@ This GCP VPC Network is managed by Terraform for the **${{ values.environment }}
 
 ## Firewall Rules
 
-| Rule | Direction | Ports | Source |
-|------|-----------|-------|--------|
-| allow-internal | Ingress | All | VPC CIDR |
-| allow-iap-ssh | Ingress | 22 | IAP range |
-| allow-http | Ingress | 80, 443 | 0.0.0.0/0 (tagged) |
-| deny-all | Ingress | All | 0.0.0.0/0 (low priority) |
+| Rule           | Direction | Ports   | Source                   |
+| -------------- | --------- | ------- | ------------------------ |
+| allow-internal | Ingress   | All     | VPC CIDR                 |
+| allow-iap-ssh  | Ingress   | 22      | IAP range                |
+| allow-http     | Ingress   | 80, 443 | 0.0.0.0/0 (tagged)       |
+| deny-all       | Ingress   | All     | 0.0.0.0/0 (low priority) |
 
 ## Usage
 

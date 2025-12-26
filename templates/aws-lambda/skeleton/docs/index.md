@@ -4,11 +4,11 @@ AWS Lambda function for **${{ values.environment }}** environment.
 
 ## Configuration
 
-| Setting | Value |
-|---------|-------|
-| Region | ${{ values.aws_region }} |
-| Runtime | ${{ values.runtime }} |
-| Memory | ${{ values.memory_size }} MB |
+| Setting | Value                         |
+| ------- | ----------------------------- |
+| Region  | ${{ values.aws_region }}      |
+| Runtime | ${{ values.runtime }}         |
+| Memory  | ${{ values.memory_size }} MB  |
 | Timeout | ${{ values.timeout }} seconds |
 
 ## Usage

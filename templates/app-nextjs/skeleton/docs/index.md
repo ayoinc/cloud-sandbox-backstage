@@ -4,12 +4,12 @@ ${{ values.description }}
 
 ## Overview
 
-| Property | Value |
-|----------|-------|
-| **Owner** | ${{ values.owner }} |
+| Property        | Value                     |
+| --------------- | ------------------------- |
+| **Owner**       | ${{ values.owner }}       |
 | **Environment** | ${{ values.environment }} |
-| **Framework** | Next.js 14 |
-| **Styling** | ${{ values.styling }} |
+| **Framework**   | Next.js 14                |
+| **Styling**     | ${{ values.styling }}     |
 
 ## Quick Start
 

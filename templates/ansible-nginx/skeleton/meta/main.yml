@@ -4,7 +4,7 @@ galaxy_info:
   author: ${{ values.owner }}
   description: ${{ values.description }}
   license: MIT
-  min_ansible_version: "2.9"
+  min_ansible_version: '2.9'
 
   platforms:
     - name: Ubuntu
@@ -18,9 +18,9 @@ galaxy_info:
         - bookworm
     - name: EL
       versions:
-        - "7"
-        - "8"
-        - "9"
+        - '7'
+        - '8'
+        - '9'
 
   galaxy_tags:
     - nginx

@@ -52,22 +52,22 @@ npm start
 
 ## API Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/health` | Health check |
-| GET | `/api/v1/items` | List items |
-| POST | `/api/v1/items` | Create item |
-| GET | `/api/v1/items/:id` | Get item |
-| PUT | `/api/v1/items/:id` | Update item |
-| DELETE | `/api/v1/items/:id` | Delete item |
+| Method | Endpoint            | Description  |
+| ------ | ------------------- | ------------ |
+| GET    | `/health`           | Health check |
+| GET    | `/api/v1/items`     | List items   |
+| POST   | `/api/v1/items`     | Create item  |
+| GET    | `/api/v1/items/:id` | Get item     |
+| PUT    | `/api/v1/items/:id` | Update item  |
+| DELETE | `/api/v1/items/:id` | Delete item  |
 
 ## Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PORT` | Server port | `3000` |
-| `NODE_ENV` | Environment | `development` |
-| `DATABASE_URL` | Database connection | - |
+| Variable       | Description         | Default       |
+| -------------- | ------------------- | ------------- |
+| `PORT`         | Server port         | `3000`        |
+| `NODE_ENV`     | Environment         | `development` |
+| `DATABASE_URL` | Database connection | -             |
 
 ## Support
 

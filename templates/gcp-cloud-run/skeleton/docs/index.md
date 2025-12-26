@@ -8,13 +8,13 @@ This Cloud Run service is managed by Terraform for the **${{ values.environment 
 
 ## Configuration
 
-| Setting | Value |
-|---------|-------|
-| Region | ${{ values.region }} |
-| GCP Project | ${{ values.gcpProject }} |
-| Memory | ${{ values.memory }} |
-| CPU | ${{ values.cpu }} |
-| Max Instances | ${{ values.maxInstances }} |
+| Setting       | Value                              |
+| ------------- | ---------------------------------- |
+| Region        | ${{ values.region }}               |
+| GCP Project   | ${{ values.gcpProject }}           |
+| Memory        | ${{ values.memory }}               |
+| CPU           | ${{ values.cpu }}                  |
+| Max Instances | ${{ values.maxInstances }}         |
 | Public Access | ${{ values.allowUnauthenticated }} |
 
 ## Features

@@ -49,14 +49,15 @@ npm test
 
 ## Environment Variables
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `NEXT_PUBLIC_API_URL` | Backend API URL | Yes |
-| `DATABASE_URL` | Database connection string | No |
+| Variable              | Description                | Required |
+| --------------------- | -------------------------- | -------- |
+| `NEXT_PUBLIC_API_URL` | Backend API URL            | Yes      |
+| `DATABASE_URL`        | Database connection string | No       |
 
 ## Deployment
 
 The application can be deployed to:
+
 - Vercel (recommended)
 - AWS Amplify
 - Docker container

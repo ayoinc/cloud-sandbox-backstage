@@ -8,5 +8,5 @@
 
 - name: Install Nginx
   ansible.builtin.apt:
-    name: "{{ nginx_package_name }}"
-    state: "{{ nginx_package_state }}"
+    name: '{{ nginx_package_name }}'
+    state: '{{ nginx_package_state }}'

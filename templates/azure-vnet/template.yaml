@@ -16,7 +16,7 @@ metadata:
 spec:
   owner: group:platform-team
   type: infrastructure
-  
+
   parameters:
     - title: Project Information
       required:
@@ -41,7 +41,7 @@ spec:
           ui:options:
             catalogFilter:
               kind: Group
-              
+
     - title: Network Configuration
       required:
         - environment
@@ -69,9 +69,9 @@ spec:
         addressSpace:
           title: Address Space
           type: string
-          default: "10.0.0.0/16"
+          default: '10.0.0.0/16'
           description: CIDR block for the VNet
-          
+
     - title: Repository Configuration
       required:
         - repoUrl

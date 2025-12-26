@@ -4,24 +4,28 @@ This directory contains all Architecture Decision Records for the project.
 
 ## ADR Index
 
-| # | Title | Status | Date |
-|---|-------|--------|------|
-| [001](001-use-adrs.md) | Use ADRs for Architecture Decisions | Accepted | 2024-01-01 |
-| [002](002-example-decision.md) | Example Decision | Proposed | 2024-01-15 |
+| #                              | Title                               | Status   | Date       |
+| ------------------------------ | ----------------------------------- | -------- | ---------- |
+| [001](001-use-adrs.md)         | Use ADRs for Architecture Decisions | Accepted | 2024-01-01 |
+| [002](002-example-decision.md) | Example Decision                    | Proposed | 2024-01-15 |
 
 ## Categories
 
 ### Architecture
+
 - [001 - Use ADRs](001-use-adrs.md)
 
 ### Security
-*No ADRs yet*
+
+_No ADRs yet_
 
 ### Infrastructure
-*No ADRs yet*
+
+_No ADRs yet_
 
 ### Data
-*No ADRs yet*
+
+_No ADRs yet_
 
 ## Creating a New ADR
 

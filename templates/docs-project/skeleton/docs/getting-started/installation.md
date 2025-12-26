@@ -61,6 +61,7 @@ Verify the installation was successful:
 **Issue: Installation fails with permission error**
 
 Solution:
+
 ```bash
 sudo chown -R $(whoami) ~/.npm
 ```
@@ -68,6 +69,7 @@ sudo chown -R $(whoami) ~/.npm
 **Issue: Missing dependencies**
 
 Solution:
+
 ```bash
 npm install --force
 ```

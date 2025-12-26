@@ -21,10 +21,17 @@ app.use('/health', healthRouter);
 app.use('/api', apiRouter);
 
 // Error handler
-app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Internal Server Error' });
-});
+app.use(
+  (
+    err: Error,
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction,
+  ) => {
+    console.error(err.stack);
+    res.status(500).json({ error: 'Internal Server Error' });
+  },
+);
 
 // Start server
 app.listen(config.port, () => {

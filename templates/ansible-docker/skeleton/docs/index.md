@@ -56,19 +56,19 @@ git clone https://github.com/${{ values.destination.owner }}/${{ values.destinat
           storage-driver: overlay2
           log-driver: json-file
           log-opts:
-            max-size: "10m"
-            max-file: "3"
+            max-size: '10m'
+            max-file: '3'
 ```
 
 ## Supported Platforms
 
-| Platform | Versions |
-|----------|----------|
-| Ubuntu | 20.04, 22.04 |
-| Debian | 10, 11, 12 |
-| CentOS | 7, 8, 9 |
-| RHEL | 7, 8, 9 |
-| Amazon Linux | 2, 2023 |
+| Platform     | Versions     |
+| ------------ | ------------ |
+| Ubuntu       | 20.04, 22.04 |
+| Debian       | 10, 11, 12   |
+| CentOS       | 7, 8, 9      |
+| RHEL         | 7, 8, 9      |
+| Amazon Linux | 2, 2023      |
 
 ## Role Variables
 

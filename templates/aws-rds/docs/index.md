@@ -34,14 +34,14 @@ terraform apply
 
 ## Configuration
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `identifier` | DB instance identifier | - |
-| `engine` | Database engine | `postgres` |
-| `engine_version` | Engine version | `15.4` |
-| `instance_class` | Instance type | `db.t3.micro` |
-| `allocated_storage` | Storage in GB | `20` |
-| `multi_az` | Enable Multi-AZ | `false` |
+| Variable            | Description            | Default       |
+| ------------------- | ---------------------- | ------------- |
+| `identifier`        | DB instance identifier | -             |
+| `engine`            | Database engine        | `postgres`    |
+| `engine_version`    | Engine version         | `15.4`        |
+| `instance_class`    | Instance type          | `db.t3.micro` |
+| `allocated_storage` | Storage in GB          | `20`          |
+| `multi_az`          | Enable Multi-AZ        | `false`       |
 
 ## Outputs
 

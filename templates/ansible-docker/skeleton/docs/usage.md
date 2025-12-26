@@ -28,7 +28,7 @@ This document provides various usage examples for the Docker role.
         docker_users:
           - deploy
           - jenkins
-          - "{{ ansible_user }}"
+          - '{{ ansible_user }}'
 ```
 
 ## Production Deployment
@@ -50,14 +50,14 @@ This document provides various usage examples for the Docker role.
           live-restore: true
           log-driver: json-file
           log-opts:
-            max-size: "100m"
-            max-file: "10"
+            max-size: '100m'
+            max-file: '10'
           default-ulimits:
             nofile:
               Name: nofile
               Hard: 65536
               Soft: 65536
-          metrics-addr: "0.0.0.0:9323"
+          metrics-addr: '0.0.0.0:9323'
           experimental: true
 ```
 
@@ -72,9 +72,9 @@ This document provides various usage examples for the Docker role.
     - role: ${{ values.name }}
       vars:
         docker_insecure_registries:
-          - "registry.internal.company.com:5000"
+          - 'registry.internal.company.com:5000'
         docker_registry_mirrors:
-          - "https://mirror.gcr.io"
+          - 'https://mirror.gcr.io'
 ```
 
 ## Inventory Examples
@@ -161,6 +161,7 @@ docker_daemon_options:
 ### Survey Variables
 
 Create a survey with these questions:
+
 - Docker Edition (ce/ee)
 - Install Docker Compose (yes/no)
 - Docker Users (comma-separated)

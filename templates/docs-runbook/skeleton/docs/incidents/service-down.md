@@ -78,7 +78,7 @@ kubectl logs -l app=${{ values.serviceName }} --previous
 # Database connectivity
 nc -zv database.example.com 5432
 
-# Cache connectivity  
+# Cache connectivity
 nc -zv redis.example.com 6379
 
 # External API
@@ -161,6 +161,7 @@ curl http://localhost:8080/health
 ## Communication
 
 **Update during investigation:**
+
 ```
 🟡 Incident Update
 Service: ${{ values.serviceName }}
@@ -170,6 +171,7 @@ ETA: [estimate]
 ```
 
 **Resolution:**
+
 ```
 🟢 Incident Resolved
 Service: ${{ values.serviceName }}

@@ -1,6 +1,6 @@
 ---
-title: "Welcome to ${{ values.name }}"
-description: "${{ values.description }}"
+title: 'Welcome to ${{ values.name }}'
+description: '${{ values.description }}'
 ---
 
 # Welcome

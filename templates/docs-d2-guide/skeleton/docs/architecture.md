@@ -25,11 +25,11 @@ lb: Load Balancer {
 
 app: Application Tier {
   style.fill: "#E8F5E9"
-  
+
   api: API Server {
     shape: hexagon
   }
-  
+
   worker: Background Worker {
     shape: hexagon
   }
@@ -37,11 +37,11 @@ app: Application Tier {
 
 data: Data Tier {
   style.fill: "#FCE4EC"
-  
+
   db: Database {
     shape: cylinder
   }
-  
+
   cache: Cache {
     shape: cylinder
   }
@@ -61,22 +61,22 @@ direction: right
 
 frontend: Frontend {
   style.fill: "#E3F2FD"
-  
+
   web: Web App
   mobile: Mobile App
 }
 
 backend: Backend Services {
   style.fill: "#E8F5E9"
-  
+
   api: API Gateway {
     shape: hexagon
   }
-  
+
   auth: Auth Service {
     shape: hexagon
   }
-  
+
   core: Core Service {
     shape: hexagon
   }
@@ -84,15 +84,15 @@ backend: Backend Services {
 
 storage: Storage {
   style.fill: "#FFF3E0"
-  
+
   postgres: PostgreSQL {
     shape: cylinder
   }
-  
+
   redis: Redis {
     shape: cylinder
   }
-  
+
   s3: Object Storage {
     shape: cylinder
   }

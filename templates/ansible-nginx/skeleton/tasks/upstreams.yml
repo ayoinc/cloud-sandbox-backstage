@@ -4,9 +4,9 @@
 - name: Configure upstream servers
   ansible.builtin.template:
     src: upstream.conf.j2
-    dest: "{{ nginx_conf_d_path }}/upstream-{{ item.name }}.conf"
+    dest: '{{ nginx_conf_d_path }}/upstream-{{ item.name }}.conf'
     owner: root
     group: root
     mode: '0644'
-  loop: "{{ nginx_upstreams }}"
+  loop: '{{ nginx_upstreams }}'
   notify: Reload Nginx

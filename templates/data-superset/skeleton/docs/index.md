@@ -6,11 +6,11 @@ ${{ values.description }}
 
 This is an Apache Superset dashboard configuration project.
 
-| Property | Value |
-|----------|-------|
-| **Owner** | ${{ values.owner }} |
+| Property        | Value                     |
+| --------------- | ------------------------- |
+| **Owner**       | ${{ values.owner }}       |
 | **Environment** | ${{ values.environment }} |
-| **Data Source** | ${{ values.dataSource }} |
+| **Data Source** | ${{ values.dataSource }}  |
 
 ## Quick Start
 

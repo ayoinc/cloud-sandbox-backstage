@@ -58,18 +58,18 @@ spec:
           title: Schedule Interval
           type: string
           enum:
-            - "@hourly"
-            - "@daily"
-            - "@weekly"
-            - "@monthly"
-            - "0 0 * * *"
-            - "0 */6 * * *"
-          default: "@daily"
+            - '@hourly'
+            - '@daily'
+            - '@weekly'
+            - '@monthly'
+            - '0 0 * * *'
+            - '0 */6 * * *'
+          default: '@daily'
           description: Cron expression or preset for DAG scheduling
         startDate:
           title: Start Date
           type: string
-          default: "2024-01-01"
+          default: '2024-01-01'
           description: DAG start date (YYYY-MM-DD)
         catchup:
           title: Enable Catchup

@@ -10,30 +10,30 @@ nginx_service_enabled: true
 nginx_service_state: started
 
 # Worker configuration
-nginx_worker_processes: "${{ values.nginxWorkerProcesses }}"
+nginx_worker_processes: '${{ values.nginxWorkerProcesses }}'
 nginx_worker_connections: ${{ values.nginxWorkerConnections }}
-nginx_multi_accept: "on"
+nginx_multi_accept: 'on'
 
 # HTTP core settings
-nginx_sendfile: "on"
-nginx_tcp_nopush: "on"
-nginx_tcp_nodelay: "on"
+nginx_sendfile: 'on'
+nginx_tcp_nopush: 'on'
+nginx_tcp_nodelay: 'on'
 nginx_keepalive_timeout: 65
 nginx_types_hash_max_size: 2048
-nginx_server_tokens: "off"
+nginx_server_tokens: 'off'
 
 # SSL/TLS configuration
-nginx_ssl_protocols: "TLSv1.2 TLSv1.3"
-nginx_ssl_ciphers: "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384"
-nginx_ssl_prefer_server_ciphers: "on"
-nginx_ssl_session_cache: "shared:SSL:10m"
-nginx_ssl_session_timeout: "1d"
-nginx_ssl_session_tickets: "off"
+nginx_ssl_protocols: 'TLSv1.2 TLSv1.3'
+nginx_ssl_ciphers: 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384'
+nginx_ssl_prefer_server_ciphers: 'on'
+nginx_ssl_session_cache: 'shared:SSL:10m'
+nginx_ssl_session_timeout: '1d'
+nginx_ssl_session_tickets: 'off'
 
 # Gzip configuration
-nginx_gzip: "on"
-nginx_gzip_vary: "on"
-nginx_gzip_proxied: "any"
+nginx_gzip: 'on'
+nginx_gzip_vary: 'on'
+nginx_gzip_proxied: 'any'
 nginx_gzip_comp_level: 6
 nginx_gzip_min_length: 256
 nginx_gzip_types:
@@ -49,8 +49,8 @@ nginx_gzip_types:
   - image/svg+xml
 
 # Logging
-nginx_access_log: "/var/log/nginx/access.log"
-nginx_error_log: "/var/log/nginx/error.log"
+nginx_access_log: '/var/log/nginx/access.log'
+nginx_error_log: '/var/log/nginx/error.log'
 nginx_log_format: |
   '$remote_addr - $remote_user [$time_local] "$request" '
   '$status $body_bytes_sent "$http_referer" '
@@ -64,8 +64,8 @@ nginx_remove_default_vhost: true
 nginx_upstreams: []
 
 # Extra configuration
-nginx_extra_http_options: ""
-nginx_extra_conf_options: ""
+nginx_extra_http_options: ''
+nginx_extra_conf_options: ''
 
 # Directories
 nginx_conf_path: /etc/nginx/nginx.conf

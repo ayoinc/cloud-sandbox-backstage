@@ -78,12 +78,12 @@ spec:
           title: Python Version
           type: string
           description: Python version to use
-          default: "3.11"
+          default: '3.11'
           enum:
-            - "3.9"
-            - "3.10"
-            - "3.11"
-            - "3.12"
+            - '3.9'
+            - '3.10'
+            - '3.11'
+            - '3.12'
         framework:
           title: Web Framework
           type: string

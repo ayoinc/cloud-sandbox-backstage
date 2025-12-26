@@ -50,12 +50,12 @@ spec:
           title: Primary Color
           type: string
           description: Primary brand color (hex)
-          default: "#0066cc"
+          default: '#0066cc'
         tagline:
           title: Tagline
           type: string
           description: Main tagline for the hero section
-          default: "Build something amazing"
+          default: 'Build something amazing'
 
     - title: Repository Configuration
       required:

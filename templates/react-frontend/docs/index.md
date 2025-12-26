@@ -9,12 +9,14 @@ Build production-ready React applications with modern tooling, component librari
 ## Features
 
 ### Build Tools
+
 - **Vite** (Recommended) - Lightning fast HMR
 - **Webpack** - Feature-rich bundling
 - **Parcel** - Zero configuration
 - **ESBuild** - Extremely fast builds
 
 ### UI Frameworks
+
 - Material-UI (MUI)
 - Ant Design
 - Chakra UI
@@ -22,6 +24,7 @@ Build production-ready React applications with modern tooling, component librari
 - Tailwind CSS
 
 ### State Management
+
 - React Context (built-in)
 - Redux Toolkit
 - Zustand
@@ -30,28 +33,31 @@ Build production-ready React applications with modern tooling, component librari
 
 ## Configuration Options
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `react_version` | React version | 18 |
-| `typescript` | Enable TypeScript | true |
-| `build_tool` | Build tool | vite |
-| `ui_framework` | UI component library | mui |
-| `state_management` | State management | context |
+| Parameter          | Description          | Default |
+| ------------------ | -------------------- | ------- |
+| `react_version`    | React version        | 18      |
+| `typescript`       | Enable TypeScript    | true    |
+| `build_tool`       | Build tool           | vite    |
+| `ui_framework`     | UI component library | mui     |
+| `state_management` | State management     | context |
 
 ## Getting Started
 
 ### Prerequisites
+
 - Node.js 18+
 - npm or yarn
 
 ### Local Development
 
 1. **Install dependencies**
+
    ```bash
    npm install
    ```
 
 2. **Start development server**
+
    ```bash
    npm run dev
    ```
@@ -110,6 +116,7 @@ npm run build-storybook # Build Storybook
 ## Component Development
 
 ### Function Component with TypeScript
+
 ```tsx
 interface ButtonProps {
   label: string;
@@ -120,13 +127,10 @@ interface ButtonProps {
 export const Button: React.FC<ButtonProps> = ({
   label,
   onClick,
-  variant = 'primary'
+  variant = 'primary',
 }) => {
   return (
-    <button
-      className={`btn btn-${variant}`}
-      onClick={onClick}
-    >
+    <button className={`btn btn-${variant}`} onClick={onClick}>
       {label}
     </button>
   );
@@ -134,6 +138,7 @@ export const Button: React.FC<ButtonProps> = ({
 ```
 
 ### Custom Hook Example
+
 ```tsx
 import { useState, useEffect } from 'react';
 
@@ -157,6 +162,7 @@ export function useFetch<T>(url: string) {
 ## Routing
 
 ### React Router Setup
+
 ```tsx
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
@@ -177,6 +183,7 @@ function App() {
 ## State Management
 
 ### React Context Example
+
 ```tsx
 // AuthContext.tsx
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -198,6 +205,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 ```
 
 ### Redux Toolkit Example
+
 ```tsx
 // userSlice.ts
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
@@ -216,6 +224,7 @@ const userSlice = createSlice({
 ## Testing
 
 ### Component Testing
+
 ```tsx
 import { render, screen, fireEvent } from '@testing-library/react';
 import { Button } from './Button';
@@ -236,6 +245,7 @@ describe('Button', () => {
 ```
 
 ### API Mocking with MSW
+
 ```tsx
 import { rest } from 'msw';
 import { setupServer } from 'msw/node';
@@ -243,7 +253,7 @@ import { setupServer } from 'msw/node';
 const server = setupServer(
   rest.get('/api/users', (req, res, ctx) => {
     return res(ctx.json([{ id: 1, name: 'John' }]));
-  })
+  }),
 );
 
 beforeAll(() => server.listen());
@@ -254,6 +264,7 @@ afterAll(() => server.close());
 ## Storybook
 
 ### Component Story
+
 ```tsx
 // Button.stories.tsx
 import type { Meta, StoryObj } from '@storybook/react';
@@ -278,6 +289,7 @@ export const Primary: Story = {
 ## Deployment
 
 ### Docker Build
+
 ```dockerfile
 FROM node:18-alpine as build
 WORKDIR /app
@@ -292,7 +304,9 @@ EXPOSE 80
 ```
 
 ### Static Hosting
+
 The built application can be deployed to:
+
 - Netlify
 - Vercel
 - AWS S3 + CloudFront

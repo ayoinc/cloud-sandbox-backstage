@@ -4,10 +4,10 @@ This section provides templates for creating new runbooks.
 
 ## Available Templates
 
-| Template | Use Case |
-|----------|----------|
-| [Incident Template](#incident-template) | Responding to alerts and outages |
-| [Procedure Template](#procedure-template) | Standard operational tasks |
+| Template                                  | Use Case                         |
+| ----------------------------------------- | -------------------------------- |
+| [Incident Template](#incident-template)   | Responding to alerts and outages |
+| [Procedure Template](#procedure-template) | Standard operational tasks       |
 
 ## Incident Template
 
@@ -45,7 +45,9 @@ Brief description of the incident type and what this runbook addresses.
 Description of what to do.
 
 \`\`\`bash
+
 # Command to run
+
 command --with-options
 \`\`\`
 
@@ -62,7 +64,9 @@ What to look for in the output.
 When to use this option.
 
 \`\`\`bash
+
 # Resolution command
+
 \`\`\`
 
 ### Option 2: [Name]
@@ -74,7 +78,9 @@ When to use this option.
 How to confirm the issue is resolved.
 
 \`\`\`bash
+
 # Verification command
+
 \`\`\`
 
 ## Escalation
@@ -114,7 +120,9 @@ Brief description of the procedure and when to use it.
 Description of what to do.
 
 \`\`\`bash
+
 # Command
+
 \`\`\`
 
 Expected outcome.

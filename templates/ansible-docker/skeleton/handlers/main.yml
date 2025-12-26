@@ -5,5 +5,5 @@
 - name: Restart Docker
   ansible.builtin.service:
     name: docker
-    state: "{{ docker_restart_handler_state }}"
+    state: '{{ docker_restart_handler_state }}'
   when: docker_service_state != 'stopped'

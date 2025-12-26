@@ -30,6 +30,7 @@ kubectl rollout status deployment/${{ values.serviceName }} -n production
 ### Step 1: Communicate
 
 Post in #incidents:
+
 ```
 🔴 Initiating Rollback
 Service: ${{ values.serviceName }}

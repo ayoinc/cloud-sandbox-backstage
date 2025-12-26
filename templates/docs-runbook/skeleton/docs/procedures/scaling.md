@@ -7,12 +7,14 @@ This procedure covers scaling ${{ values.serviceName }} horizontally (replicas) 
 ## When to Scale
 
 **Scale Up:**
+
 - High CPU/memory utilization
 - Increased traffic
 - Before planned high-traffic events
 - Response time degradation
 
 **Scale Down:**
+
 - After traffic decreases
 - Cost optimization
 - During maintenance windows
@@ -132,28 +134,30 @@ kubectl top pods -l app=${{ values.serviceName }} -n production
 ### Minimum Replicas
 
 | Environment | Minimum | Recommended |
-|-------------|---------|-------------|
-| Production | 2 | 3 |
-| Staging | 1 | 2 |
-| Development | 1 | 1 |
+| ----------- | ------- | ----------- |
+| Production  | 2       | 3           |
+| Staging     | 1       | 2           |
+| Development | 1       | 1           |
 
 ### Resource Guidelines
 
-| Size | CPU Request | CPU Limit | Memory Request | Memory Limit |
-|------|-------------|-----------|----------------|--------------|
-| Small | 250m | 500m | 256Mi | 512Mi |
-| Medium | 500m | 1000m | 512Mi | 1Gi |
-| Large | 1000m | 2000m | 1Gi | 2Gi |
+| Size   | CPU Request | CPU Limit | Memory Request | Memory Limit |
+| ------ | ----------- | --------- | -------------- | ------------ |
+| Small  | 250m        | 500m      | 256Mi          | 512Mi        |
+| Medium | 500m        | 1000m     | 512Mi          | 1Gi          |
+| Large  | 1000m       | 2000m     | 1Gi            | 2Gi          |
 
 ## Troubleshooting
 
 **Pods stuck in Pending:**
+
 ```bash
 kubectl describe pod <pod-name> -n production
 # Check for resource constraints or node issues
 ```
 
 **Pods crashing after resource change:**
+
 ```bash
 kubectl logs <pod-name> -n production
 # May need to increase memory limits

@@ -6,23 +6,25 @@ ${{ values.description }}
 
 This is a dbt project for data transformation following best practices.
 
-| Property | Value |
-|----------|-------|
-| **Owner** | ${{ values.owner }} |
+| Property        | Value                     |
+| --------------- | ------------------------- |
+| **Owner**       | ${{ values.owner }}       |
 | **Environment** | ${{ values.environment }} |
-| **Warehouse** | ${{ values.warehouse }} |
-| **dbt Version** | ${{ values.dbtVersion }} |
+| **Warehouse**   | ${{ values.warehouse }}   |
+| **dbt Version** | ${{ values.dbtVersion }}  |
 
 ## Quick Start
 
 ### Setup
 
 1. **Install dbt**:
+
    ```bash
    pip install dbt-${{ values.warehouse }}==${{ values.dbtVersion }}.*
    ```
 
 2. **Configure profiles.yml**:
+
    ```bash
    cp profiles.yml.example ~/.dbt/profiles.yml
    # Edit with your credentials

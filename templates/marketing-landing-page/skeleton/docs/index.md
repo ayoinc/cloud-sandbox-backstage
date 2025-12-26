@@ -47,6 +47,7 @@ Edit the CSS variables in `css/style.css`:
 ### Content
 
 Edit `index.html` to update:
+
 - Hero section text
 - Features
 - Call-to-action buttons

@@ -9,7 +9,7 @@
       - docker-ce-cli{{ docker_version | ternary('=' + docker_version + '*', '') }}
       - containerd.io
       - docker-buildx-plugin
-    state: "{{ docker_package_state }}"
+    state: '{{ docker_package_state }}'
     update_cache: true
   when: ansible_os_family == 'Debian'
   notify: Restart Docker
@@ -21,7 +21,7 @@
       - docker-ce-cli{{ docker_version | ternary('-' + docker_version, '') }}
       - containerd.io
       - docker-buildx-plugin
-    state: "{{ docker_package_state }}"
+    state: '{{ docker_package_state }}'
   when: ansible_os_family == 'RedHat'
   notify: Restart Docker
 

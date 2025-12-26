@@ -27,12 +27,12 @@ terraform apply
 
 ## Configuration
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `bucket_name` | Bucket name | - |
-| `versioning` | Enable versioning | `true` |
-| `encryption` | Encryption type | `AES256` |
-| `public_access_block` | Block public access | `true` |
+| Variable              | Description         | Default  |
+| --------------------- | ------------------- | -------- |
+| `bucket_name`         | Bucket name         | -        |
+| `versioning`          | Enable versioning   | `true`   |
+| `encryption`          | Encryption type     | `AES256` |
+| `public_access_block` | Block public access | `true`   |
 
 ## Use Cases
 

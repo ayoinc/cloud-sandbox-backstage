@@ -15,7 +15,7 @@ metadata:
 spec:
   owner: group:platform-team
   type: website
-  
+
   parameters:
     - title: Project Information
       required:
@@ -40,7 +40,7 @@ spec:
           ui:options:
             catalogFilter:
               kind: Group
-              
+
     - title: App Configuration
       required:
         - environment
@@ -85,7 +85,7 @@ spec:
             - hugo
             - static
           default: react
-          
+
     - title: Repository Configuration
       required:
         - repoUrl

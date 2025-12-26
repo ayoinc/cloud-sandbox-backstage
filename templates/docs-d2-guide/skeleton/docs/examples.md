@@ -51,16 +51,16 @@ queue: Queue {
 ```d2
 kubernetes: Kubernetes Cluster {
   style.fill: "#E3F2FD"
-  
+
   namespace: Production {
     style.fill: "#E8F5E9"
-    
+
     deployment: Deployment {
       pod1: Pod 1
       pod2: Pod 2
     }
   }
-  
+
   ingress: Ingress Controller {
     shape: hexagon
   }
@@ -118,22 +118,22 @@ gateway: API Gateway {
 
 services: Microservices {
   style.fill: "#F5F5F5"
-  
+
   users: User Service {
     shape: hexagon
     style.fill: "#E8F5E9"
   }
-  
+
   orders: Order Service {
     shape: hexagon
     style.fill: "#E8F5E9"
   }
-  
+
   payments: Payment Service {
     shape: hexagon
     style.fill: "#E8F5E9"
   }
-  
+
   inventory: Inventory Service {
     shape: hexagon
     style.fill: "#E8F5E9"
@@ -142,7 +142,7 @@ services: Microservices {
 
 messaging: Event Bus {
   style.fill: "#FFF3E0"
-  
+
   kafka: Kafka {
     shape: queue
   }
@@ -150,19 +150,19 @@ messaging: Event Bus {
 
 databases: Databases {
   style.fill: "#FCE4EC"
-  
+
   users_db: Users DB {
     shape: cylinder
   }
-  
+
   orders_db: Orders DB {
     shape: cylinder
   }
-  
+
   payments_db: Payments DB {
     shape: cylinder
   }
-  
+
   inventory_db: Inventory DB {
     shape: cylinder
   }

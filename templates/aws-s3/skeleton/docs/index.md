@@ -8,12 +8,12 @@ This S3 bucket is managed by Terraform and provides secure object storage for th
 
 ## Configuration
 
-| Setting | Value |
-|---------|-------|
-| Region | ${{ values.region }} |
-| Environment | ${{ values.environment }} |
-| Versioning | ${{ values.versioning }} |
-| Encryption | ${{ values.encryption }} |
+| Setting         | Value                          |
+| --------------- | ------------------------------ |
+| Region          | ${{ values.region }}           |
+| Environment     | ${{ values.environment }}      |
+| Versioning      | ${{ values.versioning }}       |
+| Encryption      | ${{ values.encryption }}       |
 | Lifecycle Rules | ${{ values.lifecycleEnabled }} |
 
 ## Usage

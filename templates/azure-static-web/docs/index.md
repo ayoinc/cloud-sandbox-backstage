@@ -36,11 +36,11 @@ terraform apply
 
 ## Configuration
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `name` | App name | - |
-| `sku_tier` | Pricing tier | `Free` |
-| `sku_size` | SKU size | `Free` |
+| Variable   | Description  | Default |
+| ---------- | ------------ | ------- |
+| `name`     | App name     | -       |
+| `sku_tier` | Pricing tier | `Free`  |
+| `sku_size` | SKU size     | `Free`  |
 
 ## Deployment
 

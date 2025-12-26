@@ -8,14 +8,14 @@ This GKE cluster is managed by Terraform for the **${{ values.environment }}** e
 
 ## Configuration
 
-| Setting | Value |
-|---------|-------|
-| Cluster Mode | ${{ values.clusterMode }} |
-| Region | ${{ values.region }} |
-| GCP Project | ${{ values.gcpProject }} |
-| Environment | ${{ values.environment }} |
+| Setting      | Value                                          |
+| ------------ | ---------------------------------------------- |
+| Cluster Mode | ${{ values.clusterMode }}                      |
+| Region       | ${{ values.region }}                           |
+| GCP Project  | ${{ values.gcpProject }}                       |
+| Environment  | ${{ values.environment }}                      |
 | Machine Type | ${{ values.machineType }} (Standard mode only) |
-| Node Count | ${{ values.nodeCount }} (Standard mode only) |
+| Node Count   | ${{ values.nodeCount }} (Standard mode only)   |
 
 ## Features
 

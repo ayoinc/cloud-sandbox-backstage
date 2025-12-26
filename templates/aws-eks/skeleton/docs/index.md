@@ -8,13 +8,13 @@ This EKS cluster is managed by Terraform for the **${{ values.environment }}** e
 
 ## Configuration
 
-| Setting | Value |
-|---------|-------|
+| Setting            | Value                           |
+| ------------------ | ------------------------------- |
 | Kubernetes Version | ${{ values.kubernetesVersion }} |
-| Node Instance Type | ${{ values.nodeInstanceType }} |
-| Desired Nodes | ${{ values.nodeDesiredSize }} |
-| Max Nodes | ${{ values.nodeMaxSize }} |
-| Region | ${{ values.region }} |
+| Node Instance Type | ${{ values.nodeInstanceType }}  |
+| Desired Nodes      | ${{ values.nodeDesiredSize }}   |
+| Max Nodes          | ${{ values.nodeMaxSize }}       |
+| Region             | ${{ values.region }}            |
 
 ## Getting Started
 
