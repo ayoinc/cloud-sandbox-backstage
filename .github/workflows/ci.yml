@@ -8,6 +8,7 @@
 # - test: Run unit tests
 # - lint: Run ESLint and Prettier checks
 # - docker: Build Docker image (on main branch only)
+# - summary: Generate CI summary report
 # =============================================================================
 
 name: CI
@@ -33,6 +34,8 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    outputs:
+      build_duration: ${{ steps.build_time.outputs.duration }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -47,13 +50,21 @@ jobs:
         run: corepack enable
 
       - name: Install dependencies
-        run: yarn install --immutable
+        id: install
+        run: |
+          start_time=$(date +%s)
+          yarn install --immutable
+          echo "install_duration=$(($(date +%s) - start_time))s" >> $GITHUB_OUTPUT
 
       - name: TypeScript compilation
         run: yarn tsc
 
       - name: Build backend
-        run: yarn build:backend
+        id: build_time
+        run: |
+          start_time=$(date +%s)
+          yarn build:backend
+          echo "duration=$(($(date +%s) - start_time))s" >> $GITHUB_OUTPUT
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -62,6 +73,19 @@ jobs:
           path: packages/backend/dist/
           retention-days: 7
 
+      - name: Generate build summary
+        run: |
+          echo "## Build Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Node.js Version | ${{ env.NODE_VERSION }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Install Duration | ${{ steps.install.outputs.install_duration }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build Duration | ${{ steps.build_time.outputs.duration }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Branch | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
   # ===========================================================================
   # Test Job
   # ===========================================================================
@@ -69,6 +93,9 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     needs: build
+    outputs:
+      test_count: ${{ steps.test_results.outputs.count }}
+      coverage: ${{ steps.test_results.outputs.coverage }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -86,7 +113,38 @@ jobs:
         run: yarn install --immutable
 
       - name: Run tests
-        run: yarn test --coverage --passWithNoTests
+        id: test_results
+        run: |
+          yarn test --coverage --passWithNoTests --json --outputFile=test-results.json 2>/dev/null || true
+          yarn test --coverage --passWithNoTests
+
+          # Extract test counts if results file exists
+          if [ -f test-results.json ]; then
+            total=$(jq '.numTotalTests // 0' test-results.json)
+            passed=$(jq '.numPassedTests // 0' test-results.json)
+            failed=$(jq '.numFailedTests // 0' test-results.json)
+            echo "count=${passed}/${total}" >> $GITHUB_OUTPUT
+          else
+            echo "count=N/A" >> $GITHUB_OUTPUT
+          fi
+
+          # Extract coverage if available
+          if [ -f coverage/coverage-summary.json ]; then
+            coverage=$(jq '.total.lines.pct // 0' coverage/coverage-summary.json)
+            echo "coverage=${coverage}%" >> $GITHUB_OUTPUT
+          else
+            echo "coverage=N/A" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: |
+            test-results.json
+            coverage/
+          retention-days: 7
 
       - name: Upload coverage report
         uses: codecov/codecov-action@v4
@@ -95,12 +153,26 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
 
+      - name: Generate test summary
+        if: always()
+        run: |
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Tests Passed | ${{ steps.test_results.outputs.count }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Coverage | ${{ steps.test_results.outputs.coverage }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
   # ===========================================================================
   # Lint Job
   # ===========================================================================
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    outputs:
+      eslint_issues: ${{ steps.lint_results.outputs.eslint_issues }}
+      prettier_status: ${{ steps.lint_results.outputs.prettier_status }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -118,20 +190,75 @@ jobs:
         run: yarn install --immutable
 
       - name: Run ESLint
-        run: yarn lint:all
+        id: eslint
+        run: |
+          yarn lint:all --format json --output-file eslint-results.json 2>/dev/null || true
+          yarn lint:all
+        continue-on-error: true
 
       - name: Check Prettier formatting
+        id: prettier
         run: yarn prettier:check
+        continue-on-error: true
+
+      - name: Collect lint results
+        id: lint_results
+        if: always()
+        run: |
+          # Count ESLint issues
+          if [ -f eslint-results.json ]; then
+            errors=$(jq '[.[].errorCount] | add // 0' eslint-results.json)
+            warnings=$(jq '[.[].warningCount] | add // 0' eslint-results.json)
+            echo "eslint_issues=${errors} errors, ${warnings} warnings" >> $GITHUB_OUTPUT
+          else
+            echo "eslint_issues=N/A" >> $GITHUB_OUTPUT
+          fi
+
+          # Prettier status
+          if [ "${{ steps.prettier.outcome }}" == "success" ]; then
+            echo "prettier_status=Passed" >> $GITHUB_OUTPUT
+          else
+            echo "prettier_status=Failed" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload lint results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lint-results
+          path: eslint-results.json
+          retention-days: 7
+
+      - name: Generate lint summary
+        if: always()
+        run: |
+          echo "## Lint Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| ESLint | ${{ steps.lint_results.outputs.eslint_issues }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Prettier | ${{ steps.lint_results.outputs.prettier_status }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: Fail if lint errors
+        if: steps.eslint.outcome == 'failure' || steps.prettier.outcome == 'failure'
+        run: exit 1
 
   # ===========================================================================
-  # Docker Build Job
+  # Docker Build and Push Job
   # ===========================================================================
   docker:
-    name: Docker Build
+    name: Docker Build & Push
     runs-on: ubuntu-latest
     needs: [build, test, lint]
     # Only build Docker image on main/master branch pushes
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    outputs:
+      image_tag: ${{ steps.build_image.outputs.image_tag }}
+      image_size: ${{ steps.build_image.outputs.image_size }}
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -139,16 +266,100 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker image
-        uses: docker/build-push-action@v5
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
         with:
-          context: .
-          push: false
-          tags: backstage:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        id: build_image
+        run: |
+          IMAGE_TAG="ghcr.io/${{ github.repository }}:${{ github.sha }}"
+          echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
+
+          start_time=$(date +%s)
+          docker buildx build \
+            --push \
+            --tag "${IMAGE_TAG}" \
+            --cache-from type=gha \
+            --cache-to type=gha,mode=max \
+            .
+          echo "build_duration=$(($(date +%s) - start_time))s" >> $GITHUB_OUTPUT
+
+          # Get image size
+          docker pull "${IMAGE_TAG}"
+          size=$(docker image inspect "${IMAGE_TAG}" --format='{{.Size}}' | numfmt --to=iec-i --suffix=B)
+          echo "image_size=${size}" >> $GITHUB_OUTPUT
 
       - name: Test Docker image
         run: |
-          docker build -t backstage:test .
-          docker run --rm backstage:test node --version
+          docker run --rm ghcr.io/${{ github.repository }}:${{ github.sha }} node --version
+
+      - name: Generate Docker summary
+        run: |
+          echo "## Docker Build Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Image | \`${{ steps.build_image.outputs.image_tag }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Size | ${{ steps.build_image.outputs.image_size }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build Duration | ${{ steps.build_image.outputs.build_duration }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Pull Command" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${{ steps.build_image.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+  # ===========================================================================
+  # Summary Job
+  # ===========================================================================
+  summary:
+    name: CI Summary
+    runs-on: ubuntu-latest
+    needs: [build, test, lint, docker]
+    if: always()
+    steps:
+      - name: Generate CI Summary
+        run: |
+          echo "# CI Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Run Information" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Repository | \`${{ github.repository }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Branch | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit Message | ${{ github.event.head_commit.message || 'N/A' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Triggered By | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Event | ${{ github.event_name }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Workflow Run | [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Job Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Build | ${{ needs.build.result == 'success' && '✅ Passed' || needs.build.result == 'failure' && '❌ Failed' || needs.build.result == 'skipped' && '⏭️ Skipped' || '⚠️ Unknown' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Test | ${{ needs.test.result == 'success' && '✅ Passed' || needs.test.result == 'failure' && '❌ Failed' || needs.test.result == 'skipped' && '⏭️ Skipped' || '⚠️ Unknown' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Lint | ${{ needs.lint.result == 'success' && '✅ Passed' || needs.lint.result == 'failure' && '❌ Failed' || needs.lint.result == 'skipped' && '⏭️ Skipped' || '⚠️ Unknown' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Docker | ${{ needs.docker.result == 'success' && '✅ Passed' || needs.docker.result == 'failure' && '❌ Failed' || needs.docker.result == 'skipped' && '⏭️ Skipped' || '⚠️ Unknown' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Overall status
+          if [ "${{ needs.build.result }}" == "success" ] && [ "${{ needs.test.result }}" == "success" ] && [ "${{ needs.lint.result }}" == "success" ]; then
+            echo "## ✅ Pipeline Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ❌ Pipeline Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Docker image info if available
+          if [ "${{ needs.docker.result }}" == "success" ]; then
+            echo "## Docker Image" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+            echo "docker pull ghcr.io/${{ github.repository }}:${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          fi
