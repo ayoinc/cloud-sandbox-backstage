@@ -7,8 +7,8 @@ services:
     logging:
       driver: json-file
       options:
-        max-size: "10m"
-        max-file: "3"
+        max-size: '10m'
+        max-file: '3'
 
   backstage:
     restart: always
@@ -23,8 +23,8 @@ services:
     logging:
       driver: json-file
       options:
-        max-size: "50m"
-        max-file: "5"
+        max-size: '50m'
+        max-file: '5'
 
   postgres:
     restart: always
@@ -36,8 +36,8 @@ services:
     logging:
       driver: json-file
       options:
-        max-size: "20m"
-        max-file: "3"
+        max-size: '20m'
+        max-file: '3'
     # Remove port exposure in production
     ports: []
 

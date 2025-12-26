@@ -15,14 +15,18 @@ services:
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+      - 'ES_JAVA_OPTS=-Xms1g -Xmx1g'
     ports:
-      - "9200:9200"
-      - "9300:9300"
+      - '9200:9200'
+      - '9300:9300'
     volumes:
       - elasticsearch_data:/usr/share/elasticsearch/data
     healthcheck:
-      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q 'green\\|yellow'"]
+      test:
+        [
+          'CMD-SHELL',
+          "curl -s http://localhost:9200/_cluster/health | grep -q 'green\\|yellow'",
+        ]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -31,12 +35,12 @@ services:
     image: docker.elastic.co/logstash/logstash:8.12.0
     container_name: logstash
     ports:
-      - "5044:5044"
-      - "9600:9600"
+      - '5044:5044'
+      - '9600:9600'
     volumes:
       - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
     environment:
-      - "LS_JAVA_OPTS=-Xms512m -Xmx512m"
+      - 'LS_JAVA_OPTS=-Xms512m -Xmx512m'
     depends_on:
       elasticsearch:
         condition: service_healthy
@@ -45,7 +49,7 @@ services:
     image: docker.elastic.co/kibana/kibana:8.12.0
     container_name: kibana
     ports:
-      - "5601:5601"
+      - '5601:5601'
     environment:
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
     depends_on:
@@ -67,7 +71,7 @@ services:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
     volumes:
       - certs:/usr/share/elasticsearch/config/certs
-    user: "0"
+    user: '0'
     command: >
       bash -c '
         if [ ! -f config/certs/ca.zip ]; then
@@ -103,7 +107,7 @@ services:
       - xpack.security.transport.ssl.key=certs/es01/es01.key
       - xpack.security.transport.ssl.certificate=certs/es01/es01.crt
       - xpack.security.transport.ssl.certificate_authorities=certs/ca/ca.crt
-      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
+      - 'ES_JAVA_OPTS=-Xms2g -Xmx2g'
     ulimits:
       memlock:
         soft: -1
@@ -112,7 +116,7 @@ services:
       - certs:/usr/share/elasticsearch/config/certs
       - es01_data:/usr/share/elasticsearch/data
     ports:
-      - "9200:9200"
+      - '9200:9200'
     networks:
       - elk
 
@@ -134,7 +138,7 @@ services:
       - xpack.security.transport.ssl.key=certs/es02/es02.key
       - xpack.security.transport.ssl.certificate=certs/es02/es02.crt
       - xpack.security.transport.ssl.certificate_authorities=certs/ca/ca.crt
-      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
+      - 'ES_JAVA_OPTS=-Xms2g -Xmx2g'
     ulimits:
       memlock:
         soft: -1
@@ -163,7 +167,7 @@ services:
       - xpack.security.transport.ssl.key=certs/es03/es03.key
       - xpack.security.transport.ssl.certificate=certs/es03/es03.crt
       - xpack.security.transport.ssl.certificate_authorities=certs/ca/ca.crt
-      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
+      - 'ES_JAVA_OPTS=-Xms2g -Xmx2g'
     ulimits:
       memlock:
         soft: -1
@@ -185,7 +189,7 @@ services:
     volumes:
       - certs:/usr/share/kibana/config/certs
     ports:
-      - "5601:5601"
+      - '5601:5601'
     networks:
       - elk
     depends_on:
@@ -230,7 +234,7 @@ spec:
     - name: master
       count: 3
       config:
-        node.roles: ["master"]
+        node.roles: ['master']
         xpack.ml.enabled: false
       podTemplate:
         spec:
@@ -247,7 +251,7 @@ spec:
         - metadata:
             name: elasticsearch-data
           spec:
-            accessModes: ["ReadWriteOnce"]
+            accessModes: ['ReadWriteOnce']
             storageClassName: standard
             resources:
               requests:
@@ -256,7 +260,7 @@ spec:
     - name: data
       count: 3
       config:
-        node.roles: ["data", "ingest"]
+        node.roles: ['data', 'ingest']
       podTemplate:
         spec:
           containers:
@@ -272,7 +276,7 @@ spec:
         - metadata:
             name: elasticsearch-data
           spec:
-            accessModes: ["ReadWriteOnce"]
+            accessModes: ['ReadWriteOnce']
             storageClassName: standard
             resources:
               requests:
@@ -582,16 +586,16 @@ for bucket in agg_results['aggregations']['errors_by_service']['buckets']:
 
 ### Common Issues
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| Cluster RED | Unassigned primary shards | Check disk space, node health |
-| Cluster YELLOW | Unassigned replica shards | Add nodes or reduce replicas |
-| High heap usage | Memory pressure | Increase heap, optimize queries |
-| Slow queries | Large result sets, complex aggs | Add filters, use pagination |
-| Indexing slow | Refresh too frequent | Increase refresh_interval |
-| Node not joining | Network/discovery issues | Check discovery settings, firewall |
-| Split brain | Improper master config | Use odd number of masters |
-| Disk watermark | High disk usage | Add space or delete old indices |
+| Issue            | Cause                           | Solution                           |
+| ---------------- | ------------------------------- | ---------------------------------- |
+| Cluster RED      | Unassigned primary shards       | Check disk space, node health      |
+| Cluster YELLOW   | Unassigned replica shards       | Add nodes or reduce replicas       |
+| High heap usage  | Memory pressure                 | Increase heap, optimize queries    |
+| Slow queries     | Large result sets, complex aggs | Add filters, use pagination        |
+| Indexing slow    | Refresh too frequent            | Increase refresh_interval          |
+| Node not joining | Network/discovery issues        | Check discovery settings, firewall |
+| Split brain      | Improper master config          | Use odd number of masters          |
+| Disk watermark   | High disk usage                 | Add space or delete old indices    |
 
 ### Diagnostic Commands
 

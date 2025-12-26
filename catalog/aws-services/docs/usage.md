@@ -274,12 +274,12 @@ module "eks" {
 
 ### Common Issues
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| Access Denied | Missing IAM permissions | Check IAM policies, use `aws sts get-caller-identity` |
-| Timeout | Network/security group issue | Verify security groups, NACLs, route tables |
-| Rate Limiting | Too many API calls | Implement exponential backoff, request limit increase |
-| Resource Not Found | Wrong region | Check `AWS_DEFAULT_REGION`, use `--region` flag |
+| Issue              | Cause                        | Solution                                              |
+| ------------------ | ---------------------------- | ----------------------------------------------------- |
+| Access Denied      | Missing IAM permissions      | Check IAM policies, use `aws sts get-caller-identity` |
+| Timeout            | Network/security group issue | Verify security groups, NACLs, route tables           |
+| Rate Limiting      | Too many API calls           | Implement exponential backoff, request limit increase |
+| Resource Not Found | Wrong region                 | Check `AWS_DEFAULT_REGION`, use `--region` flag       |
 
 ### Debugging Commands
 

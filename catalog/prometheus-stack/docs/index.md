@@ -29,14 +29,14 @@ docker run -d \
 
 ## Stack Components
 
-| Component | Purpose | Port |
-|-----------|---------|------|
-| **Prometheus** | Metrics collection and storage | 9090 |
-| **Grafana** | Dashboards and visualization | 3000 |
-| **Alertmanager** | Alert routing and notifications | 9093 |
-| **Node Exporter** | Host metrics | 9100 |
-| **Blackbox Exporter** | Probe monitoring | 9115 |
-| **Pushgateway** | Batch job metrics | 9091 |
+| Component             | Purpose                         | Port |
+| --------------------- | ------------------------------- | ---- |
+| **Prometheus**        | Metrics collection and storage  | 9090 |
+| **Grafana**           | Dashboards and visualization    | 3000 |
+| **Alertmanager**      | Alert routing and notifications | 9093 |
+| **Node Exporter**     | Host metrics                    | 9100 |
+| **Blackbox Exporter** | Probe monitoring                | 9115 |
+| **Pushgateway**       | Batch job metrics               | 9091 |
 
 ## Features
 

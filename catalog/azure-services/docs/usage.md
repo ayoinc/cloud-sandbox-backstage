@@ -328,12 +328,12 @@ output storageAccountId string = storageAccount.id
 
 ### Common Issues
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| AuthorizationFailed | Missing RBAC permissions | Check role assignments with `az role assignment list` |
-| QuotaExceeded | Subscription limits reached | Request quota increase in portal |
-| ResourceNotFound | Wrong subscription/resource group | Verify with `az account show` |
-| InvalidTemplateDeployment | ARM/Bicep syntax error | Validate with `az deployment group validate` |
+| Issue                     | Cause                             | Solution                                              |
+| ------------------------- | --------------------------------- | ----------------------------------------------------- |
+| AuthorizationFailed       | Missing RBAC permissions          | Check role assignments with `az role assignment list` |
+| QuotaExceeded             | Subscription limits reached       | Request quota increase in portal                      |
+| ResourceNotFound          | Wrong subscription/resource group | Verify with `az account show`                         |
+| InvalidTemplateDeployment | ARM/Bicep syntax error            | Validate with `az deployment group validate`          |
 
 ### Debugging Commands
 

@@ -20,7 +20,7 @@ prometheus: Prometheus Server {
   scraper: Scrape Engine
   tsdb: Time Series DB
   rules: Rule Engine
-  
+
   scraper -> tsdb: Store
   tsdb -> rules: Evaluate
 }
@@ -58,12 +58,12 @@ http_requests_total{method="GET", endpoint="/api/users", status="200"} 1234 1699
 
 ### Metric Types
 
-| Type | Description | Example |
-|------|-------------|---------|
-| **Counter** | Monotonically increasing | `http_requests_total` |
-| **Gauge** | Can go up or down | `temperature_celsius` |
-| **Histogram** | Bucketed observations | `http_request_duration_seconds` |
-| **Summary** | Quantiles over sliding window | `http_request_duration_summary` |
+| Type          | Description                   | Example                         |
+| ------------- | ----------------------------- | ------------------------------- |
+| **Counter**   | Monotonically increasing      | `http_requests_total`           |
+| **Gauge**     | Can go up or down             | `temperature_celsius`           |
+| **Histogram** | Bucketed observations         | `http_request_duration_seconds` |
+| **Summary**   | Quantiles over sliding window | `http_request_duration_summary` |
 
 ## Components
 
@@ -79,10 +79,10 @@ alerting:
   alertmanagers:
     - static_configs:
         - targets:
-          - alertmanager:9093
+            - alertmanager:9093
 
 rule_files:
-  - "/etc/prometheus/rules/*.yml"
+  - '/etc/prometheus/rules/*.yml'
 
 scrape_configs:
   - job_name: 'prometheus'
@@ -236,11 +236,11 @@ absent(up{job="important-service"})
 sum(rate(http_requests_total[5m])) by (service)
 
 # Error rate percentage
-100 * sum(rate(http_requests_total{status=~"5.."}[5m])) 
+100 * sum(rate(http_requests_total{status=~"5.."}[5m]))
     / sum(rate(http_requests_total[5m]))
 
 # Latency percentiles
-histogram_quantile(0.99, 
+histogram_quantile(0.99,
   sum(rate(http_request_duration_seconds_bucket[5m])) by (le, service)
 )
 
@@ -306,25 +306,25 @@ thanos:
 
 ### The Four Golden Signals
 
-| Signal | Description | Example Metric |
-|--------|-------------|----------------|
-| **Latency** | Time to serve requests | `http_request_duration_seconds` |
-| **Traffic** | Request rate | `http_requests_total` |
-| **Errors** | Error rate | `http_requests_total{status=~"5.."}` |
-| **Saturation** | Resource utilization | `node_cpu_seconds_total` |
+| Signal         | Description            | Example Metric                       |
+| -------------- | ---------------------- | ------------------------------------ |
+| **Latency**    | Time to serve requests | `http_request_duration_seconds`      |
+| **Traffic**    | Request rate           | `http_requests_total`                |
+| **Errors**     | Error rate             | `http_requests_total{status=~"5.."}` |
+| **Saturation** | Resource utilization   | `node_cpu_seconds_total`             |
 
 ### USE Method (for resources)
 
-| Metric | Description |
-|--------|-------------|
+| Metric          | Description              |
+| --------------- | ------------------------ |
 | **Utilization** | % time resource was busy |
-| **Saturation** | Work queued |
-| **Errors** | Error events |
+| **Saturation**  | Work queued              |
+| **Errors**      | Error events             |
 
 ### RED Method (for services)
 
-| Metric | Description |
-|--------|-------------|
-| **Rate** | Requests per second |
-| **Errors** | Failed requests per second |
-| **Duration** | Request latency |
+| Metric       | Description                |
+| ------------ | -------------------------- |
+| **Rate**     | Requests per second        |
+| **Errors**   | Failed requests per second |
+| **Duration** | Request latency            |

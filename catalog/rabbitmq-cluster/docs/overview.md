@@ -10,7 +10,7 @@ direction: right
 producer: Producer {
   shape: rectangle
   style.fill: "#E3F2FD"
-  
+
   publish: "Publish"
   confirm: "Confirm"
 }
@@ -18,7 +18,7 @@ producer: Producer {
 exchange: Exchange {
   shape: hexagon
   style.fill: "#FFF8E1"
-  
+
   routing: "Routing"
   bindings: "Bindings"
 }
@@ -26,7 +26,7 @@ exchange: Exchange {
 queue: Queue {
   shape: cylinder
   style.fill: "#E8F5E9"
-  
+
   storage: "Storage"
   ordering: "Ordering"
 }
@@ -34,7 +34,7 @@ queue: Queue {
 consumer: Consumer {
   shape: rectangle
   style.fill: "#F3E5F5"
-  
+
   consume: "Consume"
   ack: "Ack/Nack"
 }
@@ -67,34 +67,34 @@ cluster: RabbitMQ Cluster {
     fill: "#F5F5F5"
     stroke: "#9E9E9E"
   }
-  
+
   rmq1: RabbitMQ 1 {
     shape: rectangle
     style.fill: "#E8F5E9"
-    
+
     type1: "(Disk Node)"
     mnesia1: "Mnesia DB (metadata)"
     queue1: "Queue Leader (orders)"
   }
-  
+
   rmq2: RabbitMQ 2 {
     shape: rectangle
     style.fill: "#E8F5E9"
-    
+
     type2: "(Disk Node)"
     mnesia2: "Mnesia DB (metadata)"
     queue2: "Queue Follower (orders)"
   }
-  
+
   rmq3: RabbitMQ 3 {
     shape: rectangle
     style.fill: "#FFF8E1"
-    
+
     type3: "(RAM Node)"
     mnesia3: "Mnesia DB (in-memory)"
     queue3: "Queue Follower (orders)"
   }
-  
+
   rmq1 <-> rmq2: Erlang Distribution
   rmq2 <-> rmq3: Erlang Distribution
   rmq1 <-> rmq3: Erlang Distribution
@@ -132,38 +132,38 @@ quorum: Quorum Queue {
     stroke: "#1976D2"
     stroke-width: 2
   }
-  
+
   leader: Leader (Node 1) {
     shape: hexagon
     style.fill: "#C8E6C9"
     log1: "Log: [...]"
   }
-  
+
   follower1: Follower (Node 2) {
     shape: hexagon
     style.fill: "#DCEDC8"
     log2: "Log: [...]"
   }
-  
+
   follower2: Follower (Node 3) {
     shape: hexagon
     style.fill: "#DCEDC8"
     log3: "Log: [...]"
   }
-  
+
   leader -> follower1: replicate
   leader -> follower2: replicate
 }
 
 write_path: Write Path {
   style.fill: "#FFF8E1"
-  
+
   step1: "1. Producer sends message to leader"
   step2: "2. Leader appends to local log"
   step3: "3. Leader replicates to followers"
   step4: "4. Majority confirms → message committed"
   step5: "5. Leader acknowledges to producer"
-  
+
   step1 -> step2 -> step3 -> step4 -> step5
 }
 ```
@@ -350,16 +350,16 @@ rabbitmqctl list_permissions -p /
 
 ### Key Metrics
 
-| Metric | Description | Alert Threshold |
-|--------|-------------|-----------------|
-| `queue_messages_ready` | Messages waiting for consumer | > 10000 sustained |
-| `queue_messages_unacked` | Messages delivered, not acked | > 1000 |
-| `node_mem_used` | Memory usage | > 70% of limit |
-| `node_disk_free` | Free disk space | < disk limit |
-| `channels` | Open channels | > 2000 |
-| `connections` | Open connections | > 1000 |
-| `queue_consumer_count` | Consumers per queue | 0 for important queues |
-| `message_publish_rate` | Messages published/sec | Sudden drops |
+| Metric                   | Description                   | Alert Threshold        |
+| ------------------------ | ----------------------------- | ---------------------- |
+| `queue_messages_ready`   | Messages waiting for consumer | > 10000 sustained      |
+| `queue_messages_unacked` | Messages delivered, not acked | > 1000                 |
+| `node_mem_used`          | Memory usage                  | > 70% of limit         |
+| `node_disk_free`         | Free disk space               | < disk limit           |
+| `channels`               | Open channels                 | > 2000                 |
+| `connections`            | Open connections              | > 1000                 |
+| `queue_consumer_count`   | Consumers per queue           | 0 for important queues |
+| `message_publish_rate`   | Messages published/sec        | Sudden drops           |
 
 ### Prometheus Metrics
 
@@ -393,10 +393,10 @@ rabbitmqctl list_queues name messages consumers state
 ### Quorum Queue Sizing
 
 | Cluster Size | Quorum Size | Fault Tolerance |
-|--------------|-------------|-----------------|
-| 3 nodes | 3 | 1 node failure |
-| 5 nodes | 5 | 2 node failures |
-| 7 nodes | 5 | 2 node failures |
+| ------------ | ----------- | --------------- |
+| 3 nodes      | 3           | 1 node failure  |
+| 5 nodes      | 5           | 2 node failures |
+| 7 nodes      | 5           | 2 node failures |
 
 ### Network Partitions
 

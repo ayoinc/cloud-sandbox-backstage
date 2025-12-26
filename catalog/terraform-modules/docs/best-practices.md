@@ -5,6 +5,7 @@ This guide provides comprehensive best practices for managing Terraform modules 
 ## 1. Version Pinning & Locking
 
 ### Module Version Pinning
+
 Always pin module and provider versions to ensure reproducible builds and prevent unexpected changes.
 
 ```hcl
@@ -29,6 +30,7 @@ module "vpc" {
 ```
 
 ### .terraform.lock.hcl Importance
+
 The lock file ensures provider checksums remain consistent across environments. Always commit it to version control.
 
 ```bash
@@ -40,6 +42,7 @@ terraform providers lock -platform=linux_amd64 -platform=darwin_amd64 hashicorp/
 ```
 
 ### Upgrade Process
+
 ```bash
 # Check for updates
 terraform providers lock -verify
@@ -56,6 +59,7 @@ git diff .terraform.lock.hcl
 ### Remote Backends
 
 #### AWS S3 Backend
+
 ```hcl
 terraform {
   backend "s3" {
@@ -64,13 +68,13 @@ terraform {
     region         = "us-east-1"
     encrypt        = true
     dynamodb_table = "terraform-locks"
-    
+
     # Enable versioning for state files
     versioning     = true
-    
+
     # Use MFA for state access
     use_mfa        = true
-    
+
     # Assume role for cross-account access
     role_arn       = "arn:aws:iam::123456789012:role/TerraformAdmin"
   }
@@ -78,6 +82,7 @@ terraform {
 ```
 
 #### Azure Blob Storage Backend
+
 ```hcl
 terraform {
   backend "azurerm" {
@@ -85,7 +90,7 @@ terraform {
     storage_account_name = "tfstatestore"
     container_name       = "tfstate"
     key                  = "prod.terraform.tfstate"
-    
+
     # Enable encryption and soft delete
     encryption_key = "${azurerm_key_vault_key.tfstate.id}"
   }
@@ -93,12 +98,13 @@ terraform {
 ```
 
 #### Google Cloud Storage Backend
+
 ```hcl
 terraform {
   backend "gcs" {
     bucket  = "company-terraform-state"
     prefix  = "environments/production"
-    
+
     # Enable encryption and versioning
     encryption_key = "${google_kms_crypto_key.terraform_state.id}"
     versioned      = true
@@ -107,6 +113,7 @@ terraform {
 ```
 
 ### State Locking
+
 Enable state locking to prevent concurrent modifications and state corruption.
 
 ```bash
@@ -119,13 +126,14 @@ aws dynamodb create-table \
 ```
 
 ### State Encryption
+
 Always encrypt state files at rest:
 
 ```hcl
 # S3 server-side encryption
 resource "aws_s3_bucket_server_side_encryption_configuration" "tfstate" {
   bucket = aws_s3_bucket.terraform_state.id
-  
+
   rule {
     apply_server_side_encryption_by_default {
       sse_algorithm     = "aws:kms"
@@ -141,7 +149,7 @@ resource "azurerm_storage_account" "tfstate" {
   location                 = "East US"
   account_tier             = "Standard"
   account_replication_type = "LRS"
-  
+
   customer_managed_key {
     key_vault_key_id = azurerm_key_vault_key.tfstate.id
   }
@@ -149,6 +157,7 @@ resource "azurerm_storage_account" "tfstate" {
 ```
 
 ### State Migration
+
 ```bash
 # Migrate from local to remote state
 terraform init -migrate-state
@@ -163,6 +172,7 @@ terraform state pull > backup.terraform.tfstate
 ## 3. Secrets Management
 
 ### AWS Secrets Manager
+
 ```hcl
 data "aws_secretsmanager_secret_version" "database_password" {
   secret_id = "prod/database/password"
@@ -170,14 +180,14 @@ data "aws_secretsmanager_secret_version" "database_password" {
 
 module "rds" {
   source = "terraform-aws-modules/rds/aws"
-  
+
   password = data.aws_secretsmanager_secret_version.database_password.secret_string
 }
 
 # Create secret with rotation
 data "aws_secretsmanager_secret" "database_password" {
   name = "prod/database/password"
-  
+
   rotation_rules {
     automatically_after_days = 30
   }
@@ -185,6 +195,7 @@ data "aws_secretsmanager_secret" "database_password" {
 ```
 
 ### Azure Key Vault
+
 ```hcl
 data "azurerm_key_vault_secret" "api_key" {
   name         = "api-key"
@@ -199,6 +210,7 @@ resource "azurerm_function_app" "main" {
 ```
 
 ### GCP Secret Manager
+
 ```hcl
 data "google_secret_manager_secret_version" "database_password" {
   secret = "database-password-prod"
@@ -211,6 +223,7 @@ resource "google_sql_database_instance" "main" {
 ```
 
 ### HashiCorp Vault
+
 ```hcl
 data "vault_kv_secret_v2" "database" {
   mount = "secret"
@@ -227,15 +240,16 @@ provider "aws" {
 ## 4. Security
 
 ### IAM Best Practices
+
 ```hcl
 # OIDC Provider for GitHub Actions
 resource "aws_iam_openid_connect_provider" "github" {
   url = "https://token.actions.githubusercontent.com"
-  
+
   client_id_list = [
     "sts.amazonaws.com"
   ]
-  
+
   thumbprint_list = [
     "6938fd4d98bab03faadb97b34396831e3780aea1"
   ]
@@ -243,7 +257,7 @@ resource "aws_iam_openid_connect_provider" "github" {
 
 resource "aws_iam_role" "github_actions" {
   name = "GitHubActionsTerraform"
-  
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -266,6 +280,7 @@ resource "aws_iam_role" "github_actions" {
 ```
 
 ### Security Scanning
+
 ```bash
 # Install tfsec
 brew install tfsec
@@ -298,6 +313,7 @@ resource "aws_s3_bucket" "public" {
 ## 5. Code Organization
 
 ### Mono-repo Structure
+
 ```
 infrastructure/
 ├── modules/
@@ -336,6 +352,7 @@ infrastructure/
 ```
 
 ### Multi-repo Structure
+
 ```
 terraform-modules/
 ├── terraform-aws-vpc/
@@ -352,6 +369,7 @@ terraform-environments/
 ```
 
 ### Workspaces Strategy
+
 ```bash
 # Create workspaces per environment
 terraform workspace new production
@@ -370,6 +388,7 @@ locals {
 ## 6. Naming Conventions
 
 ### Resource Naming
+
 ```hcl
 # Bad
 resource "aws_instance" "foo" {
@@ -390,6 +409,7 @@ resource "aws_instance" "production_web_server" {
 ```
 
 ### Variable Naming
+
 ```hcl
 # Variables
 variable "vpc_cidr_block" {
@@ -412,6 +432,7 @@ variable "allowed_cidr_blocks" {
 ```
 
 ### Output Naming
+
 ```hcl
 # Outputs
 output "vpc_id" {
@@ -426,6 +447,7 @@ output "private_subnet_ids" {
 ```
 
 ### Tagging Strategy
+
 ```hcl
 locals {
   common_tags = {
@@ -439,7 +461,7 @@ locals {
 
 resource "aws_s3_bucket" "logs" {
   bucket = "${var.project-name}-logs-${var.environment}"
-  
+
   tags = merge(local.common_tags, {
     Type = "logs"
   })
@@ -449,6 +471,7 @@ resource "aws_s3_bucket" "logs" {
 ## 7. Testing
 
 ### Unit Testing
+
 ```bash
 # Format validation
 terraform fmt -check -recursive
@@ -462,6 +485,7 @@ tflint --format compact
 ```
 
 ### Integration Testing
+
 ```go
 // terratest example
 package test
@@ -477,16 +501,17 @@ func TestTerraformAwsVpc(t *testing.T) {
     TerraformDir: "./modules/vpc",
     VarFiles:     []string{"../environments/production/terraform.tfvars"},
   }
-  
+
   defer terraform.Destroy(t, terraformOptions)
   terraform.InitAndApply(t, terraformOptions)
-  
+
   vpcID := terraform.Output(t, terraformOptions, "vpc_id")
   assert.NotNil(t, vpcID)
 }
 ```
 
 ### Policy Testing
+
 ```hcl
 # Sentinel policy
 # policies/sentinel/enforce-tagging.sentinel
@@ -526,13 +551,14 @@ deny[msg] {
 ## 8. Documentation
 
 ### Module Documentation Standards
-```hcl
+
+````hcl
 # modules/vpc/main.tf
 /**
  * # VPC Module
- * 
+ *
  * Creates a VPC with public and private subnets across multiple AZs.
- * 
+ *
  * ## Features
  * - Multi-AZ deployment
  * - NAT Gateways for private subnets
@@ -544,14 +570,14 @@ deny[msg] {
  * ```hcl
  * module "vpc" {
  *   source = "terraform-aws-modules/vpc/aws"
- *   
+ *
  *   vpc_cidr_block = "10.0.0.0/16"
  *   enable_nat_gateway = true
  * }
  * ```
  *
  * ## Requirements
- * 
+ *
  * - Terraform >= 1.0
  * - AWS Provider >= 5.0
  */
@@ -563,15 +589,16 @@ variable "vpc_cidr_block" {
     CIDR block for the VPC. Must be a valid IPv4 CIDR block.
     Example: "10.0.0.0/16"
   EOF
-  
+
   validation {
     condition     = can(cidrhost(var.vpc_cidr_block, 0))
     error_message = "Must be a valid CIDR block."
   }
 }
-```
+````
 
 ### Automated Documentation
+
 ```bash
 # Generate README with terraform-docs
 terraform-docs markdown table --output-file README.md --output-mode inject ./modules/vpc
@@ -590,13 +617,14 @@ EOF
 ## 9. CI/CD Integration
 
 ### GitHub Actions
+
 ```yaml
 # .github/workflows/terraform.yml
 name: Terraform
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
 
 jobs:
@@ -606,38 +634,37 @@ jobs:
       id-token: write
       contents: read
       pull-requests: write
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "1.6.0"
-      
+          terraform_version: '1.6.0'
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::123456789012:role/GitHubActionsTerraform
           aws-region: us-east-1
-      
+
       - name: Terraform Format
         run: terraform fmt -check -recursive
-      
+
       - name: Terraform Init
         run: terraform init
-      
+
       - name: Terraform Validate
         run: terraform validate
-      
-      
+
       - name: Terraform Plan
         run: terraform plan -out=tfplan
-      
+
       - name: Security Scan
         run: |
           tfsec .
           checkov -d . --framework terraform
-      
+
       - name: Comment PR
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
@@ -645,16 +672,16 @@ jobs:
           script: |
             const output = `#### Terraform Format and Style  
             ❌  \`\`\`terraform fmt -check -recursive\`\`\`  
-            
+
             #### Terraform Initialization ⚙️\`success\`  
-            
+
             #### Terraform Validation  \`success\`  
-            
+
             #### Terraform Plan  \`${{ steps.plan.outcome }}\`  
-            
+
             <details><summary>Show Plan</summary>\n\n            \`\`\`terraform\n            ${process.env.PLAN}\n            \`\`\`
             </details>`;
-            
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
@@ -664,6 +691,7 @@ jobs:
 ```
 
 ### GitLab CI
+
 ```yaml
 # .gitlab-ci.yml
 image: hashicorp/terraform:1.6.0
@@ -676,7 +704,7 @@ stages:
   - apply
 
 variables:
-  TF_ROOT: "${CI_PROJECT_DIR}/environments/${ENVIRONMENT}"
+  TF_ROOT: '${CI_PROJECT_DIR}/environments/${ENVIRONMENT}'
 
 .terraform: &terraform
   before_script:
@@ -724,6 +752,7 @@ apply:
 ```
 
 ### Atlantis Integration
+
 ```yaml
 # atlantis.yaml
 version: 3
@@ -732,46 +761,47 @@ parallel_apply: true
 delete_source_branch_on_merge: true
 
 projects:
-- name: production
-  dir: environments/production
-  workspace: production
-  autoplan:
-    enabled: true
-    when_modified: ["*.tf*", "../modules/**/*.tf*"]
-  workflow: production
-  
-- name: staging
-  dir: environments/staging
-  workspace: staging
-  autoplan:
-    enabled: true
-  workflow: staging
+  - name: production
+    dir: environments/production
+    workspace: production
+    autoplan:
+      enabled: true
+      when_modified: ['*.tf*', '../modules/**/*.tf*']
+    workflow: production
+
+  - name: staging
+    dir: environments/staging
+    workspace: staging
+    autoplan:
+      enabled: true
+    workflow: staging
 
 workflows:
   production:
     plan:
       steps:
-      - run: terraform fmt -check -recursive
-      - run: terraform validate
-      - run: tfsec .
-      - run: checkov -d . --framework terraform
-      - plan
+        - run: terraform fmt -check -recursive
+        - run: terraform validate
+        - run: tfsec .
+        - run: checkov -d . --framework terraform
+        - plan
     apply:
       steps:
-      - apply
-      
+        - apply
+
   staging:
     plan:
       steps:
-      - plan
+        - plan
     apply:
       steps:
-      - apply
+        - apply
 ```
 
 ## 10. Performance
 
 ### Refresh Strategies
+
 ```bash
 # Skip refresh for faster plans
 terraform plan -refresh=false
@@ -785,6 +815,7 @@ terraform plan
 ```
 
 ### Plan Files
+
 ```bash
 # Generate plan file
 terraform plan -out=tfplan -detailed-exitcode
@@ -797,6 +828,7 @@ terraform apply tfplan
 ```
 
 ### Resource Targeting
+
 ```bash
 # Target specific resources for faster operations
 terraform plan -target=module.vpc -target=module.eks
@@ -808,6 +840,7 @@ terraform plan -target='!module.legacy_app'
 ## 11. Team Collaboration
 
 ### Code Review Process
+
 1. **Pre-commit checks**: Format, validate, lint
 2. **Plan validation**: Review `terraform plan` output
 3. **Security scanning**: Ensure no vulnerabilities
@@ -815,6 +848,7 @@ terraform plan -target='!module.legacy_app'
 5. **Peer review**: Require 2+ approvals
 
 ### Pre-commit Hooks
+
 ```yaml
 # .pre-commit-config.yaml
 repos:
@@ -830,6 +864,7 @@ repos:
 ```
 
 ### CODEOWNERS
+
 ```
 # .github/CODEOWNERS
 *                       @infrastructure-team
@@ -841,6 +876,7 @@ repos:
 ## 12. Disaster Recovery
 
 ### State Backup
+
 ```bash
 # Automated daily backup
 #!/bin/bash
@@ -859,6 +895,7 @@ done
 ```
 
 ### Recovery Procedures
+
 ```bash
 # Restore from backup
 aws s3 cp s3://terraform-state-backups/20231215_090000/ s3://company-terraform-state/ \
@@ -875,6 +912,7 @@ terraform apply -target=module.vpc -refresh-only
 ## 13. Cost Management
 
 ### Infracost Integration
+
 ```yaml
 # .github/workflows/infracost.yml
 name: Infracost
@@ -885,18 +923,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Infracost
         uses: infracost/actions/setup@v2
         with:
           api-key: ${{ secrets.INFRACOST_API_KEY }}
-      
+
       - name: Generate cost estimate
         run: |
           infracost breakdown --path=. \
             --format=json \
             --out-file=/tmp/infracost.json
-      
+
       - name: Post PR comment
         run: |
           infracost comment github --path=/tmp/infracost.json \
@@ -907,18 +945,19 @@ jobs:
 ```
 
 ### Cost Allocation Tags
+
 ```hcl
 # Enable AWS cost allocation tags
 resource "aws_ce_cost_allocation_tag" "project" {
   tag_key = "Project"
-  
+
   type = "UserDefined"
   status = "Active"
 }
 
 resource "aws_ce_cost_allocation_tag" "cost_center" {
   tag_key = "CostCenter"
-  
+
   type = "UserDefined"
   status = "Active"
 }
@@ -938,6 +977,7 @@ provider "aws" {
 ## 14. Monitoring
 
 ### Drift Detection
+
 ```hcl
 # Using driftctl
 resource "null_resource" "drift_detection" {
@@ -961,32 +1001,33 @@ resource "aws_cloudwatch_metric_alarm" "state_changes" {
   period              = "300"
   statistic           = "Sum"
   threshold           = "10"
-  
+
   dimensions = {
     BucketName = "company-terraform-state"
   }
-  
+
   alarm_actions = [aws_sns_topic.alerts.arn]
 }
 ```
 
 ### Compliance Monitoring
+
 ```python
 # AWS Config Rule for Terraform compliance
 import json
 
 def lambda_handler(event, context):
     configuration_item = event['configurationItem']
-    
+
     # Check if resource has Terraform tags
     tags = configuration_item.get('tags', {})
-    
+
     if not tags.get('ManagedBy') == 'terraform':
         return {
             'complianceType': 'NON_COMPLIANT',
             'annotation': 'Resource not managed by Terraform'
         }
-    
+
     return {
         'complianceType': 'COMPLIANT',
         'annotation': 'Resource managed by Terraform'

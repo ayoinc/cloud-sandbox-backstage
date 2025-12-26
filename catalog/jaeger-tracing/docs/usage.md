@@ -85,17 +85,17 @@ services:
     image: jaegertracing/all-in-one:1.54
     container_name: jaeger
     ports:
-      - "4317:4317"    # OTLP gRPC
-      - "4318:4318"    # OTLP HTTP
-      - "16686:16686"  # Jaeger UI
-      - "14250:14250"  # Jaeger gRPC
-      - "14268:14268"  # Jaeger HTTP
-      - "9411:9411"    # Zipkin
+      - '4317:4317' # OTLP gRPC
+      - '4318:4318' # OTLP HTTP
+      - '16686:16686' # Jaeger UI
+      - '14250:14250' # Jaeger gRPC
+      - '14268:14268' # Jaeger HTTP
+      - '9411:9411' # Zipkin
     environment:
       - COLLECTOR_OTLP_ENABLED=true
       - COLLECTOR_ZIPKIN_HOST_PORT=:9411
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:14269/"]
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:14269/']
       interval: 5s
       timeout: 3s
       retries: 3
@@ -114,13 +114,17 @@ services:
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+      - 'ES_JAVA_OPTS=-Xms1g -Xmx1g'
     ports:
-      - "9200:9200"
+      - '9200:9200'
     volumes:
       - esdata:/usr/share/elasticsearch/data
     healthcheck:
-      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q 'green\\|yellow'"]
+      test:
+        [
+          'CMD-SHELL',
+          "curl -s http://localhost:9200/_cluster/health | grep -q 'green\\|yellow'",
+        ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -129,11 +133,11 @@ services:
     image: jaegertracing/jaeger-collector:1.54
     container_name: jaeger-collector
     ports:
-      - "4317:4317"
-      - "4318:4318"
-      - "14250:14250"
-      - "14268:14268"
-      - "14269:14269"
+      - '4317:4317'
+      - '4318:4318'
+      - '14250:14250'
+      - '14268:14268'
+      - '14269:14269'
     environment:
       - SPAN_STORAGE_TYPE=elasticsearch
       - ES_SERVER_URLS=http://elasticsearch:9200
@@ -147,8 +151,8 @@ services:
     image: jaegertracing/jaeger-query:1.54
     container_name: jaeger-query
     ports:
-      - "16686:16686"
-      - "16687:16687"
+      - '16686:16686'
+      - '16687:16687'
     environment:
       - SPAN_STORAGE_TYPE=elasticsearch
       - ES_SERVER_URLS=http://elasticsearch:9200
@@ -177,7 +181,7 @@ services:
     depends_on:
       - zookeeper
     ports:
-      - "9092:9092"
+      - '9092:9092'
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
@@ -187,8 +191,8 @@ services:
   jaeger-collector:
     image: jaegertracing/jaeger-collector:1.54
     ports:
-      - "4317:4317"
-      - "14250:14250"
+      - '4317:4317'
+      - '14250:14250'
     environment:
       - SPAN_STORAGE_TYPE=kafka
       - KAFKA_PRODUCER_BROKERS=kafka:9092
@@ -207,7 +211,7 @@ services:
   jaeger-query:
     image: jaegertracing/jaeger-query:1.54
     ports:
-      - "16686:16686"
+      - '16686:16686'
     environment:
       - SPAN_STORAGE_TYPE=elasticsearch
       - ES_SERVER_URLS=http://elasticsearch:9200
@@ -237,7 +241,7 @@ metadata:
   namespace: observability
 spec:
   strategy: production
-  
+
   collector:
     replicas: 3
     maxReplicas: 5
@@ -252,7 +256,7 @@ spec:
       collector:
         num-workers: 100
         queue-size: 10000
-  
+
   query:
     replicas: 2
     resources:
@@ -264,7 +268,7 @@ spec:
         cpu: 500m
     metricsStorage:
       type: prometheus
-  
+
   storage:
     type: elasticsearch
     options:
@@ -279,11 +283,11 @@ spec:
     esIndexCleaner:
       enabled: true
       numberOfDays: 14
-      schedule: "55 23 * * *"
+      schedule: '55 23 * * *'
     esRollover:
       enabled: true
-      schedule: "0 0 * * *"
-  
+      schedule: '0 0 * * *'
+
   sampling:
     options:
       default_strategy:
@@ -382,14 +386,14 @@ def get_order(order_id):
     # Create custom span
     with tracer.start_as_current_span("fetch_order") as span:
         span.set_attribute("order.id", order_id)
-        
+
         # Nested span
         with tracer.start_as_current_span("database_query"):
             order = db.query(f"SELECT * FROM orders WHERE id = {order_id}")
-        
+
         # Add event
         span.add_event("order_fetched", {"order.status": order.status})
-        
+
         return order
 
 @app.route('/orders', methods=['POST'])
@@ -415,22 +419,28 @@ def create_order():
 // npm install @opentelemetry/auto-instrumentations-node
 
 const { NodeSDK } = require('@opentelemetry/sdk-node');
-const { OTLPTraceExporter } = require('@opentelemetry/exporter-trace-otlp-grpc');
-const { getNodeAutoInstrumentations } = require('@opentelemetry/auto-instrumentations-node');
+const {
+  OTLPTraceExporter,
+} = require('@opentelemetry/exporter-trace-otlp-grpc');
+const {
+  getNodeAutoInstrumentations,
+} = require('@opentelemetry/auto-instrumentations-node');
 const { Resource } = require('@opentelemetry/resources');
-const { SemanticResourceAttributes } = require('@opentelemetry/semantic-conventions');
+const {
+  SemanticResourceAttributes,
+} = require('@opentelemetry/semantic-conventions');
 
 // Initialize SDK
 const sdk = new NodeSDK({
   resource: new Resource({
     [SemanticResourceAttributes.SERVICE_NAME]: 'user-service',
     [SemanticResourceAttributes.SERVICE_VERSION]: '1.0.0',
-    [SemanticResourceAttributes.DEPLOYMENT_ENVIRONMENT]: 'production'
+    [SemanticResourceAttributes.DEPLOYMENT_ENVIRONMENT]: 'production',
   }),
   traceExporter: new OTLPTraceExporter({
-    url: 'grpc://jaeger-collector:4317'
+    url: 'grpc://jaeger-collector:4317',
   }),
-  instrumentations: [getNodeAutoInstrumentations()]
+  instrumentations: [getNodeAutoInstrumentations()],
 });
 
 sdk.start();
@@ -444,20 +454,20 @@ const app = express();
 
 app.get('/users/:id', async (req, res) => {
   const span = tracer.startSpan('get_user');
-  
+
   try {
     span.setAttribute('user.id', req.params.id);
-    
+
     // Nested span
     const dbSpan = tracer.startSpan('database_query', {
-      parent: trace.setSpan(trace.context(), span)
+      parent: trace.setSpan(trace.context(), span),
     });
     const user = await db.findUser(req.params.id);
     dbSpan.end();
-    
+
     span.addEvent('user_found', { 'user.email': user.email });
     span.setStatus({ code: SpanStatusCode.OK });
-    
+
     res.json(user);
   } catch (error) {
     span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
@@ -498,7 +508,7 @@ var tracer trace.Tracer
 
 func initTracer() func() {
     ctx := context.Background()
-    
+
     exporter, err := otlptracegrpc.New(ctx,
         otlptracegrpc.WithEndpoint("jaeger-collector:4317"),
         otlptracegrpc.WithInsecure(),
@@ -506,7 +516,7 @@ func initTracer() func() {
     if err != nil {
         log.Fatalf("failed to create exporter: %v", err)
     }
-    
+
     res, err := resource.New(ctx,
         resource.WithAttributes(
             semconv.ServiceName("payment-service"),
@@ -517,16 +527,16 @@ func initTracer() func() {
     if err != nil {
         log.Fatalf("failed to create resource: %v", err)
     }
-    
+
     tp := sdktrace.NewTracerProvider(
         sdktrace.WithBatcher(exporter),
         sdktrace.WithResource(res),
         sdktrace.WithSampler(sdktrace.AlwaysSample()),
     )
-    
+
     otel.SetTracerProvider(tp)
     tracer = tp.Tracer("payment-service")
-    
+
     return func() {
         if err := tp.Shutdown(ctx); err != nil {
             log.Printf("Error shutting down tracer provider: %v", err)
@@ -537,12 +547,12 @@ func initTracer() func() {
 func processPayment(ctx context.Context, orderID string, amount float64) error {
     ctx, span := tracer.Start(ctx, "process_payment")
     defer span.End()
-    
+
     span.SetAttributes(
         attribute.String("order.id", orderID),
         attribute.Float64("payment.amount", amount),
     )
-    
+
     // Nested span for external API call
     ctx, apiSpan := tracer.Start(ctx, "payment_gateway_call")
     result, err := callPaymentGateway(ctx, amount)
@@ -553,22 +563,22 @@ func processPayment(ctx context.Context, orderID string, amount float64) error {
     }
     apiSpan.SetAttributes(attribute.String("gateway.transaction_id", result.ID))
     apiSpan.End()
-    
+
     span.AddEvent("payment_processed", trace.WithAttributes(
         attribute.String("transaction.id", result.ID),
     ))
-    
+
     return nil
 }
 
 func main() {
     cleanup := initTracer()
     defer cleanup()
-    
+
     // Wrap HTTP handler with tracing
     handler := otelhttp.NewHandler(http.HandlerFunc(paymentHandler), "payment")
     http.Handle("/pay", handler)
-    
+
     log.Fatal(http.ListenAndServe(":8080", nil))
 }
 ```
@@ -596,37 +606,37 @@ import io.opentelemetry.semconv.resource.attributes.ResourceAttributes;
 
 public class TracingExample {
     private static final Tracer tracer;
-    
+
     static {
         Resource resource = Resource.getDefault()
             .merge(Resource.create(Attributes.of(
                 ResourceAttributes.SERVICE_NAME, "inventory-service",
                 ResourceAttributes.SERVICE_VERSION, "1.0.0"
             )));
-        
+
         OtlpGrpcSpanExporter exporter = OtlpGrpcSpanExporter.builder()
             .setEndpoint("http://jaeger-collector:4317")
             .build();
-        
+
         SdkTracerProvider tracerProvider = SdkTracerProvider.builder()
             .addSpanProcessor(BatchSpanProcessor.builder(exporter).build())
             .setResource(resource)
             .build();
-        
+
         OpenTelemetry openTelemetry = OpenTelemetrySdk.builder()
             .setTracerProvider(tracerProvider)
             .build();
-        
+
         tracer = openTelemetry.getTracer("inventory-service");
     }
-    
+
     public void checkInventory(String productId, int quantity) {
         Span span = tracer.spanBuilder("check_inventory").startSpan();
-        
+
         try (Scope scope = span.makeCurrent()) {
             span.setAttribute("product.id", productId);
             span.setAttribute("quantity.requested", quantity);
-            
+
             // Database query span
             Span dbSpan = tracer.spanBuilder("database_query").startSpan();
             try (Scope dbScope = dbSpan.makeCurrent()) {
@@ -635,10 +645,10 @@ public class TracingExample {
             } finally {
                 dbSpan.end();
             }
-            
+
             span.addEvent("inventory_checked");
             span.setStatus(StatusCode.OK);
-            
+
         } catch (Exception e) {
             span.setStatus(StatusCode.ERROR, e.getMessage());
             span.recordException(e);
@@ -654,14 +664,14 @@ public class TracingExample {
 
 ### Common Issues
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| No traces in UI | SDK not sending | Check collector endpoint, firewall |
-| Missing spans | Sampling too aggressive | Increase sampling rate |
-| High latency | Storage backend slow | Scale Elasticsearch, add replicas |
-| Collector OOM | Queue overflow | Increase memory, add collectors |
-| Broken traces | Context not propagated | Check propagator configuration |
-| UI shows errors | Query service issues | Check ES connectivity |
+| Issue           | Cause                   | Solution                           |
+| --------------- | ----------------------- | ---------------------------------- |
+| No traces in UI | SDK not sending         | Check collector endpoint, firewall |
+| Missing spans   | Sampling too aggressive | Increase sampling rate             |
+| High latency    | Storage backend slow    | Scale Elasticsearch, add replicas  |
+| Collector OOM   | Queue overflow          | Increase memory, add collectors    |
+| Broken traces   | Context not propagated  | Check propagator configuration     |
+| UI shows errors | Query service issues    | Check ES connectivity              |
 
 ### Diagnostic Commands
 
@@ -669,7 +679,7 @@ public class TracingExample {
 # Check collector health
 curl http://jaeger-collector:14269/
 
-# Check query health  
+# Check query health
 curl http://jaeger-query:16687/
 
 # View collector metrics

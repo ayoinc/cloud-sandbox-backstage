@@ -83,7 +83,10 @@ export function createRouter(deps: RouterDeps): Router {
   /**
    * Helper to check admin and get user ref
    */
-  async function requireAdmin(req: Request, res: Response): Promise<string | null> {
+  async function requireAdmin(
+    req: Request,
+    res: Response,
+  ): Promise<string | null> {
     try {
       const credentials = await httpAuth.credentials(req, {
         allow: ['user'],
@@ -287,26 +290,29 @@ export function createRouter(deps: RouterDeps): Router {
   // =======================================================================
   // GET /admin-check - Check if current user is admin
   // =======================================================================
-  router.get('/admin-check', async (req: Request, res: Response): Promise<void> => {
-    try {
-      const credentials = await httpAuth.credentials(req, {
-        allow: ['user'],
-      });
+  router.get(
+    '/admin-check',
+    async (req: Request, res: Response): Promise<void> => {
+      try {
+        const credentials = await httpAuth.credentials(req, {
+          allow: ['user'],
+        });
 
-      const user = await userInfo.getUserInfo(credentials);
-      const userEntityRef = user.userEntityRef;
+        const user = await userInfo.getUserInfo(credentials);
+        const userEntityRef = user.userEntityRef;
 
-      if (!userEntityRef) {
+        if (!userEntityRef) {
+          res.json({ isAdmin: false });
+          return;
+        }
+
+        const isAdmin = await checkIsAdmin(knex, userEntityRef, logger);
+        res.json({ isAdmin, userEntityRef });
+      } catch {
         res.json({ isAdmin: false });
-        return;
       }
-
-      const isAdmin = await checkIsAdmin(knex, userEntityRef, logger);
-      res.json({ isAdmin, userEntityRef });
-    } catch {
-      res.json({ isAdmin: false });
-    }
-  });
+    },
+  );
 
   // =======================================================================
   // GET /admins - List branding admins (admin only)
@@ -378,46 +384,49 @@ export function createRouter(deps: RouterDeps): Router {
   // =======================================================================
   // DELETE /admins/:id - Remove a branding admin (admin only)
   // =======================================================================
-  router.delete('/admins/:id', async (req: Request, res: Response): Promise<void> => {
-    const userEntityRef = await requireAdmin(req, res);
-    if (!userEntityRef) return;
+  router.delete(
+    '/admins/:id',
+    async (req: Request, res: Response): Promise<void> => {
+      const userEntityRef = await requireAdmin(req, res);
+      if (!userEntityRef) return;
 
-    try {
-      const { id } = req.params;
-      const numId = parseInt(id, 10);
+      try {
+        const { id } = req.params;
+        const numId = parseInt(id, 10);
 
-      const adminCount = await getAdminCount(knex);
-      const targetAdmin = await getAdminById(knex, numId);
+        const adminCount = await getAdminCount(knex);
+        const targetAdmin = await getAdminById(knex, numId);
 
-      if (!targetAdmin) {
-        res.status(404).json({ error: 'Admin not found' });
-        return;
+        if (!targetAdmin) {
+          res.status(404).json({ error: 'Admin not found' });
+          return;
+        }
+
+        if (adminCount <= 1) {
+          res.status(400).json({ error: 'Cannot remove the last admin' });
+          return;
+        }
+
+        if (targetAdmin.entity_ref === userEntityRef.toLowerCase()) {
+          res.status(400).json({
+            error: 'Cannot remove yourself. Ask another admin to remove you.',
+          });
+          return;
+        }
+
+        await removeAdmin(knex, numId);
+        logger.info(
+          `Branding admin removed: ${targetAdmin.entity_ref} by ${userEntityRef}`,
+        );
+
+        const admins = await getAdmins(knex);
+        res.json({ admins });
+      } catch (error) {
+        logger.error('Failed to remove branding admin', error as Error);
+        res.status(500).json({ error: 'Failed to remove admin' });
       }
-
-      if (adminCount <= 1) {
-        res.status(400).json({ error: 'Cannot remove the last admin' });
-        return;
-      }
-
-      if (targetAdmin.entity_ref === userEntityRef.toLowerCase()) {
-        res.status(400).json({
-          error: 'Cannot remove yourself. Ask another admin to remove you.',
-        });
-        return;
-      }
-
-      await removeAdmin(knex, numId);
-      logger.info(
-        `Branding admin removed: ${targetAdmin.entity_ref} by ${userEntityRef}`,
-      );
-
-      const admins = await getAdmins(knex);
-      res.json({ admins });
-    } catch (error) {
-      logger.error('Failed to remove branding admin', error as Error);
-      res.status(500).json({ error: 'Failed to remove admin' });
-    }
-  });
+    },
+  );
 
   return router;
 }

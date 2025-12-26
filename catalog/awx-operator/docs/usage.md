@@ -115,7 +115,7 @@ metadata:
   namespace: awx
 type: Opaque
 stringData:
-  password: "YourSecurePassword123!"
+  password: 'YourSecurePassword123!'
 ---
 apiVersion: awx.ansible.com/v1beta1
 kind: AWX
@@ -126,7 +126,7 @@ spec:
   # High availability
   web_replicas: 2
   task_replicas: 2
-  
+
   # Resources
   web_resource_requirements:
     requests:
@@ -135,7 +135,7 @@ spec:
     limits:
       cpu: 4000m
       memory: 8Gi
-  
+
   task_resource_requirements:
     requests:
       cpu: 1000m
@@ -143,17 +143,17 @@ spec:
     limits:
       cpu: 8000m
       memory: 16Gi
-  
+
   # Storage
   postgres_storage_class: fast-ssd
   postgres_storage_requirements:
     requests:
       storage: 50Gi
-  
+
   projects_persistence: true
   projects_storage_class: fast-ssd
   projects_storage_size: 20Gi
-  
+
   # Ingress
   ingress_type: ingress
   hostname: awx.example.com
@@ -164,11 +164,10 @@ spec:
     nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
     cert-manager.io/cluster-issuer: letsencrypt-prod
   ingress_tls_secret: awx-tls
-  
   # Admin
   admin_user: admin
   admin_password_secret: awx-admin-password
-  
+
   # Extra settings
   extra_settings:
     - setting: REMOTE_HOST_HEADERS
@@ -195,7 +194,7 @@ metadata:
 type: Opaque
 stringData:
   host: rds.example.amazonaws.com
-  port: "5432"
+  port: '5432'
   database: awx
   username: awx
   password: your-db-password
@@ -210,7 +209,7 @@ metadata:
   namespace: awx
 spec:
   postgres_configuration_secret: awx-external-postgres
-  
+
   # Rest of configuration...
   service_type: ClusterIP
   ingress_type: ingress
@@ -237,10 +236,10 @@ metadata:
   namespace: awx
 spec:
   control_plane_ee_image: registry.example.com/awx-ee-custom:1.0.0
-  
+
   image_pull_secrets:
     - name: ee-registry-secret
-  
+
   ee_resource_requirements:
     requests:
       cpu: 1000m
@@ -248,7 +247,7 @@ spec:
     limits:
       cpu: 4000m
       memory: 8Gi
-  
+
   # Other settings...
   service_type: ClusterIP
 ```
@@ -330,7 +329,7 @@ metadata:
   name: awx-scheduled-backup
   namespace: awx
 spec:
-  schedule: "0 2 * * *"  # Daily at 2 AM
+  schedule: '0 2 * * *' # Daily at 2 AM
   jobTemplate:
     spec:
       template:
@@ -397,15 +396,15 @@ kubectl rollout status deployment/awx-operator-controller-manager -n awx
 
 ### Common Issues
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| Operator not starting | RBAC issues | Check ClusterRoleBinding |
-| AWX pods pending | PVC not bound | Check storage class |
-| Database connection error | Wrong credentials | Verify postgres secret |
-| Ingress not working | Missing annotations | Check ingress configuration |
-| Backup failing | PVC full | Increase backup PVC size |
-| Restore stuck | Missing backup | Verify AWXBackup exists |
-| Web pods crashlooping | OOM | Increase memory limits |
+| Issue                     | Cause               | Solution                    |
+| ------------------------- | ------------------- | --------------------------- |
+| Operator not starting     | RBAC issues         | Check ClusterRoleBinding    |
+| AWX pods pending          | PVC not bound       | Check storage class         |
+| Database connection error | Wrong credentials   | Verify postgres secret      |
+| Ingress not working       | Missing annotations | Check ingress configuration |
+| Backup failing            | PVC full            | Increase backup PVC size    |
+| Restore stuck             | Missing backup      | Verify AWXBackup exists     |
+| Web pods crashlooping     | OOM                 | Increase memory limits      |
 
 ### Debug Commands
 

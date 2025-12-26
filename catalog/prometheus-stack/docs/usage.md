@@ -17,7 +17,7 @@ prometheus: Prometheus {
     disk-low: "DiskLow: disk > 90%"
     svc-down: "ServiceDown: up == 0"
   }
-  
+
   scraper -> tsdb: Store Metrics
   tsdb -> rules: Evaluate Every 15s
 }
@@ -27,7 +27,7 @@ alertmanager: Alertmanager {
   router: Route Matcher
   grouper: Group & Dedupe
   silencer: Silence Filter
-  
+
   receiver -> router
   router -> grouper
   grouper -> silencer
@@ -58,7 +58,7 @@ services:
   prometheus:
     image: prom/prometheus:v2.48.0
     ports:
-      - "9090:9090"
+      - '9090:9090'
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - ./rules:/etc/prometheus/rules
@@ -72,7 +72,7 @@ services:
   grafana:
     image: grafana/grafana:10.2.0
     ports:
-      - "3000:3000"
+      - '3000:3000'
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
     volumes:
@@ -82,14 +82,14 @@ services:
   alertmanager:
     image: prom/alertmanager:v0.26.0
     ports:
-      - "9093:9093"
+      - '9093:9093'
     volumes:
       - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml
 
   node-exporter:
     image: prom/node-exporter:v1.7.0
     ports:
-      - "9100:9100"
+      - '9100:9100'
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
@@ -136,7 +136,7 @@ alerting:
         - targets: ['alertmanager:9093']
 
 rule_files:
-  - "/etc/prometheus/rules/*.yml"
+  - '/etc/prometheus/rules/*.yml'
 
 scrape_configs:
   - job_name: 'prometheus'
@@ -146,9 +146,9 @@ scrape_configs:
   - job_name: 'node'
     static_configs:
       - targets:
-        - 'node-exporter:9100'
-        - 'node2:9100'
-        - 'node3:9100'
+          - 'node-exporter:9100'
+          - 'node2:9100'
+          - 'node3:9100'
 
   - job_name: 'blackbox'
     metrics_path: /probe
@@ -156,8 +156,8 @@ scrape_configs:
       module: [http_2xx]
     static_configs:
       - targets:
-        - https://example.com
-        - https://api.example.com
+          - https://example.com
+          - https://api.example.com
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
@@ -180,8 +180,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "High CPU usage on {{ $labels.instance }}"
-          description: "CPU usage is above 80% (current: {{ $value | printf \"%.1f\" }}%)"
+          summary: 'High CPU usage on {{ $labels.instance }}'
+          description: 'CPU usage is above 80% (current: {{ $value | printf "%.1f" }}%)'
 
       - alert: HighMemory
         expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
@@ -189,8 +189,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "High memory usage on {{ $labels.instance }}"
-          description: "Memory usage is above 85% (current: {{ $value | printf \"%.1f\" }}%)"
+          summary: 'High memory usage on {{ $labels.instance }}'
+          description: 'Memory usage is above 85% (current: {{ $value | printf "%.1f" }}%)'
 
       - alert: DiskSpaceLow
         expr: (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes)) * 100 > 80
@@ -198,8 +198,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "Low disk space on {{ $labels.instance }}"
-          description: "Disk usage is above 80% on {{ $labels.mountpoint }}"
+          summary: 'Low disk space on {{ $labels.instance }}'
+          description: 'Disk usage is above 80% on {{ $labels.mountpoint }}'
 
   - name: application
     rules:
@@ -209,8 +209,8 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "High error rate detected"
-          description: "Error rate is above 5% (current: {{ $value | printf \"%.2f\" }}%)"
+          summary: 'High error rate detected'
+          description: 'Error rate is above 5% (current: {{ $value | printf "%.2f" }}%)'
 
       - alert: HighLatency
         expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 1
@@ -218,8 +218,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "High latency detected"
-          description: "95th percentile latency is above 1 second"
+          summary: 'High latency detected'
+          description: '95th percentile latency is above 1 second'
 
       - alert: ServiceDown
         expr: up == 0
@@ -227,8 +227,8 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "Service {{ $labels.job }} is down"
-          description: "{{ $labels.instance }} has been down for more than 1 minute"
+          summary: 'Service {{ $labels.job }} is down'
+          description: '{{ $labels.instance }} has been down for more than 1 minute'
 ```
 
 ### Recording Rules
@@ -372,12 +372,12 @@ func main() {
 
 ### Common Issues
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| Scrape failures | Target unreachable | Check network, firewall, target health |
-| High memory usage | High cardinality | Reduce label cardinality |
-| Storage full | Retention too long | Reduce retention, add storage |
-| Missing metrics | Wrong scrape config | Verify job config, relabeling |
+| Issue             | Cause               | Solution                               |
+| ----------------- | ------------------- | -------------------------------------- |
+| Scrape failures   | Target unreachable  | Check network, firewall, target health |
+| High memory usage | High cardinality    | Reduce label cardinality               |
+| Storage full      | Retention too long  | Reduce retention, add storage          |
+| Missing metrics   | Wrong scrape config | Verify job config, relabeling          |
 
 ### Diagnostic Queries
 

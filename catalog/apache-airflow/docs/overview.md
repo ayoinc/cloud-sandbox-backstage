@@ -317,14 +317,14 @@ airflow connections add 'my_conn' \
 
 ### Connection Types
 
-| Type | URI Format | Example |
-|------|------------|---------|
-| PostgreSQL | `postgresql://user:pass@host:5432/db` | Database operations |
-| MySQL | `mysql://user:pass@host:3306/db` | Database operations |
-| AWS | `aws://?region_name=us-east-1` | S3, EMR, Lambda |
-| GCP | `google-cloud-platform://?project=my-project` | BigQuery, GCS |
-| HTTP | `http://user:pass@api.example.com` | REST APIs |
-| Slack | `slack://:token@` | Notifications |
+| Type       | URI Format                                    | Example             |
+| ---------- | --------------------------------------------- | ------------------- |
+| PostgreSQL | `postgresql://user:pass@host:5432/db`         | Database operations |
+| MySQL      | `mysql://user:pass@host:3306/db`              | Database operations |
+| AWS        | `aws://?region_name=us-east-1`                | S3, EMR, Lambda     |
+| GCP        | `google-cloud-platform://?project=my-project` | BigQuery, GCS       |
+| HTTP       | `http://user:pass@api.example.com`            | REST APIs           |
+| Slack      | `slack://:token@`                             | Notifications       |
 
 ### Variables
 
@@ -376,13 +376,13 @@ OAUTH_PROVIDERS = [{
 
 ### Built-in Roles
 
-| Role | Permissions |
-|------|-------------|
-| **Admin** | Full access to all features |
-| **Op** | Operations access, no configuration |
-| **User** | DAG access, no admin features |
-| **Viewer** | Read-only access |
-| **Public** | No access (for unauthenticated) |
+| Role       | Permissions                         |
+| ---------- | ----------------------------------- |
+| **Admin**  | Full access to all features         |
+| **Op**     | Operations access, no configuration |
+| **User**   | DAG access, no admin features       |
+| **Viewer** | Read-only access                    |
+| **Public** | No access (for unauthenticated)     |
 
 ### Secrets Backend
 
@@ -400,15 +400,15 @@ AIRFLOW__SECRETS__BACKEND_KWARGS = '{"url": "http://vault:8200", "token": "your-
 
 ### Key Metrics
 
-| Metric | Description | Alert Threshold |
-|--------|-------------|-----------------|
-| `dag_processing.total_parse_time` | Time to parse all DAGs | > 60 seconds |
-| `scheduler.tasks.running` | Currently running tasks | Capacity limit |
-| `scheduler.tasks.starving` | Tasks waiting for slots | > 0 sustained |
-| `executor.queued_tasks` | Tasks in queue | Growing unbounded |
-| `executor.running_tasks` | Tasks being executed | Near capacity |
-| `pool.open_slots` | Available pool slots | < 10% |
-| `dag_run.duration` | DAG run duration | 2x normal |
+| Metric                            | Description             | Alert Threshold   |
+| --------------------------------- | ----------------------- | ----------------- |
+| `dag_processing.total_parse_time` | Time to parse all DAGs  | > 60 seconds      |
+| `scheduler.tasks.running`         | Currently running tasks | Capacity limit    |
+| `scheduler.tasks.starving`        | Tasks waiting for slots | > 0 sustained     |
+| `executor.queued_tasks`           | Tasks in queue          | Growing unbounded |
+| `executor.running_tasks`          | Tasks being executed    | Near capacity     |
+| `pool.open_slots`                 | Available pool slots    | < 10%             |
+| `dag_run.duration`                | DAG run duration        | 2x normal         |
 
 ### StatsD / Prometheus
 
@@ -417,12 +417,12 @@ AIRFLOW__SECRETS__BACKEND_KWARGS = '{"url": "http://vault:8200", "token": "your-
 statsd-exporter:
   image: prom/statsd-exporter:latest
   ports:
-    - "9102:9102"  # Prometheus metrics
-    - "9125:9125/udp"  # StatsD input
+    - '9102:9102' # Prometheus metrics
+    - '9125:9125/udp' # StatsD input
   volumes:
     - ./statsd-mapping.yml:/tmp/statsd-mapping.yml
   command:
-    - "--statsd.mapping-config=/tmp/statsd-mapping.yml"
+    - '--statsd.mapping-config=/tmp/statsd-mapping.yml'
 ```
 
 ### Health Checks
@@ -431,7 +431,7 @@ statsd-exporter:
 # Scheduler health
 curl http://localhost:8974/health
 
-# Web server health  
+# Web server health
 curl http://localhost:8080/health
 
 # Database connectivity
@@ -470,11 +470,11 @@ spec:
       image: apache/airflow:2.8.0
       resources:
         requests:
-          cpu: "500m"
-          memory: "1Gi"
+          cpu: '500m'
+          memory: '1Gi'
         limits:
-          cpu: "2"
-          memory: "4Gi"
+          cpu: '2'
+          memory: '4Gi'
   nodeSelector:
     workload-type: airflow-worker
 ```
@@ -486,10 +486,10 @@ spec:
 ALTER SYSTEM SET max_connections = 200;
 
 -- Add indexes for performance
-CREATE INDEX CONCURRENTLY idx_task_instance_state 
+CREATE INDEX CONCURRENTLY idx_task_instance_state
 ON task_instance (state, dag_id, task_id);
 
 -- Regular cleanup
-DELETE FROM task_instance 
+DELETE FROM task_instance
 WHERE execution_date < NOW() - INTERVAL '90 days';
 ```

@@ -17,18 +17,18 @@ services:
       - trivy-cache:/root/.cache/
       - /var/run/docker.sock:/var/run/docker.sock:ro
     ports:
-      - "4954:4954"
+      - '4954:4954'
     environment:
       TRIVY_CACHE_DIR: /root/.cache/trivy
-      TRIVY_DEBUG: "false"
+      TRIVY_DEBUG: 'false'
     networks:
       - security-net
 
   grype:
     image: anchore/grype:v0.74.0
     container_name: grype
-    entrypoint: ["/bin/sh", "-c"]
-    command: ["while true; do sleep 3600; done"]
+    entrypoint: ['/bin/sh', '-c']
+    command: ['while true; do sleep 3600; done']
     volumes:
       - grype-db:/root/.grype/
       - ./scan-targets:/scan-targets:ro
@@ -40,7 +40,7 @@ services:
     container_name: zap
     command: zap.sh -daemon -host 0.0.0.0 -port 8080 -config api.addrs.addr.name=.* -config api.addrs.addr.regex=true -config api.key=zap-api-key
     ports:
-      - "8080:8080"
+      - '8080:8080'
     volumes:
       - zap-data:/zap/wrk
     networks:
@@ -56,7 +56,7 @@ services:
       DD_SECRET_KEY: your-secret-key-here
       DD_CREDENTIAL_AES_256_KEY: your-aes-key-here
     ports:
-      - "8000:8080"
+      - '8000:8080'
     networks:
       - security-net
 
@@ -159,7 +159,7 @@ metadata:
   name: security-scanner
   namespace: security
 spec:
-  schedule: "0 2 * * *"  # Daily at 2 AM
+  schedule: '0 2 * * *' # Daily at 2 AM
   jobTemplate:
     spec:
       template:
@@ -460,13 +460,13 @@ zap-dast:
 // Jenkinsfile
 pipeline {
     agent any
-    
+
     environment {
         REGISTRY = 'registry.example.com'
         IMAGE_NAME = 'myapp'
         TRIVY_CACHE = '/var/jenkins_home/trivy-cache'
     }
-    
+
     stages {
         stage('Secret Scanning') {
             steps {
@@ -478,7 +478,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('SAST') {
             parallel {
                 stage('Semgrep') {
@@ -493,7 +493,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Dependency Scan') {
             steps {
                 sh '''
@@ -502,13 +502,13 @@ pipeline {
                 '''
             }
         }
-        
+
         stage('Build') {
             steps {
                 sh "docker build -t ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER} ."
             }
         }
-        
+
         stage('Container Scan') {
             parallel {
                 stage('Trivy') {
@@ -531,7 +531,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('SBOM Generation') {
             steps {
                 sh '''
@@ -540,7 +540,7 @@ pipeline {
                 '''
             }
         }
-        
+
         stage('DAST') {
             when {
                 branch 'main'
@@ -554,11 +554,11 @@ pipeline {
             }
         }
     }
-    
+
     post {
         always {
             archiveArtifacts artifacts: '*.sarif,*.json,zap-report.*', fingerprint: true
-            
+
             recordIssues(
                 tools: [sarif(pattern: '*.sarif')],
                 qualityGates: [[threshold: 1, type: 'TOTAL_HIGH', unstable: true]]
@@ -626,11 +626,11 @@ if [ -n "$IMAGE" ]; then
         --output "$OUTPUT_DIR/trivy-image.sarif" \
         --severity "$SEVERITY" \
         "$IMAGE" || true
-    
+
     echo ">>> Running Grype scan..."
     grype "$IMAGE" \
         -o sarif > "$OUTPUT_DIR/grype.sarif" || true
-    
+
     echo ">>> Generating SBOM..."
     syft packages "$IMAGE" \
         -o spdx-json > "$OUTPUT_DIR/sbom.spdx.json" || true
@@ -700,11 +700,11 @@ class SecurityScanner:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.findings: List[Finding] = []
-    
+
     def run_trivy(self, target: str, scan_type: str = "fs") -> List[Finding]:
         """Run Trivy vulnerability scanner."""
         output_file = self.output_dir / f"trivy-{scan_type}.json"
-        
+
         cmd = [
             "trivy", scan_type,
             "--format", "json",
@@ -712,9 +712,9 @@ class SecurityScanner:
             "--severity", "CRITICAL,HIGH,MEDIUM",
             target
         ]
-        
+
         subprocess.run(cmd, capture_output=True)
-        
+
         findings = []
         if output_file.exists():
             with open(output_file) as f:
@@ -728,23 +728,23 @@ class SecurityScanner:
                             description=vuln.get("Title", ""),
                             file=result.get("Target")
                         ))
-        
+
         self.findings.extend(findings)
         return findings
-    
+
     def run_semgrep(self, target: str) -> List[Finding]:
         """Run Semgrep SAST scanner."""
         output_file = self.output_dir / "semgrep.json"
-        
+
         cmd = [
             "semgrep", "scan",
             "--config", "auto",
             "--json", "--output", str(output_file),
             target
         ]
-        
+
         subprocess.run(cmd, capture_output=True)
-        
+
         findings = []
         if output_file.exists():
             with open(output_file) as f:
@@ -758,23 +758,23 @@ class SecurityScanner:
                         file=result.get("path"),
                         line=result.get("start", {}).get("line")
                     ))
-        
+
         self.findings.extend(findings)
         return findings
-    
+
     def run_gitleaks(self, target: str) -> List[Finding]:
         """Run Gitleaks secret scanner."""
         output_file = self.output_dir / "gitleaks.json"
-        
+
         cmd = [
             "gitleaks", "detect",
             "--source", target,
             "--report-format", "json",
             "--report-path", str(output_file)
         ]
-        
+
         subprocess.run(cmd, capture_output=True)
-        
+
         findings = []
         if output_file.exists():
             with open(output_file) as f:
@@ -788,10 +788,10 @@ class SecurityScanner:
                         file=leak.get("File"),
                         line=leak.get("StartLine")
                     ))
-        
+
         self.findings.extend(findings)
         return findings
-    
+
     def get_summary(self) -> dict:
         """Get summary of all findings."""
         summary = {
@@ -799,27 +799,27 @@ class SecurityScanner:
             "by_severity": {},
             "by_tool": {}
         }
-        
+
         for finding in self.findings:
             # Count by severity
             severity = finding.severity.upper()
             summary["by_severity"][severity] = summary["by_severity"].get(severity, 0) + 1
-            
+
             # Count by tool
             summary["by_tool"][finding.tool] = summary["by_tool"].get(finding.tool, 0) + 1
-        
+
         return summary
 
 
 # Usage example
 if __name__ == "__main__":
     scanner = SecurityScanner()
-    
+
     # Run all scans
     scanner.run_trivy(".", "fs")
     scanner.run_semgrep(".")
     scanner.run_gitleaks(".")
-    
+
     # Print summary
     summary = scanner.get_summary()
     print(json.dumps(summary, indent=2))
@@ -827,16 +827,16 @@ if __name__ == "__main__":
 
 ## Troubleshooting
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| Trivy DB download fails | Network/proxy issues | Set `TRIVY_DB_REPOSITORY` or use offline mode |
-| Semgrep memory issues | Large codebase | Use `--max-target-bytes` or exclude large files |
-| ZAP scan timeout | Slow target | Increase timeout, reduce spider depth |
-| Grype DB update fails | Rate limiting | Use local DB cache, schedule updates |
-| Container scan permission denied | Docker socket access | Add user to docker group |
-| SARIF upload fails | Invalid format | Validate SARIF with schema validator |
-| False positives | Overly broad rules | Tune rules, add exceptions |
-| Scanner conflicts | Overlapping detections | Use single scanner per category |
+| Issue                            | Cause                  | Solution                                        |
+| -------------------------------- | ---------------------- | ----------------------------------------------- |
+| Trivy DB download fails          | Network/proxy issues   | Set `TRIVY_DB_REPOSITORY` or use offline mode   |
+| Semgrep memory issues            | Large codebase         | Use `--max-target-bytes` or exclude large files |
+| ZAP scan timeout                 | Slow target            | Increase timeout, reduce spider depth           |
+| Grype DB update fails            | Rate limiting          | Use local DB cache, schedule updates            |
+| Container scan permission denied | Docker socket access   | Add user to docker group                        |
+| SARIF upload fails               | Invalid format         | Validate SARIF with schema validator            |
+| False positives                  | Overly broad rules     | Tune rules, add exceptions                      |
+| Scanner conflicts                | Overlapping detections | Use single scanner per category                 |
 
 ### Debug Commands
 

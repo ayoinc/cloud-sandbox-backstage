@@ -1,99 +1,107 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="${{ values.description }}">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="${{ values.description }}" />
     <title>${{ values.companyName }} - ${{ values.tagline }}</title>
-    <link rel="stylesheet" href="css/style.css">
-</head>
-<body>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
     <header class="header">
-        <nav class="nav container">
-            <a href="#" class="logo">${{ values.companyName }}</a>
-            <ul class="nav-menu">
-                <li><a href="#features">Features</a></li>
-                <li><a href="#about">About</a></li>
-                <li><a href="#contact">Contact</a></li>
-                <li><a href="#cta" class="btn btn-primary">Get Started</a></li>
-            </ul>
-            <button class="nav-toggle" aria-label="Toggle menu">
-                <span></span>
-                <span></span>
-                <span></span>
-            </button>
-        </nav>
+      <nav class="nav container">
+        <a href="#" class="logo">${{ values.companyName }}</a>
+        <ul class="nav-menu">
+          <li><a href="#features">Features</a></li>
+          <li><a href="#about">About</a></li>
+          <li><a href="#contact">Contact</a></li>
+          <li><a href="#cta" class="btn btn-primary">Get Started</a></li>
+        </ul>
+        <button class="nav-toggle" aria-label="Toggle menu">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+      </nav>
     </header>
 
     <main>
-        <section class="hero">
-            <div class="container">
-                <h1>${{ values.tagline }}</h1>
-                <p>${{ values.description }}</p>
-                <div class="hero-buttons">
-                    <a href="#cta" class="btn btn-primary btn-large">Get Started</a>
-                    <a href="#features" class="btn btn-secondary btn-large">Learn More</a>
-                </div>
-            </div>
-        </section>
+      <section class="hero">
+        <div class="container">
+          <h1>${{ values.tagline }}</h1>
+          <p>${{ values.description }}</p>
+          <div class="hero-buttons">
+            <a href="#cta" class="btn btn-primary btn-large">Get Started</a>
+            <a href="#features" class="btn btn-secondary btn-large"
+              >Learn More</a
+            >
+          </div>
+        </div>
+      </section>
 
-        <section id="features" class="features">
-            <div class="container">
-                <h2>Features</h2>
-                <div class="features-grid">
-                    <div class="feature-card">
-                        <div class="feature-icon">1</div>
-                        <h3>Fast & Reliable</h3>
-                        <p>Built for speed and reliability, ensuring your business runs smoothly.</p>
-                    </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">2</div>
-                        <h3>Easy to Use</h3>
-                        <p>Intuitive interface that anyone can use without training.</p>
-                    </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">3</div>
-                        <h3>Secure</h3>
-                        <p>Enterprise-grade security to protect your data.</p>
-                    </div>
-                </div>
+      <section id="features" class="features">
+        <div class="container">
+          <h2>Features</h2>
+          <div class="features-grid">
+            <div class="feature-card">
+              <div class="feature-icon">1</div>
+              <h3>Fast & Reliable</h3>
+              <p>
+                Built for speed and reliability, ensuring your business runs
+                smoothly.
+              </p>
             </div>
-        </section>
+            <div class="feature-card">
+              <div class="feature-icon">2</div>
+              <h3>Easy to Use</h3>
+              <p>Intuitive interface that anyone can use without training.</p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">3</div>
+              <h3>Secure</h3>
+              <p>Enterprise-grade security to protect your data.</p>
+            </div>
+          </div>
+        </div>
+      </section>
 
-        <section id="about" class="about">
-            <div class="container">
-                <h2>About Us</h2>
-                <p>We are dedicated to providing the best solutions for our customers. Our team of experts works tirelessly to deliver exceptional results.</p>
-            </div>
-        </section>
+      <section id="about" class="about">
+        <div class="container">
+          <h2>About Us</h2>
+          <p>
+            We are dedicated to providing the best solutions for our customers.
+            Our team of experts works tirelessly to deliver exceptional results.
+          </p>
+        </div>
+      </section>
 
-        <section id="cta" class="cta">
-            <div class="container">
-                <h2>Ready to Get Started?</h2>
-                <p>Join thousands of satisfied customers today.</p>
-                <a href="#contact" class="btn btn-primary btn-large">Contact Us</a>
-            </div>
-        </section>
+      <section id="cta" class="cta">
+        <div class="container">
+          <h2>Ready to Get Started?</h2>
+          <p>Join thousands of satisfied customers today.</p>
+          <a href="#contact" class="btn btn-primary btn-large">Contact Us</a>
+        </div>
+      </section>
 
-        <section id="contact" class="contact">
-            <div class="container">
-                <h2>Contact</h2>
-                <form class="contact-form">
-                    <input type="text" placeholder="Name" required>
-                    <input type="email" placeholder="Email" required>
-                    <textarea placeholder="Message" rows="4" required></textarea>
-                    <button type="submit" class="btn btn-primary">Send Message</button>
-                </form>
-            </div>
-        </section>
+      <section id="contact" class="contact">
+        <div class="container">
+          <h2>Contact</h2>
+          <form class="contact-form">
+            <input type="text" placeholder="Name" required />
+            <input type="email" placeholder="Email" required />
+            <textarea placeholder="Message" rows="4" required></textarea>
+            <button type="submit" class="btn btn-primary">Send Message</button>
+          </form>
+        </div>
+      </section>
     </main>
 
     <footer class="footer">
-        <div class="container">
-            <p>&copy; 2024 ${{ values.companyName }}. All rights reserved.</p>
-        </div>
+      <div class="container">
+        <p>&copy; 2024 ${{ values.companyName }}. All rights reserved.</p>
+      </div>
     </footer>
 
     <script src="js/main.js"></script>
-</body>
+  </body>
 </html>

@@ -49,16 +49,16 @@ redis-cli -c -p 7000 cluster nodes
 
 ## Features
 
-| Feature | Description |
-|---------|-------------|
-| **Clustering** | Automatic sharding across 16384 hash slots with data partitioning |
-| **Replication** | Master-replica setup with automatic failover |
-| **Persistence** | RDB snapshots and AOF (Append Only File) journaling |
-| **Pub/Sub** | Real-time messaging with channels and patterns |
-| **Lua Scripting** | Server-side scripting with atomic execution |
-| **Streams** | Log-like data structure for event streaming |
-| **Transactions** | MULTI/EXEC atomic command execution |
-| **TTL Support** | Key expiration with millisecond precision |
+| Feature           | Description                                                       |
+| ----------------- | ----------------------------------------------------------------- |
+| **Clustering**    | Automatic sharding across 16384 hash slots with data partitioning |
+| **Replication**   | Master-replica setup with automatic failover                      |
+| **Persistence**   | RDB snapshots and AOF (Append Only File) journaling               |
+| **Pub/Sub**       | Real-time messaging with channels and patterns                    |
+| **Lua Scripting** | Server-side scripting with atomic execution                       |
+| **Streams**       | Log-like data structure for event streaming                       |
+| **Transactions**  | MULTI/EXEC atomic command execution                               |
+| **TTL Support**   | Key expiration with millisecond precision                         |
 
 ## Architecture
 
@@ -79,12 +79,12 @@ cluster: Redis Cluster (16384 Hash Slots) {
 
   masters: Master Nodes {
     style.fill: "#ffffff"
-    
+
     m1: Master 1 {
       style.fill: "#d32f2f"
       style.font-color: "#ffffff"
       icon: https://icons.terrastruct.com/essentials%2F112-server.svg
-      
+
       slots: "Slots 0-5460" {
         style.fill: "#ffcdd2"
         style.font-size: 12
@@ -94,12 +94,12 @@ cluster: Redis Cluster (16384 Hash Slots) {
         style.font-size: 11
       }
     }
-    
+
     m2: Master 2 {
       style.fill: "#1976d2"
       style.font-color: "#ffffff"
       icon: https://icons.terrastruct.com/essentials%2F112-server.svg
-      
+
       slots: "Slots 5461-10922" {
         style.fill: "#bbdefb"
         style.font-size: 12
@@ -109,12 +109,12 @@ cluster: Redis Cluster (16384 Hash Slots) {
         style.font-size: 11
       }
     }
-    
+
     m3: Master 3 {
       style.fill: "#388e3c"
       style.font-color: "#ffffff"
       icon: https://icons.terrastruct.com/essentials%2F112-server.svg
-      
+
       slots: "Slots 10923-16383" {
         style.fill: "#c8e6c9"
         style.font-size: 12
@@ -125,10 +125,10 @@ cluster: Redis Cluster (16384 Hash Slots) {
       }
     }
   }
-  
+
   replicas: Replica Nodes {
     style.fill: "#f5f5f5"
-    
+
     r1: Replica 1 {
       style.fill: "#ef5350"
       style.font-color: white
@@ -145,11 +145,11 @@ cluster: Redis Cluster (16384 Hash Slots) {
       port: "Port 7005" {style.font-size: 11}
     }
   }
-  
+
   masters.m1 -> replicas.r1: "Replication" {style.stroke: "#d32f2f"; style.stroke-dash: 3}
   masters.m2 -> replicas.r2: "Replication" {style.stroke: "#1976d2"; style.stroke-dash: 3}
   masters.m3 -> replicas.r3: "Replication" {style.stroke: "#388e3c"; style.stroke-dash: 3}
-  
+
   masters.m1 <-> masters.m2: "Gossip" {style.stroke: "#9e9e9e"; style.stroke-dash: 5}
   masters.m2 <-> masters.m3: "Gossip" {style.stroke: "#9e9e9e"; style.stroke-dash: 5}
   masters.m1 <-> masters.m3: "Gossip" {style.stroke: "#9e9e9e"; style.stroke-dash: 5}
@@ -159,10 +159,10 @@ client: Cluster-Aware Client {
   style.fill: "#fff8e1"
   style.stroke: "#f57c00"
   shape: rectangle
-  
+
   routing: Key Routing {
     style.fill: "#ffe0b2"
-    
+
     key: 'Key: "user:1234"' {shape: text; style.font-size: 12}
     hash: 'CRC16("user:1234") % 16384' {shape: text; style.font-size: 11}
     result: "= Slot 6789 → Master 2" {shape: text; style.font-size: 11; style.bold: true}
@@ -176,25 +176,25 @@ client -> cluster.masters.m3: "MOVED redirect" {style.stroke: "#9e9e9e"; style.s
 
 ## Deployment Modes
 
-| Mode | Use Case | Nodes | HA |
-|------|----------|-------|-----|
-| **Standalone** | Development, caching | 1 | No |
-| **Sentinel** | HA without sharding | 3+ Sentinels + 1 Master + Replicas | Yes |
-| **Cluster** | Sharding + HA | 6+ (3 masters + 3 replicas minimum) | Yes |
+| Mode           | Use Case             | Nodes                               | HA  |
+| -------------- | -------------------- | ----------------------------------- | --- |
+| **Standalone** | Development, caching | 1                                   | No  |
+| **Sentinel**   | HA without sharding  | 3+ Sentinels + 1 Master + Replicas  | Yes |
+| **Cluster**    | Sharding + HA        | 6+ (3 masters + 3 replicas minimum) | Yes |
 
 ## Data Types
 
-| Type | Description | Example Use Case |
-|------|-------------|------------------|
-| **String** | Binary-safe strings, up to 512MB | Caching, counters, sessions |
-| **List** | Linked list of strings | Message queues, activity feeds |
-| **Set** | Unordered unique strings | Tags, unique visitors |
-| **Sorted Set** | Ordered by score | Leaderboards, rate limiting |
-| **Hash** | Field-value pairs | Objects, user profiles |
-| **Stream** | Append-only log | Event sourcing, messaging |
-| **Bitmap** | Bit operations | Feature flags, analytics |
-| **HyperLogLog** | Cardinality estimation | Unique counts (probabilistic) |
-| **Geospatial** | Location data | Nearby searches |
+| Type            | Description                      | Example Use Case               |
+| --------------- | -------------------------------- | ------------------------------ |
+| **String**      | Binary-safe strings, up to 512MB | Caching, counters, sessions    |
+| **List**        | Linked list of strings           | Message queues, activity feeds |
+| **Set**         | Unordered unique strings         | Tags, unique visitors          |
+| **Sorted Set**  | Ordered by score                 | Leaderboards, rate limiting    |
+| **Hash**        | Field-value pairs                | Objects, user profiles         |
+| **Stream**      | Append-only log                  | Event sourcing, messaging      |
+| **Bitmap**      | Bit operations                   | Feature flags, analytics       |
+| **HyperLogLog** | Cardinality estimation           | Unique counts (probabilistic)  |
+| **Geospatial**  | Location data                    | Nearby searches                |
 
 ## Version Information
 

@@ -13,16 +13,16 @@ Parameters:
   Environment:
     Type: String
     AllowedValues: [development, staging, production]
-  
+
   VpcCIDR:
     Type: String
     Default: 10.0.0.0/16
-  
+
   EnableNatGateway:
     Type: String
     AllowedValues: [true, false]
     Default: true
-  
+
   SingleNatGateway:
     Type: String
     AllowedValues: [true, false]
@@ -244,13 +244,18 @@ Outputs:
 
   PublicSubnets:
     Description: List of public subnet IDs
-    Value: !Join [',', [!Ref PublicSubnet1, !Ref PublicSubnet2, !Ref PublicSubnet3]]
+    Value:
+      !Join [',', [!Ref PublicSubnet1, !Ref PublicSubnet2, !Ref PublicSubnet3]]
     Export:
       Name: !Sub ${AWS::StackName}-PublicSubnets
 
   PrivateSubnets:
     Description: List of private subnet IDs
-    Value: !Join [',', [!Ref PrivateSubnet1, !Ref PrivateSubnet2, !Ref PrivateSubnet3]]
+    Value:
+      !Join [
+        ',',
+        [!Ref PrivateSubnet1, !Ref PrivateSubnet2, !Ref PrivateSubnet3],
+      ]
     Export:
       Name: !Sub ${AWS::StackName}-PrivateSubnets
 ```
@@ -292,7 +297,7 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: ALB Security Group
-      VpcId: 
+      VpcId:
         Fn::ImportValue: !Sub ${VpcStackName}-VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp

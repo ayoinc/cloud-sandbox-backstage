@@ -13,8 +13,8 @@ services:
     image: minio/minio:latest
     container_name: minio
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - '9000:9000'
+      - '9001:9001'
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
@@ -22,7 +22,7 @@ services:
     volumes:
       - minio_data:/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
       interval: 30s
       timeout: 20s
       retries: 3
@@ -45,7 +45,7 @@ x-minio-common: &minio-common
     MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minio_secret_key}
     MINIO_PROMETHEUS_AUTH_TYPE: public
   healthcheck:
-    test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+    test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
     interval: 30s
     timeout: 20s
     retries: 3
@@ -87,8 +87,8 @@ services:
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - '9000:9000'
+      - '9001:9001'
     depends_on:
       - minio1
       - minio2
@@ -236,7 +236,7 @@ metadata:
 spec:
   image: minio/minio:latest
   imagePullPolicy: IfNotPresent
-  
+
   pools:
     - servers: 4
       name: pool-0
@@ -267,23 +267,23 @@ spec:
               topologyKey: kubernetes.io/hostname
 
   mountPath: /export
-  
+
   requestAutoCert: true
-  
+
   configuration:
     name: minio-config
-  
+
   users:
     - name: minio-user-0
-  
+
   buckets:
     - name: techdocs
     - name: backstage
     - name: artifacts
-  
+
   features:
     enableSFTP: false
-    
+
   prometheusOperator: true
 ---
 apiVersion: v1
@@ -343,7 +343,7 @@ spec:
             - server
             - http://minio-{0...3}.minio-headless.minio.svc.cluster.local/data
             - --console-address
-            - ":9001"
+            - ':9001'
           env:
             - name: MINIO_ROOT_USER
               valueFrom:
@@ -386,7 +386,7 @@ spec:
     - metadata:
         name: data
       spec:
-        accessModes: ["ReadWriteOnce"]
+        accessModes: ['ReadWriteOnce']
         storageClassName: standard
         resources:
           requests:
@@ -596,102 +596,102 @@ const fs = require('fs');
 
 // Create client
 const minioClient = new Minio.Client({
-    endPoint: 'localhost',
-    port: 9000,
-    useSSL: false,
-    accessKey: 'minioadmin',
-    secretKey: 'minioadmin'
+  endPoint: 'localhost',
+  port: 9000,
+  useSSL: false,
+  accessKey: 'minioadmin',
+  secretKey: 'minioadmin',
 });
 
 // Create bucket
 async function createBucket() {
-    const exists = await minioClient.bucketExists('my-bucket');
-    if (!exists) {
-        await minioClient.makeBucket('my-bucket', 'us-east-1');
-        console.log('Bucket created');
-    }
+  const exists = await minioClient.bucketExists('my-bucket');
+  if (!exists) {
+    await minioClient.makeBucket('my-bucket', 'us-east-1');
+    console.log('Bucket created');
+  }
 }
 
 // Upload file
 async function uploadFile() {
-    const metaData = {
-        'Content-Type': 'text/plain',
-        'X-Amz-Meta-Author': 'john'
-    };
-    
-    await minioClient.fPutObject(
-        'my-bucket',
-        'remote-file.txt',
-        'local-file.txt',
-        metaData
-    );
-    console.log('File uploaded');
+  const metaData = {
+    'Content-Type': 'text/plain',
+    'X-Amz-Meta-Author': 'john',
+  };
+
+  await minioClient.fPutObject(
+    'my-bucket',
+    'remote-file.txt',
+    'local-file.txt',
+    metaData,
+  );
+  console.log('File uploaded');
 }
 
 // Upload buffer
 async function uploadBuffer() {
-    const buffer = Buffer.from('Hello, MinIO!');
-    await minioClient.putObject('my-bucket', 'hello.txt', buffer);
+  const buffer = Buffer.from('Hello, MinIO!');
+  await minioClient.putObject('my-bucket', 'hello.txt', buffer);
 }
 
 // Download file
 async function downloadFile() {
-    await minioClient.fGetObject(
-        'my-bucket',
-        'remote-file.txt',
-        'downloaded.txt'
-    );
+  await minioClient.fGetObject(
+    'my-bucket',
+    'remote-file.txt',
+    'downloaded.txt',
+  );
 }
 
 // Get object as stream
 async function getObjectStream() {
-    const stream = await minioClient.getObject('my-bucket', 'hello.txt');
-    let data = '';
-    stream.on('data', chunk => data += chunk);
-    stream.on('end', () => console.log(data));
+  const stream = await minioClient.getObject('my-bucket', 'hello.txt');
+  let data = '';
+  stream.on('data', chunk => (data += chunk));
+  stream.on('end', () => console.log(data));
 }
 
 // List objects
 async function listObjects() {
-    const stream = minioClient.listObjects('my-bucket', 'logs/', true);
-    stream.on('data', obj => console.log(obj.name, obj.size));
-    stream.on('error', err => console.error(err));
+  const stream = minioClient.listObjects('my-bucket', 'logs/', true);
+  stream.on('data', obj => console.log(obj.name, obj.size));
+  stream.on('error', err => console.error(err));
 }
 
 // Presigned URL
 async function getPresignedUrl() {
-    const url = await minioClient.presignedGetObject(
-        'my-bucket',
-        'remote-file.txt',
-        3600  // expires in 1 hour
-    );
-    console.log('Presigned URL:', url);
+  const url = await minioClient.presignedGetObject(
+    'my-bucket',
+    'remote-file.txt',
+    3600, // expires in 1 hour
+  );
+  console.log('Presigned URL:', url);
 }
 
 // Presigned PUT URL (for uploads)
 async function getPresignedPutUrl() {
-    const url = await minioClient.presignedPutObject(
-        'my-bucket',
-        'upload-target.txt',
-        3600
-    );
-    console.log('Upload URL:', url);
+  const url = await minioClient.presignedPutObject(
+    'my-bucket',
+    'upload-target.txt',
+    3600,
+  );
+  console.log('Upload URL:', url);
 }
 
 // Delete object
 async function deleteObject() {
-    await minioClient.removeObject('my-bucket', 'remote-file.txt');
+  await minioClient.removeObject('my-bucket', 'remote-file.txt');
 }
 
 // Run examples
 (async () => {
-    try {
-        await createBucket();
-        await uploadFile();
-        await listObjects();
-    } catch (err) {
-        console.error(err);
-    }
+  try {
+    await createBucket();
+    await uploadFile();
+    await listObjects();
+  } catch (err) {
+    console.error(err);
+  }
 })();
 ```
 
@@ -881,16 +881,16 @@ mc admin policy list myminio
 
 ### Common Issues
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| Connection refused | MinIO not running | Check container/pod status |
-| Access Denied | Invalid credentials | Verify access key and secret |
-| Bucket not found | Bucket doesn't exist | Create bucket first with `mc mb` |
-| SSL certificate error | Self-signed cert | Add `--insecure` flag or add CA |
-| Slow uploads | Network bottleneck | Check bandwidth, use multipart |
-| Disk full | Storage exhausted | Add drives or clean old data |
-| Healing in progress | Recent drive failure | Wait for healing to complete |
-| No quorum | Too many drives offline | Restore drives, check hardware |
+| Issue                 | Cause                   | Solution                         |
+| --------------------- | ----------------------- | -------------------------------- |
+| Connection refused    | MinIO not running       | Check container/pod status       |
+| Access Denied         | Invalid credentials     | Verify access key and secret     |
+| Bucket not found      | Bucket doesn't exist    | Create bucket first with `mc mb` |
+| SSL certificate error | Self-signed cert        | Add `--insecure` flag or add CA  |
+| Slow uploads          | Network bottleneck      | Check bandwidth, use multipart   |
+| Disk full             | Storage exhausted       | Add drives or clean old data     |
+| Healing in progress   | Recent drive failure    | Wait for healing to complete     |
+| No quorum             | Too many drives offline | Restore drives, check hardware   |
 
 ### Diagnostic Commands
 

@@ -9,12 +9,14 @@ k6 is a modern load testing tool built for developer experience. This template p
 ## Features
 
 ### Test Types
+
 - **Load Testing** - Verify system performance under expected load
 - **Stress Testing** - Find breaking points and system limits
 - **Spike Testing** - Test sudden traffic surges
 - **Soak Testing** - Long-running tests for memory leaks
 
 ### Included Features
+
 - Pre-configured test scenarios
 - Performance thresholds
 - Custom metrics
@@ -24,17 +26,18 @@ k6 is a modern load testing tool built for developer experience. This template p
 
 ## Configuration Options
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `baseUrl` | Target API/app URL | http://localhost:3000 |
-| `testType` | Primary test type | load |
-| `virtualUsers` | Concurrent users | 50 |
-| `duration` | Test duration | 5m |
-| `thresholds` | Enable pass/fail thresholds | true |
+| Parameter      | Description                 | Default               |
+| -------------- | --------------------------- | --------------------- |
+| `baseUrl`      | Target API/app URL          | http://localhost:3000 |
+| `testType`     | Primary test type           | load                  |
+| `virtualUsers` | Concurrent users            | 50                    |
+| `duration`     | Test duration               | 5m                    |
+| `thresholds`   | Enable pass/fail thresholds | true                  |
 
 ## Getting Started
 
 ### Prerequisites
+
 - k6 installed ([installation guide](https://k6.io/docs/get-started/installation/))
 - Target application running
 
@@ -92,35 +95,37 @@ k6 run --out json=results.json tests/load.js
 ## Test Scenarios
 
 ### Load Test
+
 ```javascript
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 
 export const options = {
   stages: [
-    { duration: '2m', target: 50 },  // Ramp up
-    { duration: '5m', target: 50 },  // Stay at 50 users
-    { duration: '2m', target: 0 },   // Ramp down
+    { duration: '2m', target: 50 }, // Ramp up
+    { duration: '5m', target: 50 }, // Stay at 50 users
+    { duration: '2m', target: 0 }, // Ramp down
   ],
   thresholds: {
-    http_req_duration: ['p(95)<500'],  // 95% under 500ms
-    http_req_failed: ['rate<0.01'],    // <1% errors
+    http_req_duration: ['p(95)<500'], // 95% under 500ms
+    http_req_failed: ['rate<0.01'], // <1% errors
   },
 };
 
 export default function () {
   const res = http.get(`${__ENV.BASE_URL}/api/users`);
-  
+
   check(res, {
-    'status is 200': (r) => r.status === 200,
-    'response time < 500ms': (r) => r.timings.duration < 500,
+    'status is 200': r => r.status === 200,
+    'response time < 500ms': r => r.timings.duration < 500,
   });
-  
+
   sleep(1);
 }
 ```
 
 ### Stress Test
+
 ```javascript
 export const options = {
   stages: [
@@ -136,12 +141,13 @@ export const options = {
 ```
 
 ### Spike Test
+
 ```javascript
 export const options = {
   stages: [
     { duration: '10s', target: 100 },
     { duration: '1m', target: 100 },
-    { duration: '10s', target: 1400 },  // Spike!
+    { duration: '10s', target: 1400 }, // Spike!
     { duration: '3m', target: 1400 },
     { duration: '10s', target: 100 },
     { duration: '3m', target: 100 },
@@ -159,13 +165,13 @@ export const options = {
   thresholds: {
     // Response time
     http_req_duration: ['p(95)<500', 'p(99)<1000'],
-    
+
     // Error rate
     http_req_failed: ['rate<0.01'],
-    
+
     // Custom metrics
     'http_req_duration{name:login}': ['p(95)<1000'],
-    
+
     // Checks pass rate
     checks: ['rate>0.99'],
   },
@@ -193,10 +199,11 @@ export default function () {
 ## Authentication
 
 ### Bearer Token
+
 ```javascript
 const params = {
   headers: {
-    'Authorization': `Bearer ${__ENV.API_TOKEN}`,
+    Authorization: `Bearer ${__ENV.API_TOKEN}`,
     'Content-Type': 'application/json',
   },
 };
@@ -205,21 +212,26 @@ http.get(url, params);
 ```
 
 ### Login Flow
+
 ```javascript
 export function setup() {
-  const loginRes = http.post(`${BASE_URL}/auth/login`, JSON.stringify({
-    username: 'test',
-    password: 'password',
-  }), { headers: { 'Content-Type': 'application/json' } });
-  
+  const loginRes = http.post(
+    `${BASE_URL}/auth/login`,
+    JSON.stringify({
+      username: 'test',
+      password: 'password',
+    }),
+    { headers: { 'Content-Type': 'application/json' } },
+  );
+
   return { token: loginRes.json('token') };
 }
 
 export default function (data) {
   const params = {
-    headers: { 'Authorization': `Bearer ${data.token}` },
+    headers: { Authorization: `Bearer ${data.token}` },
   };
-  
+
   http.get(`${BASE_URL}/api/protected`, params);
 }
 ```
@@ -227,19 +239,23 @@ export default function (data) {
 ## Reporting
 
 ### Console Summary
+
 Built-in summary after each test run.
 
 ### JSON Output
+
 ```bash
 k6 run --out json=results.json tests/load.js
 ```
 
 ### InfluxDB + Grafana
+
 ```bash
 k6 run --out influxdb=http://localhost:8086/k6 tests/load.js
 ```
 
 ### Cloud Reporting
+
 ```bash
 k6 cloud tests/load.js
 ```
@@ -247,11 +263,12 @@ k6 cloud tests/load.js
 ## CI/CD Integration
 
 ### GitHub Actions
+
 ```yaml
 name: Load Tests
 on:
   schedule:
-    - cron: '0 6 * * *'  # Daily at 6 AM
+    - cron: '0 6 * * *' # Daily at 6 AM
   workflow_dispatch:
 
 jobs:
@@ -259,12 +276,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Install k6
         run: |
           curl -L https://github.com/grafana/k6/releases/download/v0.47.0/k6-v0.47.0-linux-amd64.tar.gz | tar xvz
           sudo mv k6-v0.47.0-linux-amd64/k6 /usr/local/bin/
-      
+
       - name: Run load test
         run: k6 run tests/load.js
         env:
@@ -272,6 +289,7 @@ jobs:
 ```
 
 ### Docker
+
 ```bash
 docker run --rm -v $(pwd):/scripts grafana/k6 run /scripts/tests/load.js
 ```

@@ -23,7 +23,7 @@ import SyncIcon from '@material-ui/icons/Sync';
 import GitHubIcon from '@material-ui/icons/GitHub';
 import { useNavigate } from 'react-router-dom';
 
-const useStyles = makeStyles((theme) => ({
+const useStyles = makeStyles(theme => ({
   card: {
     height: '100%',
     display: 'flex',
@@ -67,7 +67,13 @@ interface ActionCardProps {
   templateName: string;
 }
 
-const ActionCard = ({ title, description, icon, buttonText, templateName }: ActionCardProps) => {
+const ActionCard = ({
+  title,
+  description,
+  icon,
+  buttonText,
+  templateName,
+}: ActionCardProps) => {
   const classes = useStyles();
   const navigate = useNavigate();
 
@@ -127,7 +133,10 @@ export const GitHubOrgPage = () => {
 
   return (
     <Page themeId="tool">
-      <Header title="GitHub Organization" subtitle="Manage your GitHub organization from Backstage">
+      <Header
+        title="GitHub Organization"
+        subtitle="Manage your GitHub organization from Backstage"
+      >
         <HeaderLabel label="Organization" value="ContainerCode" />
         <HeaderLabel label="Sync" value="Every 5 minutes" />
       </Header>
@@ -143,9 +152,9 @@ export const GitHubOrgPage = () => {
             View on GitHub
           </Button>
           <SupportButton>
-            Manage your GitHub organization directly from Backstage.
-            Changes made here will sync to GitHub, and changes in GitHub
-            will sync back to Backstage automatically.
+            Manage your GitHub organization directly from Backstage. Changes
+            made here will sync to GitHub, and changes in GitHub will sync back
+            to Backstage automatically.
           </SupportButton>
         </ContentHeader>
 
@@ -154,15 +163,16 @@ export const GitHubOrgPage = () => {
             <div className={classes.syncInfo}>
               <SyncIcon color="primary" />
               <Typography variant="body1">
-                <strong>Bi-directional Sync Active:</strong> Changes made in GitHub automatically sync to Backstage every 5 minutes.
-                Changes made here in Backstage are immediately pushed to GitHub.
+                <strong>Bi-directional Sync Active:</strong> Changes made in
+                GitHub automatically sync to Backstage every 5 minutes. Changes
+                made here in Backstage are immediately pushed to GitHub.
               </Typography>
             </div>
           </CardContent>
         </Card>
 
         <Grid container spacing={3}>
-          {actions.map((action) => (
+          {actions.map(action => (
             <Grid item xs={12} md={4} key={action.templateName}>
               <ActionCard {...action} />
             </Grid>
@@ -226,17 +236,19 @@ export const GitHubOrgPage = () => {
               <CardHeader title="How It Works" />
               <CardContent>
                 <Typography variant="body2" paragraph>
-                  <strong>GitHub to Backstage:</strong> Users and teams from your GitHub organization
-                  are automatically synced to Backstage every 5 minutes.
+                  <strong>GitHub to Backstage:</strong> Users and teams from
+                  your GitHub organization are automatically synced to Backstage
+                  every 5 minutes.
                 </Typography>
                 <Typography variant="body2" paragraph>
-                  <strong>Backstage to GitHub:</strong> When you create a team or invite a user
-                  using the actions above, they are immediately created in GitHub. The next sync
-                  will bring them into Backstage.
+                  <strong>Backstage to GitHub:</strong> When you create a team
+                  or invite a user using the actions above, they are immediately
+                  created in GitHub. The next sync will bring them into
+                  Backstage.
                 </Typography>
                 <Typography variant="body2">
-                  <strong>Note:</strong> User invitations require the invitee to accept via email
-                  before they appear in the organization.
+                  <strong>Note:</strong> User invitations require the invitee to
+                  accept via email before they appear in the organization.
                 </Typography>
               </CardContent>
             </Card>

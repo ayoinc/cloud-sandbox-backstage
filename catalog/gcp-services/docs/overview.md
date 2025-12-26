@@ -17,10 +17,10 @@ title: GCP Organization {
 
 org: Organization {
   style.fill: "#E3F2FD"
-  
+
   folders: Folders {
     style.fill: "#BBDEFB"
-    
+
     prod: Production Folder {
       shape: rectangle
       style.fill: "#2196F3"
@@ -37,10 +37,10 @@ org: Organization {
       style.font-color: white
     }
   }
-  
+
   projects: Projects {
     style.fill: "#E8F5E9"
-    
+
     prod_proj: Prod Projects {
       shape: rectangle
       style.fill: "#4CAF50"
@@ -57,7 +57,7 @@ org: Organization {
       style.font-color: white
     }
   }
-  
+
   folders.prod -> projects.prod_proj
   folders.dev -> projects.dev_proj
   folders.sandbox -> projects.sandbox_proj
@@ -68,57 +68,57 @@ org: Organization {
 
 ### Compute Services
 
-| Service | Description | Best For |
-|---------|-------------|----------|
-| **Compute Engine** | Virtual machines | Custom workloads, Windows |
-| **GKE** | Managed Kubernetes | Container orchestration |
-| **Cloud Run** | Serverless containers | Stateless HTTP services |
-| **Cloud Functions** | Serverless functions | Event-driven compute |
-| **App Engine** | PaaS platform | Web applications |
-| **Batch** | Batch job scheduling | HPC, data processing |
+| Service             | Description           | Best For                  |
+| ------------------- | --------------------- | ------------------------- |
+| **Compute Engine**  | Virtual machines      | Custom workloads, Windows |
+| **GKE**             | Managed Kubernetes    | Container orchestration   |
+| **Cloud Run**       | Serverless containers | Stateless HTTP services   |
+| **Cloud Functions** | Serverless functions  | Event-driven compute      |
+| **App Engine**      | PaaS platform         | Web applications          |
+| **Batch**           | Batch job scheduling  | HPC, data processing      |
 
 ### Networking
 
-| Component | Purpose |
-|-----------|---------|
-| **VPC** | Virtual private cloud network |
-| **Subnets** | Regional network segments |
-| **Firewall Rules** | Network traffic control |
-| **Cloud NAT** | Outbound NAT for private instances |
-| **Cloud VPN** | Site-to-site VPN connections |
-| **Cloud Interconnect** | Dedicated private connections |
-| **Private Google Access** | Private access to Google APIs |
+| Component                 | Purpose                            |
+| ------------------------- | ---------------------------------- |
+| **VPC**                   | Virtual private cloud network      |
+| **Subnets**               | Regional network segments          |
+| **Firewall Rules**        | Network traffic control            |
+| **Cloud NAT**             | Outbound NAT for private instances |
+| **Cloud VPN**             | Site-to-site VPN connections       |
+| **Cloud Interconnect**    | Dedicated private connections      |
+| **Private Google Access** | Private access to Google APIs      |
 
 ### Storage Services
 
-| Service | Type | Use Case |
-|---------|------|----------|
-| **Cloud Storage** | Object storage | Unstructured data, backups |
-| **Persistent Disk** | Block storage | VM boot/data disks |
-| **Filestore** | NFS file storage | Shared file systems |
-| **Cloud Storage Archive** | Cold storage | Long-term archival |
+| Service                   | Type             | Use Case                   |
+| ------------------------- | ---------------- | -------------------------- |
+| **Cloud Storage**         | Object storage   | Unstructured data, backups |
+| **Persistent Disk**       | Block storage    | VM boot/data disks         |
+| **Filestore**             | NFS file storage | Shared file systems        |
+| **Cloud Storage Archive** | Cold storage     | Long-term archival         |
 
 ### Database Services
 
-| Service | Engine | Use Case |
-|---------|--------|----------|
-| **Cloud SQL** | PostgreSQL, MySQL, SQL Server | Managed relational |
-| **Cloud Spanner** | Distributed SQL | Global scale OLTP |
-| **Firestore** | Document NoSQL | Mobile, web apps |
-| **Bigtable** | Wide-column NoSQL | IoT, time-series |
-| **Memorystore** | Redis, Memcached | Caching |
-| **AlloyDB** | PostgreSQL compatible | High-performance OLTP |
+| Service           | Engine                        | Use Case              |
+| ----------------- | ----------------------------- | --------------------- |
+| **Cloud SQL**     | PostgreSQL, MySQL, SQL Server | Managed relational    |
+| **Cloud Spanner** | Distributed SQL               | Global scale OLTP     |
+| **Firestore**     | Document NoSQL                | Mobile, web apps      |
+| **Bigtable**      | Wide-column NoSQL             | IoT, time-series      |
+| **Memorystore**   | Redis, Memcached              | Caching               |
+| **AlloyDB**       | PostgreSQL compatible         | High-performance OLTP |
 
 ### Data Analytics
 
-| Service | Purpose |
-|---------|---------|
-| **BigQuery** | Serverless data warehouse |
-| **Dataflow** | Stream/batch data processing |
-| **Dataproc** | Managed Spark/Hadoop |
-| **Pub/Sub** | Messaging and streaming |
-| **Data Fusion** | Data integration |
-| **Composer** | Managed Apache Airflow |
+| Service         | Purpose                      |
+| --------------- | ---------------------------- |
+| **BigQuery**    | Serverless data warehouse    |
+| **Dataflow**    | Stream/batch data processing |
+| **Dataproc**    | Managed Spark/Hadoop         |
+| **Pub/Sub**     | Messaging and streaming      |
+| **Data Fusion** | Data integration             |
+| **Composer**    | Managed Apache Airflow       |
 
 ## Configuration
 
@@ -216,13 +216,13 @@ gcloud iam service-accounts keys create key.json \
 
 Key metrics to monitor:
 
-| Service | Metric | Threshold |
-|---------|--------|-----------|
-| Compute Engine | CPU utilization | > 80% |
-| Cloud SQL | Disk utilization | > 80% |
-| Cloud Storage | Request count | Monitor trend |
-| GKE | Node CPU/memory | > 80% |
-| Cloud Functions | Execution time | > timeout |
+| Service         | Metric           | Threshold     |
+| --------------- | ---------------- | ------------- |
+| Compute Engine  | CPU utilization  | > 80%         |
+| Cloud SQL       | Disk utilization | > 80%         |
+| Cloud Storage   | Request count    | Monitor trend |
+| GKE             | Node CPU/memory  | > 80%         |
+| Cloud Functions | Execution time   | > timeout     |
 
 ### Alerting Policies
 

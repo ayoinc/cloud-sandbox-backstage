@@ -61,10 +61,10 @@ spec:
           title: React Version
           type: string
           description: React version to use
-          default: "18"
+          default: '18'
           enum:
-            - "17"
-            - "18"
+            - '17'
+            - '18'
         typescript:
           title: Use TypeScript
           type: boolean
@@ -270,7 +270,7 @@ spec:
           title: API Base URL
           type: string
           description: Base URL for API calls
-          default: "/api"
+          default: '/api'
 
     - title: Deployment & DevOps
       properties:

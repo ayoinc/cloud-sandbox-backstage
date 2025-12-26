@@ -25,18 +25,21 @@ Google Cloud VPC (Virtual Private Cloud) provides a scalable and flexible networ
 ## Features
 
 ### Core Networking
+
 - Custom mode VPC with full subnet control
 - Regional subnets with configurable IP CIDR ranges
 - Support for up to 7500 internal IP addresses per VPC
 - Global routing mode for cross-region communication
 
 ### GKE Integration
+
 - Secondary IP ranges for Kubernetes pods and services
 - IP aliasing support for efficient IP utilization
 - Pod and service CIDR configuration per subnet
 - Automatic route management for GKE
 
 ### Internet Access & Security
+
 - Cloud NAT for private instance outbound connectivity
 - Manual or automatic NAT IP allocation
 - Multiple NAT IPs for high availability
@@ -44,6 +47,7 @@ Google Cloud VPC (Virtual Private Cloud) provides a scalable and flexible networ
 - VPC-native load balancing support
 
 ### Advanced Networking
+
 - Shared VPC host and service project configurations
 - VPC peering setup for inter-network communication
 - Import/export custom routes
@@ -68,26 +72,26 @@ title: GCP VPC Topology for GKE {
 vpc: Global VPC Network {
   style.fill: "#e3f2fd"
   style.stroke: "#1565c2"
-  
+
   us: us-central1 Subnet A {
     style.fill: "#c8e6c9"
     style.stroke: "#2e7d32"
-    
+
     label: "10.0.1.0/24\n\nSecondary:\n- Pods: 10.1.0.0/16\n- Services: 10.2.0.0/20"
-    
+
     gke_us: GKE Nodes (VMs) {
       shape: cylinder
       style.fill: "#4caf50"
       style.font-color: white
     }
   }
-  
+
   eu: europe-west1 Subnet B {
     style.fill: "#fff3e0"
     style.stroke: "#ef6c00"
-    
+
     label: "10.0.2.0/24\n\nSecondary:\n- Pods: 10.3.0.0/16\n- Services: 10.4.0.0/20"
-    
+
     gke_eu: GKE Nodes (VMs) {
       shape: cylinder
       style.fill: "#ff9800"
@@ -135,14 +139,14 @@ title: Shared VPC Architecture {
 host: Host Project {
   style.fill: "#e8f5e9"
   style.stroke: "#2e7d32"
-  
+
   shared_vpc: Shared VPC Network {
     style.fill: "#c8e6c9"
-    
+
     central: Centralized Networking {shape: rectangle}
     firewall: Firewall Rules {shape: rectangle}
     nat: Cloud NAT {shape: hexagon; style.fill: "#ff9800"}
-    
+
     central -> firewall -> nat
   }
 }
@@ -155,7 +159,7 @@ iam: "IAM: compute.networkUser" {
 service_projects: Service Projects {
   style.fill: "#fff3e0"
   style.stroke: "#ef6c00"
-  
+
   proj1: Service Proj 1\nDev {
     shape: rectangle
     style.fill: "#ffcc80"
@@ -182,6 +186,7 @@ iam -> service_projects.proj4
 ```
 
 **Use Cases for Shared VPC:**
+
 - Centralized network administration by network team
 - Cost optimization with shared Cloud NAT, VPN, Interconnect
 - Security compliance with consistent firewall rules
@@ -218,6 +223,7 @@ module "vpc_simple" {
 ```
 
 **Validate with gcloud:**
+
 ```bash
 # List VPC networks
 gcloud compute networks list
@@ -243,7 +249,7 @@ module "vpc_gke" {
       name          = "gke-subnet-us-central1"
       ip_cidr_range = "10.0.1.0/24"
       region        = "us-central1"
-      
+
       secondary_ip_ranges = [
         {
           range_name    = "us-central1-gke-pods"
@@ -259,7 +265,7 @@ module "vpc_gke" {
       name          = "gke-subnet-europe-west1"
       ip_cidr_range = "10.0.2.0/24"
       region        = "europe-west1"
-      
+
       secondary_ip_ranges = [
         {
           range_name    = "europe-west1-gke-pods"
@@ -276,7 +282,7 @@ module "vpc_gke" {
   enable_cloud_nat          = true
   cloud_nat_min_ports_per_vm = 512
   cloud_nat_enable_logging   = true
-  
+
   enable_private_google_access = true
 
   firewall_rules = [
@@ -315,12 +321,12 @@ module "vpc_gke" {
 
 module "gke_cluster" {
   source = "git::https://github.com/company/terraform-modules.git//gcp/gke?ref=v1.0.0"
-  
+
   vpc_network_name = module.vpc_gke.network_name
   subnet_name      = "gke-subnet-us-central1"
   pod_range_name   = "us-central1-gke-pods"
   service_range_name = "us-central1-gke-services"
-  
+
   ip_allocation_policy = {
     cluster_ipv4_cidr_block  = ""
     services_ipv4_cidr_block = ""
@@ -343,7 +349,7 @@ module "vpc_host" {
       name          = "production-subnet"
       ip_cidr_range = "10.50.0.0/16"
       region        = var.region
-      
+
       secondary_ip_ranges = [
         {
           range_name    = "prod-gke-pods"
@@ -359,7 +365,7 @@ module "vpc_host" {
 
   shared_vpc_host = true
   enable_cloud_nat = true
-  
+
   service_projects = [
     var.dev_project_id,
     var.staging_project_id,
@@ -389,7 +395,7 @@ data "google_compute_network" "shared_vpc" {
 
 module "gke_service_project" {
   source   = "git::https://github.com/company/terraform-modules.git//gcp/gke?ref=v1.0.0"
-  
+
   network = data.google_compute_network.shared_vpc.self_link
   # ... other GKE configurations
 }
@@ -439,18 +445,21 @@ resource "google_compute_network_peering" "vpc2_to_vpc1" {
 ### Required Inputs
 
 #### project_id
+
 - **Description**: GCP Project ID where the VPC will be created
 - **Type**: `string`
 - **Example**: `"my-gcp-project-12345"`
 - **CLI Check**: `gcloud projects list`
 
 #### name
+
 - **Description**: Name of the VPC network
 - **Type**: `string`
 - **Constraints**: Must be lowercase, alphanumeric with hyphens
 - **Example**: `"production-vpc"`, `"shared-vpc-host"`
 
 #### subnets
+
 - **Description**: List of subnet configurations
 - **Type**: `list(object({...}))`
 - **Example**: See comprehensive example below
@@ -461,16 +470,16 @@ subnets = [
     name          = string  # "production-subnet"
     ip_cidr_range = string  # "10.0.1.0/24" (Must be RFC 1918 range)
     region        = string  # "us-central1"
-    
+
     # Optional: Secondary ranges for GKE
     secondary_ip_ranges = list(object({
       range_name    = string  # "us-central1-pods"
       ip_cidr_range = string  # "10.1.0.0/16"
     }))
-    
+
     # Optional: Flow logs for network analysis
     enable_flow_logs = bool  # true/false
-    
+
     # Optional: Private Google Access
     private_ip_google_access = bool  # true/false
   }
@@ -480,39 +489,45 @@ subnets = [
 ### Optional Inputs
 
 #### enable_cloud_nat
+
 - **Description**: Enable Cloud NAT for outbound internet access
 - **Type**: `bool`
 - **Default**: `true`
 - **Use Case**: Required for private instances without external IPs
 
 #### cloud_nat_min_ports_per_vm
+
 - **Description**: Minimum ports allocated per VM for NAT
 - **Type**: `number`
 - **Default**: `64`
 - **Range**: `2-65536`
-- **Considerations**: 
+- **Considerations**:
   - GKE nodes: `512-2048` recommended
   - Standard VMs: `64-256` sufficient
   - High traffic: Increase to prevent port exhaustion
 
 #### cloud_nat_max_ports_per_vm
+
 - **Description**: Maximum ports per VM (auto-allocation mode)
 - **Type**: `number`
 - **Default**: `65536`
 
 #### cloud_nat_auto_allocate_ips
+
 - **Description**: Automatically allocate NAT external IPs
 - **Type**: `bool`
 - **Default**: `true`
 - **Alternative**: Set `false` and use `cloud_nat_ips` for manual IPs
 
 #### cloud_nat_ips
+
 - **Description**: List of manually assigned NAT IP addresses
 - **Type**: `list(string)`
 - **Example**: `["35.192.10.5", "35.192.10.6"]`
 - **Prerequisite**: Reserve IPs first with `google_compute_address`
 
 #### cloud_nat_enable_logging
+
 - **Description**: Enable Cloud NAT logging for monitoring
 - **Type**: `bool`
 - **Default**: `false`
@@ -520,6 +535,7 @@ subnets = [
 - **Destination**: Cloud Logging for analysis
 
 #### routing_mode
+
 - **Description**: VPC routing mode for cross-region communication
 - **Type**: `string`
 - **Default**: `"REGIONAL"`
@@ -527,6 +543,7 @@ subnets = [
 - **Recommendation**: Use `GLOBAL` for multi-region architectures
 
 #### enable_private_google_access
+
 - **Description**: Enable Private Google Access on all subnets
 - **Type**: `bool`
 - **Default**: `true`
@@ -534,21 +551,25 @@ subnets = [
 - **Scope**: Applies to all subnets (override per subnet if needed)
 
 #### shared_vpc_host
+
 - **Description**: Enable this project as Shared VPC host
 - **Type**: `bool`
 - **Default**: `false`
 - **Impact**: Project becomes Shared VPC host, can't be undone via Terraform
 
 #### service_projects
+
 - **Description**: List of service project IDs to attach to Shared VPC
 - **Type**: `list(string)`
 - **Example**: `["dev-project-123", "prod-project-456"]`
 - **Requirement**: Must have Shared VPC Admin permissions
 
 #### shared_vpc_subnet_iam
+
 - **Description**: IAM bindings for service projects on specific subnets
 - **Type**: `map(list(object({ role = string, member = string })))`
 - **Example**:
+
 ```hcl
 shared_vpc_subnet_iam = {
   "production-subnet" = [
@@ -561,9 +582,11 @@ shared_vpc_subnet_iam = {
 ```
 
 #### firewall_rules
+
 - **Description**: List of firewall rules for network security
 - **Type**: `list(object({...}))`
 - **Example**:
+
 ```hcl
 firewall_rules = [
   {
@@ -571,24 +594,25 @@ firewall_rules = [
     direction   = "INGRESS"
     priority    = 1000
     source_ranges = ["10.0.0.0/8"]
-    
+
     allow = [{
       protocol = "tcp"
       ports    = ["22"]
     }]
-    
+
     deny = []  # Optional
-    
+
     target_tags = ["bastion-host"]
-    
+
     enable_logging = true
-    
+
     description = "Allow SSH from internal network"
   }
 ]
 ```
 
 #### enable_flow_logs
+
 - **Description**: Enable VPC Flow Logs for all subnets
 - **Type**: `bool`
 - **Default**: `false`
@@ -596,6 +620,7 @@ firewall_rules = [
 - **Storage**: Cloud Logging with configurable sample rates
 
 #### mtu
+
 - **Description**: Maximum Transmission Unit for the VPC
 - **Type**: `number`
 - **Default**: `1460`
@@ -603,6 +628,7 @@ firewall_rules = [
 - **Requirement**: Must match interconnect/VPN MTU settings
 
 #### delete_default_internet_gateway_routes
+
 - **Description**: Remove default route to internet gateway
 - **Type**: `bool`
 - **Default**: `false`
@@ -611,9 +637,11 @@ firewall_rules = [
 ## Outputs
 
 ### network_id
+
 - **Description**: The ID of the VPC network
 - **Type**: `string`
 - **Example Usage**:
+
 ```hcl
 resource "google_compute_instance" "vm" {
   network_interface {
@@ -623,19 +651,23 @@ resource "google_compute_instance" "vm" {
 ```
 
 ### network_name
+
 - **Description**: The name of the VPC network
 - **Type**: `string`
 - **Use Case**: Reference in other modules (GKE, Cloud SQL)
 
 ### network_self_link
+
 - **Description**: The self-link of the VPC network
 - **Type**: `string`
 - **Example**: `https://www.googleapis.com/compute/v1/projects/my-project/global/networks/my-vpc`
 
 ### subnets
+
 - **Description**: Map of subnet names to subnet objects
 - **Type**: `map(object({...}))`
 - **Example Usage**:
+
 ```hcl
 module "gke" {
   subnet_name = module.vpc.subnets["gke-subnet"].name
@@ -644,28 +676,34 @@ module "gke" {
 ```
 
 ### subnets_by_region
+
 - **Description**: Map of region to list of subnet objects
 - **Type**: `map(list(object({...})))`
 - **Use Case**: Deploy region-specific resources
 
 ### cloud_router_name
+
 - **Description**: Name of the Cloud Router (for Cloud NAT)
 - **Type**: `string`
 - **Usage**: Diagnostic commands
+
 ```bash
 gcloud compute routers describe $(terraform output -raw cloud_router_name) --region=us-central1
 ```
 
 ### cloud_nat_name
+
 - **Description**: Name of the Cloud NAT gateway
 - **Type**: `string`
 
 ### cloud_nat_ips
+
 - **Description**: List of external IPs used by Cloud NAT
 - **Type**: `list(string)`
 - **Usage**: Allowlist these IPs in external firewalls
 
 ### region_routers
+
 - **Description**: Map of region to Cloud Router details
 - **Type**: `map(object({...}))`
 
@@ -676,6 +714,7 @@ gcloud compute routers describe $(terraform output -raw cloud_router_name) --reg
 Subnets require careful IP planning for GKE clusters:
 
 #### Primary Subnet Range
+
 ```
 Purpose: Node IP addresses
 Size: /24 (256 IPs) supports ~110 nodes (accounting for reserved IPs)
@@ -683,6 +722,7 @@ Example: 10.0.1.0/24
 ```
 
 #### Secondary Ranges
+
 ```
 Pods Range:
   - Purpose: Kubernetes pod IPs
@@ -773,18 +813,21 @@ subnets = [
 ### When to Use Cloud NAT
 
 **Use Cases:**
+
 - Private GKE clusters without external IPs
 - Secure VMs in private subnets
 - Compliance requiring no public IPs
 - Cost optimization (pay-per-use vs per-IP)
 
 **Don't Use When:**
+
 - Instances need inbound internet access (use Cloud Load Balancing)
 - You need fixed egress IPs for allowlisting (use multiple static NAT IPs)
 
 ### Configuration Options
 
 #### Basic Cloud NAT (Auto IPs)
+
 ```hcl
 enable_cloud_nat = true
 cloud_nat_auto_allocate_ips = true
@@ -792,6 +835,7 @@ cloud_nat_min_ports_per_vm = 64
 ```
 
 #### High Availability Cloud NAT (Multiple IPs)
+
 ```hcl
 # Reserve IPs first
 resource "google_compute_address" "nat_ips" {
@@ -808,6 +852,7 @@ cloud_nat_min_ports_per_vm = 512
 ```
 
 #### GKE Optimized NAT
+
 ```hcl
 # GKE nodes need more ports due to multiple pods
 enable_cloud_nat = true
@@ -817,6 +862,7 @@ cloud_nat_enable_endpoint_independent_mapping = false  # Better performance
 ```
 
 #### Regional Cloud NAT (Recommended)
+
 ```hcl
 # Per-region NAT for multi-region VPC
 subnets = [
@@ -838,13 +884,13 @@ enable_cloud_nat = true
 
 ### Manual vs Auto NAT IPs
 
-| Feature | Auto IPs | Manual IPs |
-|---------|----------|------------|
-| Setup | Simple, no pre-configuration | Must reserve IPs first |
-| Cost | Pay per GB data processed | Pay per GB + IP reservation cost |
-| Allowlisting | IPs change on recreation | Static IPs for external allowlists |
-| Quota | Automatic quota management | Manual quota tracking required |
-| High Availability | Created automatically | Manual IP selection needed |
+| Feature           | Auto IPs                     | Manual IPs                         |
+| ----------------- | ---------------------------- | ---------------------------------- |
+| Setup             | Simple, no pre-configuration | Must reserve IPs first             |
+| Cost              | Pay per GB data processed    | Pay per GB + IP reservation cost   |
+| Allowlisting      | IPs change on recreation     | Static IPs for external allowlists |
+| Quota             | Automatic quota management   | Manual quota tracking required     |
+| High Availability | Created automatically        | Manual IP selection needed         |
 
 ### Monitoring NAT
 
@@ -864,11 +910,13 @@ gcloud monitoring time-series list \
 ### Troubleshooting NAT Port Exhaustion
 
 **Symptoms:**
+
 - Connection timeouts from private instances
 - `SYN_SENT` connections stuck
 - GCP monitoring alerts for high port usage
 
 **Solutions:**
+
 1. Increase `cloud_nat_min_ports_per_vm`
 2. Add more NAT IPs: `cloud_nat_ips = [...]`
 3. Reduce idle timeout: `cloud_nat_tcp_established_idle_timeout_sec = 600`
@@ -879,18 +927,20 @@ gcloud monitoring time-series list \
 ### Host and Service Project Setup
 
 #### Step 1: Enable Shared VPC Host
+
 ```hcl
 module "shared_vpc_host" {
   source         = "git::https://github.com/company/terraform-modules.git//gcp/vpc?ref=v1.0.0"
   project_id     = var.host_project_id
   name           = "shared-vpc-network"
   shared_vpc_host = true
-  
+
   subnets = [/* subnet configuration */]
 }
 ```
 
 **Verify with gcloud:**
+
 ```bash
 # Enable host project (one-time setup)
 gcloud compute shared-vpc enable host-project-id
@@ -903,11 +953,12 @@ gcloud compute networks subnets get-iam-policy production-subnet --region=us-cen
 ```
 
 #### Step 2: Configure Service Project Attachments
+
 ```hcl
 # Grant IAM roles to service projects
 resource "google_project_iam_member" "service_projects" {
   for_each = toset(var.service_project_ids)
-  
+
   project = module.vpc_host.project_id
   role    = "roles/compute.networkUser"
   member  = "serviceAccount:service-${data.google_project.service[each.key].number}@compute-system.iam.gserviceaccount.com"
@@ -921,6 +972,7 @@ service_projects = ["dev-123", "prod-456"]
 ### IAM Roles Required
 
 **In Host Project:**
+
 ```hcl
 # For network administrators
 roles/compute.networkAdmin        # Manage Shared VPC
@@ -932,9 +984,10 @@ roles/compute.networkUser        # Use subnets in service projects
 ```
 
 **In Service Projects:**
+
 ```hcl
 # For GKE
-echo "service-{PROJECT_NUMBER}@container-engine-robot.iam.gserviceaccount.com" | 
+echo "service-{PROJECT_NUMBER}@container-engine-robot.iam.gserviceaccount.com" |
   gcloud projects add-iam-policy-binding host-project-id \
     --member="serviceAccount:{GKE_SERVICE_ACCOUNT}" \
     --role="roles/compute.networkUser"
@@ -949,11 +1002,12 @@ echo "service-{PROJECT_NUMBER}@dataflow-service-producer-prod.iam.gserviceaccoun
 ### Use Cases
 
 #### 1. Centralized Security
+
 ```hcl
 # Host project manages all network security
 module "shared_vpc" {
   shared_vpc_host = true
-  
+
   firewall_rules = [
     {
       name        = "deny-all-egress"
@@ -969,11 +1023,12 @@ module "shared_vpc" {
 ```
 
 #### 2. Cost Optimization
+
 ```hcl
 # Single Cloud NAT for all service projects
 module "shared_vpc" {
   enable_cloud_nat = true
-  
+
   # 3 NAT IPs shared across 10 service projects
   cloud_nat_auto_allocate_ips = false
   cloud_nat_ips = [
@@ -985,6 +1040,7 @@ module "shared_vpc" {
 ```
 
 #### 3. Multi-Environment Isolation
+
 ```hcl
 # Different subnets for each environment
 subnets = [
@@ -1027,6 +1083,7 @@ shared_vpc_subnet_iam = {
 ### Firewall Rules
 
 #### Best Practices
+
 ```hcl
 firewall_rules = [
   # 1. Deny all egress by default (whitelist approach)
@@ -1038,7 +1095,7 @@ firewall_rules = [
     deny = [{ protocol = "all" }]
     enable_logging = true
   },
-  
+
   # 2. Allow specific egress
   {
     name        = "allow-egress-gcp-apis"
@@ -1050,7 +1107,7 @@ firewall_rules = [
       ports    = ["443"]
     }]
   },
-  
+
   # 3. Allow ingress (specific)
   {
     name        = "allow-ssh-from-bastion"
@@ -1063,7 +1120,7 @@ firewall_rules = [
     }]
     target_tags = ["ssh-accessible"]
   },
-  
+
   # 4. Allow GKE health checks
   {
     name        = "allow-health-checks"
@@ -1074,7 +1131,7 @@ firewall_rules = [
       ports    = ["80", "443", "8080"]
     }]
   },
-  
+
   # 5. Allow internal communication
   {
     name        = "allow-internal"
@@ -1095,11 +1152,11 @@ firewall_rules = [
 # Requires separate VPC Service Controls module
 module "vpc_sc" {
   source = "terraform-google-modules/vpc-service-controls/google"
-  
+
   parent_id = var.organization_id
-  
+
   access_levels = [/* ... */]
-  
+
   ingress_policies = [{
     from = {
       sources = [
@@ -1115,7 +1172,7 @@ module "vpc_sc" {
       }]
     }
   }]
-  
+
   egress_policies = [/* ... */]
 }
 ```
@@ -1141,6 +1198,7 @@ enable_private_google_access = true
 ```
 
 **Verify Private Google Access:**
+
 ```bash
 # From VM without external IP
 curl -H "Metadata-Flavor: Google" http://169.254.169.254/computeMetadata/v1/
@@ -1150,13 +1208,13 @@ curl -H "Metadata-Flavor: Google" http://169.254.169.254/computeMetadata/v1/
 
 ### Firewall Rules Priority Guidelines
 
-| Priority Range | Use Case |
-|---------------|----------|
-| 0-999 | Emergency deny rules (block malicious traffic) |
-| 1000-4999 | Application-specific rules |
-| 5000-5999 | Environment-specific rules (dev/staging/prod) |
-| 6000-65534 | General rules |
-| 65535 | Default deny rules (implicit) |
+| Priority Range | Use Case                                       |
+| -------------- | ---------------------------------------------- |
+| 0-999          | Emergency deny rules (block malicious traffic) |
+| 1000-4999      | Application-specific rules                     |
+| 5000-5999      | Environment-specific rules (dev/staging/prod)  |
+| 6000-65534     | General rules                                  |
+| 65535          | Default deny rules (implicit)                  |
 
 ## Examples
 
@@ -1186,7 +1244,7 @@ module "vpc_microservices" {
         }
       ]
     },
-    
+
     # Backend/private tier
     {
       name          = "backend-subnet"
@@ -1203,7 +1261,7 @@ module "vpc_microservices" {
         }
       ]
     },
-    
+
     # Data tier
     {
       name          = "data-subnet"
@@ -1216,7 +1274,7 @@ module "vpc_microservices" {
   # Cloud NAT for outbound
   enable_cloud_nat = true
   cloud_nat_min_ports_per_vm = 2048
-  
+
   # Private Google Access
   enable_private_google_access = true
 
@@ -1234,7 +1292,7 @@ module "vpc_microservices" {
         ports    = ["8080", "9090"]
       }]
     },
-    
+
     # Backend -> Data
     {
       name        = "backend-to-data"
@@ -1247,7 +1305,7 @@ module "vpc_microservices" {
         ports    = ["5432", "6379", "9200"]  # PostgreSQL, Redis, Elasticsearch
       }]
     },
-    
+
     # Deny frontend direct data access
     {
       name        = "deny-frontend-to-data"
@@ -1302,7 +1360,7 @@ resource "google_vpc_access_connector" "connector" {
   region        = "us-central1"
   ip_cidr_range = "10.8.0.0/28"
   network       = module.vpc_cloudrun.network_self_link
-  
+
   depends_on = [module.vpc_cloudrun]
 }
 
@@ -1310,7 +1368,7 @@ resource "google_vpc_access_connector" "connector" {
 resource "google_cloud_run_service" "service" {
   name     = "internal-api"
   location = "us-central1"
-  
+
   template {
     metadata {
       annotations = {
@@ -1318,7 +1376,7 @@ resource "google_cloud_run_service" "service" {
         "run.googleapis.com/vpc-access-egress"    = "private-ranges-only"
       }
     }
-    
+
     spec {
       containers {
         image = "gcr.io/myproject/internal-api:v1"
@@ -1342,7 +1400,7 @@ module "vpc_data" {
       name          = "composer-subnet"
       ip_cidr_range = "10.40.0.0/21"      # Large for Composer environment
       region        = "us-central1"
-      
+
       secondary_ip_ranges = [
         {
           range_name    = "composer-pods"
@@ -1353,7 +1411,7 @@ module "vpc_data" {
           ip_cidr_range = "10.42.0.0/20"
         }
       ]
-      
+
       private_ip_google_access = true
       enable_flow_logs = true
     },
@@ -1407,6 +1465,7 @@ module "vpc_data" {
 ### Working with Other Modules
 
 #### GKE Module Integration
+
 ```hcl
 module "vpc" {
   source = "git::https://github.com/company/terraform-modules.git//gcp/vpc?ref=v1.0.0"
@@ -1430,10 +1489,10 @@ module "vpc" {
 
 module "gke_cluster" {
   source = "git::https://github.com/company/terraform-modules.git//gcp/gke?ref=v1.0.0"
-  
+
   network    = module.vpc.network_name
   subnetwork = module.vpc.subnets["gke-subnet"].name
-  
+
   ip_allocation_policy = {
     cluster_ipv4_cidr_block  = ""
     services_ipv4_cidr_block = ""
@@ -1444,6 +1503,7 @@ module "gke_cluster" {
 ```
 
 #### Cloud SQL Module Integration
+
 ```hcl
 module "vpc" {
   source = "git::https://github.com/company/terraform-modules.git//gcp/vpc?ref=v1.0.0"
@@ -1457,9 +1517,9 @@ module "vpc" {
 
 module "cloud_sql" {
   source = "git::https://github.com/company/terraform-modules.git//gcp/cloud-sql?ref=v1.0.0"
-  
+
   network = module.vpc.network_self_link
-  
+
   # Private IP configuration
   ip_configuration = {
     ipv4_enabled        = false
@@ -1467,12 +1527,13 @@ module "cloud_sql" {
     require_ssl         = true
     authorized_networks = []
   }
-  
+
   depends_on = [module.vpc]  # Ensure VPC created first
 }
 ```
 
 #### Load Balancing Integration
+
 ```hcl
 module "vpc" {
   source = "git::https://github.com/company/terraform-modules.git//gcp/vpc?ref=v1.0.0"
@@ -1494,7 +1555,7 @@ module "vpc" {
 
 module "lb" {
   source = "terraform-google-modules/lb-http/google"
-  
+
   network    = module.vpc.network_name
   subnetwork = module.vpc.subnets["backend-subnet"].name
 }
@@ -1503,6 +1564,7 @@ module "lb" {
 ### Network Patterns
 
 #### Hub and Spoke with Shared VPC
+
 ```
 Hub (Host Project):
 - Shared VPC with centralized security
@@ -1518,6 +1580,7 @@ Spokes (Service Projects):
 ```
 
 #### Multi-Region Pattern
+
 ```hcl
 module "vpc_global" {
   subnets = [
@@ -1537,12 +1600,13 @@ module "vpc_global" {
       ip_cidr_range = "10.0.3.0/24"
     }
   ]
-  
+
   routing_mode = "GLOBAL"  # Cross-region routing
 }
 ```
 
 #### Production Staging Separation
+
 ```hcl
 # Production VPC
 module "vpc_prod" {
@@ -1572,6 +1636,7 @@ google_compute_network_peering.prod_to_staging = {
 ## Pricing
 
 ### VPC Free Tier
+
 ```yaml
 VPC Network:
   - VPC creation: Free
@@ -1582,19 +1647,20 @@ VPC Network:
 ```
 
 ### Cloud NAT Pricing
+
 ```yaml
 NAT Gateway Pricing:
   - Per gateway per zone: $0.0014/hour
   - Example: 1 gateway in us-central1-a = ~$1/month
-  
+
 NAT IP Pricing:
   - Auto-allocated IPs: No IP reservation cost
   - Manual IPs: Standard static IP pricing
-  
+
 Data Processing:
   - First 1 GB: Free
   - Beyond 1 GB: $0.045/GB (region dependent)
-  
+
 Example Costs:
   Small deployment (100GB/month): ~$4.5/month
   Medium deployment (1TB/month): ~$45/month
@@ -1602,6 +1668,7 @@ Example Costs:
 ```
 
 ### Egress Costs
+
 ```yaml
 Internal Egress:
   - Same zone: Free
@@ -1622,6 +1689,7 @@ Special Cases:
 ### Cost Optimization Tips
 
 1. **Reduce NAT Costs**:
+
    ```hcl
    # Consolidate to single NAT gateway per region
    enable_cloud_nat = true
@@ -1629,6 +1697,7 @@ Special Cases:
    ```
 
 2. **Minimize Cross-Region Traffic**:
+
    ```hcl
    # Deploy services in same region as data
    subnet_region = "us-central1"
@@ -1636,12 +1705,14 @@ Special Cases:
    ```
 
 3. **Use Private Google Access**:
+
    ```hcl
    # Eliminate NAT costs for GCP API traffic
    enable_private_google_access = true
    ```
 
 4. **Right-Size NAT Ports**:
+
    ```hcl
    # Don't over-allocate ports
    cloud_nat_min_ports_per_vm = 64  # Standard VMs
@@ -1665,16 +1736,19 @@ Special Cases:
 #### 1. Subnet IP Exhaustion
 
 **Symptoms:**
+
 - Cannot create new instances: `IP_SPACE_EXHAUSTED`
 - GKE node pool creation fails
 - Error: `Requested range conflicts with allocated ranges`
 
 **Causes:**
+
 - Subnet too small for workload
 - GKE secondary ranges exhausted
 - No available IPs in region
 
 **Solutions:**
+
 ```bash
 # Check subnet usage
 gcloud compute networks subnets describe my-subnet --region=us-central1 \
@@ -1691,6 +1765,7 @@ terraform apply -var='add_additional_subnet=true'
 ```
 
 **Terraform Fix:**
+
 ```hcl
 # Add new subnet with larger range
 subnets = concat(var.existing_subnets, [{
@@ -1708,11 +1783,13 @@ secondary_ip_ranges = concat(var.existing_ranges, [{
 #### 2. Cloud NAT Port Exhaustion
 
 **Symptoms:**
+
 - Intermittent connection failures
 - `connect()` timeouts
 - High `dropped_packets` in monitoring
 
 **Diagnosis:**
+
 ```bash
 # Check NAT metrics
 gcloud compute routers get-status prod-router \
@@ -1726,6 +1803,7 @@ gcloud compute routers describe prod-router \
 ```
 
 **Solutions:**
+
 ```hcl
 # Increase ports per VM
 cloud_nat_min_ports_per_vm = 4096  # Was 64
@@ -1743,11 +1821,13 @@ cloud_nat_tcp_established_idle_timeout_sec = 600  # 10 minutes (default 1200)
 #### 3. Firewall Rule Conflicts
 
 **Symptoms:**
+
 - Traffic blocked unexpectedly
 - Rule not taking effect
 - Ambiguous deny/allow behavior
 
 **Diagnosis:**
+
 ```bash
 # List firewall rules with priorities
 gcloud compute firewall-rules list \
@@ -1764,6 +1844,7 @@ gcloud compute ssh vm-instance \
 ```
 
 **Solutions:**
+
 ```hcl
 # Use explicit priorities
 firewall_rules = [
@@ -1786,11 +1867,13 @@ name = "application-tier-to-database-tier-tcp-5432"
 #### 4. Shared VPC Permission Errors
 
 **Symptoms:**
+
 - Error: `Missing necessary permission compute.networkUser`
 - GKE cluster creation fails in service project
 - Dataflow jobs fail with network access errors
 
 **Diagnosis:**
+
 ```bash
 # Check Shared VPC host status
 gcloud compute shared-vpc organizations list-host-projects \
@@ -1807,6 +1890,7 @@ gcloud projects get-iam-policy host-project-id \
 ```
 
 **Solutions:**
+
 ```bash
 # Fix 1: Enable host project (one time)
 gcloud compute shared-vpc enable host-project-id
@@ -1823,6 +1907,7 @@ gcloud projects add-iam-policy-binding host-project-id \
 ```
 
 **Terraform:**
+
 ```hcl
 # Use module's shared VPC IAM management
 shared_vpc_subnet_iam = {
@@ -1842,11 +1927,13 @@ shared_vpc_subnet_iam = {
 #### 5. Private Google Access Issues
 
 **Symptoms:**
+
 - Cannot access Google APIs from private instances
 - `curl metadata.google.internal` fails
 - GCS bucket access denied
 
 **Diagnosis:**
+
 ```bash
 # Verify Private Google Access enabled
 gcloud compute networks subnets describe my-subnet \
@@ -1863,6 +1950,7 @@ nslookup storage.googleapis.com
 ```
 
 **Solutions:**
+
 ```hcl
 # Enable Private Google Access
 enable_private_google_access = true
@@ -1901,6 +1989,7 @@ gcloud logging read "resource.type=nat_gateway" --limit=10 --format=json
 ## References
 
 ### Google Cloud Documentation
+
 - [VPC Overview](https://cloud.google.com/vpc/docs/overview)
 - [VPC Subnet Management](https://cloud.google.com/vpc/docs/vpc)
 - [Cloud NAT Documentation](https://cloud.google.com/nat/docs/overview)
@@ -1909,10 +1998,12 @@ gcloud logging read "resource.type=nat_gateway" --limit=10 --format=json
 - [VPC Service Controls](https://cloud.google.com/vpc-service-controls)
 
 ### Terraform Providers
+
 - [Google Provider](https://registry.terraform.io/providers/hashicorp/google/latest)
 - [Google Beta Provider](https://registry.terraform.io/providers/hashicorp/google-beta/latest)
 
 ### Related Modules
+
 - [GKE Module](https://github.com/company/terraform-modules/tree/main/gcp/gke)
 - [Cloud SQL Module](https://github.com/company/terraform-modules/tree/main/gcp/cloud-sql)
 - [Load Balancing Module](https://github.com/company/terraform-modules/tree/main/gcp/load-balancing)
@@ -1920,18 +2011,21 @@ gcloud logging read "resource.type=nat_gateway" --limit=10 --format=json
 - [Cloud Router Module](https://github.com/terraform-google-modules/terraform-google-cloud-router)
 
 ### Best Practices Guides
+
 - [GCP Network Design](https://cloud.google.com/architecture/building-scalable-and-secure-network-architecture)
 - [GKE Network Security](https://cloud.google.com/kubernetes-engine/docs/concepts/network-overview)
 - [Cost Optimization](https://cloud.google.com/architecture/framework/cost-optimization)
 - [Enterprise Foundations](https://github.com/terraform-google-modules/terraform-example-foundation)
 
 ### API References
+
 - [Compute API - Networks](https://cloud.google.com/compute/docs/reference/rest/v1/networks)
 - [Compute API - Subnetworks](https://cloud.google.com/compute/docs/reference/rest/v1/subnetworks)
 - [Compute API - Firewalls](https://cloud.google.com/compute/docs/reference/rest/v1/firewalls)
 - [Cloud NAT API](https://cloud.google.com/compute/docs/reference/rest/v1/routers)
 
 ### Community Resources
+
 - [Google Cloud Community](https://www.googlecloudcommunity.com/)
 - [Terraform Google Modules](https://github.com/terraform-google-modules)
 - [GitHub Issues](https://github.com/company/terraform-modules/issues)

@@ -32,20 +32,20 @@ kubectl port-forward svc/awx-service 8080:80 -n awx
 
 ## Features
 
-| Feature | Description | Status |
-|---------|-------------|--------|
+| Feature                      | Description                                     | Status    |
+| ---------------------------- | ----------------------------------------------- | --------- |
 | **AWX Operator Integration** | Deploys and manages AWX via Kubernetes Operator | ✅ Stable |
-| **High Availability** | Multi-replica web and task pods | ✅ Stable |
-| **PostgreSQL Options** | Managed or external PostgreSQL database | ✅ Stable |
-| **Redis Clustering** | Built-in Redis for task queuing | ✅ Stable |
-| **Ingress Support** | NGINX, Traefik, ALB ingress controllers | ✅ Stable |
-| **TLS/HTTPS** | Automatic cert-manager integration | ✅ Stable |
-| **Persistent Storage** | Projects, logs, and EE images persistence | ✅ Stable |
-| **Resource Management** | CPU/memory limits and requests | ✅ Stable |
-| **LDAP/SAML/OAuth** | Enterprise authentication backends | ✅ Stable |
-| **Execution Environments** | Custom container images for jobs | ✅ Stable |
-| **Backup/Restore** | AWXBackup and AWXRestore CRDs | ✅ Stable |
-| **Auto-scaling** | HPA for web pods | ✅ Stable |
+| **High Availability**        | Multi-replica web and task pods                 | ✅ Stable |
+| **PostgreSQL Options**       | Managed or external PostgreSQL database         | ✅ Stable |
+| **Redis Clustering**         | Built-in Redis for task queuing                 | ✅ Stable |
+| **Ingress Support**          | NGINX, Traefik, ALB ingress controllers         | ✅ Stable |
+| **TLS/HTTPS**                | Automatic cert-manager integration              | ✅ Stable |
+| **Persistent Storage**       | Projects, logs, and EE images persistence       | ✅ Stable |
+| **Resource Management**      | CPU/memory limits and requests                  | ✅ Stable |
+| **LDAP/SAML/OAuth**          | Enterprise authentication backends              | ✅ Stable |
+| **Execution Environments**   | Custom container images for jobs                | ✅ Stable |
+| **Backup/Restore**           | AWXBackup and AWXRestore CRDs                   | ✅ Stable |
+| **Auto-scaling**             | HPA for web pods                                | ✅ Stable |
 
 ## Architecture
 
@@ -60,7 +60,7 @@ cluster: Kubernetes Cluster {
       reconcile: Reconcile
       manage: Manage deps
     }
-    
+
     awx: AWX Instance {
       web: Web Pods (nginx)
       task: Task Pods (celery)
@@ -70,10 +70,10 @@ cluster: Kubernetes Cluster {
       web -> redis
       task -> redis
     }
-    
+
     operator -> awx: manages
   }
-  
+
   data: Data Layer {
     postgres: PostgreSQL (StatefulSet) {
       shape: cylinder
@@ -85,13 +85,13 @@ cluster: Kubernetes Cluster {
       shape: cylinder
     }
   }
-  
+
   ingress_layer: Ingress Layer {
     ingress: Ingress/Route (TLS termination)
     service: AWX Service (ClusterIP)
     ingress -> service
   }
-  
+
   helm.awx -> data
   ingress_layer.service -> helm.awx
 }
@@ -132,12 +132,12 @@ awx-helm-chart/
 
 ## Version Compatibility
 
-| Chart Version | AWX Operator | AWX Version | Kubernetes | Helm |
-|---------------|--------------|-------------|------------|------|
-| 2.10.x | 2.10.0+ | 24.0.0+ | 1.27+ | 3.14+ |
-| 2.9.x | 2.9.0+ | 23.5.0+ | 1.26+ | 3.13+ |
-| 2.8.x | 2.8.0+ | 23.0.0+ | 1.25+ | 3.12+ |
-| 2.7.x | 2.7.0+ | 22.0.0+ | 1.24+ | 3.11+ |
+| Chart Version | AWX Operator | AWX Version | Kubernetes | Helm  |
+| ------------- | ------------ | ----------- | ---------- | ----- |
+| 2.10.x        | 2.10.0+      | 24.0.0+     | 1.27+      | 3.14+ |
+| 2.9.x         | 2.9.0+       | 23.5.0+     | 1.26+      | 3.13+ |
+| 2.8.x         | 2.8.0+       | 23.0.0+     | 1.25+      | 3.12+ |
+| 2.7.x         | 2.7.0+       | 22.0.0+     | 1.24+      | 3.11+ |
 
 ## Related Documentation
 

@@ -21,16 +21,16 @@ services:
       POSTGRES_PASSWORD: secretpassword
       POSTGRES_DB: myapp
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     command:
-      - "postgres"
-      - "-c"
-      - "shared_buffers=256MB"
-      - "-c"
-      - "max_connections=200"
+      - 'postgres'
+      - '-c'
+      - 'shared_buffers=256MB'
+      - '-c'
+      - 'max_connections=200'
 
 volumes:
   pgdata:
@@ -79,7 +79,7 @@ CREATE INDEX idx_users_metadata ON app.users USING GIN(metadata);
 CREATE INDEX idx_users_created_at ON app.users(created_at DESC);
 
 -- Partial index
-CREATE INDEX idx_users_active ON app.users(email) 
+CREATE INDEX idx_users_active ON app.users(email)
   WHERE metadata->>'status' = 'active';
 
 -- Add trigger for updated_at
@@ -178,35 +178,35 @@ direction: down
 
 production: Production Database {
   style.fill: "#e8f5e9"
-  
+
   primary: PostgreSQL Primary {
     shape: cylinder
     style.fill: "#c8e6c9"
   }
-  
+
   wal: WAL Files {
     shape: document
     style.fill: "#fff9c4"
   }
-  
+
   primary -> wal: Generate
 }
 
 backup_methods: Backup Methods {
   style.fill: "#e3f2fd"
-  
+
   pg_dump: pg_dump {
     shape: rectangle
     style.fill: "#bbdefb"
     label: "pg_dump\n(Logical Backup)"
   }
-  
+
   pg_basebackup: pg_basebackup {
     shape: rectangle
     style.fill: "#b3e5fc"
     label: "pg_basebackup\n(Physical Backup)"
   }
-  
+
   wal_archive: WAL Archiving {
     shape: rectangle
     style.fill: "#b2ebf2"
@@ -216,19 +216,19 @@ backup_methods: Backup Methods {
 
 storage: Backup Storage {
   style.fill: "#fff3e0"
-  
+
   dump_files: Dump Files {
     shape: document
     style.fill: "#ffe0b2"
     label: ".dump / .sql"
   }
-  
+
   base_backup: Base Backup {
     shape: folder
     style.fill: "#ffccbc"
     label: "Data Directory\nSnapshot"
   }
-  
+
   wal_files: Archived WAL {
     shape: document
     style.fill: "#d7ccc8"
@@ -238,13 +238,13 @@ storage: Backup Storage {
 
 restore: Restore Options {
   style.fill: "#fce4ec"
-  
+
   pg_restore: pg_restore {
     shape: rectangle
     style.fill: "#f8bbd9"
     label: "pg_restore\n(From Dump)"
   }
-  
+
   pitr: PITR {
     shape: rectangle
     style.fill: "#f48fb1"
@@ -254,7 +254,7 @@ restore: Restore Options {
 
 target: Target Database {
   style.fill: "#f3e5f5"
-  
+
   restored_db: Restored DB {
     shape: cylinder
     style.fill: "#ce93d8"
@@ -326,7 +326,7 @@ ANALYZE app.users;
 VACUUM (VERBOSE, ANALYZE) app.users;
 
 -- Check bloat
-SELECT 
+SELECT
   schemaname, tablename,
   pg_size_pretty(pg_total_relation_size(schemaname || '.' || tablename)) as total_size,
   n_dead_tup,
@@ -357,13 +357,13 @@ psql -h localhost -p 6432 -U admin -d myapp
 
 ### Common Issues
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| Connection refused | PostgreSQL not running | Check `pg_ctl status` |
-| Too many connections | Max connections exceeded | Use connection pooler |
-| Slow queries | Missing indexes | Analyze with EXPLAIN |
-| Disk full | WAL or data growth | Archive WAL, add space |
-| Replication lag | Network or load issues | Check pg_stat_replication |
+| Issue                | Cause                    | Solution                  |
+| -------------------- | ------------------------ | ------------------------- |
+| Connection refused   | PostgreSQL not running   | Check `pg_ctl status`     |
+| Too many connections | Max connections exceeded | Use connection pooler     |
+| Slow queries         | Missing indexes          | Analyze with EXPLAIN      |
+| Disk full            | WAL or data growth       | Archive WAL, add space    |
+| Replication lag      | Network or load issues   | Check pg_stat_replication |
 
 ### Diagnostic Queries
 

@@ -33,7 +33,7 @@ x-airflow-common: &airflow-common
     - ./logs:/opt/airflow/logs
     - ./plugins:/opt/airflow/plugins
     - ./config:/opt/airflow/config
-  user: "${AIRFLOW_UID:-50000}:0"
+  user: '${AIRFLOW_UID:-50000}:0'
   depends_on: &airflow-common-depends-on
     redis:
       condition: service_healthy
@@ -50,7 +50,7 @@ services:
     volumes:
       - postgres-db-volume:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "airflow"]
+      test: ['CMD', 'pg_isready', '-U', 'airflow']
       interval: 10s
       retries: 5
       start_period: 5s
@@ -61,7 +61,7 @@ services:
     expose:
       - 6379
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
       timeout: 30s
       retries: 50
@@ -72,9 +72,9 @@ services:
     <<: *airflow-common
     command: webserver
     ports:
-      - "8080:8080"
+      - '8080:8080'
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      test: ['CMD', 'curl', '--fail', 'http://localhost:8080/health']
       interval: 30s
       timeout: 10s
       retries: 5
@@ -85,7 +85,7 @@ services:
     <<: *airflow-common
     command: scheduler
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
+      test: ['CMD', 'curl', '--fail', 'http://localhost:8974/health']
       interval: 30s
       timeout: 10s
       retries: 5
@@ -97,7 +97,7 @@ services:
     command: celery worker
     healthcheck:
       test:
-        - "CMD-SHELL"
+        - 'CMD-SHELL'
         - 'celery --app airflow.providers.celery.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}"'
       interval: 30s
       timeout: 10s
@@ -111,7 +111,11 @@ services:
     <<: *airflow-common
     command: triggerer
     healthcheck:
-      test: ["CMD-SHELL", 'airflow jobs check --job-type TriggererJob --hostname "$${HOSTNAME}"']
+      test:
+        [
+          'CMD-SHELL',
+          'airflow jobs check --job-type TriggererJob --hostname "$${HOSTNAME}"',
+        ]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -139,9 +143,9 @@ services:
     <<: *airflow-common
     command: celery flower
     ports:
-      - "5555:5555"
+      - '5555:5555'
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:5555/"]
+      test: ['CMD', 'curl', '--fail', 'http://localhost:5555/']
       interval: 30s
       timeout: 10s
       retries: 5
@@ -283,18 +287,18 @@ def extract_from_s3(**context):
     """Extract data from S3"""
     s3_hook = S3Hook(aws_conn_id='aws_default')
     execution_date = context['execution_date'].strftime('%Y-%m-%d')
-    
+
     # Read file from S3
     file_content = s3_hook.read_key(
         key=f'raw/data/{execution_date}/events.csv',
         bucket_name='my-data-bucket'
     )
-    
+
     df = pd.read_csv(io.StringIO(file_content))
-    
+
     # Push to XCom (for small data)
     context['ti'].xcom_push(key='record_count', value=len(df))
-    
+
     # Save to temp location
     df.to_parquet(f'/tmp/events_{execution_date}.parquet')
     return f'/tmp/events_{execution_date}.parquet'
@@ -303,12 +307,12 @@ def transform_data(**context):
     """Transform extracted data"""
     file_path = context['ti'].xcom_pull(task_ids='extract')
     df = pd.read_parquet(file_path)
-    
+
     # Apply transformations
     df['processed_at'] = datetime.utcnow()
     df['event_date'] = pd.to_datetime(df['timestamp']).dt.date
     df = df.drop_duplicates(subset=['event_id'])
-    
+
     output_path = file_path.replace('.parquet', '_transformed.parquet')
     df.to_parquet(output_path)
     return output_path
@@ -317,10 +321,10 @@ def load_to_postgres(**context):
     """Load data to PostgreSQL"""
     file_path = context['ti'].xcom_pull(task_ids='transform')
     df = pd.read_parquet(file_path)
-    
+
     pg_hook = PostgresHook(postgres_conn_id='postgres_default')
     engine = pg_hook.get_sqlalchemy_engine()
-    
+
     df.to_sql(
         'events',
         engine,
@@ -329,7 +333,7 @@ def load_to_postgres(**context):
         method='multi',
         chunksize=10000
     )
-    
+
     return len(df)
 
 with DAG(
@@ -412,7 +416,7 @@ with DAG(
 
     # Dynamic task generation
     partitions = ['us-east', 'us-west', 'eu-west', 'ap-south']
-    
+
     for partition in partitions:
         task = PythonOperator(
             task_id=f'process_{partition.replace("-", "_")}',
@@ -436,13 +440,13 @@ import requests
     tags=['taskflow'],
 )
 def taskflow_example():
-    
+
     @task()
     def extract():
         """Extract data from API"""
         response = requests.get('https://api.example.com/data')
         return response.json()
-    
+
     @task()
     def transform(data: dict):
         """Transform data"""
@@ -454,14 +458,14 @@ def taskflow_example():
                 'processed': True
             })
         return transformed
-    
+
     @task()
     def load(data: list):
         """Load data to destination"""
         print(f"Loading {len(data)} records")
         # Load logic here
         return len(data)
-    
+
     # Define pipeline
     raw_data = extract()
     transformed_data = transform(raw_data)
@@ -483,7 +487,7 @@ import random
 def decide_branch(**context):
     """Decide which branch to take"""
     execution_date = context['execution_date']
-    
+
     # Business logic for branching
     if execution_date.weekday() < 5:  # Weekday
         return 'weekday_processing'
@@ -494,7 +498,7 @@ def check_data_quality(**context):
     """Check if data passes quality checks"""
     # Simulated quality check
     quality_score = random.uniform(0, 1)
-    
+
     if quality_score > 0.8:
         return 'data_ok'
     else:
@@ -606,14 +610,14 @@ def test_dag_loaded(dagbag):
 def test_dag_structure(dagbag):
     """Test DAG structure"""
     dag = dagbag.get_dag('my_dag')
-    
+
     # Check task count
     assert len(dag.tasks) == 5
-    
+
     # Check task dependencies
     extract_task = dag.get_task('extract')
     transform_task = dag.get_task('transform')
-    
+
     assert transform_task in extract_task.downstream_list
 
 def test_dag_schedule(dagbag):
@@ -625,7 +629,7 @@ def test_dag_schedule(dagbag):
 def test_task_callable():
     """Test task functions directly"""
     from dags.my_dag import extract_data
-    
+
     result = extract_data()
     assert result is not None
     assert len(result) > 0
@@ -633,15 +637,15 @@ def test_task_callable():
 
 ## Troubleshooting
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| DAG not appearing | Parse error, wrong folder | Check `airflow dags list-import-errors` |
-| Tasks stuck in queued | No workers, pool exhausted | Scale workers, increase pool slots |
-| Tasks failing immediately | Dependency issues, connection errors | Check task logs, verify connections |
-| Scheduler not scheduling | Scheduler down, DAG paused | Check scheduler health, unpause DAG |
-| High memory usage | Large XComs, memory leaks | Use external storage, optimize tasks |
-| Slow DAG parsing | Complex DAGs, many imports | Reduce top-level imports, simplify DAGs |
-| Database connection errors | Pool exhausted, timeout | Increase pool size, add retries |
+| Issue                      | Cause                                | Solution                                |
+| -------------------------- | ------------------------------------ | --------------------------------------- |
+| DAG not appearing          | Parse error, wrong folder            | Check `airflow dags list-import-errors` |
+| Tasks stuck in queued      | No workers, pool exhausted           | Scale workers, increase pool slots      |
+| Tasks failing immediately  | Dependency issues, connection errors | Check task logs, verify connections     |
+| Scheduler not scheduling   | Scheduler down, DAG paused           | Check scheduler health, unpause DAG     |
+| High memory usage          | Large XComs, memory leaks            | Use external storage, optimize tasks    |
+| Slow DAG parsing           | Complex DAGs, many imports           | Reduce top-level imports, simplify DAGs |
+| Database connection errors | Pool exhausted, timeout              | Increase pool size, add retries         |
 
 ### Debug Commands
 

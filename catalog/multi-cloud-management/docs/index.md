@@ -31,20 +31,20 @@ terraform apply tfplan
 
 ## Features
 
-| Feature | Description | Status |
-|---------|-------------|--------|
-| **Unified Provisioning** | Single IaC codebase for AWS, Azure, GCP | ✅ Stable |
-| **Cross-Cloud Networking** | VPN/Peering between cloud providers | ✅ Stable |
-| **Identity Federation** | Unified IAM across cloud providers | ✅ Stable |
-| **Cost Management** | Cross-cloud cost tracking and optimization | ✅ Stable |
-| **Compliance & Governance** | Policy-as-code with OPA/Sentinel | ✅ Stable |
-| **Centralized Secrets** | HashiCorp Vault integration | ✅ Stable |
-| **Multi-Cloud Kubernetes** | EKS, AKS, GKE cluster management | ✅ Stable |
-| **Disaster Recovery** | Cross-cloud backup and failover | ✅ Stable |
-| **Observability** | Unified monitoring and logging | ✅ Stable |
-| **GitOps Workflows** | Terraform Cloud/Atlantis integration | ✅ Stable |
-| **Service Mesh** | Istio/Linkerd across clusters | ✅ Stable |
-| **Data Replication** | Cross-cloud database sync | ✅ Stable |
+| Feature                     | Description                                | Status    |
+| --------------------------- | ------------------------------------------ | --------- |
+| **Unified Provisioning**    | Single IaC codebase for AWS, Azure, GCP    | ✅ Stable |
+| **Cross-Cloud Networking**  | VPN/Peering between cloud providers        | ✅ Stable |
+| **Identity Federation**     | Unified IAM across cloud providers         | ✅ Stable |
+| **Cost Management**         | Cross-cloud cost tracking and optimization | ✅ Stable |
+| **Compliance & Governance** | Policy-as-code with OPA/Sentinel           | ✅ Stable |
+| **Centralized Secrets**     | HashiCorp Vault integration                | ✅ Stable |
+| **Multi-Cloud Kubernetes**  | EKS, AKS, GKE cluster management           | ✅ Stable |
+| **Disaster Recovery**       | Cross-cloud backup and failover            | ✅ Stable |
+| **Observability**           | Unified monitoring and logging             | ✅ Stable |
+| **GitOps Workflows**        | Terraform Cloud/Atlantis integration       | ✅ Stable |
+| **Service Mesh**            | Istio/Linkerd across clusters              | ✅ Stable |
+| **Data Replication**        | Cross-cloud database sync                  | ✅ Stable |
 
 ## Architecture
 
@@ -59,25 +59,25 @@ title: Multi-Cloud Management Platform {
 
 control_plane: Control Plane {
   style.fill: "#E3F2FD"
-  
+
   terraform: Terraform Cloud {
     shape: hexagon
     style.fill: "#7B42BC"
     style.font-color: white
   }
-  
+
   pulumi: Pulumi Cloud {
     shape: hexagon
     style.fill: "#8A3FFC"
     style.font-color: white
   }
-  
+
   crossplane: Crossplane\n(K8s) {
     shape: hexagon
     style.fill: "#2196F3"
     style.font-color: white
   }
-  
+
   ansible: Ansible Tower {
     shape: hexagon
     style.fill: "#EE0000"
@@ -87,7 +87,7 @@ control_plane: Control Plane {
 
 abstraction: Cloud Provider Abstraction {
   style.fill: "#E8F5E9"
-  
+
   api: Unified API / Provider Plugins {
     shape: rectangle
     style.fill: "#4CAF50"
@@ -97,37 +97,37 @@ abstraction: Cloud Provider Abstraction {
 
 clouds: Cloud Providers {
   style.fill: "#FFF3E0"
-  
+
   aws: AWS {
     style.fill: "#FF9900"
     style.font-color: white
-    
+
     vpc: VPC\nus-east-1 {shape: rectangle}
     eks: EKS Cluster {shape: hexagon}
     rds: RDS\nPostgreSQL {shape: cylinder}
     s3: S3 Storage {shape: cylinder}
   }
-  
+
   azure: Azure {
     style.fill: "#0078D4"
     style.font-color: white
-    
+
     vnet: VNet\neastus {shape: rectangle}
     aks: AKS Cluster {shape: hexagon}
     azdb: Azure DB\nPostgreSQL {shape: cylinder}
     blob: Blob Storage {shape: cylinder}
   }
-  
+
   gcp: GCP {
     style.fill: "#4285F4"
     style.font-color: white
-    
+
     gcp_vpc: VPC\nus-east1 {shape: rectangle}
     gke: GKE Cluster {shape: hexagon}
     cloudsql: Cloud SQL\nPostgreSQL {shape: cylinder}
     gcs: GCS Storage {shape: cylinder}
   }
-  
+
   aws.vpc <-> azure.vnet: VPN/Peer {style.stroke-dash: 3}
   azure.vnet <-> gcp.gcp_vpc: VPN/Peer {style.stroke-dash: 3}
   aws.rds <-> azure.azdb: Replicate {style.stroke-dash: 3}
@@ -136,31 +136,31 @@ clouds: Cloud Providers {
 
 shared: Shared Services Layer {
   style.fill: "#FCE4EC"
-  
+
   vault: Vault\n(Secrets) {
     shape: hexagon
     style.fill: "#000000"
     style.font-color: white
   }
-  
+
   prometheus: Prometheus\n(Metrics) {
     shape: hexagon
     style.fill: "#E6522C"
     style.font-color: white
   }
-  
+
   loki: Loki\n(Logs) {
     shape: hexagon
     style.fill: "#F9A825"
     style.font-color: white
   }
-  
+
   jaeger: Jaeger\n(Traces) {
     shape: hexagon
     style.fill: "#66BBEC"
     style.font-color: white
   }
-  
+
   finops: Cost Mgmt\n(FinOps) {
     shape: rectangle
     style.fill: "#9C27B0"
@@ -229,16 +229,16 @@ multi-cloud-management/
 
 ## Supported Services by Cloud
 
-| Service Category | AWS | Azure | GCP |
-|------------------|-----|-------|-----|
-| **Compute** | EC2, ECS, Lambda | VMs, Container Apps, Functions | GCE, Cloud Run, Functions |
-| **Kubernetes** | EKS | AKS | GKE |
-| **Databases** | RDS, DynamoDB | Azure SQL, Cosmos DB | Cloud SQL, Firestore |
-| **Storage** | S3, EBS, EFS | Blob, Disk, Files | GCS, Persistent Disk |
-| **Networking** | VPC, ALB, CloudFront | VNet, App Gateway, CDN | VPC, Cloud Load Balancing |
-| **Identity** | IAM, Cognito | Entra ID, B2C | Cloud IAM, Identity Platform |
-| **Secrets** | Secrets Manager | Key Vault | Secret Manager |
-| **Monitoring** | CloudWatch | Monitor | Cloud Monitoring |
+| Service Category | AWS                  | Azure                          | GCP                          |
+| ---------------- | -------------------- | ------------------------------ | ---------------------------- |
+| **Compute**      | EC2, ECS, Lambda     | VMs, Container Apps, Functions | GCE, Cloud Run, Functions    |
+| **Kubernetes**   | EKS                  | AKS                            | GKE                          |
+| **Databases**    | RDS, DynamoDB        | Azure SQL, Cosmos DB           | Cloud SQL, Firestore         |
+| **Storage**      | S3, EBS, EFS         | Blob, Disk, Files              | GCS, Persistent Disk         |
+| **Networking**   | VPC, ALB, CloudFront | VNet, App Gateway, CDN         | VPC, Cloud Load Balancing    |
+| **Identity**     | IAM, Cognito         | Entra ID, B2C                  | Cloud IAM, Identity Platform |
+| **Secrets**      | Secrets Manager      | Key Vault                      | Secret Manager               |
+| **Monitoring**   | CloudWatch           | Monitor                        | Cloud Monitoring             |
 
 ## Related Documentation
 

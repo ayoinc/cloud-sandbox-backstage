@@ -17,10 +17,10 @@ title: AWS Organizations {
 
 org: AWS Organizations {
   style.fill: "#E3F2FD"
-  
+
   row1: Management & Production {
     style.fill: "#BBDEFB"
-    
+
     mgmt: Management Account {
       shape: rectangle
       style.fill: "#2196F3"
@@ -37,10 +37,10 @@ org: AWS Organizations {
       style.font-color: white
     }
   }
-  
+
   row2: Supporting Accounts {
     style.fill: "#E8F5E9"
-    
+
     staging: Staging Account {
       shape: rectangle
       style.fill: "#4CAF50"
@@ -64,43 +64,43 @@ org: AWS Organizations {
 
 ### Compute Services
 
-| Service | Description | Best For |
-|---------|-------------|----------|
-| **EC2** | Virtual machines with full OS control | Legacy apps, custom configurations |
-| **ECS** | Docker container orchestration | Containerized microservices |
-| **EKS** | Managed Kubernetes | K8s workloads, hybrid deployments |
-| **Lambda** | Serverless functions | Event-driven, short-running tasks |
-| **Fargate** | Serverless containers | Containers without managing servers |
+| Service     | Description                           | Best For                            |
+| ----------- | ------------------------------------- | ----------------------------------- |
+| **EC2**     | Virtual machines with full OS control | Legacy apps, custom configurations  |
+| **ECS**     | Docker container orchestration        | Containerized microservices         |
+| **EKS**     | Managed Kubernetes                    | K8s workloads, hybrid deployments   |
+| **Lambda**  | Serverless functions                  | Event-driven, short-running tasks   |
+| **Fargate** | Serverless containers                 | Containers without managing servers |
 
 ### Networking
 
-| Component | Purpose |
-|-----------|---------|
-| **VPC** | Isolated virtual network |
-| **Subnets** | Network segmentation (public/private) |
-| **Security Groups** | Instance-level firewall |
-| **NACLs** | Subnet-level firewall |
-| **NAT Gateway** | Outbound internet for private subnets |
-| **Transit Gateway** | Multi-VPC connectivity |
+| Component           | Purpose                               |
+| ------------------- | ------------------------------------- |
+| **VPC**             | Isolated virtual network              |
+| **Subnets**         | Network segmentation (public/private) |
+| **Security Groups** | Instance-level firewall               |
+| **NACLs**           | Subnet-level firewall                 |
+| **NAT Gateway**     | Outbound internet for private subnets |
+| **Transit Gateway** | Multi-VPC connectivity                |
 
 ### Storage Services
 
-| Service | Type | Use Case |
-|---------|------|----------|
-| **S3** | Object storage | Files, backups, static hosting |
-| **EBS** | Block storage | EC2 volumes, databases |
-| **EFS** | File storage | Shared file systems |
-| **S3 Glacier** | Archive storage | Long-term backups |
+| Service        | Type            | Use Case                       |
+| -------------- | --------------- | ------------------------------ |
+| **S3**         | Object storage  | Files, backups, static hosting |
+| **EBS**        | Block storage   | EC2 volumes, databases         |
+| **EFS**        | File storage    | Shared file systems            |
+| **S3 Glacier** | Archive storage | Long-term backups              |
 
 ### Database Services
 
-| Service | Engine | Use Case |
-|---------|--------|----------|
-| **RDS** | PostgreSQL, MySQL, SQL Server | Relational workloads |
-| **Aurora** | MySQL/PostgreSQL compatible | High-performance OLTP |
-| **DynamoDB** | NoSQL key-value | Low-latency at scale |
-| **ElastiCache** | Redis, Memcached | Caching, sessions |
-| **DocumentDB** | MongoDB compatible | Document databases |
+| Service         | Engine                        | Use Case              |
+| --------------- | ----------------------------- | --------------------- |
+| **RDS**         | PostgreSQL, MySQL, SQL Server | Relational workloads  |
+| **Aurora**      | MySQL/PostgreSQL compatible   | High-performance OLTP |
+| **DynamoDB**    | NoSQL key-value               | Low-latency at scale  |
+| **ElastiCache** | Redis, Memcached              | Caching, sessions     |
+| **DocumentDB**  | MongoDB compatible            | Document databases    |
 
 ## Configuration
 
@@ -215,13 +215,13 @@ aws s3api put-bucket-encryption \
 
 Key metrics to monitor:
 
-| Service | Metric | Threshold |
-|---------|--------|-----------|
-| EC2 | CPUUtilization | > 80% |
-| RDS | FreeStorageSpace | < 20% |
-| Lambda | Errors | > 0 |
-| ALB | TargetResponseTime | > 1s |
-| S3 | BucketSizeBytes | Monitor trend |
+| Service | Metric             | Threshold     |
+| ------- | ------------------ | ------------- |
+| EC2     | CPUUtilization     | > 80%         |
+| RDS     | FreeStorageSpace   | < 20%         |
+| Lambda  | Errors             | > 0           |
+| ALB     | TargetResponseTime | > 1s          |
+| S3      | BucketSizeBytes    | Monitor trend |
 
 ### CloudWatch Alarms
 

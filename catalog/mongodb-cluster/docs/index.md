@@ -52,16 +52,16 @@ rs.status()
 
 ## Features
 
-| Feature | Description |
-|---------|-------------|
-| **Replica Sets** | Automatic failover with primary election, data redundancy across nodes |
-| **Sharding** | Horizontal scaling across multiple shards for large datasets |
-| **Change Streams** | Real-time data change notifications for event-driven architectures |
-| **Aggregation Pipeline** | Powerful data processing and analytics framework |
-| **ACID Transactions** | Multi-document transactions with snapshot isolation |
-| **Time Series Collections** | Optimized storage for time-series data (IoT, metrics) |
-| **Atlas Search** | Full-text search with Lucene-based indexing |
-| **Queryable Encryption** | Client-side field-level encryption with query support |
+| Feature                     | Description                                                            |
+| --------------------------- | ---------------------------------------------------------------------- |
+| **Replica Sets**            | Automatic failover with primary election, data redundancy across nodes |
+| **Sharding**                | Horizontal scaling across multiple shards for large datasets           |
+| **Change Streams**          | Real-time data change notifications for event-driven architectures     |
+| **Aggregation Pipeline**    | Powerful data processing and analytics framework                       |
+| **ACID Transactions**       | Multi-document transactions with snapshot isolation                    |
+| **Time Series Collections** | Optimized storage for time-series data (IoT, metrics)                  |
+| **Atlas Search**            | Full-text search with Lucene-based indexing                            |
+| **Queryable Encryption**    | Client-side field-level encryption with query support                  |
 
 ## Architecture
 
@@ -76,7 +76,7 @@ title: MongoDB Sharded Cluster {
 routers: Query Routers {
   direction: right
   style.fill: "#E3F2FD"
-  
+
   mongos1: Mongos Router {
     style.fill: "#BBDEFB"
   }
@@ -91,7 +91,7 @@ routers: Query Routers {
 shards: Shards {
   direction: right
   style.fill: "#E8F5E9"
-  
+
   shard1: Shard 1 (Replica Set) {
     style.fill: "#C8E6C9"
     p1: Primary {
@@ -106,7 +106,7 @@ shards: Shards {
     p1 -> s1a: replication
     p1 -> s1b: replication
   }
-  
+
   shard2: Shard 2 (Replica Set) {
     style.fill: "#C8E6C9"
     p2: Primary {
@@ -121,7 +121,7 @@ shards: Shards {
     p2 -> s2a: replication
     p2 -> s2b: replication
   }
-  
+
   shard3: Shard 3 (Replica Set) {
     style.fill: "#C8E6C9"
     p3: Primary {
@@ -141,7 +141,7 @@ shards: Shards {
 config: Config Server Replica Set {
   style.fill: "#FFF3E0"
   desc: Cluster Metadata
-  
+
   nodes: {
     direction: right
     cp: Primary {
@@ -166,11 +166,11 @@ routers -> config: read metadata
 
 ## Deployment Options
 
-| Option | Use Case | Nodes |
-|--------|----------|-------|
-| **Replica Set** | High availability, read scaling | 3-7 members |
-| **Sharded Cluster** | Horizontal scaling, large datasets | 2+ shards |
-| **Standalone** | Development only | 1 node |
+| Option              | Use Case                           | Nodes       |
+| ------------------- | ---------------------------------- | ----------- |
+| **Replica Set**     | High availability, read scaling    | 3-7 members |
+| **Sharded Cluster** | Horizontal scaling, large datasets | 2+ shards   |
+| **Standalone**      | Development only                   | 1 node      |
 
 ## Version Information
 

@@ -69,7 +69,9 @@ export const githubTeamSyncPlugin = createBackendPlugin({
         // Get GitHub token from integrations config or environment
         let githubToken: string | undefined;
         try {
-          const githubConfigs = config.getOptionalConfigArray('integrations.github');
+          const githubConfigs = config.getOptionalConfigArray(
+            'integrations.github',
+          );
           if (githubConfigs && githubConfigs.length > 0) {
             githubToken = githubConfigs[0].getOptionalString('token');
           }
@@ -117,13 +119,17 @@ export const githubTeamSyncPlugin = createBackendPlugin({
           const rows = await db(SYNC_STATE_TABLE)
             .where('source', 'backstage')
             .select('team_slug');
-          return new Set(rows.map((r: { team_slug: string }) => r.team_slug.toLowerCase()));
+          return new Set(
+            rows.map((r: { team_slug: string }) => r.team_slug.toLowerCase()),
+          );
         }
 
         // Helper: Add team to sync state
         async function addSyncedTeam(teamSlug: string): Promise<void> {
           const slug = teamSlug.toLowerCase();
-          const existing = await db(SYNC_STATE_TABLE).where('team_slug', slug).first();
+          const existing = await db(SYNC_STATE_TABLE)
+            .where('team_slug', slug)
+            .first();
           if (existing) {
             await db(SYNC_STATE_TABLE)
               .where('team_slug', slug)
@@ -168,7 +174,9 @@ export const githubTeamSyncPlugin = createBackendPlugin({
         }
 
         // Helper: Get all Backstage groups with sync info
-        async function getBackstageGroups(): Promise<Map<string, BackstageGroup>> {
+        async function getBackstageGroups(): Promise<
+          Map<string, BackstageGroup>
+        > {
           const groups = new Map<string, BackstageGroup>();
           try {
             const entities = await catalog.getEntities({
@@ -189,13 +197,21 @@ export const githubTeamSyncPlugin = createBackendPlugin({
               const role = annotations['backstage.io/role'];
 
               // Skip system permission groups
-              const isSystemGroup = ['admins', 'editors', 'viewers', 'unassigned'].includes(name);
+              const isSystemGroup = [
+                'admins',
+                'editors',
+                'viewers',
+                'unassigned',
+              ].includes(name);
 
               // Get members from relations
               const members: string[] = [];
               if (entity.relations) {
                 for (const relation of entity.relations) {
-                  if (relation.type === 'hasMember' && relation.targetRef.startsWith('user:')) {
+                  if (
+                    relation.type === 'hasMember' &&
+                    relation.targetRef.startsWith('user:')
+                  ) {
                     const username = relation.targetRef.split('/').pop();
                     if (username) {
                       members.push(username);
@@ -222,7 +238,10 @@ export const githubTeamSyncPlugin = createBackendPlugin({
         }
 
         // Helper: Create a GitHub team
-        async function createGitHubTeam(name: string, description?: string): Promise<boolean> {
+        async function createGitHubTeam(
+          name: string,
+          description?: string,
+        ): Promise<boolean> {
           try {
             logger.info(`Creating GitHub team: ${name}`);
             await octokit.teams.create({
@@ -234,7 +253,10 @@ export const githubTeamSyncPlugin = createBackendPlugin({
             logger.info(`Successfully created GitHub team: ${name}`);
             return true;
           } catch (error: any) {
-            if (error.status === 422 && error.message?.includes('already exists')) {
+            if (
+              error.status === 422 &&
+              error.message?.includes('already exists')
+            ) {
               logger.info(`GitHub team already exists: ${name}`);
               return true;
             }
@@ -268,16 +290,23 @@ export const githubTeamSyncPlugin = createBackendPlugin({
         // Backstage groups don't typically have members defined - members come from GitHub.
         // This function only ADDS Backstage members to GitHub, it does NOT remove members.
         // To enable full bi-directional member sync, add annotation: github.com/manage-members: "true"
-        async function syncTeamMembers(teamSlug: string, backstageMembers: string[], manageMembership: boolean = false): Promise<void> {
+        async function syncTeamMembers(
+          teamSlug: string,
+          backstageMembers: string[],
+          manageMembership: boolean = false,
+        ): Promise<void> {
           try {
             // Get current GitHub team members
             const githubMembers = new Set<string>();
             try {
-              const members = await octokit.paginate(octokit.teams.listMembersInOrg, {
-                org: githubOrg!,
-                team_slug: teamSlug,
-                per_page: 100,
-              });
+              const members = await octokit.paginate(
+                octokit.teams.listMembersInOrg,
+                {
+                  org: githubOrg!,
+                  team_slug: teamSlug,
+                  per_page: 100,
+                },
+              );
               for (const member of members as Array<{ login?: string }>) {
                 if (member.login) {
                   githubMembers.add(member.login.toLowerCase());
@@ -289,7 +318,9 @@ export const githubTeamSyncPlugin = createBackendPlugin({
               }
             }
 
-            const backstageMemberSet = new Set(backstageMembers.map(m => m.toLowerCase()));
+            const backstageMemberSet = new Set(
+              backstageMembers.map(m => m.toLowerCase()),
+            );
 
             // Add missing members from Backstage to GitHub
             for (const member of backstageMembers) {
@@ -303,7 +334,10 @@ export const githubTeamSyncPlugin = createBackendPlugin({
                   });
                   logger.info(`Added ${member} to GitHub team ${teamSlug}`);
                 } catch (error) {
-                  logger.warn(`Failed to add ${member} to team ${teamSlug}`, error as Error);
+                  logger.warn(
+                    `Failed to add ${member} to team ${teamSlug}`,
+                    error as Error,
+                  );
                 }
               }
             }
@@ -319,15 +353,23 @@ export const githubTeamSyncPlugin = createBackendPlugin({
                       team_slug: teamSlug,
                       username: member,
                     });
-                    logger.info(`Removed ${member} from GitHub team ${teamSlug}`);
+                    logger.info(
+                      `Removed ${member} from GitHub team ${teamSlug}`,
+                    );
                   } catch (error) {
-                    logger.warn(`Failed to remove ${member} from team ${teamSlug}`, error as Error);
+                    logger.warn(
+                      `Failed to remove ${member} from team ${teamSlug}`,
+                      error as Error,
+                    );
                   }
                 }
               }
             }
           } catch (error) {
-            logger.error(`Failed to sync members for team ${teamSlug}`, error as Error);
+            logger.error(
+              `Failed to sync members for team ${teamSlug}`,
+              error as Error,
+            );
           }
         }
 
@@ -336,11 +378,12 @@ export const githubTeamSyncPlugin = createBackendPlugin({
           logger.info('Starting GitHub team sync...');
 
           try {
-            const [githubTeams, backstageGroups, syncedTeams] = await Promise.all([
-              getGitHubTeams(),
-              getBackstageGroups(),
-              getSyncedTeams(),
-            ]);
+            const [githubTeams, backstageGroups, syncedTeams] =
+              await Promise.all([
+                getGitHubTeams(),
+                getBackstageGroups(),
+                getSyncedTeams(),
+              ]);
 
             // Filter to only groups that should sync
             const groupsToSync = new Map<string, BackstageGroup>();
@@ -350,15 +393,23 @@ export const githubTeamSyncPlugin = createBackendPlugin({
               }
             }
 
-            logger.info(`Found ${githubTeams.size} GitHub teams, ${backstageGroups.size} Backstage groups, ${groupsToSync.size} marked for sync, ${syncedTeams.size} previously synced`);
+            logger.info(
+              `Found ${githubTeams.size} GitHub teams, ${backstageGroups.size} Backstage groups, ${groupsToSync.size} marked for sync, ${syncedTeams.size} previously synced`,
+            );
 
             // Create/update GitHub teams for Backstage groups with sync annotation
             for (const [groupKey, group] of groupsToSync) {
               if (!githubTeams.has(groupKey)) {
-                const created = await createGitHubTeam(group.name, group.description);
+                const created = await createGitHubTeam(
+                  group.name,
+                  group.description,
+                );
                 if (created) {
                   await addSyncedTeam(groupKey);
-                  await syncTeamMembers(group.name.toLowerCase(), group.members);
+                  await syncTeamMembers(
+                    group.name.toLowerCase(),
+                    group.members,
+                  );
                 }
               } else {
                 // Team exists, update sync state and sync members
@@ -373,7 +424,9 @@ export const githubTeamSyncPlugin = createBackendPlugin({
               if (!groupsToSync.has(syncedTeam)) {
                 // Team was synced but no longer in Backstage or sync disabled
                 if (githubTeams.has(syncedTeam)) {
-                  logger.info(`Group ${syncedTeam} no longer marked for sync, deleting from GitHub`);
+                  logger.info(
+                    `Group ${syncedTeam} no longer marked for sync, deleting from GitHub`,
+                  );
                   const deleted = await deleteGitHubTeam(syncedTeam);
                   if (deleted) {
                     await removeSyncedTeam(syncedTeam);
@@ -401,9 +454,15 @@ export const githubTeamSyncPlugin = createBackendPlugin({
         });
 
         logger.info('GitHub Team Sync plugin initialized');
-        logger.info(`Sync state is persisted to database table: ${SYNC_STATE_TABLE}`);
-        logger.info('To sync a group to GitHub, add annotation: github.com/sync: "true"');
-        logger.info('To map a group to a role, add annotation: backstage.io/role: "editors"');
+        logger.info(
+          `Sync state is persisted to database table: ${SYNC_STATE_TABLE}`,
+        );
+        logger.info(
+          'To sync a group to GitHub, add annotation: github.com/sync: "true"',
+        );
+        logger.info(
+          'To map a group to a role, add annotation: backstage.io/role: "editors"',
+        );
       },
     });
   },

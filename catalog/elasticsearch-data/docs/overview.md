@@ -16,7 +16,7 @@ title: Elasticsearch Data Flow {
 sources: Data Sources {
   style.fill: "#e3f2fd"
   style.stroke: "#1565c2"
-  
+
   apps: Applications {
     shape: rectangle
     style.fill: "#42a5f5"
@@ -36,21 +36,21 @@ sources: Data Sources {
 ingest: Ingest Layer {
   style.fill: "#fff3e0"
   style.stroke: "#ef6c00"
-  
+
   logstash: Logstash {
     shape: hexagon
     style.fill: "#ff9800"
     style.font-color: white
     icon: https://icons.terrastruct.com/aws%2FAnalytics%2FAmazon-Kinesis-Data-Firehose.svg
   }
-  
+
   pipeline: Ingest Pipeline {
     style.fill: "#ffe0b2"
-    
+
     grok: Grok Parser {shape: rectangle}
     date: Date Processor {shape: rectangle}
     enrich: Enrichment {shape: rectangle}
-    
+
     grok -> date -> enrich
   }
 }
@@ -59,30 +59,30 @@ ingest: Ingest Layer {
 cluster: Elasticsearch Cluster {
   style.fill: "#e8f5e9"
   style.stroke: "#2e7d32"
-  
+
   coord: Coordinating Node {
     shape: diamond
     style.fill: "#66bb6a"
     style.font-color: white
   }
-  
+
   hot: Hot Tier {
     style.fill: "#c8e6c9"
     h1: Hot Node 1 {style.fill: "#4caf50"; style.font-color: white}
     h2: Hot Node 2 {style.fill: "#4caf50"; style.font-color: white}
   }
-  
+
   warm: Warm Tier {
     style.fill: "#fff9c4"
     w1: Warm Node 1 {style.fill: "#ffeb3b"}
     w2: Warm Node 2 {style.fill: "#ffeb3b"}
   }
-  
+
   cold: Cold Tier {
     style.fill: "#e0e0e0"
     c1: Cold Node {style.fill: "#9e9e9e"; style.font-color: white}
   }
-  
+
   coord -> hot
   hot -> warm: "ILM\n7 days" {style.stroke: "#ff9800"; style.stroke-dash: 3}
   warm -> cold: "ILM\n30 days" {style.stroke: "#ff9800"; style.stroke-dash: 3}
@@ -92,7 +92,7 @@ cluster: Elasticsearch Cluster {
 output: Consumers {
   style.fill: "#fce4ec"
   style.stroke: "#c2185b"
-  
+
   kibana: Kibana {
     shape: rectangle
     style.fill: "#e91e63"
@@ -141,7 +141,7 @@ cluster: Production Cluster {
     }
     m1 <-> m2 <-> m3
   }
-  
+
   hot: Hot Tier (NVMe SSD) {
     h1: Hot Node 1 (16 CPU, 64GB, 1TB SSD) {
       shape: cylinder
@@ -153,7 +153,7 @@ cluster: Production Cluster {
       shape: cylinder
     }
   }
-  
+
   warm: Warm Tier (SATA SSD) {
     w1: Warm Node 1 (8 CPU, 32GB, 4TB SSD) {
       shape: cylinder
@@ -165,7 +165,7 @@ cluster: Production Cluster {
       shape: cylinder
     }
   }
-  
+
   masters -> hot: manages
   hot -> warm: ILM migration
 }
@@ -256,17 +256,17 @@ PUT /products
 
 ### Field Types
 
-| Type | Use Case | Example |
-|------|----------|---------|
-| `text` | Full-text search | Product descriptions |
-| `keyword` | Exact matching, aggregations | Status, category |
-| `long`, `integer`, `float` | Numeric values | Prices, counts |
-| `date` | Timestamps | Created, updated |
-| `boolean` | True/false flags | Is_active |
-| `geo_point` | Latitude/longitude | Locations |
-| `nested` | Arrays of objects | Attributes, variants |
-| `dense_vector` | ML embeddings | Semantic search |
-| `object` | JSON objects | Metadata |
+| Type                       | Use Case                     | Example              |
+| -------------------------- | ---------------------------- | -------------------- |
+| `text`                     | Full-text search             | Product descriptions |
+| `keyword`                  | Exact matching, aggregations | Status, category     |
+| `long`, `integer`, `float` | Numeric values               | Prices, counts       |
+| `date`                     | Timestamps                   | Created, updated     |
+| `boolean`                  | True/false flags             | Is_active            |
+| `geo_point`                | Latitude/longitude           | Locations            |
+| `nested`                   | Arrays of objects            | Attributes, variants |
+| `dense_vector`             | ML embeddings                | Semantic search      |
+| `object`                   | JSON objects                 | Metadata             |
 
 ## Configuration
 
@@ -437,13 +437,13 @@ PUT _data_stream/logs-production
 
 ### Built-in Users
 
-| User | Purpose |
-|------|---------|
-| `elastic` | Superuser |
-| `kibana_system` | Kibana to ES communication |
-| `logstash_system` | Logstash monitoring |
-| `beats_system` | Beats monitoring |
-| `apm_system` | APM server |
+| User              | Purpose                    |
+| ----------------- | -------------------------- |
+| `elastic`         | Superuser                  |
+| `kibana_system`   | Kibana to ES communication |
+| `logstash_system` | Logstash monitoring        |
+| `beats_system`    | Beats monitoring           |
+| `apm_system`      | APM server                 |
 
 ### Role-Based Access Control
 
@@ -492,16 +492,16 @@ POST _security/api_key
 
 ### Key Metrics
 
-| Metric | Healthy Range | Alert Threshold |
-|--------|---------------|-----------------|
-| Cluster status | Green | Yellow/Red |
-| JVM heap used | < 75% | > 85% |
-| CPU usage | < 80% | > 90% |
-| Disk usage | < 80% | > 85% |
-| Search latency (p99) | < 500ms | > 1000ms |
-| Indexing rate | Stable | Sudden drops |
-| Pending tasks | 0 | > 100 |
-| Unassigned shards | 0 | > 0 |
+| Metric               | Healthy Range | Alert Threshold |
+| -------------------- | ------------- | --------------- |
+| Cluster status       | Green         | Yellow/Red      |
+| JVM heap used        | < 75%         | > 85%           |
+| CPU usage            | < 80%         | > 90%           |
+| Disk usage           | < 80%         | > 85%           |
+| Search latency (p99) | < 500ms       | > 1000ms        |
+| Indexing rate        | Stable        | Sudden drops    |
+| Pending tasks        | 0             | > 100           |
+| Unassigned shards    | 0             | > 0             |
 
 ### Cluster Health API
 
@@ -534,7 +534,7 @@ elasticsearch-exporter:
     - '--es.indices'
     - '--es.cluster_settings'
   ports:
-    - "9114:9114"
+    - '9114:9114'
 ```
 
 ## Backup and Restore

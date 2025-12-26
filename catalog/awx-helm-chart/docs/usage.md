@@ -59,11 +59,11 @@ AWX:
   spec:
     admin_user: admin
     admin_email: admin@example.com
-    
+
     # High availability
     web_replicas: 3
     task_replicas: 3
-    
+
     # Resource allocation
     web_resource_requirements:
       requests:
@@ -72,7 +72,7 @@ AWX:
       limits:
         cpu: 2000m
         memory: 4Gi
-    
+
     task_resource_requirements:
       requests:
         cpu: 1000m
@@ -80,22 +80,22 @@ AWX:
       limits:
         cpu: 4000m
         memory: 8Gi
-    
+
     # PostgreSQL configuration
     postgres_storage_class: fast-ssd
     postgres_storage_requirements:
       requests:
         storage: 50Gi
-    
+
     # Projects persistence
     projects_persistence: true
     projects_storage_class: nfs-client
     projects_storage_size: 50Gi
     projects_storage_access_mode: ReadWriteMany
-    
+
     # Ingress hostname
     hostname: awx.example.com
-    
+
     # Extra settings
     extra_settings:
       - setting: REMOTE_HOST_HEADERS
@@ -169,10 +169,10 @@ AWX:
   name: awx-dev
   spec:
     admin_user: admin
-    
+
     web_replicas: 1
     task_replicas: 1
-    
+
     web_resource_requirements:
       requests:
         cpu: 100m
@@ -180,7 +180,7 @@ AWX:
       limits:
         cpu: 500m
         memory: 1Gi
-    
+
     task_resource_requirements:
       requests:
         cpu: 100m
@@ -188,18 +188,18 @@ AWX:
       limits:
         cpu: 500m
         memory: 2Gi
-    
+
     postgres_storage_requirements:
       requests:
         storage: 5Gi
-    
+
     projects_persistence: true
     projects_storage_size: 5Gi
-    
+
     # Enable debug logging
     extra_settings:
       - setting: LOG_LEVEL
-        value: "DEBUG"
+        value: 'DEBUG'
 
 ingress:
   enabled: true
@@ -226,17 +226,17 @@ AWX:
   spec:
     image: registry.internal.example.com/ansible/awx
     image_version: 24.0.0
-    
+
     redis_image: registry.internal.example.com/redis
-    redis_image_version: "7"
-    
+    redis_image_version: '7'
+
     postgres_image: registry.internal.example.com/postgres
-    postgres_image_version: "15"
-    
+    postgres_image_version: '15'
+
     ee_images:
       - name: AWX EE
         image: registry.internal.example.com/ansible/awx-ee:24.0.0
-    
+
     # Image pull secrets for private registry
     image_pull_secrets:
       - internal-registry-creds
@@ -282,15 +282,15 @@ kubernetes>=25.0.0
 # requirements.yml
 collections:
   - name: amazon.aws
-    version: ">=6.0.0"
+    version: '>=6.0.0'
   - name: azure.azcollection
-    version: ">=1.15.0"
+    version: '>=1.15.0'
   - name: google.cloud
-    version: ">=1.1.0"
+    version: '>=1.1.0'
   - name: kubernetes.core
-    version: ">=2.4.0"
+    version: '>=2.4.0'
   - name: community.general
-    version: ">=7.0.0"
+    version: '>=7.0.0'
 ```
 
 ```bash
@@ -324,16 +324,16 @@ spec:
   deployment_name: awx
   backup_pvc: awx-backup-claim
   backup_pvc_namespace: awx
-  
+
   # Backup storage configuration
   backup_storage_class: standard
   backup_storage_requirements: 10Gi
-  
+
   # Clean old backups
   clean_backup_on_delete: true
-  
+
   # Schedule (cron format)
-  backup_schedule: "0 2 * * *"  # Daily at 2 AM
+  backup_schedule: '0 2 * * *' # Daily at 2 AM
 ```
 
 ```bash
@@ -405,9 +405,9 @@ metadata:
   namespace: awx
 spec:
   deployment_name: awx
-  
+
   # S3 configuration
-  backup_storage_class: ""
+  backup_storage_class: ''
   backup_s3_bucket: awx-backups
   backup_s3_region: us-east-1
   backup_s3_secret: awx-s3-credentials
@@ -419,8 +419,8 @@ metadata:
   namespace: awx
 type: Opaque
 stringData:
-  AWS_ACCESS_KEY_ID: "AKIAIOSFODNN7EXAMPLE"
-  AWS_SECRET_ACCESS_KEY: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+  AWS_ACCESS_KEY_ID: 'AKIAIOSFODNN7EXAMPLE'
+  AWS_SECRET_ACCESS_KEY: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
 ```
 
 ## Upgrades
@@ -460,7 +460,7 @@ kubectl get awx -n awx
 # Update AWX version in values
 AWX:
   spec:
-    image_version: 24.1.0  # New version
+    image_version: 24.1.0 # New version
 ```
 
 ```bash
@@ -492,16 +492,16 @@ kubectl logs -f deployment/awx-operator-controller-manager -n awx
 
 ### Common Issues
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| Pods stuck in Pending | Insufficient resources | Check node capacity: `kubectl describe nodes` |
-| Database connection failed | Wrong credentials or network | Verify secret: `kubectl get secret awx-postgres-configuration -o yaml` |
-| Ingress not working | Missing ingress controller | Install ingress: `helm install ingress-nginx ingress-nginx/ingress-nginx` |
-| AWX CRD not found | Operator not installed | Install operator first: `helm install awx awx-community/awx-operator` |
-| Backup failed | PVC not bound | Check PVC status: `kubectl get pvc -n awx` |
-| EE image pull error | Missing pull secret | Add `image_pull_secrets` to AWX spec |
-| LDAP auth failing | Certificate issues | Add custom CA bundle to AWX |
-| Slow job execution | Insufficient task workers | Increase `task_replicas` |
+| Issue                      | Cause                        | Solution                                                                  |
+| -------------------------- | ---------------------------- | ------------------------------------------------------------------------- |
+| Pods stuck in Pending      | Insufficient resources       | Check node capacity: `kubectl describe nodes`                             |
+| Database connection failed | Wrong credentials or network | Verify secret: `kubectl get secret awx-postgres-configuration -o yaml`    |
+| Ingress not working        | Missing ingress controller   | Install ingress: `helm install ingress-nginx ingress-nginx/ingress-nginx` |
+| AWX CRD not found          | Operator not installed       | Install operator first: `helm install awx awx-community/awx-operator`     |
+| Backup failed              | PVC not bound                | Check PVC status: `kubectl get pvc -n awx`                                |
+| EE image pull error        | Missing pull secret          | Add `image_pull_secrets` to AWX spec                                      |
+| LDAP auth failing          | Certificate issues           | Add custom CA bundle to AWX                                               |
+| Slow job execution         | Insufficient task workers    | Increase `task_replicas`                                                  |
 
 ### Diagnostic Commands
 

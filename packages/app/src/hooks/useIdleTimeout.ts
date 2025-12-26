@@ -1,5 +1,9 @@
 import { useEffect, useCallback, useRef } from 'react';
-import { useApi, identityApiRef, errorApiRef } from '@backstage/core-plugin-api';
+import {
+  useApi,
+  identityApiRef,
+  errorApiRef,
+} from '@backstage/core-plugin-api';
 
 const IDLE_TIMEOUT_MS = 60 * 60 * 1000; // 1 hour in milliseconds
 const ACTIVITY_EVENTS = [

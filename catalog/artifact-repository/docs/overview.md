@@ -18,25 +18,25 @@ title: Nexus Repository Manager Components {
 nexus: Nexus Repository Manager {
   shape: rectangle
   style.fill: "#FAFAFA"
-  
+
   app_layer: Application Layer {
     shape: rectangle
     style.fill: "#E3F2FD"
-    
+
     rest_api: REST API {
       shape: rectangle
       style.fill: "#2196F3"
       style.font-color: white
       label: "/service/rest/*"
     }
-    
+
     web_ui: Web UI {
       shape: rectangle
       style.fill: "#2196F3"
       style.font-color: white
       label: "React Frontend"
     }
-    
+
     plugins: Format Plugins {
       shape: rectangle
       style.fill: "#2196F3"
@@ -44,24 +44,24 @@ nexus: Nexus Repository Manager {
       label: "Maven, npm, Docker, PyPI..."
     }
   }
-  
+
   core_layer: Core Services {
     shape: rectangle
     style.fill: "#C8E6C9"
-    
+
     repo_mgr: Repository Manager {
       shape: rectangle
       style.fill: "#4CAF50"
       style.font-color: white
     }
-    
+
     security_mgr: Security Manager {
       shape: rectangle
       style.fill: "#4CAF50"
       style.font-color: white
       label: "LDAP/SAML/RBAC"
     }
-    
+
     scheduler: Scheduler {
       shape: rectangle
       style.fill: "#4CAF50"
@@ -69,25 +69,25 @@ nexus: Nexus Repository Manager {
       label: "Tasks & Cleanup"
     }
   }
-  
+
   data_layer: Data Layer {
     shape: rectangle
     style.fill: "#E1BEE7"
-    
+
     orientdb: OrientDB {
       shape: cylinder
       style.fill: "#9C27B0"
       style.font-color: white
       label: "Metadata"
     }
-    
+
     blobstore: Blob Store {
       shape: cylinder
       style.fill: "#9C27B0"
       style.font-color: white
       label: "Artifacts"
     }
-    
+
     elasticsearch: Elasticsearch {
       shape: cylinder
       style.fill: "#9C27B0"
@@ -127,36 +127,36 @@ lb: Load Balancer {
 nexus: Nexus Repository Manager {
   shape: rectangle
   style.fill: "#FAFAFA"
-  
+
   handler: Request Handler {
     shape: rectangle
     style.fill: "#C8E6C9"
-    
+
     auth: Authentication Check
     authz: Authorization Check
     route: Route to Repository
   }
-  
+
   repos: Repository Types {
     shape: rectangle
     style.fill: "#E1BEE7"
-    
+
     hosted: Hosted Repo {
       shape: cylinder
       style.fill: "#81C784"
     }
-    
+
     proxy: Proxy Repo {
       shape: cylinder
       style.fill: "#4FC3F7"
     }
-    
+
     group: Group Repo {
       shape: cylinder
       style.fill: "#FFB74D"
     }
   }
-  
+
   blobstore: Blob Store {
     shape: cylinder
     style.fill: "#9C27B0"
@@ -508,13 +508,13 @@ scrape_configs:
 
 ### Key Metrics
 
-| Metric | Description | Alert Threshold |
-|--------|-------------|-----------------|
-| `nexus_repository_blob_count` | Total blob count | N/A (tracking) |
-| `nexus_repository_total_size_bytes` | Total storage used | > 80% capacity |
-| `nexus_request_duration_seconds` | Request latency | p95 > 1s |
-| `nexus_component_upload_count` | Uploads per period | Anomaly detection |
-| `jvm_memory_used_bytes` | JVM heap usage | > 80% |
+| Metric                              | Description        | Alert Threshold   |
+| ----------------------------------- | ------------------ | ----------------- |
+| `nexus_repository_blob_count`       | Total blob count   | N/A (tracking)    |
+| `nexus_repository_total_size_bytes` | Total storage used | > 80% capacity    |
+| `nexus_request_duration_seconds`    | Request latency    | p95 > 1s          |
+| `nexus_component_upload_count`      | Uploads per period | Anomaly detection |
+| `jvm_memory_used_bytes`             | JVM heap usage     | > 80%             |
 
 ## Scheduled Tasks
 
@@ -540,10 +540,10 @@ curl -X POST "http://localhost:8081/service/rest/v1/tasks" \
 
 ### Common Scheduled Tasks
 
-| Task | Purpose | Recommended Schedule |
-|------|---------|---------------------|
-| `repository.cleanup` | Delete artifacts per cleanup policies | Daily, off-hours |
-| `blobstore.compact` | Reclaim deleted blob space | Weekly |
-| `db.backup` | Backup OrientDB | Daily |
-| `repository.maven-remove-snapshots` | Remove old snapshots | Daily |
-| `rebuild.browse` | Rebuild browse nodes | After major changes |
+| Task                                | Purpose                               | Recommended Schedule |
+| ----------------------------------- | ------------------------------------- | -------------------- |
+| `repository.cleanup`                | Delete artifacts per cleanup policies | Daily, off-hours     |
+| `blobstore.compact`                 | Reclaim deleted blob space            | Weekly               |
+| `db.backup`                         | Backup OrientDB                       | Daily                |
+| `repository.maven-remove-snapshots` | Remove old snapshots                  | Daily                |
+| `rebuild.browse`                    | Rebuild browse nodes                  | After major changes  |

@@ -17,10 +17,10 @@ title: Azure Tenant (Entra ID) {
 
 tenant: Azure Tenant {
   style.fill: "#E3F2FD"
-  
+
   mgs: Management Groups {
     style.fill: "#BBDEFB"
-    
+
     prod: Production MG {
       shape: rectangle
       style.fill: "#2196F3"
@@ -37,10 +37,10 @@ tenant: Azure Tenant {
       style.font-color: white
     }
   }
-  
+
   subs: Subscriptions {
     style.fill: "#E8F5E9"
-    
+
     prod_subs: Prod Subs {
       shape: rectangle
       style.fill: "#4CAF50"
@@ -57,7 +57,7 @@ tenant: Azure Tenant {
       style.font-color: white
     }
   }
-  
+
   mgs.prod -> subs.prod_subs
   mgs.dev -> subs.dev_subs
   mgs.sandbox -> subs.sandbox_subs
@@ -68,46 +68,46 @@ tenant: Azure Tenant {
 
 ### Compute Services
 
-| Service | Description | Best For |
-|---------|-------------|----------|
-| **Virtual Machines** | Full IaaS VMs | Custom workloads, legacy apps |
-| **VM Scale Sets** | Auto-scaling VMs | High-availability workloads |
-| **AKS** | Managed Kubernetes | Container orchestration |
-| **Azure Functions** | Serverless compute | Event-driven workloads |
-| **Container Instances** | Serverless containers | Quick container deployments |
-| **App Service** | PaaS web hosting | Web apps, APIs |
+| Service                 | Description           | Best For                      |
+| ----------------------- | --------------------- | ----------------------------- |
+| **Virtual Machines**    | Full IaaS VMs         | Custom workloads, legacy apps |
+| **VM Scale Sets**       | Auto-scaling VMs      | High-availability workloads   |
+| **AKS**                 | Managed Kubernetes    | Container orchestration       |
+| **Azure Functions**     | Serverless compute    | Event-driven workloads        |
+| **Container Instances** | Serverless containers | Quick container deployments   |
+| **App Service**         | PaaS web hosting      | Web apps, APIs                |
 
 ### Networking
 
-| Component | Purpose |
-|-----------|---------|
-| **Virtual Network (VNet)** | Isolated network in Azure |
-| **Subnets** | Network segmentation |
-| **Network Security Groups** | Stateful firewall rules |
-| **Azure Firewall** | Managed network firewall |
-| **VPN Gateway** | Site-to-site/point-to-site VPN |
-| **ExpressRoute** | Private connection to Azure |
-| **Private Link** | Private access to Azure services |
+| Component                   | Purpose                          |
+| --------------------------- | -------------------------------- |
+| **Virtual Network (VNet)**  | Isolated network in Azure        |
+| **Subnets**                 | Network segmentation             |
+| **Network Security Groups** | Stateful firewall rules          |
+| **Azure Firewall**          | Managed network firewall         |
+| **VPN Gateway**             | Site-to-site/point-to-site VPN   |
+| **ExpressRoute**            | Private connection to Azure      |
+| **Private Link**            | Private access to Azure services |
 
 ### Storage Services
 
-| Service | Type | Use Case |
-|---------|------|----------|
-| **Blob Storage** | Object storage | Unstructured data, backups |
-| **Azure Files** | SMB file shares | Lift-and-shift file servers |
-| **Azure Disks** | Block storage | VM disks |
-| **Azure Data Lake** | Big data storage | Analytics workloads |
-| **Queue Storage** | Message queuing | Async communication |
+| Service             | Type             | Use Case                    |
+| ------------------- | ---------------- | --------------------------- |
+| **Blob Storage**    | Object storage   | Unstructured data, backups  |
+| **Azure Files**     | SMB file shares  | Lift-and-shift file servers |
+| **Azure Disks**     | Block storage    | VM disks                    |
+| **Azure Data Lake** | Big data storage | Analytics workloads         |
+| **Queue Storage**   | Message queuing  | Async communication         |
 
 ### Database Services
 
-| Service | Engine | Use Case |
-|---------|--------|----------|
-| **Azure SQL** | SQL Server | Enterprise relational workloads |
-| **Azure Database for PostgreSQL** | PostgreSQL | Open-source relational |
-| **Cosmos DB** | Multi-model NoSQL | Global distribution, low latency |
-| **Azure Cache for Redis** | Redis | Caching, sessions |
-| **Azure Database for MySQL** | MySQL | MySQL workloads |
+| Service                           | Engine            | Use Case                         |
+| --------------------------------- | ----------------- | -------------------------------- |
+| **Azure SQL**                     | SQL Server        | Enterprise relational workloads  |
+| **Azure Database for PostgreSQL** | PostgreSQL        | Open-source relational           |
+| **Cosmos DB**                     | Multi-model NoSQL | Global distribution, low latency |
+| **Azure Cache for Redis**         | Redis             | Caching, sessions                |
+| **Azure Database for MySQL**      | MySQL             | MySQL workloads                  |
 
 ## Configuration
 
@@ -220,13 +220,13 @@ az keyvault secret show \
 
 Key metrics to monitor:
 
-| Service | Metric | Threshold |
-|---------|--------|-----------|
-| VM | Percentage CPU | > 80% |
-| Azure SQL | DTU percentage | > 80% |
-| Storage | Used capacity | > 80% |
-| AKS | Node CPU % | > 80% |
-| App Service | Response Time | > 2s |
+| Service     | Metric         | Threshold |
+| ----------- | -------------- | --------- |
+| VM          | Percentage CPU | > 80%     |
+| Azure SQL   | DTU percentage | > 80%     |
+| Storage     | Used capacity  | > 80%     |
+| AKS         | Node CPU %     | > 80%     |
+| App Service | Response Time  | > 2s      |
 
 ### Azure Monitor Alerts
 

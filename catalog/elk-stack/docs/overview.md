@@ -19,7 +19,7 @@ cluster: Elasticsearch Cluster {
       shape: hexagon
     }
   }
-  
+
   data: Data Nodes {
     d1: Data 1 {
       shape: cylinder
@@ -31,12 +31,12 @@ cluster: Elasticsearch Cluster {
       shape: cylinder
     }
   }
-  
+
   coord: Coordinating Nodes {
     c1: Coord 1 (Query routing)
     c2: Coord 2 (Query routing)
   }
-  
+
   masters -> data: manage
   data -> coord
 }
@@ -44,18 +44,18 @@ cluster: Elasticsearch Cluster {
 
 ### Node Roles
 
-| Role | Description | Use Case |
-|------|-------------|----------|
-| master | Cluster coordination | Cluster state management |
-| data | Store and search data | Primary workload |
-| data_content | Non-time series data | Catalog, reference data |
-| data_hot | Recent, frequently queried | Last 24-48 hours |
-| data_warm | Less frequent access | 1-30 days old |
-| data_cold | Rarely accessed | > 30 days |
-| data_frozen | Archival, searchable | Long-term retention |
-| ingest | Pre-process documents | Enrichment, transforms |
-| ml | Machine learning | Anomaly detection |
-| coordinating | Query routing only | Load balancing |
+| Role         | Description                | Use Case                 |
+| ------------ | -------------------------- | ------------------------ |
+| master       | Cluster coordination       | Cluster state management |
+| data         | Store and search data      | Primary workload         |
+| data_content | Non-time series data       | Catalog, reference data  |
+| data_hot     | Recent, frequently queried | Last 24-48 hours         |
+| data_warm    | Less frequent access       | 1-30 days old            |
+| data_cold    | Rarely accessed            | > 30 days                |
+| data_frozen  | Archival, searchable       | Long-term retention      |
+| ingest       | Pre-process documents      | Enrichment, transforms   |
+| ml           | Machine learning           | Anomaly detection        |
+| coordinating | Query routing only         | Load balancing           |
 
 ### Shard Allocation
 
@@ -150,7 +150,7 @@ input {
     ssl_certificate => "/etc/logstash/certs/logstash.crt"
     ssl_key => "/etc/logstash/certs/logstash.key"
   }
-  
+
   kafka {
     bootstrap_servers => "kafka:9092"
     topics => ["application-logs"]
@@ -167,20 +167,20 @@ filter {
       target => "parsed"
     }
   }
-  
+
   # Parse standard log format
   grok {
-    match => { 
+    match => {
       "message" => "%{TIMESTAMP_ISO8601:timestamp} %{LOGLEVEL:level} %{DATA:logger} - %{GREEDYDATA:log_message}"
     }
   }
-  
+
   # Parse timestamp
   date {
     match => ["timestamp", "ISO8601", "yyyy-MM-dd HH:mm:ss,SSS"]
     target => "@timestamp"
   }
-  
+
   # GeoIP lookup
   if [client_ip] {
     geoip {
@@ -188,7 +188,7 @@ filter {
       target => "geoip"
     }
   }
-  
+
   # Add environment metadata
   mutate {
     add_field => {
@@ -197,7 +197,7 @@ filter {
     }
     remove_field => ["message", "timestamp"]
   }
-  
+
   # Drop debug logs in production
   if [level] == "DEBUG" and [environment] == "production" {
     drop {}
@@ -216,7 +216,7 @@ output {
     ilm_rollover_alias => "logs"
     ilm_policy => "logs-policy"
   }
-  
+
   # Dead letter queue for failures
   if "_grokparsefailure" in [tags] or "_jsonparsefailure" in [tags] {
     file {
@@ -231,22 +231,22 @@ output {
 ```yaml
 # kibana.yml
 server.port: 5601
-server.host: "0.0.0.0"
-server.name: "kibana"
+server.host: '0.0.0.0'
+server.name: 'kibana'
 
-elasticsearch.hosts: ["https://elasticsearch:9200"]
-elasticsearch.username: "kibana_system"
-elasticsearch.password: "${KIBANA_PASSWORD}"
-elasticsearch.ssl.certificateAuthorities: ["/etc/kibana/certs/ca.crt"]
+elasticsearch.hosts: ['https://elasticsearch:9200']
+elasticsearch.username: 'kibana_system'
+elasticsearch.password: '${KIBANA_PASSWORD}'
+elasticsearch.ssl.certificateAuthorities: ['/etc/kibana/certs/ca.crt']
 
 # Encryption keys
-xpack.security.encryptionKey: "32-character-string-for-security"
-xpack.encryptedSavedObjects.encryptionKey: "32-character-string-for-objects"
-xpack.reporting.encryptionKey: "32-character-string-for-reports"
+xpack.security.encryptionKey: '32-character-string-for-security'
+xpack.encryptedSavedObjects.encryptionKey: '32-character-string-for-objects'
+xpack.reporting.encryptionKey: '32-character-string-for-reports'
 
 # Session
-xpack.security.session.idleTimeout: "1h"
-xpack.security.session.lifespan: "24h"
+xpack.security.session.idleTimeout: '1h'
+xpack.security.session.lifespan: '24h'
 
 # Monitoring
 monitoring.ui.enabled: true
@@ -286,7 +286,7 @@ filebeat.inputs:
           host: ${NODE_NAME}
           matchers:
             - logs_path:
-                logs_path: "/var/lib/docker/containers/"
+                logs_path: '/var/lib/docker/containers/'
 
 processors:
   - add_host_metadata:
@@ -294,22 +294,22 @@ processors:
   - add_cloud_metadata: ~
   - add_docker_metadata: ~
   - drop_fields:
-      fields: ["agent.ephemeral_id", "agent.hostname"]
+      fields: ['agent.ephemeral_id', 'agent.hostname']
 
 output.elasticsearch:
-  hosts: ["https://elasticsearch:9200"]
-  username: "${ES_USER}"
-  password: "${ES_PASSWORD}"
-  ssl.certificate_authorities: ["/etc/filebeat/certs/ca.crt"]
-  index: "filebeat-%{[agent.version]}-%{+yyyy.MM.dd}"
+  hosts: ['https://elasticsearch:9200']
+  username: '${ES_USER}'
+  password: '${ES_PASSWORD}'
+  ssl.certificate_authorities: ['/etc/filebeat/certs/ca.crt']
+  index: 'filebeat-%{[agent.version]}-%{+yyyy.MM.dd}'
 
 setup.kibana:
-  host: "https://kibana:5601"
-  ssl.certificate_authorities: ["/etc/filebeat/certs/ca.crt"]
+  host: 'https://kibana:5601'
+  ssl.certificate_authorities: ['/etc/filebeat/certs/ca.crt']
 
 setup.ilm.enabled: true
-setup.ilm.rollover_alias: "filebeat"
-setup.ilm.pattern: "{now/d}-000001"
+setup.ilm.rollover_alias: 'filebeat'
+setup.ilm.pattern: '{now/d}-000001'
 ```
 
 ## Security Configuration
@@ -496,16 +496,16 @@ GET /_cat/thread_pool?v&h=node_name,name,active,rejected,completed
 
 ### Key Metrics
 
-| Metric | Description | Alert Threshold |
-|--------|-------------|-----------------|
-| Cluster health | green/yellow/red | != green |
-| JVM heap used | Memory usage | > 75% |
-| CPU usage | Node CPU | > 80% |
-| Disk usage | Data directory | > 85% |
-| Search latency | Query response time | > 500ms |
-| Indexing rate | Documents/sec | Drop > 50% |
-| Rejected threads | Thread pool rejections | > 0 |
-| GC time | Garbage collection | > 5s |
+| Metric           | Description            | Alert Threshold |
+| ---------------- | ---------------------- | --------------- |
+| Cluster health   | green/yellow/red       | != green        |
+| JVM heap used    | Memory usage           | > 75%           |
+| CPU usage        | Node CPU               | > 80%           |
+| Disk usage       | Data directory         | > 85%           |
+| Search latency   | Query response time    | > 500ms         |
+| Indexing rate    | Documents/sec          | Drop > 50%      |
+| Rejected threads | Thread pool rejections | > 0             |
+| GC time          | Garbage collection     | > 5s            |
 
 ### Prometheus Exporter
 
@@ -515,7 +515,7 @@ scrape_configs:
   - job_name: 'elasticsearch'
     static_configs:
       - targets: ['es-exporter:9114']
-    
+
   - job_name: 'logstash'
     static_configs:
       - targets: ['logstash:9600']
@@ -529,7 +529,7 @@ scrape_configs:
 ```yaml
 # Indexing performance
 index.refresh_interval: 30s
-index.number_of_replicas: 0  # For bulk indexing, restore after
+index.number_of_replicas: 0 # For bulk indexing, restore after
 index.translog.durability: async
 index.translog.sync_interval: 30s
 

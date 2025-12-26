@@ -14,18 +14,18 @@ title: Ansible Docker Host Deployment Flow {
 control: Control Node {
   shape: rectangle
   style.fill: "#E3F2FD"
-  
+
   ansible: Ansible {
     shape: hexagon
     style.fill: "#2196F3"
     style.font-color: white
   }
-  
+
   playbooks: Playbooks {
     shape: document
     style.fill: "#BBDEFB"
   }
-  
+
   inventory: Inventory {
     shape: document
     style.fill: "#BBDEFB"
@@ -35,29 +35,29 @@ control: Control Node {
 targets: Target Hosts {
   shape: rectangle
   style.fill: "#C8E6C9"
-  
+
   docker1: docker01 {
     shape: rectangle
     style.fill: "#81C784"
-    
+
     engine: Docker Engine
     compose: Docker Compose
     containers: Containers
   }
-  
+
   docker2: docker02 {
     shape: rectangle
     style.fill: "#81C784"
-    
+
     engine: Docker Engine
     compose: Docker Compose
     containers: Containers
   }
-  
+
   docker3: docker03 {
     shape: rectangle
     style.fill: "#81C784"
-    
+
     engine: Docker Engine
     compose: Docker Compose
     containers: Containers
@@ -68,7 +68,7 @@ swarm: Docker Swarm Cluster {
   shape: rectangle
   style.fill: "#E1BEE7"
   style.stroke-dash: 3
-  
+
   manager: Manager Node
   workers: Worker Nodes
   overlay: Overlay Networks
@@ -89,11 +89,11 @@ targets.docker3 -> swarm: optional
 ---
 collections:
   - name: community.docker
-    version: ">=3.4.0"
+    version: '>=3.4.0'
   - name: community.general
-    version: ">=7.0.0"
+    version: '>=7.0.0'
   - name: ansible.posix
-    version: ">=1.5.0"
+    version: '>=1.5.0'
 ```
 
 ```bash
@@ -111,20 +111,20 @@ ansible-galaxy install -r requirements.yml --force
 - name: Install Docker on Linux Hosts
   hosts: docker_hosts
   become: yes
-  
+
   vars:
     docker_users:
       - deploy
       - developer
-    
+
     docker_daemon_config:
       storage-driver: overlay2
       log-driver: json-file
       log-opts:
-        max-size: "100m"
-        max-file: "5"
+        max-size: '100m'
+        max-file: '5'
       live-restore: true
-  
+
   roles:
     - common
     - docker
@@ -148,17 +148,17 @@ ansible-playbook playbooks/docker.yml --limit docker01.example.com
 # group_vars/docker_hosts.yml
 ---
 # Docker Engine configuration
-docker_version: "latest"
-docker_data_root: "/data/docker"
-docker_storage_driver: "overlay2"
+docker_version: 'latest'
+docker_data_root: '/data/docker'
+docker_storage_driver: 'overlay2'
 
 docker_daemon_config:
-  storage-driver: "overlay2"
-  log-driver: "json-file"
+  storage-driver: 'overlay2'
+  log-driver: 'json-file'
   log-opts:
-    max-size: "100m"
-    max-file: "10"
-    labels: "service,environment"
+    max-size: '100m'
+    max-file: '10'
+    labels: 'service,environment'
   live-restore: true
   userland-proxy: false
   no-new-privileges: true
@@ -173,18 +173,18 @@ docker_daemon_config:
       Hard: 65536
       Soft: 65536
   default-address-pools:
-    - base: "172.20.0.0/16"
+    - base: '172.20.0.0/16'
       size: 24
-    - base: "172.21.0.0/16"
+    - base: '172.21.0.0/16'
       size: 24
 
 # Registry configuration
 docker_registry_mirrors:
-  - "https://mirror.gcr.io"
-  - "https://docker-mirror.example.com"
+  - 'https://mirror.gcr.io'
+  - 'https://docker-mirror.example.com'
 
 docker_insecure_registries:
-  - "registry.internal.example.com:5000"
+  - 'registry.internal.example.com:5000'
 
 # Users with Docker access
 docker_users:
@@ -199,11 +199,11 @@ docker_cis_benchmark: true
 
 # Cleanup configuration
 docker_cleanup_enabled: true
-docker_cleanup_schedule: "0 2 * * *"  # Daily at 2 AM
+docker_cleanup_schedule: '0 2 * * *' # Daily at 2 AM
 docker_cleanup_keep_images: 10
 
 # Monitoring
-docker_metrics_addr: "0.0.0.0:9323"
+docker_metrics_addr: '0.0.0.0:9323'
 ```
 
 ### Private Registry Configuration
@@ -214,23 +214,23 @@ docker_metrics_addr: "0.0.0.0:9323"
 - name: Configure Docker with Private Registry
   hosts: docker_hosts
   become: yes
-  
+
   vars:
     docker_insecure_registries:
-      - "registry.internal.example.com:5000"
-    
+      - 'registry.internal.example.com:5000'
+
     docker_registry_mirrors:
-      - "https://registry.internal.example.com"
-    
+      - 'https://registry.internal.example.com'
+
     # Registry authentication (stored in vault)
     docker_registry_auth:
-      - registry: "registry.internal.example.com"
-        username: "{{ vault_registry_username }}"
-        password: "{{ vault_registry_password }}"
-      - registry: "ghcr.io"
-        username: "{{ vault_github_username }}"
-        password: "{{ vault_github_token }}"
-  
+      - registry: 'registry.internal.example.com'
+        username: '{{ vault_registry_username }}'
+        password: '{{ vault_registry_password }}'
+      - registry: 'ghcr.io'
+        username: '{{ vault_github_username }}'
+        password: '{{ vault_github_token }}'
+
   tasks:
     - name: Include Docker role
       include_role:
@@ -238,11 +238,11 @@ docker_metrics_addr: "0.0.0.0:9323"
 
     - name: Configure registry authentication
       community.docker.docker_login:
-        registry_url: "{{ item.registry }}"
-        username: "{{ item.username }}"
-        password: "{{ item.password }}"
+        registry_url: '{{ item.registry }}'
+        username: '{{ item.username }}'
+        password: '{{ item.password }}'
         reauthorize: yes
-      loop: "{{ docker_registry_auth }}"
+      loop: '{{ docker_registry_auth }}'
       no_log: true
 ```
 
@@ -254,12 +254,12 @@ docker_metrics_addr: "0.0.0.0:9323"
 - name: Initialize Docker Swarm Cluster
   hosts: swarm_managers[0]
   become: yes
-  
+
   tasks:
     - name: Initialize Swarm
       community.docker.docker_swarm:
         state: present
-        advertise_addr: "{{ ansible_default_ipv4.address }}"
+        advertise_addr: '{{ ansible_default_ipv4.address }}'
       register: swarm_init
 
     - name: Get Swarm info
@@ -268,58 +268,69 @@ docker_metrics_addr: "0.0.0.0:9323"
 
     - name: Store join tokens
       set_fact:
-        swarm_manager_token: "{{ swarm_info.swarm_facts.JoinTokens.Manager }}"
-        swarm_worker_token: "{{ swarm_info.swarm_facts.JoinTokens.Worker }}"
-        swarm_manager_addr: "{{ ansible_default_ipv4.address }}:2377"
+        swarm_manager_token: '{{ swarm_info.swarm_facts.JoinTokens.Manager }}'
+        swarm_worker_token: '{{ swarm_info.swarm_facts.JoinTokens.Worker }}'
+        swarm_manager_addr: '{{ ansible_default_ipv4.address }}:2377'
 
 - name: Join Manager Nodes
   hosts: swarm_managers:!swarm_managers[0]
   become: yes
-  
+
   tasks:
     - name: Join Swarm as manager
       community.docker.docker_swarm:
         state: join
-        advertise_addr: "{{ ansible_default_ipv4.address }}"
+        advertise_addr: '{{ ansible_default_ipv4.address }}'
         join_token: "{{ hostvars[groups['swarm_managers'][0]]['swarm_manager_token'] }}"
-        remote_addrs: ["{{ hostvars[groups['swarm_managers'][0]]['swarm_manager_addr'] }}"]
+        remote_addrs:
+          ["{{ hostvars[groups['swarm_managers'][0]]['swarm_manager_addr'] }}"]
 
 - name: Join Worker Nodes
   hosts: swarm_workers
   become: yes
-  
+
   tasks:
     - name: Join Swarm as worker
       community.docker.docker_swarm:
         state: join
-        advertise_addr: "{{ ansible_default_ipv4.address }}"
+        advertise_addr: '{{ ansible_default_ipv4.address }}'
         join_token: "{{ hostvars[groups['swarm_managers'][0]]['swarm_worker_token'] }}"
-        remote_addrs: ["{{ hostvars[groups['swarm_managers'][0]]['swarm_manager_addr'] }}"]
+        remote_addrs:
+          ["{{ hostvars[groups['swarm_managers'][0]]['swarm_manager_addr'] }}"]
 
 - name: Configure Swarm Networks and Labels
   hosts: swarm_managers[0]
   become: yes
-  
+
   tasks:
     - name: Create overlay networks
       community.docker.docker_network:
-        name: "{{ item.name }}"
+        name: '{{ item.name }}'
         driver: overlay
-        attachable: "{{ item.attachable | default(true) }}"
+        attachable: '{{ item.attachable | default(true) }}'
         scope: swarm
       loop:
-        - { name: "traefik-public", attachable: true }
-        - { name: "monitoring", attachable: true }
-        - { name: "app-network", attachable: true }
+        - { name: 'traefik-public', attachable: true }
+        - { name: 'monitoring', attachable: true }
+        - { name: 'app-network', attachable: true }
 
     - name: Label nodes
       community.docker.docker_node:
-        hostname: "{{ item.hostname }}"
-        labels: "{{ item.labels }}"
+        hostname: '{{ item.hostname }}'
+        labels: '{{ item.labels }}'
       loop:
-        - { hostname: "docker01", labels: { "role": "manager", "tier": "frontend" } }
-        - { hostname: "docker02", labels: { "role": "worker", "tier": "backend" } }
-        - { hostname: "docker03", labels: { "role": "worker", "tier": "database" } }
+        - {
+            hostname: 'docker01',
+            labels: { 'role': 'manager', 'tier': 'frontend' },
+          }
+        - {
+            hostname: 'docker02',
+            labels: { 'role': 'worker', 'tier': 'backend' },
+          }
+        - {
+            hostname: 'docker03',
+            labels: { 'role': 'worker', 'tier': 'database' },
+          }
 ```
 
 ### Deploy Swarm Stack
@@ -330,29 +341,29 @@ docker_metrics_addr: "0.0.0.0:9323"
 - name: Deploy Application Stack to Swarm
   hosts: swarm_managers[0]
   become: yes
-  
+
   vars:
-    stack_name: "myapp"
-    stack_compose_file: "files/docker-compose.yml"
-  
+    stack_name: 'myapp'
+    stack_compose_file: 'files/docker-compose.yml'
+
   tasks:
     - name: Copy compose file
       copy:
-        src: "{{ stack_compose_file }}"
-        dest: "/opt/stacks/{{ stack_name }}/docker-compose.yml"
+        src: '{{ stack_compose_file }}'
+        dest: '/opt/stacks/{{ stack_name }}/docker-compose.yml'
         mode: '0644'
 
     - name: Deploy stack
       community.docker.docker_stack:
         state: present
-        name: "{{ stack_name }}"
+        name: '{{ stack_name }}'
         compose:
-          - "/opt/stacks/{{ stack_name }}/docker-compose.yml"
+          - '/opt/stacks/{{ stack_name }}/docker-compose.yml'
       register: stack_deploy
 
     - name: Wait for services to be running
       community.docker.docker_swarm_service_info:
-        name: "{{ stack_name }}_{{ item }}"
+        name: '{{ stack_name }}_{{ item }}'
       register: service_info
       until: service_info.exists and service_info.service.Spec.Mode.Replicated.Replicas == service_info.service.ServiceStatus.RunningTasks
       retries: 30
@@ -373,46 +384,46 @@ docker_metrics_addr: "0.0.0.0:9323"
 - name: Deploy Application with Docker Compose
   hosts: docker_hosts
   become: yes
-  
+
   vars:
-    app_name: "webapp"
-    app_dir: "/opt/apps/{{ app_name }}"
+    app_name: 'webapp'
+    app_dir: '/opt/apps/{{ app_name }}'
     compose_files:
       - docker-compose.yml
       - docker-compose.prod.yml
-  
+
   tasks:
     - name: Create application directory
       file:
-        path: "{{ app_dir }}"
+        path: '{{ app_dir }}'
         state: directory
         mode: '0755'
 
     - name: Copy compose files
       copy:
-        src: "files/{{ item }}"
-        dest: "{{ app_dir }}/{{ item }}"
+        src: 'files/{{ item }}'
+        dest: '{{ app_dir }}/{{ item }}'
         mode: '0644'
-      loop: "{{ compose_files }}"
+      loop: '{{ compose_files }}'
 
     - name: Copy environment file
       template:
-        src: "templates/{{ app_name }}.env.j2"
-        dest: "{{ app_dir }}/.env"
+        src: 'templates/{{ app_name }}.env.j2'
+        dest: '{{ app_dir }}/.env'
         mode: '0600'
 
     - name: Pull latest images
       community.docker.docker_compose_v2:
-        project_src: "{{ app_dir }}"
-        files: "{{ compose_files }}"
+        project_src: '{{ app_dir }}'
+        files: '{{ compose_files }}'
         pull: always
         state: present
       register: pull_result
 
     - name: Deploy application
       community.docker.docker_compose_v2:
-        project_src: "{{ app_dir }}"
-        files: "{{ compose_files }}"
+        project_src: '{{ app_dir }}'
+        files: '{{ compose_files }}'
         state: present
         remove_orphans: yes
       register: deploy_result
@@ -433,16 +444,16 @@ docker_metrics_addr: "0.0.0.0:9323"
 - name: Rolling Update Docker Compose Application
   hosts: docker_hosts
   become: yes
-  serial: 1  # One host at a time
-  
+  serial: 1 # One host at a time
+
   vars:
-    app_dir: "/opt/apps/webapp"
-    health_check_url: "http://localhost:8080/health"
-  
+    app_dir: '/opt/apps/webapp'
+    health_check_url: 'http://localhost:8080/health'
+
   pre_tasks:
     - name: Remove from load balancer
       uri:
-        url: "{{ lb_api }}/remove/{{ inventory_hostname }}"
+        url: '{{ lb_api }}/remove/{{ inventory_hostname }}'
         method: POST
       delegate_to: localhost
       when: lb_api is defined
@@ -454,20 +465,20 @@ docker_metrics_addr: "0.0.0.0:9323"
   tasks:
     - name: Pull new images
       community.docker.docker_compose_v2:
-        project_src: "{{ app_dir }}"
+        project_src: '{{ app_dir }}'
         pull: always
         state: present
 
     - name: Update containers
       community.docker.docker_compose_v2:
-        project_src: "{{ app_dir }}"
+        project_src: '{{ app_dir }}'
         state: present
         recreate: always
       register: update_result
 
     - name: Wait for health check
       uri:
-        url: "{{ health_check_url }}"
+        url: '{{ health_check_url }}'
         status_code: 200
       register: health
       until: health.status == 200
@@ -477,7 +488,7 @@ docker_metrics_addr: "0.0.0.0:9323"
   post_tasks:
     - name: Add back to load balancer
       uri:
-        url: "{{ lb_api }}/add/{{ inventory_hostname }}"
+        url: '{{ lb_api }}/add/{{ inventory_hostname }}'
         method: POST
       delegate_to: localhost
       when: lb_api is defined
@@ -493,7 +504,7 @@ docker_metrics_addr: "0.0.0.0:9323"
 - name: Manage Docker Containers
   hosts: docker_hosts
   become: yes
-  
+
   vars:
     containers:
       - name: nginx-proxy
@@ -501,33 +512,33 @@ docker_metrics_addr: "0.0.0.0:9323"
         state: started
         restart_policy: unless-stopped
         ports:
-          - "80:80"
-          - "443:443"
+          - '80:80'
+          - '443:443'
         volumes:
-          - "/etc/nginx/nginx.conf:/etc/nginx/nginx.conf:ro"
-          - "/etc/nginx/ssl:/etc/nginx/ssl:ro"
+          - '/etc/nginx/nginx.conf:/etc/nginx/nginx.conf:ro'
+          - '/etc/nginx/ssl:/etc/nginx/ssl:ro'
         env:
-          TZ: "UTC"
+          TZ: 'UTC'
         labels:
           app: proxy
           tier: frontend
-      
+
       - name: redis-cache
         image: redis:7-alpine
         state: started
         restart_policy: unless-stopped
         ports:
-          - "6379:6379"
+          - '6379:6379'
         volumes:
-          - "redis-data:/data"
-        command: "redis-server --appendonly yes"
-        memory: "512m"
+          - 'redis-data:/data'
+        command: 'redis-server --appendonly yes'
+        memory: '512m'
         cpus: 1
-  
+
   tasks:
     - name: Create Docker volumes
       community.docker.docker_volume:
-        name: "{{ item }}"
+        name: '{{ item }}'
         state: present
       loop:
         - redis-data
@@ -535,21 +546,21 @@ docker_metrics_addr: "0.0.0.0:9323"
 
     - name: Manage containers
       community.docker.docker_container:
-        name: "{{ item.name }}"
-        image: "{{ item.image }}"
+        name: '{{ item.name }}'
+        image: '{{ item.image }}'
         state: "{{ item.state | default('started') }}"
         restart_policy: "{{ item.restart_policy | default('unless-stopped') }}"
-        ports: "{{ item.ports | default(omit) }}"
-        volumes: "{{ item.volumes | default(omit) }}"
-        env: "{{ item.env | default(omit) }}"
-        labels: "{{ item.labels | default(omit) }}"
-        command: "{{ item.command | default(omit) }}"
-        memory: "{{ item.memory | default(omit) }}"
-        cpus: "{{ item.cpus | default(omit) }}"
+        ports: '{{ item.ports | default(omit) }}'
+        volumes: '{{ item.volumes | default(omit) }}'
+        env: '{{ item.env | default(omit) }}'
+        labels: '{{ item.labels | default(omit) }}'
+        command: '{{ item.command | default(omit) }}'
+        memory: '{{ item.memory | default(omit) }}'
+        cpus: '{{ item.cpus | default(omit) }}'
         pull: yes
         comparisons:
           image: strict
-      loop: "{{ containers }}"
+      loop: '{{ containers }}'
 ```
 
 ### Container Cleanup
@@ -560,7 +571,7 @@ docker_metrics_addr: "0.0.0.0:9323"
 - name: Docker System Cleanup
   hosts: docker_hosts
   become: yes
-  
+
   vars:
     cleanup_unused_images: true
     cleanup_stopped_containers: true
@@ -577,7 +588,7 @@ docker_metrics_addr: "0.0.0.0:9323"
 
     - name: Display current usage
       debug:
-        msg: "{{ df_before.stdout_lines }}"
+        msg: '{{ df_before.stdout_lines }}'
 
     - name: Remove stopped containers
       when: cleanup_stopped_containers
@@ -615,7 +626,7 @@ docker_metrics_addr: "0.0.0.0:9323"
 
     - name: Display usage after cleanup
       debug:
-        msg: "{{ df_after.stdout_lines }}"
+        msg: '{{ df_after.stdout_lines }}'
 ```
 
 ## Docker Upgrade
@@ -628,10 +639,10 @@ docker_metrics_addr: "0.0.0.0:9323"
 - name: Upgrade Docker Engine
   hosts: docker_hosts
   become: yes
-  serial: 1  # One host at a time for safety
-  
+  serial: 1 # One host at a time for safety
+
   vars:
-    docker_target_version: "5:25.0.0-1~ubuntu.22.04~jammy"
+    docker_target_version: '5:25.0.0-1~ubuntu.22.04~jammy'
     backup_containers: true
 
   pre_tasks:
@@ -642,7 +653,7 @@ docker_metrics_addr: "0.0.0.0:9323"
 
     - name: Display current version
       debug:
-        msg: "Current Docker version: {{ current_version.stdout }}"
+        msg: 'Current Docker version: {{ current_version.stdout }}'
 
     - name: List running containers
       command: docker ps --format '{{ '{{' }}.Names{{ '}}' }}'
@@ -663,8 +674,8 @@ docker_metrics_addr: "0.0.0.0:9323"
     - name: Upgrade Docker packages
       package:
         name:
-          - "docker-ce={{ docker_target_version }}"
-          - "docker-ce-cli={{ docker_target_version }}"
+          - 'docker-ce={{ docker_target_version }}'
+          - 'docker-ce-cli={{ docker_target_version }}'
           - containerd.io
           - docker-buildx-plugin
           - docker-compose-plugin
@@ -684,7 +695,7 @@ docker_metrics_addr: "0.0.0.0:9323"
 
     - name: Display new version
       debug:
-        msg: "Docker upgraded to: {{ new_version.stdout }}"
+        msg: 'Docker upgraded to: {{ new_version.stdout }}'
 
   post_tasks:
     - name: Start previously running containers
@@ -698,7 +709,7 @@ docker_metrics_addr: "0.0.0.0:9323"
 
     - name: Display running containers
       debug:
-        msg: "{{ verify_containers.stdout_lines }}"
+        msg: '{{ verify_containers.stdout_lines }}'
 
   handlers:
     - name: Restart docker
@@ -709,16 +720,16 @@ docker_metrics_addr: "0.0.0.0:9323"
 
 ## Troubleshooting
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| Docker daemon won't start | Invalid daemon.json | Validate JSON syntax: `python3 -m json.tool /etc/docker/daemon.json` |
-| Cannot connect to Docker | Socket permissions | Add user to docker group: `usermod -aG docker $USER` |
-| Storage driver error | Unsupported filesystem | Use overlay2 on ext4/xfs, check `/var/lib/docker` filesystem |
-| Network conflicts | IP range overlap | Modify `docker_bip` or `default-address-pools` |
-| Container DNS issues | DNS not configured | Set `docker_dns` in daemon.json |
-| Registry auth fails | Wrong credentials | Verify credentials, check `~/.docker/config.json` |
-| Swarm join fails | Firewall blocking | Open ports 2377, 7946, 4789 |
-| Live-restore not working | Version mismatch | Ensure all containers use compatible API version |
+| Issue                     | Cause                  | Solution                                                             |
+| ------------------------- | ---------------------- | -------------------------------------------------------------------- |
+| Docker daemon won't start | Invalid daemon.json    | Validate JSON syntax: `python3 -m json.tool /etc/docker/daemon.json` |
+| Cannot connect to Docker  | Socket permissions     | Add user to docker group: `usermod -aG docker $USER`                 |
+| Storage driver error      | Unsupported filesystem | Use overlay2 on ext4/xfs, check `/var/lib/docker` filesystem         |
+| Network conflicts         | IP range overlap       | Modify `docker_bip` or `default-address-pools`                       |
+| Container DNS issues      | DNS not configured     | Set `docker_dns` in daemon.json                                      |
+| Registry auth fails       | Wrong credentials      | Verify credentials, check `~/.docker/config.json`                    |
+| Swarm join fails          | Firewall blocking      | Open ports 2377, 7946, 4789                                          |
+| Live-restore not working  | Version mismatch       | Ensure all containers use compatible API version                     |
 
 ### Debug Commands
 

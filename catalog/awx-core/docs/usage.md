@@ -16,7 +16,7 @@ title: AWX Job Execution Workflow {
 
 trigger: Job Trigger {
   style.fill: "#e3f2fd"
-  
+
   user: User\n(UI/CLI) {
     shape: person
   }
@@ -33,7 +33,7 @@ trigger: Job Trigger {
 
 launch: 1. Job Launch {
   style.fill: "#fff3e0"
-  
+
   create_job: Create Job Record {
     shape: rectangle
     style.fill: "#ffe0b2"
@@ -42,13 +42,13 @@ launch: 1. Job Launch {
     shape: queue
     style.fill: "#ffe0b2"
   }
-  
+
   create_job -> queue
 }
 
 prerun: 2. Pre-run Tasks {
   style.fill: "#f3e5f5"
-  
+
   decrypt: Decrypt Credentials {
     shape: rectangle
     style.fill: "#e1bee7"
@@ -65,13 +65,13 @@ prerun: 2. Pre-run Tasks {
     shape: rectangle
     style.fill: "#e1bee7"
   }
-  
+
   decrypt -> sync_project -> sync_inventory -> prepare_ee
 }
 
 execution: 3. Execution {
   style.fill: "#e8f5e9"
-  
+
   receptor: Receptor {
     shape: hexagon
     style.fill: "#a5d6a7"
@@ -88,14 +88,14 @@ execution: 3. Execution {
     shape: rectangle
     style.fill: "#81c784"
   }
-  
+
   receptor -> runner -> playbook
   playbook -> websocket
 }
 
 postrun: 4. Post-run Tasks {
   style.fill: "#e0f7fa"
-  
+
   store_output: Store Job Output {
     shape: cylinder
     style.fill: "#80deea"
@@ -112,7 +112,7 @@ postrun: 4. Post-run Tasks {
     shape: rectangle
     style.fill: "#4dd0e1"
   }
-  
+
   store_output -> notifications -> trigger_workflow -> update_status
 }
 
@@ -147,7 +147,7 @@ services:
       - postgres
       - redis
     ports:
-      - "8080:8052"
+      - '8080:8052'
     volumes:
       - awx-projects:/var/lib/awx/projects
     environment:
@@ -235,7 +235,7 @@ metadata:
   namespace: awx
 spec:
   service_type: ClusterIP
-  
+
   # Ingress configuration
   ingress_type: ingress
   hostname: awx.example.com
@@ -244,15 +244,14 @@ spec:
     nginx.ingress.kubernetes.io/proxy-body-size: "0"
     cert-manager.io/cluster-issuer: letsencrypt-prod
   ingress_tls_secret: awx-tls
-  
   # Admin credentials
   admin_user: admin
   admin_password_secret: awx-admin-password
-  
+
   # Resource configuration
   web_replicas: 2
   task_replicas: 2
-  
+
   web_resource_requirements:
     requests:
       cpu: 500m
@@ -260,7 +259,7 @@ spec:
     limits:
       cpu: 2000m
       memory: 4Gi
-  
+
   task_resource_requirements:
     requests:
       cpu: 500m
@@ -268,18 +267,18 @@ spec:
     limits:
       cpu: 4000m
       memory: 8Gi
-  
+
   # PostgreSQL
   postgres_storage_class: standard
   postgres_storage_requirements:
     requests:
       storage: 20Gi
-  
+
   # Projects
   projects_persistence: true
   projects_storage_class: standard
   projects_storage_size: 10Gi
-  
+
   # Image pull
   image_pull_secrets:
     - name: registry-secret
@@ -291,7 +290,7 @@ metadata:
   namespace: awx
 type: Opaque
 stringData:
-  password: "YourSecurePassword123!"
+  password: 'YourSecurePassword123!'
 ```
 
 ## API Examples
@@ -406,13 +405,13 @@ while true; do
   STATUS=$(curl -s \
     "https://awx.example.com/api/v2/jobs/$JOB_ID/" \
     -H "Authorization: Bearer $TOKEN" | jq -r '.status')
-  
+
   echo "Job status: $STATUS"
-  
+
   if [[ "$STATUS" == "successful" || "$STATUS" == "failed" || "$STATUS" == "canceled" ]]; then
     break
   fi
-  
+
   sleep 5
 done
 
@@ -512,7 +511,7 @@ stages:
 
 variables:
   AWX_URL: https://awx.example.com
-  JOB_TEMPLATE_ID: "10"
+  JOB_TEMPLATE_ID: '10'
 
 deploy:
   stage: deploy
@@ -539,12 +538,12 @@ deploy:
 // Jenkinsfile
 pipeline {
     agent any
-    
+
     environment {
         AWX_HOST = 'https://awx.example.com'
         AWX_TOKEN = credentials('awx-token')
     }
-    
+
     stages {
         stage('Deploy via AWX') {
             steps {
@@ -563,10 +562,10 @@ pipeline {
                             }
                         """
                     )
-                    
+
                     def job = readJSON text: response.content
                     def jobId = job.id
-                    
+
                     // Wait for job completion
                     timeout(time: 30, unit: 'MINUTES') {
                         waitUntil {
@@ -575,11 +574,11 @@ pipeline {
                                 customHeaders: [[name: 'Authorization', value: "Bearer ${AWX_TOKEN}"]]
                             )
                             def status = readJSON(text: statusResponse.content).status
-                            
+
                             if (status == 'failed') {
                                 error "AWX job failed"
                             }
-                            
+
                             return status == 'successful'
                         }
                     }
@@ -606,19 +605,19 @@ class AWXClient:
             'Authorization': f'Bearer {token}',
             'Content-Type': 'application/json'
         })
-    
+
     def _request(self, method: str, endpoint: str, **kwargs) -> Dict:
         url = f"{self.base_url}/api/v2/{endpoint.lstrip('/')}"
         response = self.session.request(method, url, **kwargs)
         response.raise_for_status()
         return response.json() if response.content else {}
-    
+
     def get(self, endpoint: str) -> Dict:
         return self._request('GET', endpoint)
-    
+
     def post(self, endpoint: str, data: Dict) -> Dict:
         return self._request('POST', endpoint, json=data)
-    
+
     def launch_job_template(
         self,
         template_id: int,
@@ -636,29 +635,29 @@ class AWXClient:
             payload['inventory'] = inventory
         if limit:
             payload['limit'] = limit
-        
+
         job = self.post(f'job_templates/{template_id}/launch/', payload)
-        
+
         if wait:
             return self.wait_for_job(job['id'], timeout)
         return job
-    
+
     def wait_for_job(self, job_id: int, timeout: int = 600) -> Dict:
         """Wait for job to complete."""
         start_time = time.time()
-        
+
         while True:
             job = self.get(f'jobs/{job_id}/')
             status = job['status']
-            
+
             if status in ['successful', 'failed', 'canceled', 'error']:
                 return job
-            
+
             if time.time() - start_time > timeout:
                 raise TimeoutError(f"Job {job_id} did not complete within {timeout}s")
-            
+
             time.sleep(5)
-    
+
     def get_job_output(self, job_id: int) -> str:
         """Get job stdout."""
         response = self.session.get(
@@ -674,7 +673,7 @@ if __name__ == '__main__':
         base_url='https://awx.example.com',
         token='your-token'
     )
-    
+
     # Launch deployment
     result = client.launch_job_template(
         template_id=10,
@@ -682,25 +681,25 @@ if __name__ == '__main__':
         wait=True,
         timeout=900
     )
-    
+
     print(f"Job Status: {result['status']}")
-    
+
     if result['status'] == 'failed':
         print(client.get_job_output(result['id']))
 ```
 
 ## Troubleshooting
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| Job stays pending | No capacity available | Check instance capacity, scale task pods |
-| Project sync fails | Git credentials invalid | Verify SCM credentials |
-| Inventory sync fails | Cloud credentials/permissions | Check credential permissions |
-| Jobs failing immediately | Execution environment issue | Verify EE image, check dependencies |
-| Database connection errors | PostgreSQL overloaded | Scale database, check connections |
-| Slow UI | High job volume | Enable Redis caching, scale web pods |
-| WebSocket disconnects | Nginx timeout | Increase proxy_read_timeout |
-| Credential decryption fails | SECRET_KEY changed | Restore original SECRET_KEY |
+| Issue                       | Cause                         | Solution                                 |
+| --------------------------- | ----------------------------- | ---------------------------------------- |
+| Job stays pending           | No capacity available         | Check instance capacity, scale task pods |
+| Project sync fails          | Git credentials invalid       | Verify SCM credentials                   |
+| Inventory sync fails        | Cloud credentials/permissions | Check credential permissions             |
+| Jobs failing immediately    | Execution environment issue   | Verify EE image, check dependencies      |
+| Database connection errors  | PostgreSQL overloaded         | Scale database, check connections        |
+| Slow UI                     | High job volume               | Enable Redis caching, scale web pods     |
+| WebSocket disconnects       | Nginx timeout                 | Increase proxy_read_timeout              |
+| Credential decryption fails | SECRET_KEY changed            | Restore original SECRET_KEY              |
 
 ### Debug Commands
 

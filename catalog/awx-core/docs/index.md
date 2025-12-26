@@ -40,17 +40,17 @@ awx job_templates launch "Deploy Application" --monitor
 
 ## Features
 
-| Feature | Description | Benefit |
-|---------|-------------|---------|
-| **Web UI** | Modern React-based interface | Easy visual management |
-| **REST API** | Full-featured RESTful API | Automation and integration |
-| **RBAC** | Role-based access control | Secure multi-tenancy |
-| **Inventories** | Dynamic and static hosts | Flexible target management |
-| **Credentials** | Encrypted credential storage | Secure secret management |
-| **Job Templates** | Reusable job configurations | Standardized automation |
-| **Workflows** | Multi-playbook orchestration | Complex automation chains |
-| **Scheduling** | Cron-based job scheduling | Automated execution |
-| **Notifications** | Slack, email, webhooks | Real-time alerts |
+| Feature           | Description                  | Benefit                    |
+| ----------------- | ---------------------------- | -------------------------- |
+| **Web UI**        | Modern React-based interface | Easy visual management     |
+| **REST API**      | Full-featured RESTful API    | Automation and integration |
+| **RBAC**          | Role-based access control    | Secure multi-tenancy       |
+| **Inventories**   | Dynamic and static hosts     | Flexible target management |
+| **Credentials**   | Encrypted credential storage | Secure secret management   |
+| **Job Templates** | Reusable job configurations  | Standardized automation    |
+| **Workflows**     | Multi-playbook orchestration | Complex automation chains  |
+| **Scheduling**    | Cron-based job scheduling    | Automated execution        |
+| **Notifications** | Slack, email, webhooks       | Real-time alerts           |
 
 ## Architecture
 
@@ -73,17 +73,17 @@ users: Users / API Clients {
 
 web_interface: Web Interface Layer {
   style.fill: "#e8f5e9"
-  
+
   react_ui: React UI {
     shape: rectangle
     style.fill: "#c8e6c9"
   }
-  
+
   rest_api: REST API\n/api/v2/ {
     shape: rectangle
     style.fill: "#c8e6c9"
   }
-  
+
   websocket: WebSocket\nJob Output Stream {
     shape: rectangle
     style.fill: "#c8e6c9"
@@ -92,17 +92,17 @@ web_interface: Web Interface Layer {
 
 awx_task: AWX Task Layer (Django) {
   style.fill: "#fff3e0"
-  
+
   views: Views\n(API Handlers) {
     shape: rectangle
     style.fill: "#ffe0b2"
   }
-  
+
   models: Models\n(ORM) {
     shape: rectangle
     style.fill: "#ffe0b2"
   }
-  
+
   celery: Celery Tasks\n(Job Runner) {
     shape: rectangle
     style.fill: "#ffe0b2"
@@ -111,17 +111,17 @@ awx_task: AWX Task Layer (Django) {
 
 execution: Execution Layer {
   style.fill: "#f3e5f5"
-  
+
   receptor: Receptor\n(Mesh Network) {
     shape: hexagon
     style.fill: "#e1bee7"
   }
-  
+
   runner: ansible-runner {
     shape: rectangle
     style.fill: "#e1bee7"
   }
-  
+
   ee: Execution\nEnvironments {
     shape: rectangle
     style.fill: "#e1bee7"
@@ -130,19 +130,19 @@ execution: Execution Layer {
 
 data: Data Layer {
   style.fill: "#e0f7fa"
-  
+
   postgres: PostgreSQL {
     shape: cylinder
     style.fill: "#80deea"
     label: "Jobs, Credentials\nInventories"
   }
-  
+
   redis: Redis {
     shape: cylinder
     style.fill: "#80deea"
     label: "Cache, Message\nBroker"
   }
-  
+
   scm: Project Storage {
     shape: cylinder
     style.fill: "#80deea"
@@ -168,45 +168,45 @@ execution.receptor -> target_hosts: Mesh Network
 
 ## Core Components
 
-| Component | Purpose | Technology |
-|-----------|---------|------------|
-| **awx-web** | Web UI and API server | Django, React |
-| **awx-task** | Background task processing | Celery |
-| **awx-ee** | Ansible execution environment | Container |
-| **PostgreSQL** | Persistent data storage | PostgreSQL 13+ |
-| **Redis** | Cache and message broker | Redis 6+ |
-| **Receptor** | Mesh networking for execution | Go |
+| Component      | Purpose                       | Technology     |
+| -------------- | ----------------------------- | -------------- |
+| **awx-web**    | Web UI and API server         | Django, React  |
+| **awx-task**   | Background task processing    | Celery         |
+| **awx-ee**     | Ansible execution environment | Container      |
+| **PostgreSQL** | Persistent data storage       | PostgreSQL 13+ |
+| **Redis**      | Cache and message broker      | Redis 6+       |
+| **Receptor**   | Mesh networking for execution | Go             |
 
 ## Job Types
 
-| Type | Description | Use Case |
-|------|-------------|----------|
-| **Job Template** | Single playbook execution | Standard automation |
-| **Workflow** | Multi-step orchestration | Complex pipelines |
-| **Inventory Sync** | Dynamic inventory update | Cloud discovery |
-| **Project Update** | SCM repository sync | Playbook updates |
-| **Ad Hoc Command** | One-off module execution | Quick tasks |
+| Type               | Description               | Use Case            |
+| ------------------ | ------------------------- | ------------------- |
+| **Job Template**   | Single playbook execution | Standard automation |
+| **Workflow**       | Multi-step orchestration  | Complex pipelines   |
+| **Inventory Sync** | Dynamic inventory update  | Cloud discovery     |
+| **Project Update** | SCM repository sync       | Playbook updates    |
+| **Ad Hoc Command** | One-off module execution  | Quick tasks         |
 
 ## Credential Types
 
-| Type | Purpose | Examples |
-|------|---------|----------|
-| **Machine** | SSH/WinRM access | Private keys, passwords |
-| **Source Control** | Git repository access | SSH keys, tokens |
-| **Vault** | Ansible Vault decryption | Vault passwords |
-| **Cloud** | Cloud provider APIs | AWS, Azure, GCP credentials |
-| **Network** | Network device access | Enable passwords |
-| **Container Registry** | Image pull secrets | Docker Hub, ECR |
+| Type                   | Purpose                  | Examples                    |
+| ---------------------- | ------------------------ | --------------------------- |
+| **Machine**            | SSH/WinRM access         | Private keys, passwords     |
+| **Source Control**     | Git repository access    | SSH keys, tokens            |
+| **Vault**              | Ansible Vault decryption | Vault passwords             |
+| **Cloud**              | Cloud provider APIs      | AWS, Azure, GCP credentials |
+| **Network**            | Network device access    | Enable passwords            |
+| **Container Registry** | Image pull secrets       | Docker Hub, ECR             |
 
 ## Version Information
 
-| Component | Version | Notes |
-|-----------|---------|-------|
-| AWX | 24.0+ | Latest stable |
-| AWX Operator | 2.12+ | Kubernetes deployment |
-| Ansible Core | 2.15+ | Execution engine |
-| Python | 3.11+ | Runtime |
-| PostgreSQL | 13-16 | Database |
+| Component    | Version | Notes                 |
+| ------------ | ------- | --------------------- |
+| AWX          | 24.0+   | Latest stable         |
+| AWX Operator | 2.12+   | Kubernetes deployment |
+| Ansible Core | 2.15+   | Execution engine      |
+| Python       | 3.11+   | Runtime               |
+| PostgreSQL   | 13-16   | Database              |
 
 ## Related Documentation
 

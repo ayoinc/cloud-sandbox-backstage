@@ -4,12 +4,12 @@
 
 ### Prerequisites
 
-| Requirement | Version | Installation |
-|-------------|---------|--------------|
-| Node.js | 18+ | `brew install node` |
-| Pulumi CLI | 3.100+ | `brew install pulumi` |
-| AWS CLI | 2.x | `brew install awscli` |
-| Docker | 24+ | Docker Desktop |
+| Requirement | Version | Installation          |
+| ----------- | ------- | --------------------- |
+| Node.js     | 18+     | `brew install node`   |
+| Pulumi CLI  | 3.100+  | `brew install pulumi` |
+| AWS CLI     | 2.x     | `brew install awscli` |
+| Docker      | 24+     | Docker Desktop        |
 
 ### Installation
 
@@ -61,97 +61,105 @@ myproject/
 
 ```typescript
 // index.ts - Complete AWS infrastructure
-import * as pulumi from "@pulumi/pulumi";
-import * as aws from "@pulumi/aws";
+import * as pulumi from '@pulumi/pulumi';
+import * as aws from '@pulumi/aws';
 
 const config = new pulumi.Config();
-const environment = config.require("environment");
+const environment = config.require('environment');
 
 // VPC
-const vpc = new aws.ec2.Vpc("main-vpc", {
-    cidrBlock: "10.0.0.0/16",
-    enableDnsHostnames: true,
-    enableDnsSupport: true,
-    tags: {
-        Name: `${environment}-vpc`,
-        Environment: environment,
-    },
+const vpc = new aws.ec2.Vpc('main-vpc', {
+  cidrBlock: '10.0.0.0/16',
+  enableDnsHostnames: true,
+  enableDnsSupport: true,
+  tags: {
+    Name: `${environment}-vpc`,
+    Environment: environment,
+  },
 });
 
 // Internet Gateway
-const igw = new aws.ec2.InternetGateway("main-igw", {
-    vpcId: vpc.id,
-    tags: { Name: `${environment}-igw` },
+const igw = new aws.ec2.InternetGateway('main-igw', {
+  vpcId: vpc.id,
+  tags: { Name: `${environment}-igw` },
 });
 
 // Public Subnets
-const azs = ["us-west-2a", "us-west-2b", "us-west-2c"];
-const publicSubnets = azs.map((az, index) => 
+const azs = ['us-west-2a', 'us-west-2b', 'us-west-2c'];
+const publicSubnets = azs.map(
+  (az, index) =>
     new aws.ec2.Subnet(`public-subnet-${index}`, {
-        vpcId: vpc.id,
-        cidrBlock: `10.0.${index}.0/24`,
-        availabilityZone: az,
-        mapPublicIpOnLaunch: true,
-        tags: {
-            Name: `${environment}-public-${az}`,
-            "kubernetes.io/role/elb": "1",
-        },
-    })
+      vpcId: vpc.id,
+      cidrBlock: `10.0.${index}.0/24`,
+      availabilityZone: az,
+      mapPublicIpOnLaunch: true,
+      tags: {
+        Name: `${environment}-public-${az}`,
+        'kubernetes.io/role/elb': '1',
+      },
+    }),
 );
 
 // Private Subnets
-const privateSubnets = azs.map((az, index) => 
+const privateSubnets = azs.map(
+  (az, index) =>
     new aws.ec2.Subnet(`private-subnet-${index}`, {
-        vpcId: vpc.id,
-        cidrBlock: `10.0.${index + 10}.0/24`,
-        availabilityZone: az,
-        tags: {
-            Name: `${environment}-private-${az}`,
-            "kubernetes.io/role/internal-elb": "1",
-        },
-    })
+      vpcId: vpc.id,
+      cidrBlock: `10.0.${index + 10}.0/24`,
+      availabilityZone: az,
+      tags: {
+        Name: `${environment}-private-${az}`,
+        'kubernetes.io/role/internal-elb': '1',
+      },
+    }),
 );
 
 // NAT Gateway
-const eip = new aws.ec2.Eip("nat-eip", { domain: "vpc" });
-const natGateway = new aws.ec2.NatGateway("nat-gateway", {
-    subnetId: publicSubnets[0].id,
-    allocationId: eip.id,
-    tags: { Name: `${environment}-nat` },
+const eip = new aws.ec2.Eip('nat-eip', { domain: 'vpc' });
+const natGateway = new aws.ec2.NatGateway('nat-gateway', {
+  subnetId: publicSubnets[0].id,
+  allocationId: eip.id,
+  tags: { Name: `${environment}-nat` },
 });
 
 // Route Tables
-const publicRouteTable = new aws.ec2.RouteTable("public-rt", {
-    vpcId: vpc.id,
-    routes: [{
-        cidrBlock: "0.0.0.0/0",
-        gatewayId: igw.id,
-    }],
-    tags: { Name: `${environment}-public-rt` },
+const publicRouteTable = new aws.ec2.RouteTable('public-rt', {
+  vpcId: vpc.id,
+  routes: [
+    {
+      cidrBlock: '0.0.0.0/0',
+      gatewayId: igw.id,
+    },
+  ],
+  tags: { Name: `${environment}-public-rt` },
 });
 
-const privateRouteTable = new aws.ec2.RouteTable("private-rt", {
-    vpcId: vpc.id,
-    routes: [{
-        cidrBlock: "0.0.0.0/0",
-        natGatewayId: natGateway.id,
-    }],
-    tags: { Name: `${environment}-private-rt` },
+const privateRouteTable = new aws.ec2.RouteTable('private-rt', {
+  vpcId: vpc.id,
+  routes: [
+    {
+      cidrBlock: '0.0.0.0/0',
+      natGatewayId: natGateway.id,
+    },
+  ],
+  tags: { Name: `${environment}-private-rt` },
 });
 
 // Route Table Associations
-publicSubnets.forEach((subnet, index) => 
+publicSubnets.forEach(
+  (subnet, index) =>
     new aws.ec2.RouteTableAssociation(`public-rta-${index}`, {
-        subnetId: subnet.id,
-        routeTableId: publicRouteTable.id,
-    })
+      subnetId: subnet.id,
+      routeTableId: publicRouteTable.id,
+    }),
 );
 
-privateSubnets.forEach((subnet, index) => 
+privateSubnets.forEach(
+  (subnet, index) =>
     new aws.ec2.RouteTableAssociation(`private-rta-${index}`, {
-        subnetId: subnet.id,
-        routeTableId: privateRouteTable.id,
-    })
+      subnetId: subnet.id,
+      routeTableId: privateRouteTable.id,
+    }),
 );
 
 // Exports
@@ -164,76 +172,78 @@ export const privateSubnetIds = privateSubnets.map(s => s.id);
 
 ```typescript
 // eks-cluster.ts
-import * as pulumi from "@pulumi/pulumi";
-import * as aws from "@pulumi/aws";
-import * as eks from "@pulumi/eks";
+import * as pulumi from '@pulumi/pulumi';
+import * as aws from '@pulumi/aws';
+import * as eks from '@pulumi/eks';
 
 const config = new pulumi.Config();
 
 // Import VPC from network stack
-const networkStack = new pulumi.StackReference(config.require("networkStack"));
-const vpcId = networkStack.getOutput("vpcId");
-const privateSubnetIds = networkStack.getOutput("privateSubnetIds");
+const networkStack = new pulumi.StackReference(config.require('networkStack'));
+const vpcId = networkStack.getOutput('vpcId');
+const privateSubnetIds = networkStack.getOutput('privateSubnetIds');
 
 // EKS Cluster
-const cluster = new eks.Cluster("eks-cluster", {
-    vpcId: vpcId,
-    subnetIds: privateSubnetIds,
-    instanceType: "t3.medium",
-    desiredCapacity: 3,
-    minSize: 2,
-    maxSize: 5,
-    version: "1.29",
-    nodeAssociatePublicIpAddress: false,
-    enabledClusterLogTypes: [
-        "api",
-        "audit", 
-        "authenticator",
-        "controllerManager",
-        "scheduler",
-    ],
-    createOidcProvider: true,
-    tags: {
-        Environment: config.require("environment"),
-    },
+const cluster = new eks.Cluster('eks-cluster', {
+  vpcId: vpcId,
+  subnetIds: privateSubnetIds,
+  instanceType: 't3.medium',
+  desiredCapacity: 3,
+  minSize: 2,
+  maxSize: 5,
+  version: '1.29',
+  nodeAssociatePublicIpAddress: false,
+  enabledClusterLogTypes: [
+    'api',
+    'audit',
+    'authenticator',
+    'controllerManager',
+    'scheduler',
+  ],
+  createOidcProvider: true,
+  tags: {
+    Environment: config.require('environment'),
+  },
 });
 
 // Managed Node Group for workloads
-const workloadNodeGroup = new eks.ManagedNodeGroup("workload-nodes", {
-    cluster: cluster,
-    nodeGroupName: "workload-nodes",
-    instanceTypes: ["t3.large"],
-    scalingConfig: {
-        desiredSize: 3,
-        minSize: 2,
-        maxSize: 10,
-    },
-    labels: {
-        "workload-type": "general",
-    },
-    taints: [],
+const workloadNodeGroup = new eks.ManagedNodeGroup('workload-nodes', {
+  cluster: cluster,
+  nodeGroupName: 'workload-nodes',
+  instanceTypes: ['t3.large'],
+  scalingConfig: {
+    desiredSize: 3,
+    minSize: 2,
+    maxSize: 10,
+  },
+  labels: {
+    'workload-type': 'general',
+  },
+  taints: [],
 });
 
 // Spot Node Group for batch workloads
-const spotNodeGroup = new eks.ManagedNodeGroup("spot-nodes", {
-    cluster: cluster,
-    nodeGroupName: "spot-nodes",
-    instanceTypes: ["t3.large", "t3.xlarge", "m5.large"],
-    capacityType: "SPOT",
-    scalingConfig: {
-        desiredSize: 2,
-        minSize: 0,
-        maxSize: 20,
+const spotNodeGroup = new eks.ManagedNodeGroup('spot-nodes', {
+  cluster: cluster,
+  nodeGroupName: 'spot-nodes',
+  instanceTypes: ['t3.large', 't3.xlarge', 'm5.large'],
+  capacityType: 'SPOT',
+  scalingConfig: {
+    desiredSize: 2,
+    minSize: 0,
+    maxSize: 20,
+  },
+  labels: {
+    'workload-type': 'batch',
+    'node-lifecycle': 'spot',
+  },
+  taints: [
+    {
+      key: 'workload-type',
+      value: 'batch',
+      effect: 'NO_SCHEDULE',
     },
-    labels: {
-        "workload-type": "batch",
-        "node-lifecycle": "spot",
-    },
-    taints: [{
-        key: "workload-type",
-        value: "batch",
-        effect: "NO_SCHEDULE",
-    }],
+  ],
 });
 
 export const kubeconfig = cluster.kubeconfig;
@@ -246,33 +256,39 @@ export const oidcProviderArn = cluster.core.oidcProvider?.arn;
 
 ```typescript
 // k8s-resources.ts
-import * as pulumi from "@pulumi/pulumi";
-import * as k8s from "@pulumi/kubernetes";
+import * as pulumi from '@pulumi/pulumi';
+import * as k8s from '@pulumi/kubernetes';
 
 const config = new pulumi.Config();
 
 // Import kubeconfig from EKS stack
-const eksStack = new pulumi.StackReference(config.require("eksStack"));
-const kubeconfig = eksStack.getOutput("kubeconfig");
+const eksStack = new pulumi.StackReference(config.require('eksStack'));
+const kubeconfig = eksStack.getOutput('kubeconfig');
 
 // Create K8s provider
-const k8sProvider = new k8s.Provider("k8s-provider", {
-    kubeconfig: kubeconfig,
+const k8sProvider = new k8s.Provider('k8s-provider', {
+  kubeconfig: kubeconfig,
 });
 
 // Namespace
-const namespace = new k8s.core.v1.Namespace("app-namespace", {
-    metadata: { name: "myapp" },
-}, { provider: k8sProvider });
+const namespace = new k8s.core.v1.Namespace(
+  'app-namespace',
+  {
+    metadata: { name: 'myapp' },
+  },
+  { provider: k8sProvider },
+);
 
 // ConfigMap
-const configMap = new k8s.core.v1.ConfigMap("app-config", {
+const configMap = new k8s.core.v1.ConfigMap(
+  'app-config',
+  {
     metadata: {
-        name: "app-config",
-        namespace: namespace.metadata.name,
+      name: 'app-config',
+      namespace: namespace.metadata.name,
     },
     data: {
-        "config.yaml": `
+      'config.yaml': `
 server:
   port: 8080
   host: 0.0.0.0
@@ -281,112 +297,140 @@ logging:
   format: json
 `,
     },
-}, { provider: k8sProvider });
+  },
+  { provider: k8sProvider },
+);
 
 // Secret
-const secret = new k8s.core.v1.Secret("app-secrets", {
+const secret = new k8s.core.v1.Secret(
+  'app-secrets',
+  {
     metadata: {
-        name: "app-secrets",
-        namespace: namespace.metadata.name,
+      name: 'app-secrets',
+      namespace: namespace.metadata.name,
     },
     stringData: {
-        "database-url": config.requireSecret("databaseUrl"),
-        "api-key": config.requireSecret("apiKey"),
+      'database-url': config.requireSecret('databaseUrl'),
+      'api-key': config.requireSecret('apiKey'),
     },
-}, { provider: k8sProvider });
+  },
+  { provider: k8sProvider },
+);
 
 // Deployment
-const deployment = new k8s.apps.v1.Deployment("app-deployment", {
+const deployment = new k8s.apps.v1.Deployment(
+  'app-deployment',
+  {
     metadata: {
-        name: "myapp",
-        namespace: namespace.metadata.name,
+      name: 'myapp',
+      namespace: namespace.metadata.name,
     },
     spec: {
-        replicas: 3,
-        selector: {
-            matchLabels: { app: "myapp" },
+      replicas: 3,
+      selector: {
+        matchLabels: { app: 'myapp' },
+      },
+      template: {
+        metadata: {
+          labels: { app: 'myapp' },
         },
-        template: {
-            metadata: {
-                labels: { app: "myapp" },
+        spec: {
+          containers: [
+            {
+              name: 'myapp',
+              image: 'myregistry/myapp:v1.0.0',
+              ports: [{ containerPort: 8080 }],
+              envFrom: [
+                { configMapRef: { name: configMap.metadata.name } },
+                { secretRef: { name: secret.metadata.name } },
+              ],
+              resources: {
+                requests: { cpu: '100m', memory: '128Mi' },
+                limits: { cpu: '500m', memory: '512Mi' },
+              },
+              livenessProbe: {
+                httpGet: { path: '/health', port: 8080 },
+                initialDelaySeconds: 30,
+                periodSeconds: 10,
+              },
+              readinessProbe: {
+                httpGet: { path: '/ready', port: 8080 },
+                initialDelaySeconds: 5,
+                periodSeconds: 5,
+              },
             },
-            spec: {
-                containers: [{
-                    name: "myapp",
-                    image: "myregistry/myapp:v1.0.0",
-                    ports: [{ containerPort: 8080 }],
-                    envFrom: [
-                        { configMapRef: { name: configMap.metadata.name } },
-                        { secretRef: { name: secret.metadata.name } },
-                    ],
-                    resources: {
-                        requests: { cpu: "100m", memory: "128Mi" },
-                        limits: { cpu: "500m", memory: "512Mi" },
-                    },
-                    livenessProbe: {
-                        httpGet: { path: "/health", port: 8080 },
-                        initialDelaySeconds: 30,
-                        periodSeconds: 10,
-                    },
-                    readinessProbe: {
-                        httpGet: { path: "/ready", port: 8080 },
-                        initialDelaySeconds: 5,
-                        periodSeconds: 5,
-                    },
-                }],
-            },
+          ],
         },
+      },
     },
-}, { provider: k8sProvider });
+  },
+  { provider: k8sProvider },
+);
 
 // Service
-const service = new k8s.core.v1.Service("app-service", {
+const service = new k8s.core.v1.Service(
+  'app-service',
+  {
     metadata: {
-        name: "myapp",
-        namespace: namespace.metadata.name,
+      name: 'myapp',
+      namespace: namespace.metadata.name,
     },
     spec: {
-        type: "ClusterIP",
-        selector: { app: "myapp" },
-        ports: [{
-            port: 80,
-            targetPort: 8080,
-        }],
+      type: 'ClusterIP',
+      selector: { app: 'myapp' },
+      ports: [
+        {
+          port: 80,
+          targetPort: 8080,
+        },
+      ],
     },
-}, { provider: k8sProvider });
+  },
+  { provider: k8sProvider },
+);
 
 // Ingress
-const ingress = new k8s.networking.v1.Ingress("app-ingress", {
+const ingress = new k8s.networking.v1.Ingress(
+  'app-ingress',
+  {
     metadata: {
-        name: "myapp",
-        namespace: namespace.metadata.name,
-        annotations: {
-            "kubernetes.io/ingress.class": "nginx",
-            "cert-manager.io/cluster-issuer": "letsencrypt-prod",
-        },
+      name: 'myapp',
+      namespace: namespace.metadata.name,
+      annotations: {
+        'kubernetes.io/ingress.class': 'nginx',
+        'cert-manager.io/cluster-issuer': 'letsencrypt-prod',
+      },
     },
     spec: {
-        tls: [{
-            hosts: ["myapp.example.com"],
-            secretName: "myapp-tls",
-        }],
-        rules: [{
-            host: "myapp.example.com",
-            http: {
-                paths: [{
-                    path: "/",
-                    pathType: "Prefix",
-                    backend: {
-                        service: {
-                            name: service.metadata.name,
-                            port: { number: 80 },
-                        },
-                    },
-                }],
-            },
-        }],
+      tls: [
+        {
+          hosts: ['myapp.example.com'],
+          secretName: 'myapp-tls',
+        },
+      ],
+      rules: [
+        {
+          host: 'myapp.example.com',
+          http: {
+            paths: [
+              {
+                path: '/',
+                pathType: 'Prefix',
+                backend: {
+                  service: {
+                    name: service.metadata.name,
+                    port: { number: 80 },
+                  },
+                },
+              },
+            ],
+          },
+        },
+      ],
     },
-}, { provider: k8sProvider });
+  },
+  { provider: k8sProvider },
+);
 
 export const appUrl = pulumi.interpolate`https://myapp.example.com`;
 ```
@@ -395,67 +439,72 @@ export const appUrl = pulumi.interpolate`https://myapp.example.com`;
 
 ```typescript
 // multi-env/index.ts
-import * as pulumi from "@pulumi/pulumi";
-import * as aws from "@pulumi/aws";
+import * as pulumi from '@pulumi/pulumi';
+import * as aws from '@pulumi/aws';
 
 const stack = pulumi.getStack();
 const config = new pulumi.Config();
 
 // Environment-specific configuration
-const envConfig: Record<string, {
+const envConfig: Record<
+  string,
+  {
     instanceType: string;
     minSize: number;
     maxSize: number;
     multiAz: boolean;
     enableDeletionProtection: boolean;
-}> = {
-    dev: {
-        instanceType: "t3.small",
-        minSize: 1,
-        maxSize: 2,
-        multiAz: false,
-        enableDeletionProtection: false,
-    },
-    staging: {
-        instanceType: "t3.medium",
-        minSize: 2,
-        maxSize: 4,
-        multiAz: true,
-        enableDeletionProtection: false,
-    },
-    prod: {
-        instanceType: "t3.large",
-        minSize: 3,
-        maxSize: 10,
-        multiAz: true,
-        enableDeletionProtection: true,
-    },
+  }
+> = {
+  dev: {
+    instanceType: 't3.small',
+    minSize: 1,
+    maxSize: 2,
+    multiAz: false,
+    enableDeletionProtection: false,
+  },
+  staging: {
+    instanceType: 't3.medium',
+    minSize: 2,
+    maxSize: 4,
+    multiAz: true,
+    enableDeletionProtection: false,
+  },
+  prod: {
+    instanceType: 't3.large',
+    minSize: 3,
+    maxSize: 10,
+    multiAz: true,
+    enableDeletionProtection: true,
+  },
 };
 
 const settings = envConfig[stack] || envConfig.dev;
 
 // Apply environment-specific resources
-const asg = new aws.autoscaling.Group("app-asg", {
-    minSize: settings.minSize,
-    maxSize: settings.maxSize,
-    desiredCapacity: settings.minSize,
-    launchTemplate: {
-        id: launchTemplate.id,
-        version: "$Latest",
+const asg = new aws.autoscaling.Group('app-asg', {
+  minSize: settings.minSize,
+  maxSize: settings.maxSize,
+  desiredCapacity: settings.minSize,
+  launchTemplate: {
+    id: launchTemplate.id,
+    version: '$Latest',
+  },
+  vpcZoneIdentifiers: privateSubnetIds,
+  tags: [
+    {
+      key: 'Environment',
+      value: stack,
+      propagateAtLaunch: true,
     },
-    vpcZoneIdentifiers: privateSubnetIds,
-    tags: [{
-        key: "Environment",
-        value: stack,
-        propagateAtLaunch: true,
-    }],
+  ],
 });
 
-const rds = new aws.rds.Instance("app-db", {
-    instanceClass: `db.${settings.instanceType}`,
-    multiAz: settings.multiAz,
-    deletionProtection: settings.enableDeletionProtection,
-    // ... other config
+const rds = new aws.rds.Instance('app-db', {
+  instanceClass: `db.${settings.instanceType}`,
+  multiAz: settings.multiAz,
+  deletionProtection: settings.enableDeletionProtection,
+  // ... other config
 });
 ```
 
@@ -486,15 +535,15 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - uses: pulumi/actions@v5
         with:
           command: preview
@@ -508,15 +557,15 @@ jobs:
     if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - uses: pulumi/actions@v5
         with:
           command: up
@@ -530,15 +579,15 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - uses: pulumi/actions@v5
         with:
           command: up
@@ -612,52 +661,52 @@ deploy-prod:
 
 ```typescript
 // __tests__/vpc.test.ts
-import * as pulumi from "@pulumi/pulumi";
-import "jest";
+import * as pulumi from '@pulumi/pulumi';
+import 'jest';
 
 // Mock Pulumi runtime
 pulumi.runtime.setMocks({
-    newResource: (args: pulumi.runtime.MockResourceArgs) => {
-        return {
-            id: `${args.name}-id`,
-            state: {
-                ...args.inputs,
-                arn: `arn:aws:${args.type}:us-west-2:123456789:${args.name}`,
-            },
-        };
-    },
-    call: (args: pulumi.runtime.MockCallArgs) => {
-        return args.inputs;
-    },
+  newResource: (args: pulumi.runtime.MockResourceArgs) => {
+    return {
+      id: `${args.name}-id`,
+      state: {
+        ...args.inputs,
+        arn: `arn:aws:${args.type}:us-west-2:123456789:${args.name}`,
+      },
+    };
+  },
+  call: (args: pulumi.runtime.MockCallArgs) => {
+    return args.inputs;
+  },
 });
 
-describe("VPC Component", () => {
-    let infra: typeof import("../index");
+describe('VPC Component', () => {
+  let infra: typeof import('../index');
 
-    beforeAll(async () => {
-        infra = await import("../index");
-    });
+  beforeAll(async () => {
+    infra = await import('../index');
+  });
 
-    test("VPC has correct CIDR block", async () => {
-        const cidr = await new Promise<string>((resolve) => 
-            infra.vpcCidr.apply(resolve)
-        );
-        expect(cidr).toBe("10.0.0.0/16");
-    });
+  test('VPC has correct CIDR block', async () => {
+    const cidr = await new Promise<string>(resolve =>
+      infra.vpcCidr.apply(resolve),
+    );
+    expect(cidr).toBe('10.0.0.0/16');
+  });
 
-    test("Creates correct number of subnets", async () => {
-        const publicSubnets = await new Promise<string[]>((resolve) =>
-            pulumi.all(infra.publicSubnetIds).apply(resolve)
-        );
-        expect(publicSubnets.length).toBe(3);
-    });
+  test('Creates correct number of subnets', async () => {
+    const publicSubnets = await new Promise<string[]>(resolve =>
+      pulumi.all(infra.publicSubnetIds).apply(resolve),
+    );
+    expect(publicSubnets.length).toBe(3);
+  });
 
-    test("VPC has DNS support enabled", async () => {
-        const dnsEnabled = await new Promise<boolean>((resolve) =>
-            infra.vpcDnsSupport.apply(resolve)
-        );
-        expect(dnsEnabled).toBe(true);
-    });
+  test('VPC has DNS support enabled', async () => {
+    const dnsEnabled = await new Promise<boolean>(resolve =>
+      infra.vpcDnsSupport.apply(resolve),
+    );
+    expect(dnsEnabled).toBe(true);
+  });
 });
 ```
 
@@ -665,54 +714,54 @@ describe("VPC Component", () => {
 
 ```typescript
 // __tests__/integration/eks.test.ts
-import * as automation from "@pulumi/pulumi/automation";
-import * as k8s from "@kubernetes/client-node";
-import { describe, test, expect, beforeAll, afterAll } from "@jest/globals";
+import * as automation from '@pulumi/pulumi/automation';
+import * as k8s from '@kubernetes/client-node';
+import { describe, test, expect, beforeAll, afterAll } from '@jest/globals';
 
-describe("EKS Cluster Integration", () => {
-    let stack: automation.Stack;
-    let kubeconfig: string;
+describe('EKS Cluster Integration', () => {
+  let stack: automation.Stack;
+  let kubeconfig: string;
 
-    beforeAll(async () => {
-        // Create ephemeral stack for testing
-        stack = await automation.LocalWorkspace.createOrSelectStack({
-            stackName: `test-${Date.now()}`,
-            workDir: "./",
-        });
-
-        await stack.setConfig("aws:region", { value: "us-west-2" });
-        await stack.setConfig("myproject:environment", { value: "test" });
-
-        // Deploy infrastructure
-        const result = await stack.up({ onOutput: console.log });
-        kubeconfig = result.outputs.kubeconfig.value;
-    }, 600000); // 10 minute timeout
-
-    afterAll(async () => {
-        // Cleanup
-        await stack.destroy({ onOutput: console.log });
-        await stack.workspace.removeStack(stack.name);
-    }, 300000);
-
-    test("Cluster is accessible", async () => {
-        const kc = new k8s.KubeConfig();
-        kc.loadFromString(kubeconfig);
-
-        const k8sApi = kc.makeApiClient(k8s.CoreV1Api);
-        const nodes = await k8sApi.listNode();
-
-        expect(nodes.body.items.length).toBeGreaterThan(0);
+  beforeAll(async () => {
+    // Create ephemeral stack for testing
+    stack = await automation.LocalWorkspace.createOrSelectStack({
+      stackName: `test-${Date.now()}`,
+      workDir: './',
     });
 
-    test("Cluster has correct node count", async () => {
-        const kc = new k8s.KubeConfig();
-        kc.loadFromString(kubeconfig);
+    await stack.setConfig('aws:region', { value: 'us-west-2' });
+    await stack.setConfig('myproject:environment', { value: 'test' });
 
-        const k8sApi = kc.makeApiClient(k8s.CoreV1Api);
-        const nodes = await k8sApi.listNode();
+    // Deploy infrastructure
+    const result = await stack.up({ onOutput: console.log });
+    kubeconfig = result.outputs.kubeconfig.value;
+  }, 600000); // 10 minute timeout
 
-        expect(nodes.body.items.length).toBeGreaterThanOrEqual(2);
-    });
+  afterAll(async () => {
+    // Cleanup
+    await stack.destroy({ onOutput: console.log });
+    await stack.workspace.removeStack(stack.name);
+  }, 300000);
+
+  test('Cluster is accessible', async () => {
+    const kc = new k8s.KubeConfig();
+    kc.loadFromString(kubeconfig);
+
+    const k8sApi = kc.makeApiClient(k8s.CoreV1Api);
+    const nodes = await k8sApi.listNode();
+
+    expect(nodes.body.items.length).toBeGreaterThan(0);
+  });
+
+  test('Cluster has correct node count', async () => {
+    const kc = new k8s.KubeConfig();
+    kc.loadFromString(kubeconfig);
+
+    const k8sApi = kc.makeApiClient(k8s.CoreV1Api);
+    const nodes = await k8sApi.listNode();
+
+    expect(nodes.body.items.length).toBeGreaterThanOrEqual(2);
+  });
 });
 ```
 
@@ -720,46 +769,40 @@ describe("EKS Cluster Integration", () => {
 
 ```typescript
 // policy/__tests__/security.test.ts
-import * as policy from "@pulumi/policy";
-import { PolicyTestHelpers } from "@pulumi/policy/test";
+import * as policy from '@pulumi/policy';
+import { PolicyTestHelpers } from '@pulumi/policy/test';
 
-describe("Security Policies", () => {
-    const helper = new PolicyTestHelpers();
+describe('Security Policies', () => {
+  const helper = new PolicyTestHelpers();
 
-    test("S3 buckets without encryption fail", async () => {
-        const result = await helper.validateResource(
-            "s3-encryption-required",
-            {
-                type: "aws:s3/bucket:Bucket",
-                props: {
-                    bucket: "my-bucket",
-                    // Missing serverSideEncryptionConfiguration
-                },
-            }
-        );
-        expect(result.violations.length).toBe(1);
-        expect(result.violations[0].message).toContain("encryption");
+  test('S3 buckets without encryption fail', async () => {
+    const result = await helper.validateResource('s3-encryption-required', {
+      type: 'aws:s3/bucket:Bucket',
+      props: {
+        bucket: 'my-bucket',
+        // Missing serverSideEncryptionConfiguration
+      },
     });
+    expect(result.violations.length).toBe(1);
+    expect(result.violations[0].message).toContain('encryption');
+  });
 
-    test("S3 buckets with encryption pass", async () => {
-        const result = await helper.validateResource(
-            "s3-encryption-required",
-            {
-                type: "aws:s3/bucket:Bucket",
-                props: {
-                    bucket: "my-bucket",
-                    serverSideEncryptionConfiguration: {
-                        rule: {
-                            applyServerSideEncryptionByDefault: {
-                                sseAlgorithm: "AES256",
-                            },
-                        },
-                    },
-                },
-            }
-        );
-        expect(result.violations.length).toBe(0);
+  test('S3 buckets with encryption pass', async () => {
+    const result = await helper.validateResource('s3-encryption-required', {
+      type: 'aws:s3/bucket:Bucket',
+      props: {
+        bucket: 'my-bucket',
+        serverSideEncryptionConfiguration: {
+          rule: {
+            applyServerSideEncryptionByDefault: {
+              sseAlgorithm: 'AES256',
+            },
+          },
+        },
+      },
     });
+    expect(result.violations.length).toBe(0);
+  });
 });
 ```
 
@@ -782,23 +825,23 @@ pulumi import -f imports.json
 
 ```json
 {
-    "resources": [
-        {
-            "type": "aws:ec2/vpc:Vpc",
-            "name": "main-vpc",
-            "id": "vpc-1234567890abcdef0"
-        },
-        {
-            "type": "aws:ec2/subnet:Subnet",
-            "name": "public-subnet-1",
-            "id": "subnet-1234567890abcdef0"
-        },
-        {
-            "type": "aws:rds/instance:Instance",
-            "name": "main-db",
-            "id": "my-database-instance"
-        }
-    ]
+  "resources": [
+    {
+      "type": "aws:ec2/vpc:Vpc",
+      "name": "main-vpc",
+      "id": "vpc-1234567890abcdef0"
+    },
+    {
+      "type": "aws:ec2/subnet:Subnet",
+      "name": "public-subnet-1",
+      "id": "subnet-1234567890abcdef0"
+    },
+    {
+      "type": "aws:rds/instance:Instance",
+      "name": "main-db",
+      "id": "my-database-instance"
+    }
+  ]
 }
 ```
 
@@ -806,36 +849,38 @@ pulumi import -f imports.json
 
 ```typescript
 // scripts/import-resources.ts
-import * as automation from "@pulumi/pulumi/automation";
-import * as aws from "aws-sdk";
+import * as automation from '@pulumi/pulumi/automation';
+import * as aws from 'aws-sdk';
 
 async function importExistingResources() {
-    const ec2 = new aws.EC2({ region: "us-west-2" });
-    
-    // Get existing VPCs
-    const vpcs = await ec2.describeVpcs().promise();
-    
-    const stack = await automation.LocalWorkspace.selectStack({
-        stackName: "dev",
-        workDir: "./",
-    });
-    
-    for (const vpc of vpcs.Vpcs || []) {
-        const name = vpc.Tags?.find(t => t.Key === "Name")?.Value || vpc.VpcId;
-        
-        try {
-            await stack.import({
-                resources: [{
-                    type: "aws:ec2/vpc:Vpc",
-                    name: name!.replace(/[^a-zA-Z0-9-]/g, "-"),
-                    id: vpc.VpcId!,
-                }],
-            });
-            console.log(`Imported VPC: ${vpc.VpcId}`);
-        } catch (err) {
-            console.error(`Failed to import ${vpc.VpcId}:`, err);
-        }
+  const ec2 = new aws.EC2({ region: 'us-west-2' });
+
+  // Get existing VPCs
+  const vpcs = await ec2.describeVpcs().promise();
+
+  const stack = await automation.LocalWorkspace.selectStack({
+    stackName: 'dev',
+    workDir: './',
+  });
+
+  for (const vpc of vpcs.Vpcs || []) {
+    const name = vpc.Tags?.find(t => t.Key === 'Name')?.Value || vpc.VpcId;
+
+    try {
+      await stack.import({
+        resources: [
+          {
+            type: 'aws:ec2/vpc:Vpc',
+            name: name!.replace(/[^a-zA-Z0-9-]/g, '-'),
+            id: vpc.VpcId!,
+          },
+        ],
+      });
+      console.log(`Imported VPC: ${vpc.VpcId}`);
+    } catch (err) {
+      console.error(`Failed to import ${vpc.VpcId}:`, err);
     }
+  }
 }
 
 importExistingResources();
@@ -843,18 +888,18 @@ importExistingResources();
 
 ## Troubleshooting
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| `error: no Pulumi.yaml found` | Not in project directory | Run `pulumi new` or `cd` to project root |
-| `error: stack 'x' not found` | Stack doesn't exist | Run `pulumi stack init <name>` |
-| `error: resource already exists` | Resource created outside Pulumi | Use `pulumi import` to adopt resource |
-| `error: update failed` | Deployment conflict | Check `pulumi stack export` for state issues |
-| `error: A]WS credentials not found` | Missing credentials | Run `aws configure` or set env vars |
-| `preview failed: resource plugin not found` | Missing provider | Run `npm install @pulumi/<provider>` |
-| `error: secrets provider not configured` | Missing secrets backend | Set `pulumi:secrets:provider` in config |
-| `error: state file locked` | Concurrent operation | Wait or run `pulumi cancel` |
-| `checksum mismatch` | Corrupted state | Export state, fix, reimport |
-| `timeout waiting for resource` | Slow resource creation | Increase timeout in resource options |
+| Issue                                       | Cause                           | Solution                                     |
+| ------------------------------------------- | ------------------------------- | -------------------------------------------- |
+| `error: no Pulumi.yaml found`               | Not in project directory        | Run `pulumi new` or `cd` to project root     |
+| `error: stack 'x' not found`                | Stack doesn't exist             | Run `pulumi stack init <name>`               |
+| `error: resource already exists`            | Resource created outside Pulumi | Use `pulumi import` to adopt resource        |
+| `error: update failed`                      | Deployment conflict             | Check `pulumi stack export` for state issues |
+| `error: A]WS credentials not found`         | Missing credentials             | Run `aws configure` or set env vars          |
+| `preview failed: resource plugin not found` | Missing provider                | Run `npm install @pulumi/<provider>`         |
+| `error: secrets provider not configured`    | Missing secrets backend         | Set `pulumi:secrets:provider` in config      |
+| `error: state file locked`                  | Concurrent operation            | Wait or run `pulumi cancel`                  |
+| `checksum mismatch`                         | Corrupted state                 | Export state, fix, reimport                  |
+| `timeout waiting for resource`              | Slow resource creation          | Increase timeout in resource options         |
 
 ### Debug Mode
 
@@ -945,22 +990,22 @@ infrastructure/
 
 ```typescript
 // Use explicit dependencies to parallelize
-const bucket1 = new aws.s3.Bucket("bucket1");
-const bucket2 = new aws.s3.Bucket("bucket2");
+const bucket1 = new aws.s3.Bucket('bucket1');
+const bucket2 = new aws.s3.Bucket('bucket2');
 // These create in parallel
 
 // Group related resources with ComponentResource
 class MyComponent extends pulumi.ComponentResource {
-    constructor(name: string, opts?: pulumi.ComponentResourceOptions) {
-        super("custom:MyComponent", name, {}, opts);
-        // All child resources deploy together
-    }
+  constructor(name: string, opts?: pulumi.ComponentResourceOptions) {
+    super('custom:MyComponent', name, {}, opts);
+    // All child resources deploy together
+  }
 }
 
 // Use transformations for cross-cutting concerns
-pulumi.runtime.registerStackTransformation((args) => {
-    // Apply tags to all resources at once
-    return { props: args.props, opts: args.opts };
+pulumi.runtime.registerStackTransformation(args => {
+  // Apply tags to all resources at once
+  return { props: args.props, opts: args.opts };
 });
 ```
 
@@ -968,43 +1013,43 @@ pulumi.runtime.registerStackTransformation((args) => {
 
 ```typescript
 const config = new pulumi.Config();
-const environment = config.require("environment");
+const environment = config.require('environment');
 const project = pulumi.getProject();
 
 // Consistent naming pattern
 function resourceName(type: string, name: string): string {
-    return `${project}-${environment}-${type}-${name}`;
+  return `${project}-${environment}-${type}-${name}`;
 }
 
 // Usage
-const vpc = new aws.ec2.Vpc(resourceName("vpc", "main"), {
-    tags: {
-        Name: resourceName("vpc", "main"),
-        Environment: environment,
-        Project: project,
-        ManagedBy: "pulumi",
-    },
+const vpc = new aws.ec2.Vpc(resourceName('vpc', 'main'), {
+  tags: {
+    Name: resourceName('vpc', 'main'),
+    Environment: environment,
+    Project: project,
+    ManagedBy: 'pulumi',
+  },
 });
 ```
 
 ## CLI Reference
 
-| Command | Description |
-|---------|-------------|
-| `pulumi new <template>` | Create new project from template |
-| `pulumi stack init <name>` | Create new stack |
-| `pulumi stack select <name>` | Switch to stack |
-| `pulumi config set <key> <value>` | Set configuration |
-| `pulumi config set --secret <key> <value>` | Set secret configuration |
-| `pulumi preview` | Preview changes |
-| `pulumi up` | Deploy changes |
-| `pulumi refresh` | Sync state with cloud |
-| `pulumi destroy` | Destroy all resources |
-| `pulumi stack export` | Export stack state |
-| `pulumi stack import` | Import stack state |
-| `pulumi import <type> <name> <id>` | Import existing resource |
-| `pulumi logs` | View resource logs |
-| `pulumi watch` | Watch for changes and auto-deploy |
+| Command                                    | Description                       |
+| ------------------------------------------ | --------------------------------- |
+| `pulumi new <template>`                    | Create new project from template  |
+| `pulumi stack init <name>`                 | Create new stack                  |
+| `pulumi stack select <name>`               | Switch to stack                   |
+| `pulumi config set <key> <value>`          | Set configuration                 |
+| `pulumi config set --secret <key> <value>` | Set secret configuration          |
+| `pulumi preview`                           | Preview changes                   |
+| `pulumi up`                                | Deploy changes                    |
+| `pulumi refresh`                           | Sync state with cloud             |
+| `pulumi destroy`                           | Destroy all resources             |
+| `pulumi stack export`                      | Export stack state                |
+| `pulumi stack import`                      | Import stack state                |
+| `pulumi import <type> <name> <id>`         | Import existing resource          |
+| `pulumi logs`                              | View resource logs                |
+| `pulumi watch`                             | Watch for changes and auto-deploy |
 
 ## Related Resources
 

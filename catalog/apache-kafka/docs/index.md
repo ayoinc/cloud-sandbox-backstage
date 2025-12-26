@@ -38,14 +38,14 @@ kafka-console-consumer.sh \
 
 ## Key Features
 
-| Feature | Description |
-|---------|-------------|
-| **High Throughput** | Millions of messages per second with low latency |
-| **Scalability** | Scale horizontally by adding brokers |
-| **Durability** | Replicated, persistent log storage |
-| **Fault Tolerance** | Automatic failover and replication |
-| **Stream Processing** | Built-in Kafka Streams API |
-| **Connectors** | 100+ pre-built Kafka Connect connectors |
+| Feature               | Description                                      |
+| --------------------- | ------------------------------------------------ |
+| **High Throughput**   | Millions of messages per second with low latency |
+| **Scalability**       | Scale horizontally by adding brokers             |
+| **Durability**        | Replicated, persistent log storage               |
+| **Fault Tolerance**   | Automatic failover and replication               |
+| **Stream Processing** | Built-in Kafka Streams API                       |
+| **Connectors**        | 100+ pre-built Kafka Connect connectors          |
 
 ## Core Concepts
 
@@ -63,7 +63,7 @@ direction: down
 
 kafka_cluster: Kafka Cluster {
   style.fill: "#f5f5f5"
-  
+
   brokers: Brokers {
     direction: right
     broker1: Broker 1 (Leader) {
@@ -76,14 +76,14 @@ kafka_cluster: Kafka Cluster {
       style.fill: "#2196F3"
     }
   }
-  
+
   topic: "Topic: orders" {
     direction: right
     part0: Partition 0
     part1: Partition 1
     part2: Partition 2
   }
-  
+
   brokers -> topic: manages
 }
 

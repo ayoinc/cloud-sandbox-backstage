@@ -6,19 +6,23 @@ import {
   useCallback,
 } from 'react';
 import type { ReactNode } from 'react';
-import { useApi, fetchApiRef, identityApiRef } from '@backstage/core-plugin-api';
+import {
+  useApi,
+  fetchApiRef,
+  identityApiRef,
+} from '@backstage/core-plugin-api';
 
 /**
  * =============================================================================
  * Branding Context
  * =============================================================================
- * 
+ *
  * Provides global access to branding settings (logo, organization name).
  * Fetches settings from the branding-settings backend plugin.
- * 
+ *
  * Usage:
  *   const { settings, isAdmin, updateSettings, uploadLogo } = useBranding();
- * 
+ *
  * =============================================================================
  */
 
@@ -52,16 +56,20 @@ const DEFAULT_SETTINGS: BrandingSettings = {
   updatedBy: null,
 };
 
-const BrandingContext = createContext<BrandingContextType | undefined>(undefined);
+const BrandingContext = createContext<BrandingContextType | undefined>(
+  undefined,
+);
 
 interface BrandingProviderProps {
   children: ReactNode;
 }
 
-export const BrandingProvider: React.FC<BrandingProviderProps> = ({ children }) => {
+export const BrandingProvider: React.FC<BrandingProviderProps> = ({
+  children,
+}) => {
   const fetchApi = useApi(fetchApiRef);
   const identityApi = useApi(identityApiRef);
-  
+
   const [settings, setSettings] = useState<BrandingSettings>(DEFAULT_SETTINGS);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -111,62 +119,70 @@ export const BrandingProvider: React.FC<BrandingProviderProps> = ({ children }) 
   }, [fetchApi, identityApi]);
 
   // Update branding settings (text fields)
-  const updateSettings = useCallback(async (updates: Partial<BrandingSettings>) => {
-    try {
-      setError(null);
-      const response = await fetchApi.fetch(baseUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updates),
-      });
+  const updateSettings = useCallback(
+    async (updates: Partial<BrandingSettings>) => {
+      try {
+        setError(null);
+        const response = await fetchApi.fetch(baseUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(updates),
+        });
 
-      if (!response.ok) {
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Failed to update settings');
+        }
+
         const data = await response.json();
-        throw new Error(data.error || 'Failed to update settings');
+        setSettings(data);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'Failed to update settings';
+        setError(message);
+        throw err;
       }
-
-      const data = await response.json();
-      setSettings(data);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to update settings';
-      setError(message);
-      throw err;
-    }
-  }, [fetchApi]);
+    },
+    [fetchApi],
+  );
 
   // Upload logo files
-  const uploadLogo = useCallback(async (logoFull?: File, logoIcon?: File) => {
-    try {
-      setError(null);
-      const formData = new FormData();
-      
-      if (logoFull) {
-        formData.append('logoFull', logoFull);
-      }
-      if (logoIcon) {
-        formData.append('logoIcon', logoIcon);
-      }
+  const uploadLogo = useCallback(
+    async (logoFull?: File, logoIcon?: File) => {
+      try {
+        setError(null);
+        const formData = new FormData();
 
-      const response = await fetchApi.fetch(`${baseUrl}/logo/upload`, {
-        method: 'POST',
-        body: formData,
-      });
+        if (logoFull) {
+          formData.append('logoFull', logoFull);
+        }
+        if (logoIcon) {
+          formData.append('logoIcon', logoIcon);
+        }
 
-      if (!response.ok) {
+        const response = await fetchApi.fetch(`${baseUrl}/logo/upload`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Failed to upload logo');
+        }
+
         const data = await response.json();
-        throw new Error(data.error || 'Failed to upload logo');
+        setSettings(data);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'Failed to upload logo';
+        setError(message);
+        throw err;
       }
-
-      const data = await response.json();
-      setSettings(data);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to upload logo';
-      setError(message);
-      throw err;
-    }
-  }, [fetchApi]);
+    },
+    [fetchApi],
+  );
 
   // Reset logo to default
   const resetLogo = useCallback(async () => {
@@ -184,7 +200,8 @@ export const BrandingProvider: React.FC<BrandingProviderProps> = ({ children }) 
       const data = await response.json();
       setSettings(data);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to reset logo';
+      const message =
+        err instanceof Error ? err.message : 'Failed to reset logo';
       setError(message);
       throw err;
     }
@@ -206,7 +223,8 @@ export const BrandingProvider: React.FC<BrandingProviderProps> = ({ children }) 
       const data = await response.json();
       setSettings(data);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to reset branding';
+      const message =
+        err instanceof Error ? err.message : 'Failed to reset branding';
       setError(message);
       throw err;
     }

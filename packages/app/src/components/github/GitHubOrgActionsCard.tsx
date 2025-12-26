@@ -1,10 +1,17 @@
-import { Button, Card, CardContent, CardHeader, Typography, makeStyles } from '@material-ui/core';
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  Typography,
+  makeStyles,
+} from '@material-ui/core';
 import GroupAddIcon from '@material-ui/icons/GroupAdd';
 import PersonAddIcon from '@material-ui/icons/PersonAdd';
 import GroupIcon from '@material-ui/icons/Group';
 import { useNavigate } from 'react-router-dom';
 
-const useStyles = makeStyles((theme) => ({
+const useStyles = makeStyles(theme => ({
   card: {
     height: '100%',
   },
@@ -64,7 +71,7 @@ export const GitHubOrgActionsCard = () => {
           automatically sync back to the catalog.
         </Typography>
         <div className={classes.buttonContainer}>
-          {actions.map((action) => (
+          {actions.map(action => (
             <Button
               key={action.templateName}
               variant="outlined"

@@ -76,6 +76,7 @@ Infrastructure-as-Code transforms infrastructure management by treating infrastr
 ### Cloud Provider Setup
 
 #### AWS Requirements
+
 ```bash
 # AWS CLI configuration
 aws configure
@@ -88,6 +89,7 @@ aws configure set region us-west-2
 ```
 
 #### Azure Requirements
+
 ```bash
 # Azure CLI configuration
 az login
@@ -99,6 +101,7 @@ az account set --subscription "your-subscription-id"
 ```
 
 #### GCP Requirements
+
 ```bash
 # GCP CLI configuration
 gcloud auth login
@@ -113,6 +116,7 @@ gcloud config set project your-project-id
 ### Authentication Setup
 
 #### AWS Authentication Methods
+
 ```hcl
 # Method 1: Environment variables
 export AWS_ACCESS_KEY_ID="your-access-key"
@@ -125,6 +129,7 @@ export AWS_SESSION_TOKEN="your-session-token"
 ```
 
 #### Azure Authentication Methods
+
 ```hcl
 # Method 1: Azure CLI (recommended for development)
 # Method 2: Service Principal
@@ -137,6 +142,7 @@ export ARM_SUBSCRIPTION_ID="your-subscription-id"
 ```
 
 #### GCP Authentication Methods
+
 ```hcl
 # Method 1: Application Default Credentials (ADC)
 gcloud auth application-default login
@@ -163,6 +169,7 @@ export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account-key.json"
 Comprehensive VPC solution with public, private, and isolated subnets across multiple availability zones.
 
 **Key Features:**
+
 - Multi-AZ public and private subnet architecture
 - NAT Gateway for outbound internet access from private subnets
 - VPC Endpoints for secure AWS service access
@@ -171,12 +178,14 @@ Comprehensive VPC solution with public, private, and isolated subnets across mul
 - Network ACLs and security groups
 
 **Use Cases:**
+
 - Enterprise multi-tier applications
 - Secure environments with private-only resources
 - Hybrid cloud connectivity via Direct Connect/VPN
 - Multi-account networking with Transit Gateway
 
 **Example Configuration:**
+
 ```hcl
 module "vpc" {
   source = "git::https://github.com/company/terraform-modules.git//aws/vpc?ref=v2.1.0"
@@ -228,6 +237,7 @@ module "vpc" {
 Enterprise Azure Virtual Network with subnet configuration, NSGs, and peering.
 
 **Key Features:**
+
 - Hub-and-spoke network architecture
 - Network Security Groups with comprehensive rules
 - Private Link and Private Endpoint integration
@@ -236,6 +246,7 @@ Enterprise Azure Virtual Network with subnet configuration, NSGs, and peering.
 - DDoS Protection Standard
 
 **Use Cases:**
+
 - Azure enterprise landing zones
 - Secure hybrid connectivity with on-premises
 - PCI DSS compliant network segmentation
@@ -246,6 +257,7 @@ Enterprise Azure Virtual Network with subnet configuration, NSGs, and peering.
 Google Cloud VPC with global routing, firewall rules, and shared VPC support.
 
 **Key Features:**
+
 - Global VPC with regional subnets
 - Firewall rules with comprehensive examples
 - Private Google Access without internet
@@ -254,6 +266,7 @@ Google Cloud VPC with global routing, firewall rules, and shared VPC support.
 - VPC Service Controls for sensitive data
 
 **Use Cases:**
+
 - Multi-regional applications
 - Serverless VPC Access for Cloud Functions/Run
 - Data analytics platforms with BigQuery
@@ -299,7 +312,7 @@ module "vpc" {
   environment = "production"
 
   availability_zones = ["us-west-2a", "us-west-2b", "us-west-2c"]
-  
+
   public_subnets = [
     {
       cidr_block = "10.0.1.0/24"
@@ -507,6 +520,7 @@ We follow Semantic Versioning 2.0.0 for all modules:
 ### Version Pinning Strategies
 
 #### 1. Exact Version (Production Recommended)
+
 ```hcl
 module "vpc" {
   source = "git::https://github.com/company/terraform-modules.git//aws/vpc?ref=v2.1.0"
@@ -514,6 +528,7 @@ module "vpc" {
 ```
 
 #### 2. Flexible Version Pinning (Development)
+
 ```hcl
 module "vpc" {
   source = "git::https://github.com/company/terraform-modules.git//aws/vpc?ref=v2.1.x"
@@ -521,6 +536,7 @@ module "vpc" {
 ```
 
 #### 3. Commit SHA for Pre-release Testing
+
 ```hcl
 module "vpc" {
   source = "git::https://github.com/company/terraform-modules.git//aws/vpc?ref=abc123def456"
@@ -530,6 +546,7 @@ module "vpc" {
 ### Upgrade Paths
 
 #### Minor Version Upgrades (v2.1.0 → v2.2.0)
+
 Minor upgrades are typically backward compatible:
 
 ```bash
@@ -540,6 +557,7 @@ terraform apply
 ```
 
 #### Major Version Upgrades (v1.x → v2.x)
+
 Major upgrades require careful planning:
 
 1. Review CHANGELOG.md: Understand breaking changes
@@ -567,7 +585,7 @@ Major upgrades require careful planning:
 ```hcl
 terraform {
   required_version = ">= 1.3"
-  
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -588,10 +606,11 @@ terraform {
 ### Provider Configuration
 
 #### AWS Provider Configuration
+
 ```hcl
 provider "aws" {
   region = "us-west-2"
-  
+
   default_tags {
     tags = {
       ManagedBy   = "terraform"
@@ -605,6 +624,7 @@ provider "aws" {
 ```
 
 #### Azure Provider Configuration
+
 ```hcl
 provider "azurerm" {
   features {
@@ -616,6 +636,7 @@ provider "azurerm" {
 ```
 
 #### GCP Provider Configuration
+
 ```hcl
 provider "google" {
   project = var.gcp_project_id
@@ -626,6 +647,7 @@ provider "google" {
 ### State Management Requirements
 
 #### S3 Backend Configuration (AWS)
+
 ```hcl
 terraform {
   backend "s3" {
@@ -639,6 +661,7 @@ terraform {
 ```
 
 #### Azure Blob Backend Configuration
+
 ```hcl
 terraform {
   backend "azurerm" {
@@ -651,11 +674,12 @@ terraform {
 ```
 
 #### Terraform Cloud Configuration
+
 ```hcl
 terraform {
   cloud {
     organization = "your-organization"
-    
+
     workspaces {
       tags = ["network", "production", "aws"]
     }
@@ -668,16 +692,19 @@ terraform {
 ### Getting Help
 
 #### 1. Documentation
+
 - Start with the module-specific README files
 - Check the examples/ directory for working configurations
 - Review our troubleshooting guide
 
 #### 2. Community Support
+
 - Slack: #terraform-modules channel
 - GitHub Discussions: Create a discussion in our repository
 - Office Hours: Every Tuesday and Thursday, 2 PM - 3 PM EST
 
 #### 3. Professional Support
+
 - Email: terraform-modules-support@company.com
 - Response Time: P1 (Critical) - 1 hour, P2 (High) - 4 hours, P3 (Normal) - 1 business day
 - Enterprise Support: Available 24/7 for enterprise customers
@@ -705,6 +732,7 @@ terraform {
 #### Development Setup
 
 1. Prerequisites:
+
    ```bash
    brew install terraform-docs tflint pre-commit
    git clone https://github.com/company/terraform-modules.git
@@ -774,4 +802,4 @@ terraform {
 
 ---
 
-*For more detailed information about specific modules, see the module-specific documentation in the modules/ directory.*
+_For more detailed information about specific modules, see the module-specific documentation in the modules/ directory._

@@ -58,10 +58,10 @@ client -> step1 -> step2 -> step3 -> step4 -> step5 -> step6
 ### Quorum Requirements
 
 | Ensemble Size | Quorum | Fault Tolerance |
-|---------------|--------|-----------------|
-| 3 | 2 | 1 node failure |
-| 5 | 3 | 2 node failures |
-| 7 | 4 | 3 node failures |
+| ------------- | ------ | --------------- |
+| 3             | 2      | 1 node failure  |
+| 5             | 3      | 2 node failures |
+| 7             | 4      | 3 node failures |
 
 **Recommendation**: Use odd numbers (3, 5, 7) to maximize fault tolerance.
 
@@ -176,17 +176,17 @@ export SERVER_JVMFLAGS="-Xms2g -Xmx2g \
 
 ### Configuration Parameters Reference
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `tickTime` | 2000 | Basic time unit in milliseconds |
-| `initLimit` | 10 | Ticks for initial sync |
-| `syncLimit` | 5 | Ticks for follower sync |
-| `maxClientCnxns` | 60 | Max client connections per IP |
-| `autopurge.purgeInterval` | 0 | Hours between purge (0=disabled) |
-| `autopurge.snapRetainCount` | 3 | Snapshots to retain |
-| `maxSessionTimeout` | 40000 | Max session timeout (ms) |
-| `preAllocSize` | 65536 | Transaction log preallocation (KB) |
-| `snapCount` | 100000 | Transactions per snapshot |
+| Parameter                   | Default | Description                        |
+| --------------------------- | ------- | ---------------------------------- |
+| `tickTime`                  | 2000    | Basic time unit in milliseconds    |
+| `initLimit`                 | 10      | Ticks for initial sync             |
+| `syncLimit`                 | 5       | Ticks for follower sync            |
+| `maxClientCnxns`            | 60      | Max client connections per IP      |
+| `autopurge.purgeInterval`   | 0       | Hours between purge (0=disabled)   |
+| `autopurge.snapRetainCount` | 3       | Snapshots to retain                |
+| `maxSessionTimeout`         | 40000   | Max session timeout (ms)           |
+| `preAllocSize`              | 65536   | Transaction log preallocation (KB) |
+| `snapCount`                 | 100000  | Transactions per snapshot          |
 
 ## Security Configuration
 
@@ -257,13 +257,13 @@ getAcl /myapp
 
 ### ACL Permissions
 
-| Permission | Symbol | Description |
-|------------|--------|-------------|
-| CREATE | c | Create child nodes |
-| DELETE | d | Delete child nodes |
-| READ | r | Read data and list children |
-| WRITE | w | Set data |
-| ADMIN | a | Set ACLs |
+| Permission | Symbol | Description                 |
+| ---------- | ------ | --------------------------- |
+| CREATE     | c      | Create child nodes          |
+| DELETE     | d      | Delete child nodes          |
+| READ       | r      | Read data and list children |
+| WRITE      | w      | Set data                    |
+| ADMIN      | a      | Set ACLs                    |
 
 ## Monitoring
 
@@ -279,20 +279,20 @@ scrape_configs:
 
 ### Key Metrics
 
-| Metric | Description | Alert Threshold |
-|--------|-------------|-----------------|
-| `zk_outstanding_requests` | Queued requests | > 10 |
-| `zk_avg_latency` | Average latency (ms) | > 100 |
-| `zk_max_latency` | Max latency (ms) | > 1000 |
-| `zk_packets_received` | Packets received/sec | - |
-| `zk_packets_sent` | Packets sent/sec | - |
-| `zk_num_alive_connections` | Active connections | - |
-| `zk_znode_count` | Total znodes | > 1000000 |
-| `zk_watch_count` | Active watches | > 100000 |
-| `zk_ephemerals_count` | Ephemeral nodes | - |
-| `zk_approximate_data_size` | Data size (bytes) | > 1GB |
-| `zk_followers` | Follower count (leader only) | < expected |
-| `zk_synced_followers` | Synced followers | < quorum |
+| Metric                     | Description                  | Alert Threshold |
+| -------------------------- | ---------------------------- | --------------- |
+| `zk_outstanding_requests`  | Queued requests              | > 10            |
+| `zk_avg_latency`           | Average latency (ms)         | > 100           |
+| `zk_max_latency`           | Max latency (ms)             | > 1000          |
+| `zk_packets_received`      | Packets received/sec         | -               |
+| `zk_packets_sent`          | Packets sent/sec             | -               |
+| `zk_num_alive_connections` | Active connections           | -               |
+| `zk_znode_count`           | Total znodes                 | > 1000000       |
+| `zk_watch_count`           | Active watches               | > 100000        |
+| `zk_ephemerals_count`      | Ephemeral nodes              | -               |
+| `zk_approximate_data_size` | Data size (bytes)            | > 1GB           |
+| `zk_followers`             | Follower count (leader only) | < expected      |
+| `zk_synced_followers`      | Synced followers             | < quorum        |
 
 ### 4-Letter Commands
 
@@ -333,23 +333,23 @@ echo envi | nc zk1 2181
     "panels": [
       {
         "title": "Outstanding Requests",
-        "targets": [{"expr": "zk_outstanding_requests"}]
+        "targets": [{ "expr": "zk_outstanding_requests" }]
       },
       {
         "title": "Average Latency",
-        "targets": [{"expr": "zk_avg_latency"}]
+        "targets": [{ "expr": "zk_avg_latency" }]
       },
       {
         "title": "Connection Count",
-        "targets": [{"expr": "zk_num_alive_connections"}]
+        "targets": [{ "expr": "zk_num_alive_connections" }]
       },
       {
         "title": "ZNode Count",
-        "targets": [{"expr": "zk_znode_count"}]
+        "targets": [{ "expr": "zk_znode_count" }]
       },
       {
         "title": "Leader/Follower Status",
-        "targets": [{"expr": "zk_server_state"}]
+        "targets": [{ "expr": "zk_server_state" }]
       }
     ]
   }
@@ -368,7 +368,7 @@ FOLLOWER_COUNT=0
 
 for host in $HOSTS; do
   MODE=$(echo stat | nc -w 2 ${host%:*} ${host#*:} 2>/dev/null | grep Mode | awk '{print $2}')
-  
+
   case $MODE in
     leader)
       echo "$host: LEADER"

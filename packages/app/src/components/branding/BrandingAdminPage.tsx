@@ -13,7 +13,10 @@ export const BrandingAdminPage: FC = () => {
   return (
     <BrandingProvider>
       <Page themeId="tool">
-        <Header title="Branding Settings" subtitle="Customize your Backstage instance" />
+        <Header
+          title="Branding Settings"
+          subtitle="Customize your Backstage instance"
+        />
         <Content>
           <Grid container spacing={3}>
             <Grid item xs={12} md={8}>

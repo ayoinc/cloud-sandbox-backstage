@@ -27,7 +27,7 @@ services:
     image: locustio/locust:2.24.0
     container_name: locust-master
     ports:
-      - "8089:8089"
+      - '8089:8089'
     volumes:
       - ./locust:/mnt/locust
     command: -f /mnt/locust/locustfile.py --master
@@ -48,7 +48,7 @@ services:
     image: influxdb:2.7
     container_name: influxdb
     ports:
-      - "8086:8086"
+      - '8086:8086'
     volumes:
       - influxdb-data:/var/lib/influxdb2
     environment:
@@ -64,7 +64,7 @@ services:
     image: grafana/grafana:10.3.0
     container_name: grafana
     ports:
-      - "3000:3000"
+      - '3000:3000'
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
@@ -262,7 +262,7 @@ on:
   pull_request:
     branches: [main]
   schedule:
-    - cron: '0 2 * * *'  # Daily at 2 AM
+    - cron: '0 2 * * *' # Daily at 2 AM
 
 jobs:
   smoke-test:
@@ -337,7 +337,7 @@ stages:
   - report
 
 variables:
-  K6_VERSION: "0.49.0"
+  K6_VERSION: '0.49.0'
 
 .k6-template:
   image: grafana/k6:${K6_VERSION}
@@ -358,10 +358,10 @@ load-test:
   extends: .k6-template
   stage: load
   script:
-    - k6 run 
-        --out influxdb=http://${INFLUXDB_HOST}:8086/k6
-        --tag testid=${CI_PIPELINE_ID}
-        tests/load.js
+    - k6 run
+      --out influxdb=http://${INFLUXDB_HOST}:8086/k6
+      --tag testid=${CI_PIPELINE_ID}
+      tests/load.js
   only:
     - main
     - develop
@@ -383,12 +383,12 @@ locust-test:
   image: locustio/locust:2.24.0
   script:
     - locust -f tests/locustfile.py
-        --headless
-        --users 100
-        --spawn-rate 10
-        --run-time 5m
-        --host ${TARGET_URL}
-        --html report.html
+      --headless
+      --users 100
+      --spawn-rate 10
+      --run-time 5m
+      --host ${TARGET_URL}
+      --html report.html
   artifacts:
     paths:
       - report.html
@@ -410,12 +410,12 @@ generate-report:
 // Jenkinsfile
 pipeline {
     agent any
-    
+
     environment {
         K6_CLOUD_TOKEN = credentials('k6-cloud-token')
         TARGET_URL = 'https://staging.example.com'
     }
-    
+
     stages {
         stage('Smoke Test') {
             steps {
@@ -433,7 +433,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Load Test') {
             when {
                 branch 'main'
@@ -449,13 +449,13 @@ pipeline {
                 '''
             }
         }
-        
+
         stage('Performance Gate') {
             steps {
                 script {
                     def results = readJSON file: 'tests/smoke-results.json'
                     def p95 = results.metrics.http_req_duration.values['p(95)']
-                    
+
                     if (p95 > 500) {
                         error "Performance threshold exceeded: p95=${p95}ms > 500ms"
                     }
@@ -463,7 +463,7 @@ pipeline {
             }
         }
     }
-    
+
     post {
         always {
             publishHTML target: [
@@ -498,11 +498,11 @@ const successfulLogins = new Counter('successful_logins');
 
 export const options = {
   stages: [
-    { duration: '2m', target: 50 },    // Ramp up
-    { duration: '5m', target: 50 },    // Stay at 50 users
-    { duration: '2m', target: 100 },   // Ramp to 100
-    { duration: '5m', target: 100 },   // Stay at 100
-    { duration: '2m', target: 0 },     // Ramp down
+    { duration: '2m', target: 50 }, // Ramp up
+    { duration: '5m', target: 50 }, // Stay at 50 users
+    { duration: '2m', target: 100 }, // Ramp to 100
+    { duration: '5m', target: 100 }, // Stay at 100
+    { duration: '2m', target: 0 }, // Ramp down
   ],
   thresholds: {
     http_req_duration: ['p(95)<500', 'p(99)<1000'],
@@ -516,18 +516,22 @@ const BASE_URL = __ENV.TARGET_URL || 'https://api.example.com';
 
 export function setup() {
   // Setup code - runs once before test
-  const loginRes = http.post(`${BASE_URL}/auth/login`, JSON.stringify({
-    username: 'admin',
-    password: 'adminpass',
-  }), { headers: { 'Content-Type': 'application/json' } });
-  
+  const loginRes = http.post(
+    `${BASE_URL}/auth/login`,
+    JSON.stringify({
+      username: 'admin',
+      password: 'adminpass',
+    }),
+    { headers: { 'Content-Type': 'application/json' } },
+  );
+
   return { token: loginRes.json('token') };
 }
 
 export default function (data) {
   const params = {
     headers: {
-      'Authorization': `Bearer ${data.token}`,
+      Authorization: `Bearer ${data.token}`,
       'Content-Type': 'application/json',
     },
   };
@@ -536,16 +540,20 @@ export default function (data) {
     // Login
     group('Login', function () {
       const loginStart = Date.now();
-      const loginRes = http.post(`${BASE_URL}/auth/login`, JSON.stringify({
-        username: `user${__VU}`,
-        password: 'password',
-      }), { headers: { 'Content-Type': 'application/json' } });
-      
+      const loginRes = http.post(
+        `${BASE_URL}/auth/login`,
+        JSON.stringify({
+          username: `user${__VU}`,
+          password: 'password',
+        }),
+        { headers: { 'Content-Type': 'application/json' } },
+      );
+
       const loginSuccess = check(loginRes, {
-        'login successful': (r) => r.status === 200,
-        'has token': (r) => r.json('token') !== undefined,
+        'login successful': r => r.status === 200,
+        'has token': r => r.json('token') !== undefined,
       });
-      
+
       if (loginSuccess) {
         successfulLogins.add(1);
       }
@@ -558,12 +566,12 @@ export default function (data) {
     // Browse Products
     group('Browse Products', function () {
       const productsRes = http.get(`${BASE_URL}/api/products`, params);
-      
+
       check(productsRes, {
-        'products loaded': (r) => r.status === 200,
-        'has products': (r) => r.json('data.length') > 0,
+        'products loaded': r => r.status === 200,
+        'has products': r => r.json('data.length') > 0,
       });
-      
+
       errorRate.add(productsRes.status !== 200);
     });
 
@@ -572,10 +580,13 @@ export default function (data) {
     // View Product Detail
     group('View Product', function () {
       const productId = Math.floor(Math.random() * 100) + 1;
-      const productRes = http.get(`${BASE_URL}/api/products/${productId}`, params);
-      
+      const productRes = http.get(
+        `${BASE_URL}/api/products/${productId}`,
+        params,
+      );
+
       check(productRes, {
-        'product loaded': (r) => r.status === 200,
+        'product loaded': r => r.status === 200,
       });
     });
 
@@ -583,13 +594,17 @@ export default function (data) {
 
     // Add to Cart
     group('Add to Cart', function () {
-      const cartRes = http.post(`${BASE_URL}/api/cart`, JSON.stringify({
-        productId: Math.floor(Math.random() * 100) + 1,
-        quantity: 1,
-      }), params);
-      
+      const cartRes = http.post(
+        `${BASE_URL}/api/cart`,
+        JSON.stringify({
+          productId: Math.floor(Math.random() * 100) + 1,
+          quantity: 1,
+        }),
+        params,
+      );
+
       check(cartRes, {
-        'added to cart': (r) => r.status === 201 || r.status === 200,
+        'added to cart': r => r.status === 201 || r.status === 200,
       });
     });
   });
@@ -627,9 +642,9 @@ logger = logging.getLogger(__name__)
 
 class APIUser(HttpUser):
     """Simulates typical API user behavior."""
-    
+
     wait_time = between(1, 3)
-    
+
     def on_start(self):
         """Login when user starts."""
         response = self.client.post("/auth/login", json={
@@ -643,7 +658,7 @@ class APIUser(HttpUser):
             })
         else:
             logger.warning(f"Login failed: {response.status_code}")
-    
+
     @tag('browse')
     @task(5)
     def browse_products(self):
@@ -655,14 +670,14 @@ class APIUser(HttpUser):
                     response.failure("No products returned")
             else:
                 response.failure(f"Status: {response.status_code}")
-    
+
     @tag('browse')
     @task(3)
     def view_product(self):
         """View individual product."""
         product_id = random.randint(1, 100)
         self.client.get(f"/api/products/{product_id}")
-    
+
     @tag('cart')
     @task(2)
     def add_to_cart(self):
@@ -671,13 +686,13 @@ class APIUser(HttpUser):
             "productId": random.randint(1, 100),
             "quantity": random.randint(1, 3)
         })
-    
+
     @tag('cart')
     @task(1)
     def view_cart(self):
         """View shopping cart."""
         self.client.get("/api/cart")
-    
+
     @tag('checkout')
     @task(1)
     def checkout(self):
@@ -696,10 +711,10 @@ class APIUser(HttpUser):
 
 class AdminUser(HttpUser):
     """Simulates admin user behavior."""
-    
+
     weight = 1  # 1 admin per 10 regular users
     wait_time = between(5, 10)
-    
+
     def on_start(self):
         response = self.client.post("/auth/login", json={
             "username": "admin",
@@ -710,15 +725,15 @@ class AdminUser(HttpUser):
             self.client.headers.update({
                 "Authorization": f"Bearer {self.token}"
             })
-    
+
     @task(3)
     def view_dashboard(self):
         self.client.get("/admin/dashboard")
-    
+
     @task(2)
     def view_orders(self):
         self.client.get("/admin/orders")
-    
+
     @task(1)
     def view_analytics(self):
         self.client.get("/admin/analytics")
@@ -748,33 +763,33 @@ def on_test_stop(environment, **kwargs):
 ```yaml
 # tests/artillery.yaml
 config:
-  target: "{{ $processEnvironment.TARGET_URL }}"
+  target: '{{ $processEnvironment.TARGET_URL }}'
   phases:
     - duration: 60
       arrivalRate: 5
-      name: "Warm up"
+      name: 'Warm up'
     - duration: 120
       arrivalRate: 10
       rampTo: 50
-      name: "Ramp up"
+      name: 'Ramp up'
     - duration: 300
       arrivalRate: 50
-      name: "Sustained load"
+      name: 'Sustained load'
     - duration: 60
       arrivalRate: 50
       rampTo: 0
-      name: "Ramp down"
+      name: 'Ramp down'
 
   defaults:
     headers:
-      Content-Type: "application/json"
-      User-Agent: "Artillery/2.0"
+      Content-Type: 'application/json'
+      User-Agent: 'Artillery/2.0'
 
   plugins:
     expect: {}
     metrics-by-endpoint: {}
 
-  processor: "./helpers.js"
+  processor: './helpers.js'
 
   ensure:
     p99: 1000
@@ -788,32 +803,32 @@ config:
       - id: 3
 
 scenarios:
-  - name: "Complete User Journey"
+  - name: 'Complete User Journey'
     weight: 7
     flow:
       # Login
       - post:
-          url: "/auth/login"
+          url: '/auth/login'
           json:
-            username: "testuser"
-            password: "password"
+            username: 'testuser'
+            password: 'password'
           capture:
-            - json: "$.token"
-              as: "authToken"
+            - json: '$.token'
+              as: 'authToken'
           expect:
             - statusCode: 200
-            - hasProperty: "token"
+            - hasProperty: 'token'
 
       - think: 2
 
       # Browse Products
       - get:
-          url: "/api/products"
+          url: '/api/products'
           headers:
-            Authorization: "Bearer {{ authToken }}"
+            Authorization: 'Bearer {{ authToken }}'
           capture:
-            - json: "$.data[0].id"
-              as: "productId"
+            - json: '$.data[0].id'
+              as: 'productId'
           expect:
             - statusCode: 200
 
@@ -821,9 +836,9 @@ scenarios:
 
       # View Product
       - get:
-          url: "/api/products/{{ productId }}"
+          url: '/api/products/{{ productId }}'
           headers:
-            Authorization: "Bearer {{ authToken }}"
+            Authorization: 'Bearer {{ authToken }}'
           expect:
             - statusCode: 200
 
@@ -831,11 +846,11 @@ scenarios:
 
       # Add to Cart
       - post:
-          url: "/api/cart"
+          url: '/api/cart'
           headers:
-            Authorization: "Bearer {{ authToken }}"
+            Authorization: 'Bearer {{ authToken }}'
           json:
-            productId: "{{ productId }}"
+            productId: '{{ productId }}'
             quantity: 1
           expect:
             - statusCode: [200, 201]
@@ -844,38 +859,38 @@ scenarios:
 
       # Checkout
       - post:
-          url: "/api/checkout"
+          url: '/api/checkout'
           headers:
-            Authorization: "Bearer {{ authToken }}"
-          beforeRequest: "generateCheckoutData"
+            Authorization: 'Bearer {{ authToken }}'
+          beforeRequest: 'generateCheckoutData'
           expect:
             - statusCode: [200, 201]
 
-  - name: "Browse Only"
+  - name: 'Browse Only'
     weight: 3
     flow:
       - loop:
           - get:
-              url: "/api/products"
+              url: '/api/products'
           - think: 2
           - get:
-              url: "/api/products/{{ $randomNumber(1, 100) }}"
+              url: '/api/products/{{ $randomNumber(1, 100) }}'
           - think: 3
         count: 5
 ```
 
 ## Troubleshooting
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| Low RPS despite high VUs | Slow think time or bottleneck | Reduce sleep, check target system |
-| Connection refused | Target overloaded | Reduce load, scale target |
-| High error rate | Application errors | Check logs, verify endpoints |
-| Memory issues in k6 | Large response bodies | Use `discardResponseBodies` |
-| Locust workers disconnecting | Network issues | Check master-worker connectivity |
-| Inconsistent results | Noisy environment | Run multiple iterations |
-| Thresholds not evaluated | Wrong metric names | Verify metric names in output |
-| Results not showing | Output not configured | Add `--out` flag |
+| Issue                        | Cause                         | Solution                          |
+| ---------------------------- | ----------------------------- | --------------------------------- |
+| Low RPS despite high VUs     | Slow think time or bottleneck | Reduce sleep, check target system |
+| Connection refused           | Target overloaded             | Reduce load, scale target         |
+| High error rate              | Application errors            | Check logs, verify endpoints      |
+| Memory issues in k6          | Large response bodies         | Use `discardResponseBodies`       |
+| Locust workers disconnecting | Network issues                | Check master-worker connectivity  |
+| Inconsistent results         | Noisy environment             | Run multiple iterations           |
+| Thresholds not evaluated     | Wrong metric names            | Verify metric names in output     |
+| Results not showing          | Output not configured         | Add `--out` flag                  |
 
 ### Debug Commands
 

@@ -1,30 +1,34 @@
 # Backstage Container Status
 
 ## Container Status
+
 All Backstage services have been successfully started!
 
-| Container | Status | Port | Health |
-|-----------|--------|------|--------|
-| backstage-nginx | Up 7 seconds | 80 | healthy |
-| backstage-app | Up 13 seconds | 7007 | healthy |
-| backstage-postgres | Up 19 seconds | 5432 | healthy |
-| backstage-minio | Up 19 seconds | 9000-9001 | healthy |
-| backstage-redis | Up 19 seconds | 6379 | healthy |
-| backstage-minio-init | Exited (0) | - | completed |
+| Container            | Status        | Port      | Health    |
+| -------------------- | ------------- | --------- | --------- |
+| backstage-nginx      | Up 7 seconds  | 80        | healthy   |
+| backstage-app        | Up 13 seconds | 7007      | healthy   |
+| backstage-postgres   | Up 19 seconds | 5432      | healthy   |
+| backstage-minio      | Up 19 seconds | 9000-9001 | healthy   |
+| backstage-redis      | Up 19 seconds | 6379      | healthy   |
+| backstage-minio-init | Exited (0)    | -         | completed |
 
 ## Access URLs
 
 ### Backstage Application
+
 - **Main URL**: http://localhost
 - **Direct Backend**: http://localhost:7007 (internal)
 - **Health Check**: http://localhost/health → healthy
 
 ### Services
+
 - **PostgreSQL**: localhost:5432
 - **Redis**: localhost:6379
 - **MinIO**: localhost:9000 (API), localhost:9001 (Console)
 
 ### MinIO Console
+
 - URL: http://localhost:9001
 - Access Key: backstage
 - Secret Key: backstage123
@@ -32,7 +36,7 @@ All Backstage services have been successfully started!
 ## Next Steps
 
 1. **Access Backstage**: Open http://localhost in your browser
-2. **Register Components**: 
+2. **Register Components**:
    - Use `all-components.yaml` from your terraform-modules catalog
    - URL: https://github.com/company/terraform-modules/blob/main/all-components.yaml
 3. **Verify TechDocs**: Check that documentation loads for each component
@@ -59,6 +63,7 @@ docker logs backstage-nginx
 ## Troubleshooting
 
 If containers are not healthy:
+
 1. Check logs: `docker logs [container-name]`
 2. Restart unhealthy service: `docker restart [container-name]`
 3. Full restart: `docker-compose down && docker-compose up -d`

@@ -7,7 +7,7 @@ direction: right
 
 sources: Data Sources {
   style.fill: "#E3F2FD"
-  
+
   s3: S3/HDFS {
     style.fill: "#BBDEFB"
   }
@@ -21,12 +21,12 @@ sources: Data Sources {
 
 spark: Spark Processing {
   style.fill: "#E8F5E9"
-  
+
   extract: Extract {
     style.fill: "#C8E6C9"
     read: "spark.read.*"
   }
-  
+
   transform: Transform {
     style.fill: "#A5D6A7"
     ops: |md
@@ -37,18 +37,18 @@ spark: Spark Processing {
       - agg()
     |
   }
-  
+
   load: Load {
     style.fill: "#81C784"
     write: "df.write.*"
   }
-  
+
   extract -> transform -> load
 }
 
 sinks: Data Sinks {
   style.fill: "#FFF3E0"
-  
+
   delta: Delta Lake {
     style.fill: "#FFE0B2"
   }
@@ -94,9 +94,9 @@ services:
       - SPARK_RPC_AUTHENTICATION_ENABLED=no
       - SPARK_RPC_ENCRYPTION_ENABLED=no
     ports:
-      - "8080:8080"   # Spark UI
-      - "7077:7077"   # Spark master port
-      - "4040:4040"   # Application UI
+      - '8080:8080' # Spark UI
+      - '7077:7077' # Spark master port
+      - '4040:4040' # Application UI
     volumes:
       - ./data:/data
       - ./jobs:/jobs
@@ -140,7 +140,7 @@ services:
       - SPARK_MODE=master
     command: /opt/bitnami/spark/sbin/start-history-server.sh
     ports:
-      - "18080:18080"
+      - '18080:18080'
     volumes:
       - spark-logs:/tmp/spark-events
     networks:
@@ -150,7 +150,7 @@ services:
     image: jupyter/pyspark-notebook:latest
     container_name: jupyter
     ports:
-      - "8888:8888"
+      - '8888:8888'
     environment:
       - SPARK_MASTER=spark://spark-master:7077
     volumes:
@@ -189,7 +189,7 @@ def extract_data():
     """Extract data from multiple sources"""
     # Read from S3/Parquet
     orders_df = spark.read.parquet("s3a://bucket/raw/orders/")
-    
+
     # Read from PostgreSQL
     customers_df = spark.read \
         .format("jdbc") \
@@ -199,7 +199,7 @@ def extract_data():
         .option("password", "password") \
         .option("numPartitions", 8) \
         .load()
-    
+
     return orders_df, customers_df
 
 def transform_data(orders_df, customers_df):
@@ -210,29 +210,29 @@ def transform_data(orders_df, customers_df):
         orders_df.customer_id == customers_df.id,
         "left"
     )
-    
+
     # Add derived columns
     result_df = enriched_df \
         .withColumn("order_year", year(col("order_date"))) \
         .withColumn("order_month", month(col("order_date"))) \
         .withColumn("total_with_tax", col("total") * 1.08) \
-        .withColumn("customer_segment", 
+        .withColumn("customer_segment",
             when(col("total") > 1000, "premium")
             .when(col("total") > 100, "regular")
             .otherwise("basic")
         ) \
         .withColumn("processed_at", current_timestamp()) \
-        .withColumn("row_hash", md5(concat_ws("||", 
+        .withColumn("row_hash", md5(concat_ws("||",
             col("order_id"), col("customer_id"), col("total")
         )))
-    
+
     return result_df
 
 def load_data_delta(df, table_path):
     """Upsert to Delta Lake"""
     if DeltaTable.isDeltaTable(spark, table_path):
         delta_table = DeltaTable.forPath(spark, table_path)
-        
+
         delta_table.alias("target").merge(
             df.alias("source"),
             "target.order_id = source.order_id"
@@ -257,10 +257,10 @@ def main():
     orders_df, customers_df = extract_data()
     transformed_df = transform_data(orders_df, customers_df)
     load_data_delta(transformed_df, "s3a://bucket/delta/enriched_orders")
-    
+
     # Optimize Delta table
     spark.sql(f"OPTIMIZE delta.`s3a://bucket/delta/enriched_orders` ZORDER BY (customer_id)")
-    
+
     # Vacuum old files
     spark.sql(f"VACUUM delta.`s3a://bucket/delta/enriched_orders` RETAIN 168 HOURS")
 
@@ -523,15 +523,15 @@ spark.catalog.listTables()
 
 ## Troubleshooting
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| OutOfMemoryError (driver) | Large collect() or broadcast | Increase driver memory, avoid collect() |
-| OutOfMemoryError (executor) | Data skew, large partitions | Repartition, increase executor memory |
-| Shuffle spill to disk | Insufficient memory for shuffle | Increase `spark.memory.fraction`, add executors |
-| Data skew | Uneven key distribution | Salting, repartition, AQE skew join handling |
-| Slow jobs | Too many/few partitions | Tune `spark.sql.shuffle.partitions` |
-| Stage failures | Task timeouts, resource limits | Increase timeouts, check data source |
-| Job stuck | Deadlock, resource starvation | Check executor logs, increase resources |
+| Issue                       | Cause                           | Solution                                        |
+| --------------------------- | ------------------------------- | ----------------------------------------------- |
+| OutOfMemoryError (driver)   | Large collect() or broadcast    | Increase driver memory, avoid collect()         |
+| OutOfMemoryError (executor) | Data skew, large partitions     | Repartition, increase executor memory           |
+| Shuffle spill to disk       | Insufficient memory for shuffle | Increase `spark.memory.fraction`, add executors |
+| Data skew                   | Uneven key distribution         | Salting, repartition, AQE skew join handling    |
+| Slow jobs                   | Too many/few partitions         | Tune `spark.sql.shuffle.partitions`             |
+| Stage failures              | Task timeouts, resource limits  | Increase timeouts, check data source            |
+| Job stuck                   | Deadlock, resource starvation   | Check executor logs, increase resources         |
 
 ### Debug Commands
 

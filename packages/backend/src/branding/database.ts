@@ -152,7 +152,9 @@ export async function checkIsAdmin(
 
     if (groupAdmins.length > 0) {
       logger.debug(
-        `Group-based admins configured: ${groupAdmins.map((g: { entity_ref: string }) => g.entity_ref).join(', ')}`,
+        `Group-based admins configured: ${groupAdmins
+          .map((g: { entity_ref: string }) => g.entity_ref)
+          .join(', ')}`,
       );
       // Note: Full group membership checking requires catalog API integration
       // This is handled in the permission policy
@@ -166,7 +168,9 @@ export async function checkIsAdmin(
       .filter(u => u.length > 0);
 
     if (adminUsernames.includes(username.toLowerCase())) {
-      logger.debug(`User ${username} is admin via BRANDING_ADMIN_USERS env var`);
+      logger.debug(
+        `User ${username} is admin via BRANDING_ADMIN_USERS env var`,
+      );
       return true;
     }
 

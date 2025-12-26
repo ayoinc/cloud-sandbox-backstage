@@ -9,11 +9,13 @@ Playwright is a modern browser automation framework that enables reliable end-to
 ## Features
 
 ### Browser Support
+
 - Chromium (Chrome, Edge)
 - Firefox
 - WebKit (Safari)
 
 ### Included Features
+
 - Page Object Model structure
 - Cross-browser testing
 - Parallel test execution
@@ -24,17 +26,18 @@ Playwright is a modern browser automation framework that enables reliable end-to
 
 ## Configuration Options
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `baseUrl` | Target application URL | http://localhost:3000 |
-| `browsers` | Browsers to test | chromium |
-| `parallelWorkers` | Parallel test workers | 4 |
-| `enableTracing` | Enable trace recording | true |
-| `enableScreenshots` | Capture on failure | true |
+| Parameter           | Description            | Default               |
+| ------------------- | ---------------------- | --------------------- |
+| `baseUrl`           | Target application URL | http://localhost:3000 |
+| `browsers`          | Browsers to test       | chromium              |
+| `parallelWorkers`   | Parallel test workers  | 4                     |
+| `enableTracing`     | Enable trace recording | true                  |
+| `enableScreenshots` | Capture on failure     | true                  |
 
 ## Getting Started
 
 ### Prerequisites
+
 - Node.js 18+
 - npm or yarn
 
@@ -98,6 +101,7 @@ npx playwright show-report
 ## Page Object Model
 
 ### Base Page
+
 ```typescript
 // pages/BasePage.ts
 import { Page } from '@playwright/test';
@@ -116,6 +120,7 @@ export class BasePage {
 ```
 
 ### Login Page
+
 ```typescript
 // pages/LoginPage.ts
 import { Page, Locator } from '@playwright/test';
@@ -142,6 +147,7 @@ export class LoginPage extends BasePage {
 ```
 
 ### Using Page Objects in Tests
+
 ```typescript
 // tests/auth/login.spec.ts
 import { test, expect } from '@playwright/test';
@@ -150,19 +156,19 @@ import { LoginPage } from '../../pages/LoginPage';
 test.describe('Login', () => {
   test('should login with valid credentials', async ({ page }) => {
     const loginPage = new LoginPage(page);
-    
+
     await loginPage.navigate('/login');
     await loginPage.login('user@example.com', 'password123');
-    
+
     await expect(page).toHaveURL('/dashboard');
   });
 
   test('should show error for invalid credentials', async ({ page }) => {
     const loginPage = new LoginPage(page);
-    
+
     await loginPage.navigate('/login');
     await loginPage.login('invalid@example.com', 'wrong');
-    
+
     await expect(page.locator('.error-message')).toBeVisible();
   });
 });
@@ -171,6 +177,7 @@ test.describe('Login', () => {
 ## Configuration
 
 ### playwright.config.ts
+
 ```typescript
 import { defineConfig, devices } from '@playwright/test';
 
@@ -180,10 +187,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : 4,
-  reporter: [
-    ['html'],
-    ['junit', { outputFile: 'results.xml' }],
-  ],
+  reporter: [['html'], ['junit', { outputFile: 'results.xml' }]],
   use: {
     baseURL: process.env.BASE_URL || 'http://localhost:3000',
     trace: 'on-first-retry',
@@ -214,6 +218,7 @@ export default defineConfig({
 ## Fixtures
 
 ### Custom Fixtures
+
 ```typescript
 // fixtures/auth.fixture.ts
 import { test as base } from '@playwright/test';
@@ -229,7 +234,7 @@ export const test = base.extend<Fixtures>({
     const loginPage = new LoginPage(page);
     await use(loginPage);
   },
-  
+
   authenticatedPage: async ({ page }, use) => {
     const loginPage = new LoginPage(page);
     await loginPage.navigate('/login');
@@ -242,13 +247,14 @@ export const test = base.extend<Fixtures>({
 ## API Testing
 
 ### API Helpers
+
 ```typescript
 // utils/api-helpers.ts
 import { APIRequestContext } from '@playwright/test';
 
 export async function createUser(
   request: APIRequestContext,
-  userData: UserData
+  userData: UserData,
 ) {
   const response = await request.post('/api/users', {
     data: userData,
@@ -258,6 +264,7 @@ export async function createUser(
 ```
 
 ### API Test Example
+
 ```typescript
 test('should create user via API', async ({ request }) => {
   const response = await request.post('/api/users', {
@@ -266,7 +273,7 @@ test('should create user via API', async ({ request }) => {
       email: 'test@example.com',
     },
   });
-  
+
   expect(response.ok()).toBeTruthy();
   const user = await response.json();
   expect(user.name).toBe('Test User');
@@ -276,12 +283,14 @@ test('should create user via API', async ({ request }) => {
 ## Debugging
 
 ### Trace Viewer
+
 ```bash
 # View trace file
 npx playwright show-trace trace.zip
 ```
 
 ### Debug Mode
+
 ```bash
 # Run with inspector
 npx playwright test --debug
@@ -291,7 +300,9 @@ await page.pause();
 ```
 
 ### VS Code Extension
+
 Install the Playwright VS Code extension for:
+
 - Run tests from editor
 - Debug with breakpoints
 - Pick locators interactively
@@ -299,6 +310,7 @@ Install the Playwright VS Code extension for:
 ## CI/CD Integration
 
 ### GitHub Actions
+
 ```yaml
 name: E2E Tests
 on:
@@ -312,22 +324,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: actions/setup-node@v4
         with:
           node-version: 18
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
-      
+
       - name: Run tests
         run: npx playwright test
         env:
           BASE_URL: ${{ secrets.STAGING_URL }}
-      
+
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

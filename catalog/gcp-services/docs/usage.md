@@ -317,12 +317,12 @@ resource "google_container_node_pool" "primary_nodes" {
 
 ### Common Issues
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| Permission denied | Missing IAM role | Check roles with `gcloud projects get-iam-policy` |
-| API not enabled | Service not activated | Enable with `gcloud services enable` |
-| Quota exceeded | Resource limits reached | Request quota increase in console |
-| Region not found | Invalid region specified | Check with `gcloud compute regions list` |
+| Issue             | Cause                    | Solution                                          |
+| ----------------- | ------------------------ | ------------------------------------------------- |
+| Permission denied | Missing IAM role         | Check roles with `gcloud projects get-iam-policy` |
+| API not enabled   | Service not activated    | Enable with `gcloud services enable`              |
+| Quota exceeded    | Resource limits reached  | Request quota increase in console                 |
+| Region not found  | Invalid region specified | Check with `gcloud compute regions list`          |
 
 ### Debugging Commands
 

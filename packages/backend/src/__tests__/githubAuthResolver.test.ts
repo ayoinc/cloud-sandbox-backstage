@@ -1,6 +1,6 @@
 /**
  * Unit Tests - GitHub Auth Resolver
- * 
+ *
  * Tests for GitHub OAuth sign-in resolver logic
  */
 
@@ -13,7 +13,7 @@ describe('GitHub Auth Resolver - Unit Tests', () => {
         username: 'testuser',
         emails: [{ value: 'test@example.com' }],
       };
-      
+
       expect(profile.username).toBe('testuser');
     });
 
@@ -22,7 +22,7 @@ describe('GitHub Auth Resolver - Unit Tests', () => {
         id: '12345',
         displayName: 'Test User',
       };
-      
+
       expect((profile as any).username).toBeUndefined();
     });
   });
@@ -32,21 +32,21 @@ describe('GitHub Auth Resolver - Unit Tests', () => {
       const username = 'testuser';
       const namespace = 'default';
       const entityRef = `user:${namespace}/${username}`;
-      
+
       expect(entityRef).toBe('user:default/testuser');
     });
 
     test('handles username with hyphens', () => {
       const username = 'test-user-name';
       const entityRef = `user:default/${username}`;
-      
+
       expect(entityRef).toBe('user:default/test-user-name');
     });
 
     test('handles username with numbers', () => {
       const username = 'user123';
       const entityRef = `user:default/${username}`;
-      
+
       expect(entityRef).toBe('user:default/user123');
     });
   });
@@ -57,7 +57,7 @@ describe('GitHub Auth Resolver - Unit Tests', () => {
         displayName: 'John Doe',
         username: 'johndoe',
       };
-      
+
       expect(profile.displayName).toBe('John Doe');
     });
 
@@ -69,7 +69,7 @@ describe('GitHub Auth Resolver - Unit Tests', () => {
           { value: 'secondary@example.com' },
         ],
       };
-      
+
       expect(profile.emails[0].value).toBe('primary@example.com');
     });
 
@@ -78,7 +78,7 @@ describe('GitHub Auth Resolver - Unit Tests', () => {
         username: 'testuser',
         emails: [],
       };
-      
+
       expect(profile.emails.length).toBe(0);
     });
 
@@ -86,7 +86,7 @@ describe('GitHub Auth Resolver - Unit Tests', () => {
       const profile = {
         username: 'testuser',
       };
-      
+
       expect((profile as any).emails).toBeUndefined();
     });
   });
@@ -98,7 +98,7 @@ describe('GitHub Auth Resolver - Unit Tests', () => {
         tokenType: 'bearer',
         scope: 'read:user,read:org',
       };
-      
+
       expect(token.accessToken).toMatch(/^gho_/);
       expect(token.tokenType).toBe('bearer');
     });
@@ -106,7 +106,7 @@ describe('GitHub Auth Resolver - Unit Tests', () => {
     test('parses scope string', () => {
       const scopeString = 'read:user,read:org,repo';
       const scopes = scopeString.split(',');
-      
+
       expect(scopes).toContain('read:user');
       expect(scopes).toContain('read:org');
       expect(scopes).toContain('repo');
@@ -126,7 +126,7 @@ describe('GitHub Auth Resolver - Unit Tests', () => {
           email: 'test@example.com',
         },
       };
-      
+
       expect(result.id).toBe('github:testuser');
       expect(result.entity.userEntityRef).toBe('user:default/testuser');
       expect(result.profile.displayName).toBe('Test User');
@@ -136,7 +136,7 @@ describe('GitHub Auth Resolver - Unit Tests', () => {
   describe('Error handling', () => {
     test('handles missing required fields', () => {
       const incompleteProfile = {};
-      
+
       expect(() => {
         if (!(incompleteProfile as any).username) {
           throw new Error('GitHub username is required');
@@ -146,9 +146,11 @@ describe('GitHub Auth Resolver - Unit Tests', () => {
 
     test('handles invalid username format', () => {
       const isValidUsername = (username: string) => {
-        return /^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/.test(username);
+        return /^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/.test(
+          username,
+        );
       };
-      
+
       expect(isValidUsername('validuser')).toBe(true);
       expect(isValidUsername('valid-user')).toBe(true);
       expect(isValidUsername('-invalid')).toBe(false);
@@ -163,7 +165,7 @@ describe('GitHub Auth Resolver - Edge Cases', () => {
       displayName: 'Tëst Üser 日本語',
       username: 'testuser',
     };
-    
+
     expect(profile.displayName).toBe('Tëst Üser 日本語');
   });
 
@@ -171,14 +173,14 @@ describe('GitHub Auth Resolver - Edge Cases', () => {
     // GitHub usernames max 39 chars
     const longUsername = 'a'.repeat(39);
     const entityRef = `user:default/${longUsername}`;
-    
+
     expect(entityRef.length).toBeLessThan(100);
   });
 
   test('handles case sensitivity in usernames', () => {
     const username = 'TestUser';
     const lowercaseUsername = username.toLowerCase();
-    
+
     // Entity refs should be lowercase
     expect(lowercaseUsername).toBe('testuser');
   });

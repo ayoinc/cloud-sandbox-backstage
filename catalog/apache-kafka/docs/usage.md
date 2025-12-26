@@ -10,13 +10,13 @@ producer: Producer Application {
   serialize: Serialize Message
   partition: Select Partition
   batch: Batch Messages
-  
+
   serialize -> partition -> batch
 }
 
 kafka: Kafka Cluster {
   style.fill: "#f5f5f5"
-  
+
   topic: Topic {
     p0: Partition 0 {
       style.fill: "#4CAF50"
@@ -38,7 +38,7 @@ kafka: Kafka Cluster {
 
 consumer_group: Consumer Group {
   style.fill: "#9C27B0"
-  
+
   c1: Consumer 1 {
     style.fill: "#E1BEE7"
   }
@@ -76,7 +76,7 @@ services:
     image: apache/kafka:3.7.0
     container_name: kafka
     ports:
-      - "9092:9092"
+      - '9092:9092'
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
@@ -289,9 +289,9 @@ try:
     for message in consumer:
         print(f"Partition: {message.partition}, Offset: {message.offset}")
         print(f"Key: {message.key}, Value: {message.value}")
-        
+
         # Process message...
-        
+
         # Manual commit
         consumer.commit()
 except KeyboardInterrupt:
@@ -368,12 +368,12 @@ streams.start();
 
 ### Partition Strategy
 
-| Partitions | Use Case |
-|------------|----------|
-| 1 | Strict ordering required |
-| 3-6 | Low-volume topics |
-| 12-30 | Medium-volume topics |
-| 50+ | High-volume, many consumers |
+| Partitions | Use Case                    |
+| ---------- | --------------------------- |
+| 1          | Strict ordering required    |
+| 3-6        | Low-volume topics           |
+| 12-30      | Medium-volume topics        |
+| 50+        | High-volume, many consumers |
 
 ### Replication Factor
 
@@ -400,12 +400,12 @@ streams.start();
 
 ### Common Issues
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| Consumer lag increasing | Slow processing | Scale consumers, optimize processing |
-| UnderReplicatedPartitions | Broker issues | Check broker health, disk space |
-| Producer timeout | Network/broker issues | Check connectivity, increase timeout |
-| Out of memory | Large messages | Increase heap, check message size |
+| Issue                     | Cause                 | Solution                             |
+| ------------------------- | --------------------- | ------------------------------------ |
+| Consumer lag increasing   | Slow processing       | Scale consumers, optimize processing |
+| UnderReplicatedPartitions | Broker issues         | Check broker health, disk space      |
+| Producer timeout          | Network/broker issues | Check connectivity, increase timeout |
+| Out of memory             | Large messages        | Increase heap, check message size    |
 
 ### Diagnostic Commands
 

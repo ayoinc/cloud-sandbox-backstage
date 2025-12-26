@@ -17,13 +17,13 @@ title: Distributed Load Generation {
 
 orchestration: Orchestration Layer {
   style.fill: "#E3F2FD"
-  
+
   cicd: CI/CD Pipeline\n(GitHub Actions/Jenkins) {
     shape: rectangle
     style.fill: "#2196F3"
     style.font-color: white
   }
-  
+
   features: {
     shape: text
     style.font-size: 12
@@ -33,19 +33,19 @@ orchestration: Orchestration Layer {
 
 load_gen: Load Generator Cluster {
   style.fill: "#E8F5E9"
-  
+
   node1: Node 1\nk6/Locust Workers {
     shape: hexagon
     style.fill: "#4CAF50"
     style.font-color: white
   }
-  
+
   node2: Node 2\nk6/Locust Workers {
     shape: hexagon
     style.fill: "#4CAF50"
     style.font-color: white
   }
-  
+
   nodeN: Node N\nk6/Locust Workers {
     shape: hexagon
     style.fill: "#4CAF50"
@@ -55,37 +55,37 @@ load_gen: Load Generator Cluster {
 
 metrics: Metrics Collection {
   style.fill: "#FFF3E0"
-  
+
   test_metrics: Test Metrics\n(k6/Locust) {
     shape: document
     style.fill: "#FF9800"
     style.font-color: white
   }
-  
+
   statsd: StatsD/InfluxDB {
     shape: cylinder
     style.fill: "#FF9800"
     style.font-color: white
   }
-  
+
   prometheus: Prometheus {
     shape: hexagon
     style.fill: "#E91E63"
     style.font-color: white
   }
-  
+
   test_metrics -> statsd -> prometheus
 }
 
 dashboards: Grafana Dashboards {
   style.fill: "#FCE4EC"
-  
+
   grafana: Grafana {
     shape: rectangle
     style.fill: "#E91E63"
     style.font-color: white
   }
-  
+
   features: Real-time progress\nHistorical comparison\nSLO tracking {
     shape: text
     style.font-size: 12
@@ -110,7 +110,7 @@ title: k6 Execution Model {
 
 script: Test Script {
   style.fill: "#E3F2FD"
-  
+
   code: JavaScript\nimport http from 'k6/http';\nexport default function() { ... } {
     shape: document
     style.fill: "#2196F3"
@@ -120,44 +120,44 @@ script: Test Script {
 
 engine: k6 Engine (Go) {
   style.fill: "#E8F5E9"
-  
+
   js_runtime: JavaScript\nRuntime {
     shape: hexagon
     style.fill: "#4CAF50"
     style.font-color: white
   }
-  
+
   scheduler: Scheduler\n(VU Mgmt) {
     shape: hexagon
     style.fill: "#4CAF50"
     style.font-color: white
   }
-  
+
   metrics_engine: Metrics\nEngine {
     shape: hexagon
     style.fill: "#4CAF50"
     style.font-color: white
   }
-  
+
   js_runtime -> scheduler
   scheduler -> metrics_engine
 }
 
 vus: Virtual Users {
   style.fill: "#FFF3E0"
-  
+
   vu1: VU 1\n(Iteration) {
     shape: person
     style.fill: "#FF9800"
     style.font-color: white
   }
-  
+
   vu2: VU 2\n(Iteration) {
     shape: person
     style.fill: "#FF9800"
     style.font-color: white
   }
-  
+
   vuN: VU N\n(Iteration) {
     shape: person
     style.fill: "#FF9800"
@@ -178,20 +178,20 @@ engine -> vus: Spawn VUs
 export const options = {
   // Test stages (ramping pattern)
   stages: [
-    { duration: '2m', target: 100 },   // Ramp up to 100 VUs
-    { duration: '5m', target: 100 },   // Stay at 100 VUs
-    { duration: '2m', target: 200 },   // Ramp up to 200 VUs
-    { duration: '5m', target: 200 },   // Stay at 200 VUs
-    { duration: '2m', target: 0 },     // Ramp down to 0
+    { duration: '2m', target: 100 }, // Ramp up to 100 VUs
+    { duration: '5m', target: 100 }, // Stay at 100 VUs
+    { duration: '2m', target: 200 }, // Ramp up to 200 VUs
+    { duration: '5m', target: 200 }, // Stay at 200 VUs
+    { duration: '2m', target: 0 }, // Ramp down to 0
   ],
 
   // Thresholds (pass/fail criteria)
   thresholds: {
-    http_req_duration: ['p(95)<500', 'p(99)<1000'],  // Response time
-    http_req_failed: ['rate<0.01'],                  // Error rate < 1%
-    http_reqs: ['rate>100'],                         // Throughput > 100 RPS
-    vus: ['value>0'],                                // Active VUs
-    iteration_duration: ['p(95)<2000'],              // Iteration time
+    http_req_duration: ['p(95)<500', 'p(99)<1000'], // Response time
+    http_req_failed: ['rate<0.01'], // Error rate < 1%
+    http_reqs: ['rate>100'], // Throughput > 100 RPS
+    vus: ['value>0'], // Active VUs
+    iteration_duration: ['p(95)<2000'], // Iteration time
   },
 
   // Scenarios for complex patterns
@@ -248,11 +248,11 @@ import logging
 class WebUser(HttpUser):
     wait_time = between(1, 3)
     host = "https://api.example.com"
-    
+
     def on_start(self):
         """Called when a user starts."""
         self.login()
-    
+
     def login(self):
         """Authenticate user."""
         response = self.client.post("/auth/login", json={
@@ -261,17 +261,17 @@ class WebUser(HttpUser):
         })
         self.token = response.json().get("token")
         self.client.headers.update({"Authorization": f"Bearer {self.token}"})
-    
+
     @task(3)
     def get_products(self):
         """Most common action - weight 3."""
         self.client.get("/api/products")
-    
+
     @task(2)
     def get_product_detail(self):
         """View product detail - weight 2."""
         self.client.get("/api/products/1")
-    
+
     @task(1)
     def add_to_cart(self):
         """Add to cart - weight 1."""
@@ -280,7 +280,7 @@ class WebUser(HttpUser):
 class AdminUser(HttpUser):
     wait_time = between(5, 10)
     weight = 1  # 1 admin for every 10 regular users
-    
+
     @task
     def view_dashboard(self):
         self.client.get("/admin/dashboard")
@@ -291,7 +291,7 @@ class AdminUser(HttpUser):
 def on_test_start(environment, **kwargs):
     logging.info("Test is starting")
 
-@events.test_stop.add_listener  
+@events.test_stop.add_listener
 def on_test_stop(environment, **kwargs):
     logging.info("Test is ending")
 
@@ -330,18 +330,18 @@ config:
   phases:
     - duration: 60
       arrivalRate: 5
-      name: "Warm up"
+      name: 'Warm up'
     - duration: 300
       arrivalRate: 20
       rampTo: 100
-      name: "Ramp up load"
+      name: 'Ramp up load'
     - duration: 600
       arrivalRate: 100
-      name: "Sustained load"
+      name: 'Sustained load'
     - duration: 60
       arrivalRate: 100
       rampTo: 0
-      name: "Ramp down"
+      name: 'Ramp down'
 
   defaults:
     headers:
@@ -364,49 +364,49 @@ config:
       - 5
 
 scenarios:
-  - name: "API flow"
+  - name: 'API flow'
     weight: 8
     flow:
       - post:
-          url: "/auth/login"
+          url: '/auth/login'
           json:
-            username: "user{{ userId }}"
-            password: "password"
+            username: 'user{{ userId }}'
+            password: 'password'
           capture:
-            - json: "$.token"
-              as: "authToken"
+            - json: '$.token'
+              as: 'authToken'
           expect:
             - statusCode: 200
 
       - get:
-          url: "/api/products"
+          url: '/api/products'
           headers:
-            Authorization: "Bearer {{ authToken }}"
+            Authorization: 'Bearer {{ authToken }}'
           expect:
             - statusCode: 200
-            - hasProperty: "data"
+            - hasProperty: 'data'
 
       - think: 2
 
       - get:
-          url: "/api/products/{{ $randomNumber(1, 100) }}"
+          url: '/api/products/{{ $randomNumber(1, 100) }}'
           expect:
             - statusCode: 200
 
       - post:
-          url: "/api/cart"
+          url: '/api/cart'
           json:
-            productId: "{{ $randomNumber(1, 100) }}"
+            productId: '{{ $randomNumber(1, 100) }}'
             quantity: 1
           expect:
             - statusCode: 201
 
-  - name: "Browse only"
+  - name: 'Browse only'
     weight: 2
     flow:
       - loop:
           - get:
-              url: "/api/products"
+              url: '/api/products'
           - think: 1
         count: 5
 ```
@@ -424,7 +424,7 @@ slos:
   availability:
     target: 99.9
     window: 30d
-    
+
   latency:
     p50:
       target: 100ms
@@ -435,11 +435,11 @@ slos:
     p99:
       target: 1000ms
       window: 1h
-      
+
   throughput:
     target: 1000rps
     window: 1m
-    
+
   error_rate:
     target: 0.1%
     window: 1h
@@ -448,16 +448,16 @@ thresholds:
   smoke_test:
     http_req_duration: ['p(95)<200']
     http_req_failed: ['rate<0.01']
-    
+
   load_test:
     http_req_duration: ['p(95)<500', 'p(99)<1000']
     http_req_failed: ['rate<0.01']
     http_reqs: ['rate>100']
-    
+
   stress_test:
     http_req_duration: ['p(95)<1000']
     http_req_failed: ['rate<0.05']
-    
+
   soak_test:
     http_req_duration: ['p(95)<500']
     http_req_failed: ['rate<0.01']
@@ -471,29 +471,27 @@ thresholds:
 export const options = {
   thresholds: {
     // HTTP request duration
-    'http_req_duration': [
-      'p(95)<500',     // 95% of requests under 500ms
-      'p(99)<1000',    // 99% of requests under 1000ms
-      'avg<200',       // Average under 200ms
-      'max<3000',      // Max under 3000ms
+    http_req_duration: [
+      'p(95)<500', // 95% of requests under 500ms
+      'p(99)<1000', // 99% of requests under 1000ms
+      'avg<200', // Average under 200ms
+      'max<3000', // Max under 3000ms
     ],
-    
+
     // Error rate
-    'http_req_failed': [
-      'rate<0.01',     // Less than 1% errors
+    http_req_failed: [
+      'rate<0.01', // Less than 1% errors
     ],
-    
+
     // Custom metrics
-    'api_call_duration': [
-      'p(95)<300',
-    ],
-    
+    api_call_duration: ['p(95)<300'],
+
     // Per-URL thresholds
     'http_req_duration{name:login}': ['p(95)<1000'],
     'http_req_duration{name:products}': ['p(95)<200'],
-    
+
     // Checks (assertions)
-    'checks': ['rate>0.99'],  // 99% of checks pass
+    checks: ['rate>0.99'], // 99% of checks pass
   },
 };
 ```
@@ -612,31 +610,35 @@ import { check } from 'k6';
 
 export default function () {
   // Login and extract token
-  const loginRes = http.post('https://api.example.com/auth/login', 
+  const loginRes = http.post(
+    'https://api.example.com/auth/login',
     JSON.stringify({ username: 'test', password: 'test' }),
-    { headers: { 'Content-Type': 'application/json' } }
+    { headers: { 'Content-Type': 'application/json' } },
   );
-  
+
   const token = loginRes.json('token');
-  
+
   // Use token in subsequent requests
   const params = {
     headers: {
-      'Authorization': `Bearer ${token}`,
+      Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
   };
-  
+
   // Get products and extract ID
   const productsRes = http.get('https://api.example.com/products', params);
   const productId = productsRes.json('data[0].id');
-  
+
   // Use extracted ID
-  const productRes = http.get(`https://api.example.com/products/${productId}`, params);
-  
+  const productRes = http.get(
+    `https://api.example.com/products/${productId}`,
+    params,
+  );
+
   check(productRes, {
-    'product retrieved': (r) => r.status === 200,
-    'has name': (r) => r.json('name') !== undefined,
+    'product retrieved': r => r.status === 200,
+    'has name': r => r.json('name') !== undefined,
   });
 }
 ```

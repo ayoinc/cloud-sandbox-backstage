@@ -32,7 +32,7 @@ ingress: Ingress / Load Balancer {
 
 awx_pods: AWX Pods {
   style.fill: "#e8f5e9"
-  
+
   web_pod: AWX Web Pod {
     style.fill: "#c8e6c9"
     nginx: nginx\n(Reverse Proxy) {
@@ -43,7 +43,7 @@ awx_pods: AWX Pods {
     }
     nginx -> uwsgi
   }
-  
+
   task_pod: AWX Task Pod {
     style.fill: "#a5d6a7"
     celery: Celery\n(Workers) {
@@ -56,7 +56,7 @@ awx_pods: AWX Pods {
       shape: rectangle
     }
   }
-  
+
   ee_pod: Execution Environment Pod {
     style.fill: "#81c784"
     runner: ansible-runner\n+ collections\n+ dependencies {
@@ -67,13 +67,13 @@ awx_pods: AWX Pods {
 
 data_services: Data Services {
   style.fill: "#e3f2fd"
-  
+
   postgres: PostgreSQL {
     shape: cylinder
     style.fill: "#90caf9"
     label: "Job history\nCredentials\nInventories"
   }
-  
+
   redis: Redis {
     shape: cylinder
     style.fill: "#90caf9"
@@ -105,28 +105,28 @@ pipeline: Job Execution Pipeline {
   launch: 1. Job Launch {
     flow: User/API/Schedule -> Create Job -> Queue to Celery
   }
-  
+
   prerun: 2. Pre-run Tasks {
     decrypt: Decrypt credentials
     sync_proj: Sync project (if needed)
     sync_inv: Sync inventory (if dynamic)
     prep_ee: Prepare execution environment
   }
-  
+
   execution: 3. Execution {
     flow: Receptor -> ansible-runner -> Ansible Playbook {
       shape: hexagon
     }
     stream: Stream output via WebSocket
   }
-  
+
   postrun: 4. Post-run Tasks {
     store: Store job output
     notify: Send notifications
     trigger: Trigger dependent workflows
     status: Update job status
   }
-  
+
   launch -> prerun -> execution -> postrun
 }
 ```
@@ -145,7 +145,7 @@ metadata:
 spec:
   # Deployment settings
   replicas: 2
-  
+
   # Web settings
   service_type: ClusterIP
   ingress_type: ingress
@@ -154,7 +154,6 @@ spec:
     kubernetes.io/ingress.class: nginx
     cert-manager.io/cluster-issuer: letsencrypt-prod
   ingress_tls_secret: awx-tls
-  
   # Resource limits
   web_resource_requirements:
     requests:
@@ -163,7 +162,7 @@ spec:
     limits:
       cpu: 2000m
       memory: 4Gi
-  
+
   task_resource_requirements:
     requests:
       cpu: 500m
@@ -171,7 +170,7 @@ spec:
     limits:
       cpu: 4000m
       memory: 8Gi
-  
+
   ee_resource_requirements:
     requests:
       cpu: 500m
@@ -179,30 +178,30 @@ spec:
     limits:
       cpu: 2000m
       memory: 4Gi
-  
+
   # Database settings
   postgres_configuration_secret: awx-postgres-configuration
   postgres_storage_class: standard
   postgres_storage_requirements:
     requests:
       storage: 20Gi
-  
+
   # Projects storage
   projects_persistence: true
   projects_storage_class: standard
   projects_storage_size: 10Gi
-  
+
   # Extra settings
   extra_settings:
     - setting: AWX_TASK_ENV
       value:
-        HTTPS_PROXY: "http://proxy.example.com:8080"
+        HTTPS_PROXY: 'http://proxy.example.com:8080'
     - setting: SOCIAL_AUTH_SAML_ENABLED_IDPS
       value:
         corporate:
-          entity_id: "https://idp.example.com"
-          url: "https://idp.example.com/sso"
-          x509cert: "..."
+          entity_id: 'https://idp.example.com'
+          url: 'https://idp.example.com/sso'
+          x509cert: '...'
 ```
 
 ### Environment Variables
@@ -211,17 +210,17 @@ spec:
 # AWX Task Environment
 AWX_TASK_ENV:
   # Proxy settings
-  HTTP_PROXY: "http://proxy.example.com:8080"
-  HTTPS_PROXY: "http://proxy.example.com:8080"
-  NO_PROXY: "localhost,127.0.0.1,.example.com"
-  
+  HTTP_PROXY: 'http://proxy.example.com:8080'
+  HTTPS_PROXY: 'http://proxy.example.com:8080'
+  NO_PROXY: 'localhost,127.0.0.1,.example.com'
+
   # Ansible settings
-  ANSIBLE_FORCE_COLOR: "true"
-  ANSIBLE_HOST_KEY_CHECKING: "false"
-  ANSIBLE_SSH_RETRIES: "5"
-  
+  ANSIBLE_FORCE_COLOR: 'true'
+  ANSIBLE_HOST_KEY_CHECKING: 'false'
+  ANSIBLE_SSH_RETRIES: '5'
+
   # Custom CA certificates
-  REQUESTS_CA_BUNDLE: "/etc/pki/tls/certs/ca-bundle.crt"
+  REQUESTS_CA_BUNDLE: '/etc/pki/tls/certs/ca-bundle.crt'
 ```
 
 ### Settings via API
@@ -249,7 +248,7 @@ settings = {
     "AUTH_LDAP_USER_FLAGS_BY_GROUP": {
         "is_superuser": "cn=awx-admins,ou=groups,dc=example,dc=com"
     },
-    
+
     # SAML
     "SOCIAL_AUTH_SAML_ENABLED_IDPS": {
         "corporate": {
@@ -259,12 +258,12 @@ settings = {
         }
     },
     "SOCIAL_AUTH_SAML_SP_ENTITY_ID": "https://awx.example.com",
-    
+
     # Logging
     "LOG_AGGREGATOR_HOST": "https://splunk.example.com:8088",
     "LOG_AGGREGATOR_TYPE": "splunk",
     "LOG_AGGREGATOR_TOKEN": "your-hec-token",
-    
+
     # Misc
     "TOWER_URL_BASE": "https://awx.example.com",
     "DEFAULT_EXECUTION_ENVIRONMENT": 1,
@@ -293,11 +292,11 @@ rbac: AWX RBAC Model {
     users: Users {
       shape: person
     }
-    
+
     org -> teams: contains
     teams -> users: contains
   }
-  
+
   roles: Permission Roles {
     admin: Admin\nFull control {
       shape: hexagon
@@ -318,7 +317,7 @@ rbac: AWX RBAC Model {
       shape: hexagon
     }
   }
-  
+
   resources: Resource Hierarchy {
     organization: Organization {
       shape: rectangle
@@ -341,7 +340,7 @@ rbac: AWX RBAC Model {
     execution_envs: Execution Environments {
       shape: hexagon
     }
-    
+
     organization -> projects
     organization -> inventories
     organization -> credentials
@@ -349,7 +348,7 @@ rbac: AWX RBAC Model {
     organization -> workflow_templates
     organization -> execution_envs
   }
-  
+
   hierarchy.users -> roles: assigned
   roles -> resources: grants access
 }
@@ -363,16 +362,16 @@ rbac: AWX RBAC Model {
 
 # Credential Type: Machine
 credential:
-  name: "Production Servers"
-  credential_type: "Machine"
+  name: 'Production Servers'
+  credential_type: 'Machine'
   inputs:
-    username: "ansible"
+    username: 'ansible'
     ssh_key_data: |
       -----BEGIN OPENSSH PRIVATE KEY-----
       ... (encrypted at rest)
       -----END OPENSSH PRIVATE KEY-----
-    become_method: "sudo"
-    become_username: "root"
+    become_method: 'sudo'
+    become_username: 'root'
 ```
 
 ### Network Security
@@ -402,7 +401,7 @@ spec:
   egress:
     - to:
         - ipBlock:
-            cidr: 10.0.0.0/8  # Internal network
+            cidr: 10.0.0.0/8 # Internal network
       ports:
         - port: 22
           protocol: TCP
@@ -411,8 +410,8 @@ spec:
             matchLabels:
               name: awx
       ports:
-        - port: 5432  # PostgreSQL
-        - port: 6379  # Redis
+        - port: 5432 # PostgreSQL
+        - port: 6379 # Redis
 ```
 
 ## Execution Environments
@@ -504,14 +503,14 @@ spec:
 
 ### Key Metrics
 
-| Metric | Description | Alert Threshold |
-|--------|-------------|-----------------|
-| `awx_jobs_total` | Total jobs by status | N/A (tracking) |
-| `awx_jobs_pending` | Jobs waiting to run | > 50 |
-| `awx_jobs_running` | Currently executing | > capacity |
-| `awx_schedule_jobs_pending` | Scheduled jobs in queue | > 100 |
-| `awx_instance_capacity` | Available capacity | < 20% |
-| `awx_instance_consumed_capacity` | Used capacity | > 80% |
+| Metric                           | Description             | Alert Threshold |
+| -------------------------------- | ----------------------- | --------------- |
+| `awx_jobs_total`                 | Total jobs by status    | N/A (tracking)  |
+| `awx_jobs_pending`               | Jobs waiting to run     | > 50            |
+| `awx_jobs_running`               | Currently executing     | > capacity      |
+| `awx_schedule_jobs_pending`      | Scheduled jobs in queue | > 100           |
+| `awx_instance_capacity`          | Available capacity      | < 20%           |
+| `awx_instance_consumed_capacity` | Used capacity           | > 80%           |
 
 ### Grafana Dashboard
 
@@ -564,21 +563,21 @@ metadata:
   name: awx
 spec:
   replicas: 3
-  
+
   # External PostgreSQL for HA
   postgres_configuration_secret: awx-external-postgres
-  
+
   # Redis cluster mode
   redis_configuration_secret: awx-redis-cluster
-  
+
   # Shared projects storage
   projects_persistence: true
-  projects_storage_class: efs-sc  # Shared filesystem
-  
+  projects_storage_class: efs-sc # Shared filesystem
+
   # Node affinity for spreading
   node_selector: |
     node-role.kubernetes.io/worker: ""
-  
+
   topology_spread_constraints: |
     - maxSkew: 1
       topologyKey: kubernetes.io/hostname
@@ -591,16 +590,16 @@ spec:
 # receptor.conf for distributed execution
 receptor:
   node_id: hop-node-1
-  
+
   connections:
     - name: awx-main
       host: awx.example.com
       port: 27199
-      
+
   work_commands:
     ansible-runner:
       command: ansible-runner
       params: worker
-      
+
   log_level: info
 ```

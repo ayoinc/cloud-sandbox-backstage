@@ -36,16 +36,16 @@ curl -u elastic:changeme http://localhost:9200/_cat/nodes?v
 
 ## Features
 
-| Feature | Description |
-|---------|-------------|
-| **Full-Text Search** | Inverted index with BM25 scoring, analyzers, and tokenizers |
-| **Distributed Architecture** | Automatic sharding and replication across nodes |
-| **Near Real-Time** | Documents searchable within ~1 second of indexing |
-| **Aggregations** | Bucket, metric, and pipeline aggregations for analytics |
-| **Machine Learning** | Anomaly detection, forecasting, and NLP (with subscription) |
-| **Vector Search** | kNN search for embeddings and similarity matching |
-| **Data Streams** | Append-only time-series data with automatic rollover |
-| **Index Lifecycle Management** | Automated hot-warm-cold-delete data tiering |
+| Feature                        | Description                                                 |
+| ------------------------------ | ----------------------------------------------------------- |
+| **Full-Text Search**           | Inverted index with BM25 scoring, analyzers, and tokenizers |
+| **Distributed Architecture**   | Automatic sharding and replication across nodes             |
+| **Near Real-Time**             | Documents searchable within ~1 second of indexing           |
+| **Aggregations**               | Bucket, metric, and pipeline aggregations for analytics     |
+| **Machine Learning**           | Anomaly detection, forecasting, and NLP (with subscription) |
+| **Vector Search**              | kNN search for embeddings and similarity matching           |
+| **Data Streams**               | Append-only time-series data with automatic rollover        |
+| **Index Lifecycle Management** | Automated hot-warm-cold-delete data tiering                 |
 
 ## Architecture
 
@@ -66,17 +66,17 @@ cluster: Elasticsearch Cluster {
 
   nodes: Cluster Nodes {
     style.fill: "#ffffff"
-    
+
     node1: Node 1 {
       style.fill: "#4285f4"
       style.font-color: "#ffffff"
       icon: https://icons.terrastruct.com/essentials%2F112-server.svg
-      
+
       roles: "Master-eligible\nData Node" {
         style.fill: "#e3f2fd"
         style.font-size: 12
       }
-      
+
       shards: Shards {
         style.fill: "#bbdefb"
         p0: "Primary 0" {style.fill: "#2196f3"; style.font-color: white}
@@ -84,17 +84,17 @@ cluster: Elasticsearch Cluster {
         r2: "Replica 2" {style.fill: "#90caf9"}
       }
     }
-    
+
     node2: Node 2 {
       style.fill: "#34a853"
       style.font-color: "#ffffff"
       icon: https://icons.terrastruct.com/essentials%2F112-server.svg
-      
+
       roles: "Master-eligible\nData Node" {
         style.fill: "#e8f5e9"
         style.font-size: 12
       }
-      
+
       shards: Shards {
         style.fill: "#c8e6c9"
         p1: "Primary 1" {style.fill: "#4caf50"; style.font-color: white}
@@ -102,17 +102,17 @@ cluster: Elasticsearch Cluster {
         r0: "Replica 0" {style.fill: "#a5d6a7"}
       }
     }
-    
+
     node3: Node 3 {
       style.fill: "#fbbc04"
       style.font-color: "#000000"
       icon: https://icons.terrastruct.com/essentials%2F112-server.svg
-      
+
       roles: "Master-eligible\nData Node" {
         style.fill: "#fff8e1"
         style.font-size: 12
       }
-      
+
       shards: Shards {
         style.fill: "#ffecb3"
         p2: "Primary 2" {style.fill: "#ffc107"; style.font-color: black}
@@ -121,7 +121,7 @@ cluster: Elasticsearch Cluster {
       }
     }
   }
-  
+
   index: "Index: logs-2024.01\n5 Primary + 1 Replica each\n= 10 total shards" {
     style.fill: "#f3e5f5"
     style.stroke: "#9c27b0"
@@ -147,18 +147,18 @@ cluster.nodes.node1 <-> cluster.nodes.node3: "Transport\nPort 9300" {style.strok
 
 ## Node Roles
 
-| Role | Description | Use Case |
-|------|-------------|----------|
-| `master` | Cluster management, index metadata | Dedicated masters for large clusters |
-| `data` | Store data, execute searches | General data nodes |
-| `data_content` | Content/product data | Search-heavy workloads |
-| `data_hot` | Recent, frequently queried data | Time-series hot tier |
-| `data_warm` | Less frequent queries | Time-series warm tier |
-| `data_cold` | Infrequent access, searchable | Cost-optimized storage |
-| `data_frozen` | Rarely accessed, searchable snapshots | Archive tier |
-| `ingest` | Pre-process documents | Pipeline transformations |
-| `ml` | Machine learning jobs | Anomaly detection |
-| `coordinating` | Route requests, reduce results | Query-heavy workloads |
+| Role           | Description                           | Use Case                             |
+| -------------- | ------------------------------------- | ------------------------------------ |
+| `master`       | Cluster management, index metadata    | Dedicated masters for large clusters |
+| `data`         | Store data, execute searches          | General data nodes                   |
+| `data_content` | Content/product data                  | Search-heavy workloads               |
+| `data_hot`     | Recent, frequently queried data       | Time-series hot tier                 |
+| `data_warm`    | Less frequent queries                 | Time-series warm tier                |
+| `data_cold`    | Infrequent access, searchable         | Cost-optimized storage               |
+| `data_frozen`  | Rarely accessed, searchable snapshots | Archive tier                         |
+| `ingest`       | Pre-process documents                 | Pipeline transformations             |
+| `ml`           | Machine learning jobs                 | Anomaly detection                    |
+| `coordinating` | Route requests, reduce results        | Query-heavy workloads                |
 
 ## Version Information
 

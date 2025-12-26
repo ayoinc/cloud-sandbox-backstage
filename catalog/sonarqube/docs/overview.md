@@ -219,7 +219,7 @@ sonar.pullrequest.base=${PR_TARGET}
 # SAML 2.0 Configuration
 sonar.auth.saml.enabled: true
 sonar.auth.saml.applicationId: sonarqube
-sonar.auth.saml.providerName: "Corporate SSO"
+sonar.auth.saml.providerName: 'Corporate SSO'
 sonar.auth.saml.providerId: https://sso.company.com
 sonar.auth.saml.loginUrl: https://sso.company.com/saml/sso
 sonar.auth.saml.user.login: login
@@ -318,13 +318,13 @@ scrape_configs:
 
 ### Key Metrics to Monitor
 
-| Metric | Description | Alert Threshold |
-|--------|-------------|-----------------|
-| `sonarqube_health` | Overall health status | != GREEN |
-| `sonarqube_compute_engine_pending_count` | Pending analysis tasks | > 10 |
-| `sonarqube_compute_engine_in_progress_count` | Active analysis tasks | > workers |
-| `sonarqube_web_uptime_minutes` | Web server uptime | < 5 after restart |
-| `sonarqube_database_pool_active_connections` | Active DB connections | > 80% of max |
+| Metric                                       | Description            | Alert Threshold   |
+| -------------------------------------------- | ---------------------- | ----------------- |
+| `sonarqube_health`                           | Overall health status  | != GREEN          |
+| `sonarqube_compute_engine_pending_count`     | Pending analysis tasks | > 10              |
+| `sonarqube_compute_engine_in_progress_count` | Active analysis tasks  | > workers         |
+| `sonarqube_web_uptime_minutes`               | Web server uptime      | < 5 after restart |
+| `sonarqube_database_pool_active_connections` | Active DB connections  | > 80% of max      |
 
 ### Logging Configuration
 

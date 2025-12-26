@@ -22,19 +22,19 @@ request: Application Request {
 
 interfaces: Unified Resource Interface {
   style.fill: "#E8F5E9"
-  
+
   compute: Compute\nInterface {
     shape: hexagon
     style.fill: "#4CAF50"
     style.font-color: white
   }
-  
+
   database: Database\nInterface {
     shape: hexagon
     style.fill: "#4CAF50"
     style.font-color: white
   }
-  
+
   storage: Storage\nInterface {
     shape: hexagon
     style.fill: "#4CAF50"
@@ -44,31 +44,31 @@ interfaces: Unified Resource Interface {
 
 adapters: Provider Adapters {
   style.fill: "#FFF3E0"
-  
+
   aws_adapter: AWS Adapter {
     style.fill: "#FF9900"
     style.font-color: white
-    
+
     mapping: EC2 → VM\nRDS → DB\nS3 → Blob {
       shape: text
       style.font-size: 12
     }
   }
-  
+
   azure_adapter: Azure Adapter {
     style.fill: "#0078D4"
     style.font-color: white
-    
+
     mapping: VM → VM\nSQL → DB\nBlob → Blob {
       shape: text
       style.font-size: 12
     }
   }
-  
+
   gcp_adapter: GCP Adapter {
     style.fill: "#4285F4"
     style.font-color: white
-    
+
     mapping: GCE → VM\nSQL → DB\nGCS → Blob {
       shape: text
       style.font-size: 12
@@ -78,7 +78,7 @@ adapters: Provider Adapters {
 
 apis: Cloud APIs {
   style.fill: "#FCE4EC"
-  
+
   aws_api: AWS API {shape: rectangle; style.fill: "#FF9900"; style.font-color: white}
   azure_api: Azure API {shape: rectangle; style.fill: "#0078D4"; style.font-color: white}
   gcp_api: GCP API {shape: rectangle; style.fill: "#4285F4"; style.font-color: white}
@@ -104,70 +104,70 @@ title: Cross-Cloud Network Topology {
 
 aws: AWS us-east-1 {
   style.fill: "#FFF3E0"
-  
+
   vpc: VPC\n10.0.0.0/16 {
     style.fill: "#FF9900"
     style.font-color: white
-    
+
     subnet: Private Subnet\n10.0.1.x {
       shape: rectangle
     }
   }
-  
+
   vpn: VPN Gateway {
     shape: hexagon
     style.fill: "#FF9900"
     style.font-color: white
   }
-  
+
   vpc -> vpn
 }
 
 azure: Azure eastus {
   style.fill: "#E3F2FD"
-  
+
   vnet: VNet\n10.1.0.0/16 {
     style.fill: "#0078D4"
     style.font-color: white
-    
+
     subnet: Private Subnet\n10.1.1.x {
       shape: rectangle
     }
   }
-  
+
   vpn: VPN Gateway {
     shape: hexagon
     style.fill: "#0078D4"
     style.font-color: white
   }
-  
+
   vnet -> vpn
 }
 
 gcp: GCP us-east1 {
   style.fill: "#E8F5E9"
-  
+
   gcp_vpc: VPC\n10.2.0.0/16 {
     style.fill: "#4285F4"
     style.font-color: white
-    
+
     subnet: Private Subnet\n10.2.1.x {
       shape: rectangle
     }
   }
-  
+
   vpn: VPN Gateway {
     shape: hexagon
     style.fill: "#4285F4"
     style.font-color: white
   }
-  
+
   gcp_vpc -> vpn
 }
 
 dns: Global DNS {
   style.fill: "#FCE4EC"
-  
+
   routes: app.example.com\n├── aws.app → 10.0.1.x\n├── azure.app → 10.1.1.x\n└── gcp.app → 10.2.1.x {
     shape: document
     style.fill: "#E91E63"
@@ -436,27 +436,27 @@ resource "google_container_node_pool" "this" {
 identity_federation:
   # Primary identity provider
   primary_idp: azure_entra_id
-  
+
   # AWS configuration
   aws:
     # SAML federation with Azure AD
     saml_provider:
       name: AzureAD
       metadata_url: https://login.microsoftonline.com/{tenant}/federationmetadata/2007-06/federationmetadata.xml
-    
+
     # Role mappings
     role_mappings:
       - azure_group: Platform-Admins
         aws_role: arn:aws:iam::123456789:role/PlatformAdmin
       - azure_group: Developers
         aws_role: arn:aws:iam::123456789:role/Developer
-  
+
   # GCP configuration
   gcp:
     # Workload Identity Federation
     workload_identity_pool: azure-identity-pool
     workload_identity_provider: azure-ad
-    
+
     # Service account mappings
     sa_mappings:
       - azure_group: Platform-Admins
@@ -531,11 +531,11 @@ package multicloud.compliance
 deny[msg] {
     resource := input.planned_values.root_module.resources[_]
     required_tags := {"Environment", "Owner", "CostCenter", "Project"}
-    
+
     resource_tags := object.get(resource.values, "tags", {})
     missing := required_tags - {key | resource_tags[key]}
     count(missing) > 0
-    
+
     msg := sprintf(
         "Resource %s is missing required tags: %v",
         [resource.address, missing]
@@ -546,27 +546,27 @@ deny[msg] {
 deny[msg] {
     resource := input.planned_values.root_module.resources[_]
     resource.type == "aws_s3_bucket"
-    
+
     not has_encryption(resource)
-    
+
     msg := sprintf("S3 bucket %s must have encryption enabled", [resource.address])
 }
 
 deny[msg] {
     resource := input.planned_values.root_module.resources[_]
     resource.type == "azurerm_storage_account"
-    
+
     not resource.values.enable_https_traffic_only
-    
+
     msg := sprintf("Azure Storage %s must have HTTPS only enabled", [resource.address])
 }
 
 deny[msg] {
     resource := input.planned_values.root_module.resources[_]
     resource.type == "google_storage_bucket"
-    
+
     not has_uniform_bucket_access(resource)
-    
+
     msg := sprintf("GCS bucket %s must have uniform bucket-level access", [resource.address])
 }
 
@@ -574,9 +574,9 @@ deny[msg] {
 deny[msg] {
     resource := input.planned_values.root_module.resources[_]
     is_database_resource(resource.type)
-    
+
     is_publicly_accessible(resource)
-    
+
     msg := sprintf("Database %s must not be publicly accessible", [resource.address])
 }
 
@@ -643,7 +643,7 @@ class MultiCloudCostReport:
         self.aws_client = boto3.client('ce')
         self.azure_credential = DefaultAzureCredential()
         self.gcp_client = billing_v1.CloudBillingClient()
-    
+
     def get_aws_costs(self, start_date: str, end_date: str) -> dict:
         """Get AWS costs by service."""
         response = self.aws_client.get_cost_and_usage(
@@ -656,13 +656,13 @@ class MultiCloudCostReport:
             ]
         )
         return self._parse_aws_response(response)
-    
-    def get_azure_costs(self, subscription_id: str, 
+
+    def get_azure_costs(self, subscription_id: str,
                         start_date: str, end_date: str) -> dict:
         """Get Azure costs by resource group."""
         client = CostManagementClient(self.azure_credential)
         scope = f"/subscriptions/{subscription_id}"
-        
+
         query = {
             "type": "ActualCost",
             "timeframe": "Custom",
@@ -681,10 +681,10 @@ class MultiCloudCostReport:
                 ]
             }
         }
-        
+
         response = client.query.usage(scope, query)
         return self._parse_azure_response(response)
-    
+
     def get_gcp_costs(self, billing_account: str,
                       start_date: str, end_date: str) -> dict:
         """Get GCP costs by project and service."""
@@ -702,16 +702,16 @@ class MultiCloudCostReport:
         ORDER BY total_cost DESC
         """
         return self._execute_bq_query(query)
-    
+
     def generate_report(self) -> dict:
         """Generate consolidated multi-cloud cost report."""
         end_date = datetime.now()
         start_date = end_date - timedelta(days=30)
-        
+
         date_format = "%Y-%m-%d"
         start_str = start_date.strftime(date_format)
         end_str = end_date.strftime(date_format)
-        
+
         aws_costs = self.get_aws_costs(start_str, end_str)
         azure_costs = self.get_azure_costs(
             "subscription-id", start_str, end_str
@@ -719,7 +719,7 @@ class MultiCloudCostReport:
         gcp_costs = self.get_gcp_costs(
             "billing-account", start_str, end_str
         )
-        
+
         return {
             "period": {"start": start_str, "end": end_str},
             "costs": {

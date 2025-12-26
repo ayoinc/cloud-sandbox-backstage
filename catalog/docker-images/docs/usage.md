@@ -13,44 +13,44 @@ title: Docker Image Lifecycle {
 
 build: Build Phase {
   style.fill: "#E3F2FD"
-  
+
   dockerfile: Dockerfile {
     shape: document
     style.fill: "#2196F3"
     style.font-color: white
   }
-  
+
   buildx: Docker Buildx {
     shape: hexagon
     style.fill: "#2196F3"
     style.font-color: white
   }
-  
+
   cache: Build Cache {
     shape: cylinder
     style.fill: "#64B5F6"
     style.font-color: white
   }
-  
+
   dockerfile -> buildx
   buildx -> cache
 }
 
 security: Security Phase {
   style.fill: "#FFCDD2"
-  
+
   trivy: Trivy Scan {
     shape: hexagon
     style.fill: "#F44336"
     style.font-color: white
   }
-  
+
   cosign: Cosign Sign {
     shape: hexagon
     style.fill: "#F44336"
     style.font-color: white
   }
-  
+
   sbom: SBOM Generate {
     shape: document
     style.fill: "#EF5350"
@@ -60,13 +60,13 @@ security: Security Phase {
 
 registry: Registry {
   style.fill: "#E8F5E9"
-  
+
   push: Push Image {
     shape: hexagon
     style.fill: "#4CAF50"
     style.font-color: white
   }
-  
+
   tags: Multi-arch\nManifest {
     shape: rectangle
     style.fill: "#81C784"
@@ -76,13 +76,13 @@ registry: Registry {
 
 deploy: Deploy {
   style.fill: "#FFF3E0"
-  
+
   k8s: Kubernetes {
     shape: hexagon
     style.fill: "#FF9800"
     style.font-color: white
   }
-  
+
   compose: Docker\nCompose {
     shape: hexagon
     style.fill: "#FFB74D"
@@ -99,12 +99,12 @@ registry -> deploy: Pull & Run
 
 ### Prerequisites
 
-| Requirement | Version | Installation |
-|-------------|---------|--------------|
-| Docker | 24.0+ | `brew install docker` |
-| Docker Buildx | 0.12+ | Included with Docker Desktop |
-| Cosign | 2.2+ | `brew install cosign` |
-| Trivy | 0.48+ | `brew install trivy` |
+| Requirement   | Version | Installation                 |
+| ------------- | ------- | ---------------------------- |
+| Docker        | 24.0+   | `brew install docker`        |
+| Docker Buildx | 0.12+   | Included with Docker Desktop |
+| Cosign        | 2.2+    | `brew install cosign`        |
+| Trivy         | 0.48+   | `brew install trivy`         |
 
 ### Installation and Authentication
 
@@ -246,7 +246,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-      id-token: write  # For keyless signing
+      id-token: write # For keyless signing
 
     steps:
       - name: Checkout
@@ -335,8 +335,8 @@ services:
     image: myapp:dev
     container_name: myapp-dev
     ports:
-      - "3000:3000"
-      - "9229:9229"  # Debug port
+      - '3000:3000'
+      - '9229:9229' # Debug port
     volumes:
       - .:/app
       - /app/node_modules
@@ -361,9 +361,9 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - '5432:5432'
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d myapp"]
+      test: ['CMD-SHELL', 'pg_isready -U user -d myapp']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -372,7 +372,7 @@ services:
     image: redis:7-alpine
     container_name: myapp-redis
     ports:
-      - "6379:6379"
+      - '6379:6379'
     volumes:
       - redis_data:/data
 
@@ -429,13 +429,21 @@ services:
         parallelism: 0
         order: stop-first
     ports:
-      - "8080:8080"
+      - '8080:8080'
     environment:
       - NODE_ENV=production
     env_file:
       - .env.production
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      test:
+        [
+          'CMD',
+          'wget',
+          '--no-verbose',
+          '--tries=1',
+          '--spider',
+          'http://localhost:8080/health',
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -448,8 +456,8 @@ services:
     logging:
       driver: json-file
       options:
-        max-size: "100m"
-        max-file: "3"
+        max-size: '100m'
+        max-file: '3'
 ```
 
 ### Kubernetes Deployment
@@ -604,18 +612,18 @@ docker tag myapp:latest registry.company.com/apps/myapp:$(date +%Y%m%d)
 
 ## Troubleshooting
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| `Cannot connect to Docker daemon` | Docker not running | Start Docker Desktop or `sudo systemctl start docker` |
-| `unauthorized: authentication required` | Not logged in | Run `docker login registry.company.com` |
-| `no space left on device` | Disk full | Run `docker system prune -a` |
-| `manifest unknown` | Image doesn't exist | Check image name and tag |
-| `failed to solve: failed to read dockerfile` | Invalid Dockerfile path | Use `-f` flag or check filename |
-| `COPY failed: file not found` | File in .dockerignore | Update .dockerignore |
-| `permission denied` | User not in docker group | `sudo usermod -aG docker $USER` |
-| `image platform does not match` | Architecture mismatch | Use `--platform` flag |
-| `failed to fetch oauth token` | Registry auth failed | Re-login to registry |
-| Build cache not working | Cache not exported | Add `--cache-to` and `--cache-from` |
+| Issue                                        | Cause                    | Solution                                              |
+| -------------------------------------------- | ------------------------ | ----------------------------------------------------- |
+| `Cannot connect to Docker daemon`            | Docker not running       | Start Docker Desktop or `sudo systemctl start docker` |
+| `unauthorized: authentication required`      | Not logged in            | Run `docker login registry.company.com`               |
+| `no space left on device`                    | Disk full                | Run `docker system prune -a`                          |
+| `manifest unknown`                           | Image doesn't exist      | Check image name and tag                              |
+| `failed to solve: failed to read dockerfile` | Invalid Dockerfile path  | Use `-f` flag or check filename                       |
+| `COPY failed: file not found`                | File in .dockerignore    | Update .dockerignore                                  |
+| `permission denied`                          | User not in docker group | `sudo usermod -aG docker $USER`                       |
+| `image platform does not match`              | Architecture mismatch    | Use `--platform` flag                                 |
+| `failed to fetch oauth token`                | Registry auth failed     | Re-login to registry                                  |
+| Build cache not working                      | Cache not exported       | Add `--cache-to` and `--cache-from`                   |
 
 ### Debug Commands
 
@@ -649,6 +657,7 @@ docker exec <container> ping other-container
 ## Best Practices Checklist
 
 ### Dockerfile
+
 - [ ] Use official or company base images
 - [ ] Pin specific versions (not `latest`)
 - [ ] Use multi-stage builds
@@ -660,6 +669,7 @@ docker exec <container> ping other-container
 - [ ] Add OCI labels (maintainer, version, description)
 
 ### Security
+
 - [ ] Scan images for vulnerabilities
 - [ ] Sign images with Cosign
 - [ ] Generate and attach SBOM
@@ -670,6 +680,7 @@ docker exec <container> ping other-container
 - [ ] Use distroless/scratch for production
 
 ### CI/CD
+
 - [ ] Automate builds on push
 - [ ] Build multi-architecture images
 - [ ] Use build cache
@@ -680,24 +691,24 @@ docker exec <container> ping other-container
 
 ## CLI Reference
 
-| Command | Description |
-|---------|-------------|
-| `docker build -t <tag> .` | Build image |
-| `docker buildx build --platform` | Multi-arch build |
-| `docker push <image>` | Push to registry |
-| `docker pull <image>` | Pull from registry |
-| `docker run -d <image>` | Run container |
-| `docker compose up -d` | Start services |
+| Command                          | Description          |
+| -------------------------------- | -------------------- |
+| `docker build -t <tag> .`        | Build image          |
+| `docker buildx build --platform` | Multi-arch build     |
+| `docker push <image>`            | Push to registry     |
+| `docker pull <image>`            | Pull from registry   |
+| `docker run -d <image>`          | Run container        |
+| `docker compose up -d`           | Start services       |
 | `docker exec -it <container> sh` | Shell into container |
-| `docker logs -f <container>` | Stream logs |
-| `docker stop <container>` | Stop container |
-| `docker rm <container>` | Remove container |
-| `docker rmi <image>` | Remove image |
-| `docker system prune -a` | Clean up |
-| `docker inspect <image>` | Show metadata |
-| `docker history <image>` | Show layers |
-| `docker scout cves <image>` | Scan vulnerabilities |
-| `docker sbom <image>` | Generate SBOM |
+| `docker logs -f <container>`     | Stream logs          |
+| `docker stop <container>`        | Stop container       |
+| `docker rm <container>`          | Remove container     |
+| `docker rmi <image>`             | Remove image         |
+| `docker system prune -a`         | Clean up             |
+| `docker inspect <image>`         | Show metadata        |
+| `docker history <image>`         | Show layers          |
+| `docker scout cves <image>`      | Scan vulnerabilities |
+| `docker sbom <image>`            | Generate SBOM        |
 
 ## Related Resources
 

@@ -18,15 +18,15 @@ services:
       - SPLUNK_PASSWORD=${SPLUNK_PASSWORD:-changeme123}
       - SPLUNK_HEC_TOKEN=${SPLUNK_HEC_TOKEN}
     ports:
-      - "8000:8000"    # Web UI
-      - "8088:8088"    # HEC
-      - "8089:8089"    # Management API
-      - "9997:9997"    # Forwarder receiving
+      - '8000:8000' # Web UI
+      - '8088:8088' # HEC
+      - '8089:8089' # Management API
+      - '9997:9997' # Forwarder receiving
     volumes:
       - splunk-var:/opt/splunk/var
       - splunk-etc:/opt/splunk/etc
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:8000']
       interval: 30s
       timeout: 10s
       retries: 5
@@ -55,7 +55,7 @@ services:
       - SPLUNK_INDEXER_REPLICATION_FACTOR=2
       - SPLUNK_INDEXER_SEARCH_FACTOR=2
     ports:
-      - "8000:8000"
+      - '8000:8000'
 
   # Indexers
   indexer1:
@@ -91,7 +91,7 @@ services:
       - SPLUNK_CLUSTER_MASTER_URL=cluster-manager
       - SPLUNK_INDEXER_URL=indexer1,indexer2
     ports:
-      - "8001:8000"
+      - '8001:8000'
     depends_on:
       - indexer1
       - indexer2
@@ -147,8 +147,8 @@ spec:
           app: system
           content:
             http:
-              disabled: "false"
-              port: "8088"
+              disabled: 'false'
+              port: '8088'
   volumes:
     - name: license
       secret:
@@ -283,14 +283,14 @@ spec:
           image: splunk/universalforwarder:latest
           env:
             - name: SPLUNK_START_ARGS
-              value: "--accept-license"
+              value: '--accept-license'
             - name: SPLUNK_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: splunk-admin-secret
                   key: password
             - name: SPLUNK_FORWARD_SERVER
-              value: "indexer-cluster-indexer-service:9997"
+              value: 'indexer-cluster-indexer-service:9997'
           volumeMounts:
             - name: varlog
               mountPath: /var/log
@@ -331,8 +331,8 @@ spec:
         <title>Error Rate</title>
         <search>
           <query>
-            index=application 
-            | stats count(eval(status>=500)) as errors, count as total 
+            index=application
+            | stats count(eval(status>=500)) as errors, count as total
             | eval error_rate=round(errors/total*100,2)
             | fields error_rate
           </query>
@@ -351,9 +351,9 @@ spec:
         <title>Top Errors</title>
         <search>
           <query>
-            index=application level=ERROR 
-            | stats count by error_message 
-            | sort -count 
+            index=application level=ERROR
+            | stats count by error_message
+            | sort -count
             | head 10
           </query>
           <earliest>-24h</earliest>
@@ -417,14 +417,14 @@ session.post(
 
 ### Common Issues
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| No data from forwarder | Network/firewall | Check port 9997 connectivity |
-| License violation | Exceeded daily limit | Add license or reduce ingestion |
-| Slow searches | Large data volume | Use acceleration, narrow time range |
-| HEC not receiving | Token invalid | Verify token and endpoint |
-| Search head crash | Memory exhaustion | Increase memory, optimize searches |
-| Bucket corruption | Disk issues | Run `splunk fsck` |
+| Issue                  | Cause                | Solution                            |
+| ---------------------- | -------------------- | ----------------------------------- |
+| No data from forwarder | Network/firewall     | Check port 9997 connectivity        |
+| License violation      | Exceeded daily limit | Add license or reduce ingestion     |
+| Slow searches          | Large data volume    | Use acceleration, narrow time range |
+| HEC not receiving      | Token invalid        | Verify token and endpoint           |
+| Search head crash      | Memory exhaustion    | Increase memory, optimize searches  |
+| Bucket corruption      | Disk issues          | Run `splunk fsck`                   |
 
 ### Diagnostic Commands
 

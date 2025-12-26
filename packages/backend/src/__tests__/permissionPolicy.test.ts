@@ -1,6 +1,6 @@
 /**
  * Unit Tests - Permission Policy
- * 
+ *
  * Tests for the GitHub organization-based permission policy
  */
 
@@ -21,17 +21,16 @@ interface MockBackstageIdentityResponse {
 
 // Simplified permission policy logic for testing
 // (Extracted from the actual implementation)
-const ADMIN_PERMISSIONS = [
-  'catalog.entity.delete',
-  'catalog.location.delete',
-];
+const ADMIN_PERMISSIONS = ['catalog.entity.delete', 'catalog.location.delete'];
 
 const SCAFFOLDER_CATALOG_PERMISSIONS = [
   'catalog.location.create',
   'catalog.location.read',
 ];
 
-function getUserRole(userEntityRef: string | undefined): 'admin' | 'editor' | 'viewer' | 'guest' {
+function getUserRole(
+  userEntityRef: string | undefined,
+): 'admin' | 'editor' | 'viewer' | 'guest' {
   if (!userEntityRef) {
     return 'guest';
   }
@@ -43,7 +42,7 @@ function getUserRole(userEntityRef: string | undefined): 'admin' | 'editor' | 'v
 
 function handlePermission(
   request: MockPolicyQuery,
-  user?: MockBackstageIdentityResponse
+  user?: MockBackstageIdentityResponse,
 ): { result: typeof AuthorizeResult.ALLOW | typeof AuthorizeResult.DENY } {
   const userEntityRef = user?.identity?.userEntityRef;
   const permissionName = request.permission.name;
@@ -54,8 +53,10 @@ function handlePermission(
     if (permissionName.startsWith('techdocs.')) {
       return { result: AuthorizeResult.ALLOW };
     }
-    if (permissionName === 'catalog.entity.read' ||
-        permissionName.startsWith('catalog.entity.read')) {
+    if (
+      permissionName === 'catalog.entity.read' ||
+      permissionName.startsWith('catalog.entity.read')
+    ) {
       return { result: AuthorizeResult.ALLOW };
     }
     return { result: AuthorizeResult.DENY };
@@ -85,7 +86,7 @@ describe('Permission Policy - Unit Tests', () => {
     test('allows TechDocs read access', () => {
       const result = handlePermission(
         { permission: { name: 'techdocs.read' } },
-        guestUser
+        guestUser,
       );
       expect(result.result).toBe(AuthorizeResult.ALLOW);
     });
@@ -93,7 +94,7 @@ describe('Permission Policy - Unit Tests', () => {
     test('allows catalog entity read access', () => {
       const result = handlePermission(
         { permission: { name: 'catalog.entity.read' } },
-        guestUser
+        guestUser,
       );
       expect(result.result).toBe(AuthorizeResult.ALLOW);
     });
@@ -101,7 +102,7 @@ describe('Permission Policy - Unit Tests', () => {
     test('denies scaffolder access', () => {
       const result = handlePermission(
         { permission: { name: 'scaffolder.task.create' } },
-        guestUser
+        guestUser,
       );
       expect(result.result).toBe(AuthorizeResult.DENY);
     });
@@ -109,7 +110,7 @@ describe('Permission Policy - Unit Tests', () => {
     test('denies catalog entity delete', () => {
       const result = handlePermission(
         { permission: { name: 'catalog.entity.delete' } },
-        guestUser
+        guestUser,
       );
       expect(result.result).toBe(AuthorizeResult.DENY);
     });
@@ -117,7 +118,7 @@ describe('Permission Policy - Unit Tests', () => {
     test('denies catalog location create', () => {
       const result = handlePermission(
         { permission: { name: 'catalog.location.create' } },
-        guestUser
+        guestUser,
       );
       expect(result.result).toBe(AuthorizeResult.DENY);
     });
@@ -125,13 +126,13 @@ describe('Permission Policy - Unit Tests', () => {
 
   describe('Viewer (authenticated) permissions', () => {
     const viewerUser = {
-      identity: { userEntityRef: 'user:default/testuser' }
+      identity: { userEntityRef: 'user:default/testuser' },
     };
 
     test('allows TechDocs read access', () => {
       const result = handlePermission(
         { permission: { name: 'techdocs.read' } },
-        viewerUser
+        viewerUser,
       );
       expect(result.result).toBe(AuthorizeResult.ALLOW);
     });
@@ -139,7 +140,7 @@ describe('Permission Policy - Unit Tests', () => {
     test('allows catalog entity read access', () => {
       const result = handlePermission(
         { permission: { name: 'catalog.entity.read' } },
-        viewerUser
+        viewerUser,
       );
       expect(result.result).toBe(AuthorizeResult.ALLOW);
     });
@@ -147,7 +148,7 @@ describe('Permission Policy - Unit Tests', () => {
     test('allows scaffolder task create', () => {
       const result = handlePermission(
         { permission: { name: 'scaffolder.task.create' } },
-        viewerUser
+        viewerUser,
       );
       expect(result.result).toBe(AuthorizeResult.ALLOW);
     });
@@ -155,7 +156,7 @@ describe('Permission Policy - Unit Tests', () => {
     test('allows scaffolder action execute', () => {
       const result = handlePermission(
         { permission: { name: 'scaffolder.action.execute' } },
-        viewerUser
+        viewerUser,
       );
       expect(result.result).toBe(AuthorizeResult.ALLOW);
     });
@@ -163,7 +164,7 @@ describe('Permission Policy - Unit Tests', () => {
     test('allows catalog location create (for scaffolder)', () => {
       const result = handlePermission(
         { permission: { name: 'catalog.location.create' } },
-        viewerUser
+        viewerUser,
       );
       expect(result.result).toBe(AuthorizeResult.ALLOW);
     });
@@ -171,7 +172,7 @@ describe('Permission Policy - Unit Tests', () => {
     test('allows catalog location read', () => {
       const result = handlePermission(
         { permission: { name: 'catalog.location.read' } },
-        viewerUser
+        viewerUser,
       );
       expect(result.result).toBe(AuthorizeResult.ALLOW);
     });
@@ -179,7 +180,7 @@ describe('Permission Policy - Unit Tests', () => {
     test('denies catalog entity delete', () => {
       const result = handlePermission(
         { permission: { name: 'catalog.entity.delete' } },
-        viewerUser
+        viewerUser,
       );
       expect(result.result).toBe(AuthorizeResult.DENY);
     });
@@ -187,7 +188,7 @@ describe('Permission Policy - Unit Tests', () => {
     test('denies catalog location delete', () => {
       const result = handlePermission(
         { permission: { name: 'catalog.location.delete' } },
-        viewerUser
+        viewerUser,
       );
       expect(result.result).toBe(AuthorizeResult.DENY);
     });
@@ -231,7 +232,9 @@ describe('Permission Policy - Unit Tests', () => {
 
   describe('Scaffolder catalog permissions list', () => {
     test('includes catalog.location.create', () => {
-      expect(SCAFFOLDER_CATALOG_PERMISSIONS).toContain('catalog.location.create');
+      expect(SCAFFOLDER_CATALOG_PERMISSIONS).toContain(
+        'catalog.location.create',
+      );
     });
 
     test('includes catalog.location.read', () => {
@@ -244,7 +247,7 @@ describe('Permission Policy - Edge Cases', () => {
   test('handles empty permission name', () => {
     const result = handlePermission(
       { permission: { name: '' } },
-      { identity: { userEntityRef: 'user:default/test' } }
+      { identity: { userEntityRef: 'user:default/test' } },
     );
     // Empty permission should still be allowed for viewers (default)
     expect(result.result).toBe(AuthorizeResult.ALLOW);
@@ -253,7 +256,7 @@ describe('Permission Policy - Edge Cases', () => {
   test('handles permission with special characters', () => {
     const result = handlePermission(
       { permission: { name: 'custom.permission-with_special.chars' } },
-      { identity: { userEntityRef: 'user:default/test' } }
+      { identity: { userEntityRef: 'user:default/test' } },
     );
     // Should be allowed for viewers as it's not in admin list
     expect(result.result).toBe(AuthorizeResult.ALLOW);
@@ -263,7 +266,7 @@ describe('Permission Policy - Edge Cases', () => {
     const longPermission = `permission.${'a'.repeat(1000)}`;
     const result = handlePermission(
       { permission: { name: longPermission } },
-      { identity: { userEntityRef: 'user:default/test' } }
+      { identity: { userEntityRef: 'user:default/test' } },
     );
     expect(result.result).toBe(AuthorizeResult.ALLOW);
   });

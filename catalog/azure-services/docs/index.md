@@ -21,16 +21,16 @@ az account show
 
 ## Core Services
 
-| Service | Purpose | Use Case |
-|---------|---------|----------|
-| **Virtual Machines** | IaaS compute | Application hosting, custom workloads |
-| **AKS** | Managed Kubernetes | Container orchestration |
-| **Azure Functions** | Serverless compute | Event-driven functions |
-| **Blob Storage** | Object storage | Files, backups, data lakes |
-| **Azure SQL** | Managed databases | Relational workloads |
-| **Virtual Network** | Networking | Network isolation, connectivity |
-| **Azure AD/Entra ID** | Identity & access | Authentication, authorization |
-| **ARM/Bicep** | Infrastructure as Code | Automated provisioning |
+| Service               | Purpose                | Use Case                              |
+| --------------------- | ---------------------- | ------------------------------------- |
+| **Virtual Machines**  | IaaS compute           | Application hosting, custom workloads |
+| **AKS**               | Managed Kubernetes     | Container orchestration               |
+| **Azure Functions**   | Serverless compute     | Event-driven functions                |
+| **Blob Storage**      | Object storage         | Files, backups, data lakes            |
+| **Azure SQL**         | Managed databases      | Relational workloads                  |
+| **Virtual Network**   | Networking             | Network isolation, connectivity       |
+| **Azure AD/Entra ID** | Identity & access      | Authentication, authorization         |
+| **ARM/Bicep**         | Infrastructure as Code | Automated provisioning                |
 
 ## Features
 
@@ -71,7 +71,7 @@ appgw: App Gateway\n(Regional LB) {
 
 compute: Compute Tier {
   style.fill: "#E8F5E9"
-  
+
   aks: AKS Cluster {
     shape: hexagon
     style.fill: "#4CAF50"
@@ -91,7 +91,7 @@ compute: Compute Tier {
 
 data: Data Tier {
   style.fill: "#FFF3E0"
-  
+
   sql: Azure SQL\nDatabase {
     shape: cylinder
     style.fill: "#FF9800"

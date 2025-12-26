@@ -165,7 +165,7 @@ export class ApiClient {
     });
 
     // Add auth interceptor
-    this.client.interceptors.request.use((config) => {
+    this.client.interceptors.request.use(config => {
       if (this.accessToken) {
         config.headers.Authorization = `Bearer ${this.accessToken}`;
       }
@@ -174,8 +174,8 @@ export class ApiClient {
 
     // Add refresh interceptor
     this.client.interceptors.response.use(
-      (response) => response,
-      async (error) => {
+      response => response,
+      async error => {
         if (error.response?.status === 401 && this.refreshToken) {
           try {
             await this.refresh();
@@ -186,7 +186,7 @@ export class ApiClient {
           }
         }
         throw error;
-      }
+      },
     );
   }
 
@@ -390,7 +390,9 @@ describe('Products API', () => {
         .query({ category: 'test' })
         .expect(200);
 
-      expect(response.body.data.every((p: any) => p.category === 'test')).toBe(true);
+      expect(response.body.data.every((p: any) => p.category === 'test')).toBe(
+        true,
+      );
     });
   });
 
@@ -504,7 +506,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
     ports:
-      - "3000:3000"
+      - '3000:3000'
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://api_user:api_password@postgres:5432/api_db
@@ -517,7 +519,7 @@ services:
       redis:
         condition: service_started
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health"]
+      test: ['CMD', 'wget', '-q', '--spider', 'http://localhost:3000/health']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -539,7 +541,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U api_user -d api_db"]
+      test: ['CMD-SHELL', 'pg_isready -U api_user -d api_db']
       interval: 5s
       timeout: 5s
       retries: 5
@@ -641,14 +643,14 @@ spec:
 
 ### Common Issues
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| Connection refused | Database not running | Start PostgreSQL: `docker start postgres-dev` |
-| Prisma client error | Client not generated | Run `npx prisma generate` |
-| Migration failed | Schema conflict | Run `npx prisma migrate reset` (dev only) |
-| JWT invalid | Wrong secret | Check JWT_ACCESS_SECRET in .env |
-| CORS error | Origin not allowed | Add origin to CORS_ORIGIN env var |
-| Rate limited | Too many requests | Wait for rate limit window to reset |
+| Issue               | Cause                | Solution                                      |
+| ------------------- | -------------------- | --------------------------------------------- |
+| Connection refused  | Database not running | Start PostgreSQL: `docker start postgres-dev` |
+| Prisma client error | Client not generated | Run `npx prisma generate`                     |
+| Migration failed    | Schema conflict      | Run `npx prisma migrate reset` (dev only)     |
+| JWT invalid         | Wrong secret         | Check JWT_ACCESS_SECRET in .env               |
+| CORS error          | Origin not allowed   | Add origin to CORS_ORIGIN env var             |
+| Rate limited        | Too many requests    | Wait for rate limit window to reset           |
 
 ### Debug Commands
 

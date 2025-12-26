@@ -81,34 +81,34 @@ module "network" {
 
 ## Inputs
 
-| Name | Description | Type | Default | Required |
-|------|-------------|------|---------|----------|
-| create_resource_group | Whether to create a new resource group | bool | true | no |
-| resource_group_name | Name of the resource group | string | - | yes |
-| location | Azure region for resources | string | - | yes |
-| vnet_name | Name of the virtual network | string | - | yes |
-| address_space | Address space for the virtual network | list(string) | ["10.0.0.0/16"] | no |
-| dns_servers | Custom DNS servers | list(string) | [] | no |
-| subnets | Map of subnets to create | map(object) | {} | no |
-| network_security_groups | Map of NSGs to create | map(object) | {} | no |
-| nsg_subnet_associations | Map of NSG to subnet associations | map(object) | {} | no |
-| enable_nat_gateway | Whether to create a NAT gateway | bool | false | no |
-| nat_idle_timeout | NAT gateway idle timeout in minutes | number | 10 | no |
-| availability_zones | Availability zones for NAT gateway public IP | list(string) | ["1"] | no |
-| nat_gateway_subnet_associations | Map of subnet names to associate with NAT gateway | map(string) | {} | no |
-| tags | Tags to apply to all resources | map(string) | {} | no |
+| Name                            | Description                                       | Type         | Default         | Required |
+| ------------------------------- | ------------------------------------------------- | ------------ | --------------- | -------- |
+| create_resource_group           | Whether to create a new resource group            | bool         | true            | no       |
+| resource_group_name             | Name of the resource group                        | string       | -               | yes      |
+| location                        | Azure region for resources                        | string       | -               | yes      |
+| vnet_name                       | Name of the virtual network                       | string       | -               | yes      |
+| address_space                   | Address space for the virtual network             | list(string) | ["10.0.0.0/16"] | no       |
+| dns_servers                     | Custom DNS servers                                | list(string) | []              | no       |
+| subnets                         | Map of subnets to create                          | map(object)  | {}              | no       |
+| network_security_groups         | Map of NSGs to create                             | map(object)  | {}              | no       |
+| nsg_subnet_associations         | Map of NSG to subnet associations                 | map(object)  | {}              | no       |
+| enable_nat_gateway              | Whether to create a NAT gateway                   | bool         | false           | no       |
+| nat_idle_timeout                | NAT gateway idle timeout in minutes               | number       | 10              | no       |
+| availability_zones              | Availability zones for NAT gateway public IP      | list(string) | ["1"]           | no       |
+| nat_gateway_subnet_associations | Map of subnet names to associate with NAT gateway | map(string)  | {}              | no       |
+| tags                            | Tags to apply to all resources                    | map(string)  | {}              | no       |
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| resource_group_name | Name of the resource group |
-| resource_group_id | ID of the resource group (if created) |
-| vnet_id | ID of the virtual network |
-| vnet_name | Name of the virtual network |
-| vnet_address_space | Address space of the virtual network |
-| subnet_ids | Map of subnet names to their IDs |
+| Name                    | Description                                   |
+| ----------------------- | --------------------------------------------- |
+| resource_group_name     | Name of the resource group                    |
+| resource_group_id       | ID of the resource group (if created)         |
+| vnet_id                 | ID of the virtual network                     |
+| vnet_name               | Name of the virtual network                   |
+| vnet_address_space      | Address space of the virtual network          |
+| subnet_ids              | Map of subnet names to their IDs              |
 | subnet_address_prefixes | Map of subnet names to their address prefixes |
-| nsg_ids | Map of NSG names to their IDs |
-| nat_gateway_id | ID of the NAT gateway (if created) |
-| nat_gateway_public_ip | Public IP address of the NAT gateway |
+| nsg_ids                 | Map of NSG names to their IDs                 |
+| nat_gateway_id          | ID of the NAT gateway (if created)            |
+| nat_gateway_public_ip   | Public IP address of the NAT gateway          |

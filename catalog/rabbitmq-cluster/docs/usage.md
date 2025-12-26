@@ -13,19 +13,19 @@ title: RabbitMQ Cluster Deployment {
 
 lb: HAProxy Load Balancer {
   style.fill: "#E3F2FD"
-  
+
   amqp: AMQP (5673) {
     shape: hexagon
     style.fill: "#2196F3"
     style.font-color: white
   }
-  
+
   mgmt: Management (15673) {
     shape: hexagon
     style.fill: "#2196F3"
     style.font-color: white
   }
-  
+
   stats: Stats (8404) {
     shape: rectangle
     style.fill: "#64B5F6"
@@ -35,25 +35,25 @@ lb: HAProxy Load Balancer {
 
 cluster: RabbitMQ Cluster {
   style.fill: "#FFF3E0"
-  
+
   rmq1: rabbitmq1\n:5672 :15672 {
     shape: hexagon
     style.fill: "#FF6F00"
     style.font-color: white
   }
-  
+
   rmq2: rabbitmq2\n:5672 :15672 {
     shape: hexagon
     style.fill: "#FF6F00"
     style.font-color: white
   }
-  
+
   rmq3: rabbitmq3\n:5672 :15672 {
     shape: hexagon
     style.fill: "#FF6F00"
     style.font-color: white
   }
-  
+
   rmq1 <-> rmq2: Cluster
   rmq2 <-> rmq3: Cluster
   rmq1 <-> rmq3: Cluster {style.stroke-dash: 3}
@@ -61,7 +61,7 @@ cluster: RabbitMQ Cluster {
 
 storage: Persistent Storage {
   style.fill: "#E8F5E9"
-  
+
   vol1: rabbitmq1-data {shape: cylinder; style.fill: "#4CAF50"; style.font-color: white}
   vol2: rabbitmq2-data {shape: cylinder; style.fill: "#4CAF50"; style.font-color: white}
   vol3: rabbitmq3-data {shape: cylinder; style.fill: "#4CAF50"; style.font-color: white}
@@ -101,9 +101,9 @@ services:
       - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
       - ./definitions.json:/etc/rabbitmq/definitions.json:ro
     ports:
-      - "5672:5672"
-      - "15672:15672"
-      - "15692:15692"
+      - '5672:5672'
+      - '15672:15672'
+      - '15692:15692'
     networks:
       - rabbitmq-cluster
     healthcheck:
@@ -147,9 +147,9 @@ services:
   haproxy:
     image: haproxy:2.8
     ports:
-      - "5673:5672"
-      - "15673:15672"
-      - "8404:8404"
+      - '5673:5672'
+      - '15673:15672'
+      - '8404:8404'
     volumes:
       - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     depends_on:
@@ -214,17 +214,17 @@ parameters = pika.ConnectionParameters(
 def publish_message(exchange, routing_key, message):
     connection = pika.BlockingConnection(parameters)
     channel = connection.channel()
-    
+
     # Declare exchange
     channel.exchange_declare(
         exchange=exchange,
         exchange_type=ExchangeType.topic,
         durable=True
     )
-    
+
     # Publish with confirms
     channel.confirm_delivery()
-    
+
     try:
         channel.basic_publish(
             exchange=exchange,
@@ -247,7 +247,7 @@ def publish_message(exchange, routing_key, message):
 def consume_messages(queue, callback):
     connection = pika.BlockingConnection(parameters)
     channel = connection.channel()
-    
+
     # Declare quorum queue
     channel.queue_declare(
         queue=queue,
@@ -258,17 +258,17 @@ def consume_messages(queue, callback):
             'x-dead-letter-exchange': 'dlx'
         }
     )
-    
+
     # Bind to exchange
     channel.queue_bind(
         queue=queue,
         exchange='orders',
         routing_key='orders.created'
     )
-    
+
     # Set prefetch
     channel.basic_qos(prefetch_count=10)
-    
+
     def on_message(ch, method, properties, body):
         try:
             message = json.loads(body)
@@ -277,9 +277,9 @@ def consume_messages(queue, callback):
         except Exception as e:
             print(f"Error processing message: {e}")
             ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
-    
+
     channel.basic_consume(queue=queue, on_message_callback=on_message)
-    
+
     print(f"Waiting for messages on {queue}")
     channel.start_consuming()
 
@@ -299,23 +299,29 @@ const AMQP_URL = 'amqp://admin:password@localhost:5672';
 async function publishMessage(exchange, routingKey, message) {
   const connection = await amqp.connect(AMQP_URL);
   const channel = await connection.createConfirmChannel();
-  
+
   await channel.assertExchange(exchange, 'topic', { durable: true });
-  
+
   const content = Buffer.from(JSON.stringify(message));
-  
-  channel.publish(exchange, routingKey, content, {
-    persistent: true,
-    contentType: 'application/json',
-    headers: { version: '1.0' }
-  }, (err) => {
-    if (err) {
-      console.error('Message nacked:', err);
-    } else {
-      console.log('Message confirmed');
-    }
-  });
-  
+
+  channel.publish(
+    exchange,
+    routingKey,
+    content,
+    {
+      persistent: true,
+      contentType: 'application/json',
+      headers: { version: '1.0' },
+    },
+    err => {
+      if (err) {
+        console.error('Message nacked:', err);
+      } else {
+        console.log('Message confirmed');
+      }
+    },
+  );
+
   await channel.waitForConfirms();
   await connection.close();
 }
@@ -324,21 +330,21 @@ async function publishMessage(exchange, routingKey, message) {
 async function consumeMessages(queue, handler) {
   const connection = await amqp.connect(AMQP_URL);
   const channel = await connection.createChannel();
-  
+
   await channel.assertQueue(queue, {
     durable: true,
     arguments: {
       'x-queue-type': 'quorum',
       'x-delivery-limit': 5,
-      'x-dead-letter-exchange': 'dlx'
-    }
+      'x-dead-letter-exchange': 'dlx',
+    },
   });
-  
+
   await channel.bindQueue(queue, 'orders', 'orders.created');
-  
+
   channel.prefetch(10);
-  
-  channel.consume(queue, async (msg) => {
+
+  channel.consume(queue, async msg => {
     if (msg) {
       try {
         const content = JSON.parse(msg.content.toString());
@@ -350,13 +356,13 @@ async function consumeMessages(queue, handler) {
       }
     }
   });
-  
+
   console.log(`Consuming from ${queue}`);
 }
 
 // Usage
 publishMessage('orders', 'orders.created', { orderId: '12345' });
-consumeMessages('orders.created.queue', (msg) => console.log('Received:', msg));
+consumeMessages('orders.created.queue', msg => console.log('Received:', msg));
 ```
 
 ### Go (amqp091-go)
@@ -367,7 +373,7 @@ package main
 import (
     "encoding/json"
     "log"
-    
+
     amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -377,13 +383,13 @@ func main() {
         log.Fatal(err)
     }
     defer conn.Close()
-    
+
     ch, err := conn.Channel()
     if err != nil {
         log.Fatal(err)
     }
     defer ch.Close()
-    
+
     // Declare exchange
     err = ch.ExchangeDeclare(
         "orders",  // name
@@ -397,14 +403,14 @@ func main() {
     if err != nil {
         log.Fatal(err)
     }
-    
+
     // Declare quorum queue
     args := amqp.Table{
         "x-queue-type":          "quorum",
         "x-delivery-limit":      int32(5),
         "x-dead-letter-exchange": "dlx",
     }
-    
+
     q, err := ch.QueueDeclare(
         "orders.created.queue",
         true,   // durable
@@ -416,7 +422,7 @@ func main() {
     if err != nil {
         log.Fatal(err)
     }
-    
+
     // Bind queue
     err = ch.QueueBind(
         q.Name,
@@ -428,11 +434,11 @@ func main() {
     if err != nil {
         log.Fatal(err)
     }
-    
+
     // Publish
     message := map[string]interface{}{"order_id": "12345"}
     body, _ := json.Marshal(message)
-    
+
     err = ch.Publish(
         "orders",
         "orders.created",
@@ -447,7 +453,7 @@ func main() {
     if err != nil {
         log.Fatal(err)
     }
-    
+
     log.Println("Message published")
 }
 ```
@@ -463,7 +469,7 @@ func main() {
 # Consumer 1
 consume_messages('task_queue', process_task)
 
-# Consumer 2  
+# Consumer 2
 consume_messages('task_queue', process_task)
 
 # Messages are distributed round-robin
@@ -509,25 +515,25 @@ import uuid
 def rpc_call(request):
     connection = pika.BlockingConnection(parameters)
     channel = connection.channel()
-    
+
     # Create callback queue
     result = channel.queue_declare(queue='', exclusive=True)
     callback_queue = result.method.queue
-    
+
     correlation_id = str(uuid.uuid4())
     response = None
-    
+
     def on_response(ch, method, props, body):
         nonlocal response
         if props.correlation_id == correlation_id:
             response = body
-    
+
     channel.basic_consume(
         queue=callback_queue,
         on_message_callback=on_response,
         auto_ack=True
     )
-    
+
     channel.basic_publish(
         exchange='',
         routing_key='rpc_queue',
@@ -537,10 +543,10 @@ def rpc_call(request):
         ),
         body=request
     )
-    
+
     while response is None:
         connection.process_data_events()
-    
+
     return response
 ```
 
@@ -585,15 +591,15 @@ rabbitmqctl report  # Full diagnostic report
 
 ## Troubleshooting
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| Messages stuck in queue | No consumers, consumer too slow | Add consumers, increase prefetch |
-| High memory usage | Too many messages, large messages | Add consumers, set message TTL, scale out |
-| Network partition | Network issues between nodes | Check connectivity, use pause_minority |
-| Connection refused | Port blocked, node down | Check firewall, verify node status |
-| Unacked messages growing | Consumer not acknowledging | Fix consumer logic, set consumer timeout |
-| Disk alarm | Disk space low | Free disk space, increase limit |
-| Memory alarm | Memory limit reached | Add RAM, reduce queue backlog |
+| Issue                    | Cause                             | Solution                                  |
+| ------------------------ | --------------------------------- | ----------------------------------------- |
+| Messages stuck in queue  | No consumers, consumer too slow   | Add consumers, increase prefetch          |
+| High memory usage        | Too many messages, large messages | Add consumers, set message TTL, scale out |
+| Network partition        | Network issues between nodes      | Check connectivity, use pause_minority    |
+| Connection refused       | Port blocked, node down           | Check firewall, verify node status        |
+| Unacked messages growing | Consumer not acknowledging        | Fix consumer logic, set consumer timeout  |
+| Disk alarm               | Disk space low                    | Free disk space, increase limit           |
+| Memory alarm             | Memory limit reached              | Add RAM, reduce queue backlog             |
 
 ### Diagnostic Commands
 

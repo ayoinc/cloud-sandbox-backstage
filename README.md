@@ -28,6 +28,7 @@ A fully-featured [Backstage](https://backstage.io) developer portal configured f
 ### Templates
 
 50+ scaffolder templates for:
+
 - Cloud infrastructure (AWS, Azure, GCP)
 - Application development (Node.js, Python, React, Spring Boot)
 - DevOps automation (Terraform, Ansible, Docker, Kubernetes)
@@ -46,10 +47,10 @@ A fully-featured [Backstage](https://backstage.io) developer portal configured f
 
 This project supports two development modes:
 
-| Mode | Best For | Hot Reload | Setup Complexity |
-|------|----------|------------|------------------|
-| **Devbox + Docker Services** | Daily development | Yes | Low |
-| **Full Docker Stack** | Testing production setup | No (rebuild required) | Very Low |
+| Mode                         | Best For                 | Hot Reload            | Setup Complexity |
+| ---------------------------- | ------------------------ | --------------------- | ---------------- |
+| **Devbox + Docker Services** | Daily development        | Yes                   | Low              |
+| **Full Docker Stack**        | Testing production setup | No (rebuild required) | Very Low         |
 
 ---
 
@@ -179,25 +180,25 @@ make devbox-services   # Start services for Devbox mode
 
 Copy `.env.example` to `.env` and configure:
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `GITHUB_TOKEN` | Personal access token for GitHub API | Yes |
-| `GITHUB_CLIENT_ID` | OAuth App client ID | Yes (for auth) |
-| `GITHUB_CLIENT_SECRET` | OAuth App client secret | Yes (for auth) |
-| `GITHUB_ORG` | GitHub organization for team sync | Optional |
-| `POSTGRES_*` | Database connection settings | Yes |
-| `REDIS_*` | Cache connection settings | Yes |
-| `MINIO_*` | Object storage settings | Yes |
+| Variable               | Description                          | Required       |
+| ---------------------- | ------------------------------------ | -------------- |
+| `GITHUB_TOKEN`         | Personal access token for GitHub API | Yes            |
+| `GITHUB_CLIENT_ID`     | OAuth App client ID                  | Yes (for auth) |
+| `GITHUB_CLIENT_SECRET` | OAuth App client secret              | Yes (for auth) |
+| `GITHUB_ORG`           | GitHub organization for team sync    | Optional       |
+| `POSTGRES_*`           | Database connection settings         | Yes            |
+| `REDIS_*`              | Cache connection settings            | Yes            |
+| `MINIO_*`              | Object storage settings              | Yes            |
 
 See `.env.example` for the complete list with descriptions.
 
 ### Configuration Files
 
-| File | Purpose |
-|------|---------|
-| `app-config.yaml` | Development configuration |
-| `app-config.production.yaml` | Production overrides |
-| `app-config.local.yaml` | Local overrides (git-ignored) |
+| File                         | Purpose                       |
+| ---------------------------- | ----------------------------- |
+| `app-config.yaml`            | Development configuration     |
+| `app-config.production.yaml` | Production overrides          |
+| `app-config.local.yaml`      | Local overrides (git-ignored) |
 
 ## Development
 
@@ -265,25 +266,27 @@ docker run -p 7007:7007 \
 
 The repository includes several compose files:
 
-| File | Purpose |
-|------|---------|
-| `docker-compose.yaml` | Base configuration with networks and volumes |
-| `docker-compose.services.yaml` | Infrastructure services (PostgreSQL, Redis, MinIO) |
-| `docker-compose.services-only.yaml` | Services only for Devbox mode |
-| `docker-compose.dev.yaml` | Development with hot reload |
-| `docker-compose.prod.yaml` | Production configuration |
+| File                                | Purpose                                            |
+| ----------------------------------- | -------------------------------------------------- |
+| `docker-compose.yaml`               | Base configuration with networks and volumes       |
+| `docker-compose.services.yaml`      | Infrastructure services (PostgreSQL, Redis, MinIO) |
+| `docker-compose.services-only.yaml` | Services only for Devbox mode                      |
+| `docker-compose.dev.yaml`           | Development with hot reload                        |
+| `docker-compose.prod.yaml`          | Production configuration                           |
 
 ## Troubleshooting
 
 ### Devbox Issues
 
 **"Nix not installed" error:**
+
 ```bash
 # Devbox will prompt to install Nix automatically, or install manually:
 curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
 ```
 
 **Package installation fails:**
+
 ```bash
 # Clear Devbox cache and retry
 devbox rm --all
@@ -293,6 +296,7 @@ devbox install
 ### Docker Issues
 
 **Port already in use:**
+
 ```bash
 # Check what's using the port
 lsof -i :7007
@@ -302,6 +306,7 @@ lsof -i :5432
 ```
 
 **Container won't start:**
+
 ```bash
 # Check logs for the specific container
 docker compose -f docker-compose.yaml -f docker-compose.services.yaml logs backstage
@@ -314,6 +319,7 @@ docker compose -f docker-compose.yaml -f docker-compose.services.yaml up -d --bu
 ### Database Issues
 
 **Reset database:**
+
 ```bash
 # Stop services and remove volumes
 docker compose -f docker-compose.yaml -f docker-compose.services.yaml down -v
@@ -398,11 +404,11 @@ The portal supports multiple authentication providers:
 
 Role-based access control via group membership:
 
-| Role | Groups | Permissions |
-|------|--------|-------------|
-| Admin | `admins`, `platform-admins` | Full access |
-| Editor | `editors`, `developers` | Create/modify entities |
-| Viewer | All authenticated users | Read-only access |
+| Role   | Groups                      | Permissions            |
+| ------ | --------------------------- | ---------------------- |
+| Admin  | `admins`, `platform-admins` | Full access            |
+| Editor | `editors`, `developers`     | Create/modify entities |
+| Viewer | All authenticated users     | Read-only access       |
 
 ### Security Best Practices
 

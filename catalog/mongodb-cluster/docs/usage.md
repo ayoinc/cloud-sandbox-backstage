@@ -21,7 +21,8 @@ services:
     image: mongo:7.0
     container_name: mongo-primary
     hostname: mongo-primary
-    command: ["--replSet", "rs0", "--bind_ip_all", "--keyFile", "/etc/mongodb/keyfile"]
+    command:
+      ['--replSet', 'rs0', '--bind_ip_all', '--keyFile', '/etc/mongodb/keyfile']
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-secretpassword}
@@ -29,11 +30,11 @@ services:
       - mongo-primary-data:/data/db
       - ./keyfile:/etc/mongodb/keyfile:ro
     ports:
-      - "27017:27017"
+      - '27017:27017'
     networks:
       - mongodb-cluster
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      test: ['CMD', 'mongosh', '--eval', "db.adminCommand('ping')"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -42,7 +43,8 @@ services:
     image: mongo:7.0
     container_name: mongo-secondary1
     hostname: mongo-secondary1
-    command: ["--replSet", "rs0", "--bind_ip_all", "--keyFile", "/etc/mongodb/keyfile"]
+    command:
+      ['--replSet', 'rs0', '--bind_ip_all', '--keyFile', '/etc/mongodb/keyfile']
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-secretpassword}
@@ -58,7 +60,8 @@ services:
     image: mongo:7.0
     container_name: mongo-secondary2
     hostname: mongo-secondary2
-    command: ["--replSet", "rs0", "--bind_ip_all", "--keyFile", "/etc/mongodb/keyfile"]
+    command:
+      ['--replSet', 'rs0', '--bind_ip_all', '--keyFile', '/etc/mongodb/keyfile']
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-secretpassword}
@@ -78,7 +81,7 @@ services:
       ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGO_ROOT_PASSWORD:-secretpassword}
       ME_CONFIG_MONGODB_URL: mongodb://admin:${MONGO_ROOT_PASSWORD:-secretpassword}@mongo-primary:27017/?replicaSet=rs0
     ports:
-      - "8081:8081"
+      - '8081:8081'
     networks:
       - mongodb-cluster
     depends_on:
@@ -141,10 +144,10 @@ metadata:
 spec:
   members: 3
   type: ReplicaSet
-  version: "7.0.5"
+  version: '7.0.5'
   security:
     authentication:
-      modes: ["SCRAM"]
+      modes: ['SCRAM']
   users:
     - name: admin
       db: admin
@@ -170,16 +173,16 @@ spec:
             - name: mongod
               resources:
                 limits:
-                  cpu: "2"
+                  cpu: '2'
                   memory: 4Gi
                 requests:
-                  cpu: "1"
+                  cpu: '1'
                   memory: 2Gi
       volumeClaimTemplates:
         - metadata:
             name: data-volume
           spec:
-            accessModes: ["ReadWriteOnce"]
+            accessModes: ['ReadWriteOnce']
             storageClassName: fast-ssd
             resources:
               requests:
@@ -192,7 +195,7 @@ metadata:
   namespace: mongodb
 type: Opaque
 stringData:
-  password: "secureAdminPassword123!"
+  password: 'secureAdminPassword123!'
 ---
 apiVersion: v1
 kind: Secret
@@ -201,7 +204,7 @@ metadata:
   namespace: mongodb
 type: Opaque
 stringData:
-  password: "secureAppPassword123!"
+  password: 'secureAppPassword123!'
 ```
 
 ```bash
@@ -244,25 +247,25 @@ driver: MongoDB Driver {
 
 operations: CRUD Operations {
   style.fill: "#f3e5f5"
-  
+
   create: Create {
     shape: rectangle
     style.fill: "#c8e6c9"
     label: "insertOne()\ninsertMany()"
   }
-  
+
   read: Read {
     shape: rectangle
     style.fill: "#bbdefb"
     label: "find()\nfindOne()\naggregate()"
   }
-  
+
   update: Update {
     shape: rectangle
     style.fill: "#fff9c4"
     label: "updateOne()\nupdateMany()\nreplaceOne()"
   }
-  
+
   delete: Delete {
     shape: rectangle
     style.fill: "#ffcdd2"
@@ -272,25 +275,25 @@ operations: CRUD Operations {
 
 replica_set: Replica Set {
   style.fill: "#e8eaf6"
-  
+
   primary: Primary {
     shape: cylinder
     style.fill: "#a5d6a7"
     label: "Writes + Reads"
   }
-  
+
   secondary1: Secondary {
     shape: cylinder
     style.fill: "#90caf9"
     label: "Reads (optional)"
   }
-  
+
   secondary2: Secondary {
     shape: cylinder
     style.fill: "#90caf9"
     label: "Reads (optional)"
   }
-  
+
   primary -> secondary1: Replication
   primary -> secondary2: Replication
 }
@@ -361,105 +364,108 @@ db.orders.aggregate([
   {
     $match: {
       orderDate: {
-        $gte: ISODate("2024-01-01"),
-        $lt: ISODate("2025-01-01")
-      }
-    }
+        $gte: ISODate('2024-01-01'),
+        $lt: ISODate('2025-01-01'),
+      },
+    },
   },
   // Stage 2: Lookup customer details
   {
     $lookup: {
-      from: "customers",
-      localField: "customerId",
-      foreignField: "_id",
-      as: "customer"
-    }
+      from: 'customers',
+      localField: 'customerId',
+      foreignField: '_id',
+      as: 'customer',
+    },
   },
   // Stage 3: Unwind customer array
-  { $unwind: "$customer" },
+  { $unwind: '$customer' },
   // Stage 4: Group by month
   {
     $group: {
       _id: {
-        year: { $year: "$orderDate" },
-        month: { $month: "$orderDate" }
+        year: { $year: '$orderDate' },
+        month: { $month: '$orderDate' },
       },
-      totalRevenue: { $sum: "$total" },
+      totalRevenue: { $sum: '$total' },
       orderCount: { $sum: 1 },
-      avgOrderValue: { $avg: "$total" },
-      uniqueCustomers: { $addToSet: "$customerId" }
-    }
+      avgOrderValue: { $avg: '$total' },
+      uniqueCustomers: { $addToSet: '$customerId' },
+    },
   },
   // Stage 5: Add computed fields
   {
     $addFields: {
-      uniqueCustomerCount: { $size: "$uniqueCustomers" }
-    }
+      uniqueCustomerCount: { $size: '$uniqueCustomers' },
+    },
   },
   // Stage 6: Sort by date
-  { $sort: { "_id.year": 1, "_id.month": 1 } },
+  { $sort: { '_id.year': 1, '_id.month': 1 } },
   // Stage 7: Format output
   {
     $project: {
       _id: 0,
       period: {
         $concat: [
-          { $toString: "$_id.year" },
-          "-",
-          { $cond: [{ $lt: ["$_id.month", 10] }, "0", ""] },
-          { $toString: "$_id.month" }
-        ]
+          { $toString: '$_id.year' },
+          '-',
+          { $cond: [{ $lt: ['$_id.month', 10] }, '0', ''] },
+          { $toString: '$_id.month' },
+        ],
       },
-      totalRevenue: { $round: ["$totalRevenue", 2] },
+      totalRevenue: { $round: ['$totalRevenue', 2] },
       orderCount: 1,
-      avgOrderValue: { $round: ["$avgOrderValue", 2] },
-      uniqueCustomerCount: 1
-    }
-  }
-])
+      avgOrderValue: { $round: ['$avgOrderValue', 2] },
+      uniqueCustomerCount: 1,
+    },
+  },
+]);
 ```
 
 ### Transactions
 
 ```javascript
 // Multi-document transaction example
-const session = db.getMongo().startSession()
+const session = db.getMongo().startSession();
 session.startTransaction({
-  readConcern: { level: "snapshot" },
-  writeConcern: { w: "majority" }
-})
+  readConcern: { level: 'snapshot' },
+  writeConcern: { w: 'majority' },
+});
 
 try {
-  const accounts = session.getDatabase("bank").accounts
-  
+  const accounts = session.getDatabase('bank').accounts;
+
   // Transfer $100 from account A to account B
   accounts.updateOne(
-    { _id: "accountA" },
+    { _id: 'accountA' },
     { $inc: { balance: -100 } },
-    { session }
-  )
-  
+    { session },
+  );
+
   accounts.updateOne(
-    { _id: "accountB" },
+    { _id: 'accountB' },
     { $inc: { balance: 100 } },
-    { session }
-  )
-  
+    { session },
+  );
+
   // Record the transaction
-  session.getDatabase("bank").transactions.insertOne({
-    from: "accountA",
-    to: "accountB",
-    amount: 100,
-    timestamp: new Date()
-  }, { session })
-  
-  session.commitTransaction()
-  print("Transaction committed successfully")
+  session.getDatabase('bank').transactions.insertOne(
+    {
+      from: 'accountA',
+      to: 'accountB',
+      amount: 100,
+      timestamp: new Date(),
+    },
+    { session },
+  );
+
+  session.commitTransaction();
+  print('Transaction committed successfully');
 } catch (error) {
-  session.abortTransaction()
-  print("Transaction aborted: " + error.message)
+  session.abortTransaction();
+  print('Transaction aborted: ' + error.message);
 } finally {
-  session.endSession()
+  session.endSession();
 }
 ```
 
@@ -468,29 +474,29 @@ try {
 ```javascript
 // Watch for changes in a collection
 const pipeline = [
-  { $match: { "operationType": { $in: ["insert", "update", "delete"] } } },
-  { $match: { "fullDocument.status": "pending" } }
-]
+  { $match: { operationType: { $in: ['insert', 'update', 'delete'] } } },
+  { $match: { 'fullDocument.status': 'pending' } },
+];
 
 const changeStream = db.orders.watch(pipeline, {
-  fullDocument: "updateLookup"
-})
+  fullDocument: 'updateLookup',
+});
 
-changeStream.on("change", (change) => {
-  console.log("Change detected:", JSON.stringify(change, null, 2))
-  
+changeStream.on('change', change => {
+  console.log('Change detected:', JSON.stringify(change, null, 2));
+
   switch (change.operationType) {
-    case "insert":
-      console.log("New order:", change.fullDocument._id)
-      break
-    case "update":
-      console.log("Order updated:", change.documentKey._id)
-      break
-    case "delete":
-      console.log("Order deleted:", change.documentKey._id)
-      break
+    case 'insert':
+      console.log('New order:', change.fullDocument._id);
+      break;
+    case 'update':
+      console.log('Order updated:', change.documentKey._id);
+      break;
+    case 'delete':
+      console.log('Order deleted:', change.documentKey._id);
+      break;
   }
-})
+});
 ```
 
 ## Cluster Management
@@ -499,23 +505,23 @@ changeStream.on("change", (change) => {
 
 ```javascript
 // Add a new secondary
-rs.add({ host: "mongo-secondary3:27017", priority: 1 })
+rs.add({ host: 'mongo-secondary3:27017', priority: 1 });
 
 // Add an arbiter
-rs.addArb("mongo-arbiter:27017")
+rs.addArb('mongo-arbiter:27017');
 
 // Remove a member
-rs.remove("mongo-secondary3:27017")
+rs.remove('mongo-secondary3:27017');
 
 // Reconfigure member settings
-cfg = rs.conf()
-cfg.members[1].priority = 0
-cfg.members[1].hidden = true
-cfg.members[1].votes = 0
-rs.reconfig(cfg)
+cfg = rs.conf();
+cfg.members[1].priority = 0;
+cfg.members[1].hidden = true;
+cfg.members[1].votes = 0;
+rs.reconfig(cfg);
 
 // Step down primary (force election)
-rs.stepDown(60)  // 60 seconds
+rs.stepDown(60); // 60 seconds
 ```
 
 ### Enable Sharding
@@ -546,27 +552,28 @@ db.chunks.find({ ns: "myapp.events" }).count()
 
 ```javascript
 // Explain query execution
-db.orders.find({ customerId: ObjectId("..."), status: "pending" })
-  .explain("executionStats")
+db.orders
+  .find({ customerId: ObjectId('...'), status: 'pending' })
+  .explain('executionStats');
 
 // Create optimal index based on explain output
 db.orders.createIndex(
   { customerId: 1, status: 1, orderDate: -1 },
-  { name: "customer_status_date_idx" }
-)
+  { name: 'customer_status_date_idx' },
+);
 
 // Profile slow queries
-db.setProfilingLevel(1, { slowms: 100 })
+db.setProfilingLevel(1, { slowms: 100 });
 
 // View slow query log
-db.system.profile.find().sort({ ts: -1 }).limit(10)
+db.system.profile.find().sort({ ts: -1 }).limit(10);
 ```
 
 ### Connection Pool Settings
 
 ```javascript
 // Node.js connection with pool settings
-const { MongoClient } = require('mongodb')
+const { MongoClient } = require('mongodb');
 
 const client = new MongoClient(uri, {
   maxPoolSize: 100,
@@ -578,22 +585,22 @@ const client = new MongoClient(uri, {
   compressors: ['snappy', 'zstd'],
   readPreference: 'secondaryPreferred',
   retryWrites: true,
-  w: 'majority'
-})
+  w: 'majority',
+});
 ```
 
 ## Troubleshooting
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| Replica set election loops | Network partitions | Check connectivity between all nodes, verify firewall rules |
-| High replication lag | Slow secondary, large oplog operations | Check secondary disk I/O, increase oplog size, check network bandwidth |
-| Connection refused | Auth failure, max connections | Verify credentials, check `maxIncomingConnections` setting |
-| Slow queries | Missing indexes | Run `explain()`, create appropriate compound indexes |
-| Out of memory | Large result sets, insufficient cache | Add `limit()`, increase WiredTiger cache, add RAM |
-| Write concern timeout | Network issues, slow secondaries | Check replica set health, reduce write concern level |
-| `NotPrimaryError` | Writing to secondary | Use replica set connection string, check read preference |
-| Chunk migration failures | Balancer issues | Check balancer status with `sh.status()`, verify config servers |
+| Issue                      | Cause                                  | Solution                                                               |
+| -------------------------- | -------------------------------------- | ---------------------------------------------------------------------- |
+| Replica set election loops | Network partitions                     | Check connectivity between all nodes, verify firewall rules            |
+| High replication lag       | Slow secondary, large oplog operations | Check secondary disk I/O, increase oplog size, check network bandwidth |
+| Connection refused         | Auth failure, max connections          | Verify credentials, check `maxIncomingConnections` setting             |
+| Slow queries               | Missing indexes                        | Run `explain()`, create appropriate compound indexes                   |
+| Out of memory              | Large result sets, insufficient cache  | Add `limit()`, increase WiredTiger cache, add RAM                      |
+| Write concern timeout      | Network issues, slow secondaries       | Check replica set health, reduce write concern level                   |
+| `NotPrimaryError`          | Writing to secondary                   | Use replica set connection string, check read preference               |
+| Chunk migration failures   | Balancer issues                        | Check balancer status with `sh.status()`, verify config servers        |
 
 ### Diagnostic Commands
 

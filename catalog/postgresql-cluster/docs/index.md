@@ -24,23 +24,23 @@ psql "postgresql://admin:secretpassword@localhost:5432/myapp"
 
 ## Key Features
 
-| Feature | Description |
-|---------|-------------|
-| **ACID Compliance** | Full transaction support with rollback |
-| **JSON/JSONB** | Native JSON storage and querying |
-| **Full-Text Search** | Built-in text search capabilities |
-| **Partitioning** | Table partitioning for large datasets |
-| **Replication** | Streaming and logical replication |
-| **Extensions** | PostGIS, TimescaleDB, pg_stat_statements |
+| Feature              | Description                              |
+| -------------------- | ---------------------------------------- |
+| **ACID Compliance**  | Full transaction support with rollback   |
+| **JSON/JSONB**       | Native JSON storage and querying         |
+| **Full-Text Search** | Built-in text search capabilities        |
+| **Partitioning**     | Table partitioning for large datasets    |
+| **Replication**      | Streaming and logical replication        |
+| **Extensions**       | PostGIS, TimescaleDB, pg_stat_statements |
 
 ## High Availability Options
 
-| Solution | Description | Use Case |
-|----------|-------------|----------|
-| **Patroni** | HA cluster with automatic failover | Production HA clusters |
-| **PgBouncer** | Connection pooling | High-connection workloads |
-| **Pgpool-II** | Load balancing + connection pooling | Read-heavy workloads |
-| **Citus** | Distributed PostgreSQL | Horizontal scaling |
+| Solution      | Description                         | Use Case                  |
+| ------------- | ----------------------------------- | ------------------------- |
+| **Patroni**   | HA cluster with automatic failover  | Production HA clusters    |
+| **PgBouncer** | Connection pooling                  | High-connection workloads |
+| **Pgpool-II** | Load balancing + connection pooling | Read-heavy workloads      |
+| **Citus**     | Distributed PostgreSQL              | Horizontal scaling        |
 
 ## Architecture Overview
 
@@ -60,44 +60,44 @@ pgbouncer: PgBouncer {
 
 cluster: PostgreSQL Cluster {
   style.fill: "#f3e5f5"
-  
+
   primary: Primary {
     shape: cylinder
     style.fill: "#c8e6c9"
     label: "PostgreSQL Primary\n(Read/Write)"
   }
-  
+
   replica1: Replica 1 {
     shape: cylinder
     style.fill: "#bbdefb"
     label: "PostgreSQL Replica 1\n(Read-only)"
   }
-  
+
   replica2: Replica 2 {
     shape: cylinder
     style.fill: "#bbdefb"
     label: "PostgreSQL Replica 2\n(Read-only)"
   }
-  
+
   primary -> replica1: WAL Stream {style.stroke-dash: 3}
   primary -> replica2: WAL Stream {style.stroke-dash: 3}
 }
 
 ha: HA Management {
   style.fill: "#fff8e1"
-  
+
   patroni: Patroni {
     shape: hexagon
     style.fill: "#ffe0b2"
     label: "Patroni\n(HA Manager)"
   }
-  
+
   etcd: etcd Cluster {
     shape: cylinder
     style.fill: "#ffccbc"
     label: "etcd\n(DCS Store)"
   }
-  
+
   patroni -> etcd: Leader Election
 }
 

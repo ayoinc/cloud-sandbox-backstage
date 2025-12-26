@@ -9,7 +9,7 @@ import {
  * Custom columns function that shows username for User entities
  * For other entity types, uses default columns
  */
-export const customCatalogColumns: CatalogTableColumnsFunc = (context) => {
+export const customCatalogColumns: CatalogTableColumnsFunc = context => {
   const { filters } = context;
   const kind = filters.kind?.value?.toLowerCase();
 

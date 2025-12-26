@@ -7,12 +7,14 @@ This Terraform module creates an AWS VPC with public and private subnets across 
 Amazon Virtual Private Cloud (VPC) enables you to launch AWS resources into a virtual network that you've defined. This module provides a production-ready VPC implementation with best practices.
 
 AWS VPC is the foundation of AWS networking, providing:
+
 - **Network Isolation**: Complete control over your virtual networking environment
 - **Security**: Multiple layers of security with subnets, security groups, and NACLs
 - **Scalability**: Design networks that scale from single instances to enterprise applications
 - **Flexibility**: Connect to on-premises networks via VPN or AWS Direct Connect
 
 **Common Use Cases:**
+
 - Web applications with public-facing load balancers and private application/database tiers
 - Microservices architectures requiring service-to-service communication
 - Data processing pipelines with secure data storage
@@ -49,20 +51,20 @@ title: AWS VPC Architecture {
 vpc: AWS VPC {
   style.fill: "#e3f2fd"
   style.stroke: "#1565c2"
-  
+
   label: "AWS VPC\nCIDR: 10.0.0.0/16"
 }
 
 gateways: Gateways {
   style.fill: transparent
   style.stroke: transparent
-  
+
   igw: Internet Gateway {
     shape: hexagon
     style.fill: "#4caf50"
     style.font-color: white
   }
-  
+
   nat: NAT Gateway {
     shape: hexagon
     style.fill: "#ff9800"
@@ -73,13 +75,13 @@ gateways: Gateways {
 subnets: Subnet Tiers {
   style.fill: transparent
   style.stroke: transparent
-  
+
   public: Public Subnets (3 AZs) {
     style.fill: "#c8e6c9"
     style.stroke: "#2e7d32"
     label: "Public Subnets\n10.0.1.0/24\n10.0.2.0/24\n10.0.3.0/24"
   }
-  
+
   private: Private Subnets (3 AZs) {
     style.fill: "#fff3e0"
     style.stroke: "#ef6c00"
@@ -101,11 +103,13 @@ subnets.public -> internet: "Direct"
 ```
 
 **Public Subnets:**
+
 - Direct internet access via Internet Gateway
 - Route tables with 0.0.0.0/0 → Internet Gateway
 - Typically host load balancers, NAT Gateways, bastion hosts
 
 **Private Subnets:**
+
 - Internet access only via NAT Gateway
 - No direct inbound internet access
 - Host application servers, databases, backend services
@@ -124,13 +128,13 @@ module "vpc_dev" {
   name               = "dev-vpc"
   cidr_block         = "10.0.0.0/16"
   availability_zones = ["us-east-1a", "us-east-1b"]
-  
+
   # Public subnets only for dev
   public_subnets     = ["10.0.1.0/24", "10.0.2.0/24"]
   private_subnets    = []
-  
+
   enable_nat_gateway = false
-  
+
   tags = {
     Environment = "development"
     CostCenter  = "dev-team"
@@ -149,25 +153,25 @@ module "vpc_production" {
   name               = "production-vpc"
   cidr_block         = "10.0.0.0/16"
   availability_zones = ["us-east-1a", "us-east-1b", "us-east-1c"]
-  
+
   # Public subnets for load balancers and NAT
   public_subnets     = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
-  
+
   # Private subnets for application servers
   private_subnets    = ["10.0.11.0/24", "10.0.12.0/24", "10.0.13.0/24"]
-  
+
   # High availability NAT (one per AZ)
   enable_nat_gateway = true
   single_nat_gateway = false
-  
+
   # DNS configuration
   enable_dns_hostnames = true
   enable_dns_support   = true
-  
+
   # VPC Flow Logs for security auditing
   enable_flow_logs  = true
   flow_logs_destination = "cloudwatch" # or "s3"
-  
+
   tags = {
     Environment = "production"
     ManagedBy   = "terraform"
@@ -178,10 +182,10 @@ module "vpc_production" {
 # Use VPC outputs for downstream resources
 module "app_servers" {
   source = "git::https://github.com/company/terraform-modules.git//aws/ec2-asg?ref=v1.0.0"
-  
+
   vpc_id            = module.vpc_production.vpc_id
   subnet_ids        = module.vpc_production.private_subnet_ids
-  
+
   # Security group referencing VPC
   security_group_rules = [
     {
@@ -206,21 +210,21 @@ module "vpc_private" {
   name               = "private-vpc"
   cidr_block         = "10.1.0.0/16"
   availability_zones = ["us-east-1a", "us-east-1b"]
-  
+
   # No public subnets
   public_subnets  = []
   private_subnets = ["10.1.1.0/24", "10.1.2.0/24"]
-  
+
   # No NAT Gateways
   enable_nat_gateway = false
-  
+
   # VPC Endpoints for AWS services (no internet required)
   enable_s3_endpoint       = true
   enable_dynamodb_endpoint = true
-  
+
   # Disable DNS hostnames for enhanced isolation
   enable_dns_hostnames = false
-  
+
   tags = {
     Environment = "secure"
     Access      = "isolated"
@@ -232,10 +236,10 @@ resource "aws_instance" "database" {
   ami           = "ami-0c55b159cbfafe1f0"
   instance_type = "t3.large"
   subnet_id     = module.vpc_private.private_subnet_ids[0]
-  
+
   # No public IP - completely isolated
   associate_public_ip_address = false
-  
+
   # Access S3 via VPC endpoint (no internet required)
   user_data = <<-EOF
               #!/bin/bash
@@ -248,20 +252,21 @@ resource "aws_instance" "database" {
 
 ### Required Parameters
 
-| Name | Description | Type | Example |
-|------|-------------|------|---------|
-| `name` | Name prefix for all VPC resources (max 24 chars) | `string` | `"production-vpc"` |
-| `cidr_block` | Primary IPv4 CIDR block for the VPC | `string` | `"10.0.0.0/16"` |
+| Name                 | Description                                       | Type           | Example                                      |
+| -------------------- | ------------------------------------------------- | -------------- | -------------------------------------------- |
+| `name`               | Name prefix for all VPC resources (max 24 chars)  | `string`       | `"production-vpc"`                           |
+| `cidr_block`         | Primary IPv4 CIDR block for the VPC               | `string`       | `"10.0.0.0/16"`                              |
 | `availability_zones` | List of availability zones to deploy subnets into | `list(string)` | `["us-east-1a", "us-east-1b", "us-east-1c"]` |
 
 **CIDR Block Sizing Examples:**
+
 ```hcl
 # Small VPC (254 hosts per subnet)
 cidr_block = "10.0.0.0/16"
 public_subnets  = ["10.0.1.0/24"]    # 254 IPs
 private_subnets = ["10.0.11.0/24"]   # 254 IPs
 
-# Medium VPC (4,094 hosts per subnet)  
+# Medium VPC (4,094 hosts per subnet)
 cidr_block = "10.0.0.0/16"
 public_subnets  = ["10.0.1.0/20"]    # 4,094 IPs
 private_subnets = ["10.0.16.0/20"]   # 4,094 IPs
@@ -275,15 +280,16 @@ private_subnets = ["10.0.11.0/24", "10.0.12.0/24"]    # 508 IPs (0.8%)
 
 ### Subnet Configuration
 
-| Name | Description | Type | Default | Example |
-|------|-------------|------|---------|---------|
-| `public_subnets` | List of public subnet CIDR blocks | `list(string)` | `[]` | `["10.0.1.0/24", "10.0.2.0/24"]` |
-| `private_subnets` | List of private subnet CIDR blocks | `list(string)` | `[]` | `["10.0.11.0/24", "10.0.12.0/24"]` |
-| `database_subnets` | List of database subnet CIDR blocks | `list(string)` | `[]` | `["10.0.21.0/24", "10.0.22.0/24"]` |
-| `elasticache_subnets` | List of ElastiCache subnet CIDR blocks | `list(string)` | `[]` | `["10.0.31.0/24", "10.0.32.0/24"]` |
-| `redshift_subnets` | List of Redshift subnet CIDR blocks | `list(string)` | `[]` | `["10.0.41.0/24", "10.0.42.0/24"]` |
+| Name                  | Description                            | Type           | Default | Example                            |
+| --------------------- | -------------------------------------- | -------------- | ------- | ---------------------------------- |
+| `public_subnets`      | List of public subnet CIDR blocks      | `list(string)` | `[]`    | `["10.0.1.0/24", "10.0.2.0/24"]`   |
+| `private_subnets`     | List of private subnet CIDR blocks     | `list(string)` | `[]`    | `["10.0.11.0/24", "10.0.12.0/24"]` |
+| `database_subnets`    | List of database subnet CIDR blocks    | `list(string)` | `[]`    | `["10.0.21.0/24", "10.0.22.0/24"]` |
+| `elasticache_subnets` | List of ElastiCache subnet CIDR blocks | `list(string)` | `[]`    | `["10.0.31.0/24", "10.0.32.0/24"]` |
+| `redshift_subnets`    | List of Redshift subnet CIDR blocks    | `list(string)` | `[]`    | `["10.0.41.0/24", "10.0.42.0/24"]` |
 
 **Subnet Sizing Strategy:**
+
 ```hcl
 # Conservative sizing for 3-tier application
 module "vpc" {
@@ -292,36 +298,37 @@ module "vpc" {
   name               = "web-app-vpc"
   cidr_block         = "10.0.0.0/16"
   availability_zones = ["us-east-1a", "us-east-1b", "us-east-1c"]
-  
+
   # Public: Load balancers, NAT (small, few hosts)
   public_subnets     = ["10.0.1.0/26", "10.0.1.64/26", "10.0.1.128/26"]  # 62 IPs each
-  
+
   # Private: Application servers (medium, moderate hosts)
   private_subnets    = ["10.0.2.0/24", "10.0.3.0/24", "10.0.4.0/24"]         # 254 IPs each
-  
+
   # Database: RDS instances (small, few hosts, high isolation)
   database_subnets   = ["10.0.5.0/28", "10.0.5.16/28", "10.0.5.32/28"]        # 14 IPs each
-  
+
   # Reserved space: 10.0.6-254.x.x for future expansion
 }
 ```
 
 ### NAT Gateway Configuration
 
-| Name | Description | Type | Default | 
-|------|-------------|------|---------|
-| `enable_nat_gateway` | Enable NAT Gateway for private subnet internet access | `bool` | `true` |
-| `single_nat_gateway` | Use single NAT Gateway vs one per AZ | `bool` | `false` |
-| `enable_eip_nat_gateway` | Allocate Elastic IPs for NAT Gateways | `bool` | `true` |
+| Name                     | Description                                           | Type   | Default |
+| ------------------------ | ----------------------------------------------------- | ------ | ------- |
+| `enable_nat_gateway`     | Enable NAT Gateway for private subnet internet access | `bool` | `true`  |
+| `single_nat_gateway`     | Use single NAT Gateway vs one per AZ                  | `bool` | `false` |
+| `enable_eip_nat_gateway` | Allocate Elastic IPs for NAT Gateways                 | `bool` | `true`  |
 
 **Architecture Choice:**
+
 ```hcl
 # High-Availability (Multi-AZ NAT) - $43.80/mo per AZ
 # Recommended for: Production workloads requiring AZ failover capability
 single_nat_gateway = false  # One NAT per AZ
 
 # Cost-Optimized (Single NAT) - $32.85/mo total
-# Recommended for: Non-critical workloads, cost-sensitive environments  
+# Recommended for: Non-critical workloads, cost-sensitive environments
 single_nat_gateway = true   # Single NAT in first AZ
 
 # No Internet Access - $0/mo
@@ -331,22 +338,23 @@ enable_nat_gateway = false
 
 ### DNS Configuration
 
-| Name | Description | Type | Default |
-|------|-------------|------|---------|
-| `enable_dns_hostnames` | Enable DNS hostnames for instances | `bool` | `true` |
-| `enable_dns_support` | Enable DNS resolution within VPC | `bool` | `true` |
-| `enable_ec2_metadata_v2` | Enable IMDSv2 for enhanced security | `bool` | `true` |
+| Name                     | Description                         | Type   | Default |
+| ------------------------ | ----------------------------------- | ------ | ------- |
+| `enable_dns_hostnames`   | Enable DNS hostnames for instances  | `bool` | `true`  |
+| `enable_dns_support`     | Enable DNS resolution within VPC    | `bool` | `true`  |
+| `enable_ec2_metadata_v2` | Enable IMDSv2 for enhanced security | `bool` | `true`  |
 
 ### VPC Flow Logs Configuration
 
-| Name | Description | Type | Default |
-|------|-------------|------|---------|
-| `enable_flow_logs` | Enable VPC Flow Logs | `bool` | `false` |
-| `flow_logs_destination` | Destination: "cloudwatch" or "s3" | `string` | `"cloudwatch"` |
-| `flow_logs_retention` | Log retention in days (CloudWatch) | `number` | `90` |
-| `flow_logs_bucket` | S3 bucket name for flow logs | `string` | `null` |
+| Name                    | Description                        | Type     | Default        |
+| ----------------------- | ---------------------------------- | -------- | -------------- |
+| `enable_flow_logs`      | Enable VPC Flow Logs               | `bool`   | `false`        |
+| `flow_logs_destination` | Destination: "cloudwatch" or "s3"  | `string` | `"cloudwatch"` |
+| `flow_logs_retention`   | Log retention in days (CloudWatch) | `number` | `90`           |
+| `flow_logs_bucket`      | S3 bucket name for flow logs       | `string` | `null`         |
 
 **Flow Logs Setup Examples:**
+
 ```hcl
 # CloudWatch Logs (simple setup)
 enable_flow_logs      = true
@@ -367,24 +375,25 @@ flow_logs_format = "${version} ${account-id} ${interface-id} ${srcaddr} ${dstadd
 
 ### VPC Endpoints Configuration
 
-| Name | Description | Type | Default |
-|------|-------------|------|---------|
-| `enable_s3_endpoint` | Create VPC endpoint for S3 | `bool` | `true` |
+| Name                       | Description                      | Type   | Default |
+| -------------------------- | -------------------------------- | ------ | ------- |
+| `enable_s3_endpoint`       | Create VPC endpoint for S3       | `bool` | `true`  |
 | `enable_dynamodb_endpoint` | Create VPC endpoint for DynamoDB | `bool` | `false` |
-| `endpoint_private_dns` | Enable private DNS for endpoints | `bool` | `true` |
+| `endpoint_private_dns`     | Enable private DNS for endpoints | `bool` | `true`  |
 
 ### Advanced Configuration
 
-| Name | Description | Type | Default |
-|------|-------------|------|---------|
-| `secondary_cidr_blocks` | List of secondary IPv4 CIDR blocks | `list(string)` | `[]` |
-| `ipv6_cidr_block` | IPv6 CIDR block for VPC | `string` | `null` |
-| `enable_ipv6_gateway` | Enable IPv6 egress-only gateway | `bool` | `false` |
-| `assign_generated_ipv6_cidr_block` | Auto-assign IPv6 block | `bool` | `false` |
-| `map_public_ip_on_launch` | Auto-assign public IPs in public subnets | `bool` | `false` |
-| `create_database_subnet_group` | Create RDS subnet group | `bool` | `true` |
+| Name                               | Description                              | Type           | Default |
+| ---------------------------------- | ---------------------------------------- | -------------- | ------- |
+| `secondary_cidr_blocks`            | List of secondary IPv4 CIDR blocks       | `list(string)` | `[]`    |
+| `ipv6_cidr_block`                  | IPv6 CIDR block for VPC                  | `string`       | `null`  |
+| `enable_ipv6_gateway`              | Enable IPv6 egress-only gateway          | `bool`         | `false` |
+| `assign_generated_ipv6_cidr_block` | Auto-assign IPv6 block                   | `bool`         | `false` |
+| `map_public_ip_on_launch`          | Auto-assign public IPs in public subnets | `bool`         | `false` |
+| `create_database_subnet_group`     | Create RDS subnet group                  | `bool`         | `true`  |
 
 **Advanced Example:**
+
 ```hcl
 # IPv6-enabled VPC
 module "vpc_ipv6" {
@@ -393,13 +402,13 @@ module "vpc_ipv6" {
   name               = "ipv6-vpc"
   cidr_block         = "10.0.0.0/16"
   availability_zones = ["us-east-1a", "us-east-1b"]
-  
+
   enable_ipv6_gateway                = true
   assign_generated_ipv6_cidr_block   = true
-  
+
   public_subnets     = ["10.0.1.0/24", "10.0.2.0/24"]
   private_subnets    = ["10.0.11.0/24", "10.0.12.0/24"]
-  
+
   # Optional secondary CIDR for expansion
   secondary_cidr_blocks = ["10.1.0.0/16"]
 }
@@ -409,20 +418,21 @@ module "vpc_ipv6" {
 
 ### Core VPC Information
 
-| Name | Description | Usage Example |
-|------|-------------|---------------|
-| `vpc_id` | The ID of the VPC | `vpc_id = module.vpc.vpc_id` |
-| `vpc_cidr_block` | The CIDR block of the VPC | `vpc_cidr_block = module.vpc.vpc_cidr_block` |
-| `vpc_arn` | The ARN of the VPC | `vpc_arn = module.vpc.vpc_arn` |
-| `vpc_owner_id` | The AWS account ID of VPC owner | `owner_id = module.vpc.vpc_owner_id` |
+| Name             | Description                     | Usage Example                                |
+| ---------------- | ------------------------------- | -------------------------------------------- |
+| `vpc_id`         | The ID of the VPC               | `vpc_id = module.vpc.vpc_id`                 |
+| `vpc_cidr_block` | The CIDR block of the VPC       | `vpc_cidr_block = module.vpc.vpc_cidr_block` |
+| `vpc_arn`        | The ARN of the VPC              | `vpc_arn = module.vpc.vpc_arn`               |
+| `vpc_owner_id`   | The AWS account ID of VPC owner | `owner_id = module.vpc.vpc_owner_id`         |
 
 **Usage Examples:**
+
 ```hcl
 # Reference VPC ID in security groups
 resource "aws_security_group" "app_sg" {
   name   = "app-sg"
   vpc_id = module.vpc.vpc_id
-  
+
   ingress {
     from_port   = 80
     to_port     = 80
@@ -448,24 +458,25 @@ data "aws_iam_policy_document" "vpc_s3_access" {
 
 ### Subnet Outputs
 
-| Name | Description | Usage Example |
-|------|-------------|---------------|
-| `public_subnet_ids` | List of public subnet IDs | `subnet_ids = module.vpc.public_subnet_ids` |
-| `public_subnet_arns` | List of public subnet ARNs | `subnet_arns = module.vpc.public_subnet_arns` |
-| `private_subnet_ids` | List of private subnet IDs | `subnet_ids = module.vpc.private_subnet_ids` |
-| `private_subnet_arns` | List of private subnet ARNs | `subnet_arns = module.vpc.private_subnet_arns` |
-| `database_subnet_ids` | List of database subnet IDs | `subnet_ids = module.vpc.database_subnet_ids` |
+| Name                     | Description                    | Usage Example                                    |
+| ------------------------ | ------------------------------ | ------------------------------------------------ |
+| `public_subnet_ids`      | List of public subnet IDs      | `subnet_ids = module.vpc.public_subnet_ids`      |
+| `public_subnet_arns`     | List of public subnet ARNs     | `subnet_arns = module.vpc.public_subnet_arns`    |
+| `private_subnet_ids`     | List of private subnet IDs     | `subnet_ids = module.vpc.private_subnet_ids`     |
+| `private_subnet_arns`    | List of private subnet ARNs    | `subnet_arns = module.vpc.private_subnet_arns`   |
+| `database_subnet_ids`    | List of database subnet IDs    | `subnet_ids = module.vpc.database_subnet_ids`    |
 | `elasticache_subnet_ids` | List of ElastiCache subnet IDs | `subnet_ids = module.vpc.elasticache_subnet_ids` |
-| `redshift_subnet_ids` | List of Redshift subnet IDs | `subnet_ids = module.vpc.redshift_subnet_ids` |
+| `redshift_subnet_ids`    | List of Redshift subnet IDs    | `subnet_ids = module.vpc.redshift_subnet_ids`    |
 
 **Usage Examples:**
+
 ```hcl
 # Deploy ALB in public subnets
 resource "aws_lb" "app_alb" {
   name               = "app-alb"
   internal           = false
   load_balancer_type = "application"
-  
+
   subnets            = module.vpc.public_subnet_ids
   security_groups    = [aws_security_group.alb_sg.id]
 }
@@ -473,12 +484,12 @@ resource "aws_lb" "app_alb" {
 # Deploy RDS in database subnets
 module "rds_database" {
   source = "terraform-aws-modules/rds/aws"
-  
+
   identifier = "app-db"
-  
+
   # Use database subnet group created by VPC module
   db_subnet_group_name = module.vpc.database_subnet_group_name
-  
+
   # Place in private database subnets
   vpc_security_group_ids = [module.vpc.security_group_internal_id]
 }
@@ -486,11 +497,11 @@ module "rds_database" {
 # Deploy EC2 instances across private subnets evenly
 resource "aws_instance" "app_servers" {
   count = 3
-  
+
   ami           = "ami-0c55b159cbfafe1f0"
   instance_type = "t3.medium"
   subnet_id     = module.vpc.private_subnet_ids[count.index % length(module.vpc.private_subnet_ids)]
-  
+
   tags = {
     Name = "app-server-${count.index + 1}"
   }
@@ -500,40 +511,41 @@ resource "aws_instance" "app_servers" {
 locals {
   first_az_subnet  = module.vpc.private_subnet_ids[0]
   second_az_subnet = module.vpc.private_subnet_ids[1]
-  third_az_subnet  = length(module.vpc.private_subnet_ids) > 2 ? 
+  third_az_subnet  = length(module.vpc.private_subnet_ids) > 2 ?
                      module.vpc.private_subnet_ids[2] : null
 }
 ```
 
 ### Network Component Outputs
 
-| Name | Description | Usage Example |
-|------|-------------|---------------|
-| `internet_gateway_id` | Internet Gateway ID | `gateway_id = module.vpc.internet_gateway_id` |
-| `nat_gateway_ids` | List of NAT Gateway IDs | `nat_ids = module.vpc.nat_gateway_ids` |
+| Name                     | Description                    | Usage Example                                 |
+| ------------------------ | ------------------------------ | --------------------------------------------- |
+| `internet_gateway_id`    | Internet Gateway ID            | `gateway_id = module.vpc.internet_gateway_id` |
+| `nat_gateway_ids`        | List of NAT Gateway IDs        | `nat_ids = module.vpc.nat_gateway_ids`        |
 | `nat_gateway_public_ips` | List of NAT Gateway public IPs | `nat_ips = module.vpc.nat_gateway_public_ips` |
 
 ### Network Configuration Outputs
 
-| Name | Description | Usage Example |
-|------|-------------|---------------|
-| `default_route_table_id` | Default route table ID | `route_table_id = module.vpc.default_route_table_id` |
-| `public_route_table_ids` | List of public route table IDs | `route_table_ids = module.vpc.public_route_table_ids` |
+| Name                      | Description                     | Usage Example                                          |
+| ------------------------- | ------------------------------- | ------------------------------------------------------ |
+| `default_route_table_id`  | Default route table ID          | `route_table_id = module.vpc.default_route_table_id`   |
+| `public_route_table_ids`  | List of public route table IDs  | `route_table_ids = module.vpc.public_route_table_ids`  |
 | `private_route_table_ids` | List of private route table IDs | `route_table_ids = module.vpc.private_route_table_ids` |
 
 ### Security Group Outputs
 
-| Name | Description | Usage Example |
-|------|-------------|---------------|
-| `default_security_group_id` | Default VPC security group ID | `security_group = module.vpc.default_security_group_id` |
-| `shared_security_group_id` | Shared resources security group | `security_group = module.vpc.shared_security_group_id` |
+| Name                        | Description                     | Usage Example                                           |
+| --------------------------- | ------------------------------- | ------------------------------------------------------- |
+| `default_security_group_id` | Default VPC security group ID   | `security_group = module.vpc.default_security_group_id` |
+| `shared_security_group_id`  | Shared resources security group | `security_group = module.vpc.shared_security_group_id`  |
 
 **Usage Examples:**
+
 ```hcl
 # Add routes to private route tables for VPN
 resource "aws_route" "vpn_routes" {
   count = length(module.vpc.private_route_table_ids)
-  
+
   route_table_id         = module.vpc.private_route_table_ids[count.index]
   destination_cidr_block = "192.168.0.0/16"
   vpn_gateway_id         = aws_vpn_gateway.main.id
@@ -575,9 +587,9 @@ title: Recommended Allocation for /16 VPC (10.0.0.0/16) {
 zone1: Zone 1 {
   style.fill: "#e3f2fd"
   style.stroke: "#1565c2"
-  
+
   label: "10.0.0-63.x.x\n(10.0.0.0/18)"
-  
+
   public1: Public {
     style.fill: "#c8e6c9"
     label: ".1/24"
@@ -591,9 +603,9 @@ zone1: Zone 1 {
 zone2: Zone 2 {
   style.fill: "#e3f2fd"
   style.stroke: "#1565c2"
-  
+
   label: "10.0.64-127.x.x\n(10.0.64.0/18)"
-  
+
   public2: Public {
     style.fill: "#c8e6c9"
     label: ".65/24"
@@ -607,9 +619,9 @@ zone2: Zone 2 {
 zone3: Zone 3 {
   style.fill: "#e3f2fd"
   style.stroke: "#1565c2"
-  
+
   label: "10.0.128-191.x.x\n(10.0.128.0/18)"
-  
+
   public3: Public {
     style.fill: "#c8e6c9"
     label: ".129/24"
@@ -626,10 +638,11 @@ zone1 -> zone2 -> zone3
 ### Sizing Formulas
 
 **Calculate Future Capacity:**
+
 ```
 Current Hosts × Growth Factor × (1 + Buffer Factor)
 
-Example: 
+Example:
   Current: 50 hosts
   Growth: 3x (290% growth)
   Buffer: 25%
@@ -640,11 +653,14 @@ NOT: /26 (62 hosts) ✗
 ```
 
 **Application Tier Guidelines:**
+
 - **Public Subnets:** Size for load balancers + NAT + bastion hosts
+
   - Small apps: 26-50 IPs per AZ → /26 (62 IPs)
   - Large apps: 50+ IPs per AZ → /25 (126 IPs)
 
 - **Application Layer:** Size based on auto-scaling max capacity
+
   - Example: If max instances = 100 across 3 AZs:
   - 100 instances / 3 AZs = 34 per AZ + 1 per 10 buffer
   - Recommended: /25 subnet (126 IPs per AZ)
@@ -657,19 +673,21 @@ NOT: /26 (62 hosts) ✗
 ### Growth Planning
 
 **Reserve Space Using Hierarchical Planning:**
+
 ```hcl
 # Current needs
 public_subnets  = ["10.0.1.0/24"]
-private_subnets = ["10.0.11.0/24"] 
+private_subnets = ["10.0.11.0/24"]
 
 # Reserve future space by using classful allocation
 # Public: 10.0.1-10.x.x (10 /24s reserved)
-# Private: 10.0.11-30.x.x (20 /24s reserved)  
+# Private: 10.0.11-30.x.x (20 /24s reserved)
 # Database: 10.0.31-40.x.x (10 /24s reserved)
 # Future: 10.0.41-254.x.x (214 /24s available)
 ```
 
 **Multi-Region CIDR Strategy:**
+
 ```
 us-east-1: 10.0.0.0/16 (Production)
 us-west-2: 10.1.0.0/16 (DR/Prod)
@@ -682,6 +700,7 @@ Shared Services: 10.254.0.0/16 (Management)
 ### Single vs Multi-AZ Comparison
 
 **Multi-AZ NAT (High Availability)**
+
 ```hcl
 single_nat_gateway = false
 # cost: $43.80 per AZ per month ($0.045/hr × 730hrs × 4AZs = ~$135/mo)
@@ -690,14 +709,16 @@ single_nat_gateway = false
 ```
 
 **Single NAT (Cost Optimized)**
+
 ```hcl
-single_nat_gateway = true  
+single_nat_gateway = true
 # cost: $32.85 per month ($0.045/hr × 730hrs)
 # pros: 75% cost savings, simpler architecture
 # cons: AZ dependency, manual failover required if AZ fails
 ```
 
 **Decision Matrix:**
+
 ```
 Use Single NAT When:
 ✓ Non-production environments (dev, test, staging)
@@ -706,7 +727,7 @@ Use Single NAT When:
 ✓ Manual failover is acceptable
 
 Use Multi-AZ NAT When:
-✓ Production workloads requiring 99.9%+ uptime  
+✓ Production workloads requiring 99.9%+ uptime
 ✓ Stateful applications that can't handle IP changes
 ✓ Automated failover required
 ✓ Multi-AZ architecture already deployed
@@ -715,12 +736,13 @@ Use Multi-AZ NAT When:
 ### Cost Optimization Strategies
 
 1. **NAT Instance Alternative** (for development):
+
 ```hcl
 # Use t3.small NAT Instance: ~$15/mo vs $32/mo NAT Gateway
 # Save 50%+ but manage your own instance
 module "vpc_dev" {
   source = "git::https://github.com/company/terraform-modules.git//aws/vpc?ref=v1.0.0"
-  
+
   # Custom NAT instance module
   enable_nat_gateway = false
 }
@@ -733,6 +755,7 @@ module "nat_instance" {
 ```
 
 2. **Gateway Load Balancer for Shared NAT**:
+
 ```hcl
 # Share NAT across multiple VPCs using GWLB
 # Higher upfront, lower cost at scale (>5 VPCs)
@@ -740,6 +763,7 @@ cost_per_additional_vpc = (NAT_GW_COST / NUM_VPCS) + GWLB_HOURLY
 ```
 
 3. **Egress-Only Internet Gateway (IPv6)**:
+
 ```hcl
 # Free alternative for IPv6-only workloads
 # Outbound-only, no NAT charges
@@ -752,6 +776,7 @@ assign_generated_ipv6_cidr_block = true
 ### Network ACLs vs Security Groups
 
 **Network ACLs (Subnet Layer):**
+
 ```hcl
 # Module creates default deny-all NACLs
 # You should customize per subnet tier
@@ -777,6 +802,7 @@ resource "aws_network_acl_rule" "private_ingress" {
 ```
 
 **Security Groups (Instance Layer):**
+
 ```hcl
 # Application tier security group
 resource "aws_security_group" "app_tier" {
@@ -809,7 +835,7 @@ resource "aws_security_group" "app_tier" {
 resource "aws_vpc_endpoint" "s3" {
   vpc_id       = module.vpc.vpc_id
   service_name = "com.amazonaws.${data.aws_region.current}.s3"
-  
+
   vpc_endpoint_type = "Gateway"
   route_table_ids   = module.vpc.private_route_table_ids
 }
@@ -819,7 +845,7 @@ resource "aws_vpc_endpoint" "ecr_api" {
   vpc_id            = module.vpc.vpc_id
   service_name      = "com.amazonaws.${data.aws_region.current}.ecr.api"
   vpc_endpoint_type = "Interface"
-  
+
   subnet_ids         = module.vpc.private_subnet_ids
   security_group_ids = [aws_security_group.endpoints.id]
 }
@@ -829,10 +855,10 @@ resource "aws_vpc_endpoint" "ssm" {
   vpc_id              = module.vpc.vpc_id
   service_name        = "com.amazonaws.${data.aws_region.current}.ssm"
   vpc_endpoint_type   = "Interface"
-  
+
   subnet_ids          = module.vpc.private_subnet_ids
   security_group_ids  = [aws_security_group.ssm_endpoint.id]
-  
+
   private_dns_enabled = true  # Use AWS service endpoint DNS
 }
 ```
@@ -843,16 +869,16 @@ resource "aws_vpc_endpoint" "ssm" {
 # Enable flow logs with custom format
 module "vpc_secure" {
   source = "git::https://github.com/company/terraform-modules.git//aws/vpc?ref=v1.0.0"
-  
+
   name               = "secure-vpc"
   cidr_block         = "10.0.0.0/16"
   availability_zones = ["us-east-1a", "us-east-1b"]
-  
+
   # Enable flow logs for security auditing
   enable_flow_logs  = true
   flow_logs_destination = "s3"
   flow_logs_bucket = aws_s3_bucket.flow_logs.id
-  
+
   # Enrich logs with additional fields
   flow_logs_format = "${version} ${account-id} ${interface-id} ${srcaddr}
                       ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets}
@@ -873,18 +899,18 @@ module "vpc_secure" {
 # Deploy bastion host in public subnet
 module "bastion_host" {
   source = "terraform-aws-modules/ec2-instance/aws"
-  
+
   name  = "bastion"
   count = length(module.vpc.public_subnet_ids)
-  
+
   ami                    = data.aws_ami.amazon_linux_2.id
   instance_type          = "t3.micro"
   key_name               = "production-key"
   monitoring             = true
-  
+
   subnet_id              = module.vpc.public_subnet_ids[count.index]
   vpc_security_group_ids = [aws_security_group.bastion.id]
-  
+
   # Hardening
   metadata_options = {
     http_endpoint               = "enabled"
@@ -911,7 +937,6 @@ resource "aws_security_group_rule" "bastion_ssh" {
 }
 ```
 
-
 ## Integration with Other Modules
 
 ### EKS (Elastic Kubernetes Service)
@@ -919,14 +944,14 @@ resource "aws_security_group_rule" "bastion_ssh" {
 ```hcl
 module "vpc" {
   source = "git::https://github.com/company/terraform-modules.git//aws/vpc?ref=v1.0.0"
-  
+
   name               = "eks-vpc"
   cidr_block         = "10.100.0.0/16"
   availability_zones = ["us-west-2a", "us-west-2b", "us-west-2c"]
-  
+
   public_subnets  = ["10.100.1.0/24", "10.100.2.0/24", "10.100.3.0/24"]
   private_subnets = ["10.100.11.0/24", "10.100.12.0/24", "10.100.13.0/24"]
-  
+
   tags = {
     "kubernetes.io/cluster/eks-cluster" = "shared"
     "kubernetes.io/role/elb"            = "1"
@@ -936,10 +961,10 @@ module "vpc" {
 
 module "eks" {
   source = "terraform-aws-modules/eks/aws"
-  
+
   cluster_name    = "eks-cluster"
   cluster_version = "1.30"
-  
+
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnet_ids
 }
@@ -949,7 +974,7 @@ resource "aws_eks_addon" "vpc_cni" {
   cluster_name  = module.eks.cluster_id
   addon_name    = "vpc-cni"
   addon_version = "v1.15.4-eksbuild.1"
-  
+
   configuration_values = jsonencode({
     env = {
       AWS_VPC_K8S_CNI_CUSTOM_NETWORK_CFG = "true"
@@ -964,30 +989,30 @@ resource "aws_eks_addon" "vpc_cni" {
 ```hcl
 module "vpc" {
   source = "git::https://github.com/company/terraform-modules.git//aws/vpc?ref=v1.0.0"
-  
+
   name               = "rds-vpc"
   cidr_block         = "10.0.0.0/16"
   availability_zones = ["us-east-1a", "us-east-1b"]
-  
+
   database_subnets   = ["10.0.1.0/24", "10.0.2.0/24"]
   private_subnets    = ["10.0.11.0/24", "10.0.12.0/24"]
 }
 
 module "rds_mysql" {
   source = "terraform-aws-modules/rds/aws"
-  
+
   identifier = "app-database"
-  
+
   engine               = "mysql"
   engine_version       = "8.0"
   family               = "mysql8.0"
   instance_class       = "db.t3.medium"
   allocated_storage    = 100
   max_allocated_storage = 1000
-  
+
   # Use database subnets
   db_subnet_group_name = module.vpc.database_subnet_group_name
-  
+
   # Security from VPC CIDR
   vpc_security_group_ids = [aws_security_group.rds.id]
 }
@@ -995,11 +1020,11 @@ module "rds_mysql" {
 resource "aws_security_group" "rds" {
   name   = "rds-security-group"
   vpc_id = module.vpc.vpc_id
-  
+
   ingress {
     from_port   = 3306
     to_port     = 3306
-    protocol    = "tcp" 
+    protocol    = "tcp"
     cidr_blocks = module.vpc.private_subnets_cidr_blocks
   }
 }
@@ -1010,15 +1035,15 @@ resource "aws_security_group" "rds" {
 ```hcl
 module "alb" {
   source = "terraform-aws-modules/alb/aws"
-  
+
   name = "app-alb"
   load_balancer_type = "application"
   internal           = false
-  
+
   vpc_id          = module.vpc.vpc_id
   subnets         = module.vpc.public_subnet_ids
   security_groups = [module.alb_security_group.security_group_id]
-  
+
   target_groups = [
     {
       name_prefix      = "app"
@@ -1032,13 +1057,13 @@ module "alb" {
 
 module "alb_security_group" {
   source = "terraform-aws-modules/security-group/aws"
-  
+
   name   = "alb-sg"
   vpc_id = module.vpc.vpc_id
-  
+
   ingress_cidr_blocks = ["0.0.0.0/0"]
   ingress_rules       = ["http-80-tcp", "https-443-tcp"]
-  
+
   egress_rules = ["all-all"]
 }
 ```
@@ -1049,18 +1074,18 @@ module "alb_security_group" {
 resource "aws_autoscaling_group" "app" {
   name                = "app-asg"
   vpc_zone_identifier = module.vpc.private_subnet_ids
-  
+
   min_size         = 2
   max_size         = 10
   desired_capacity = 3
-  
+
   launch_template {
     id      = aws_launch_template.app.id
     version = "$Latest"
   }
-  
+
   target_group_arns = [module.alb.target_group_arns[0]]
-  
+
   tag {
     key                 = "Environment"
     value               = "production"
@@ -1072,7 +1097,7 @@ resource "aws_launch_template" "app" {
   name_prefix   = "app-"
   image_id      = data.aws_ami.amazon_linux_2.id
   instance_type = "t3.medium"
-  
+
   vpc_security_group_ids = [module.app_sg.security_group_id]
 
   # No public IPs - private subnet only
@@ -1083,13 +1108,13 @@ resource "aws_launch_template" "app" {
 
 module "app_sg" {
   source = "terraform-aws-modules/security-group/aws"
-  
+
   name   = "app-sg"
   vpc_id = module.vpc.vpc_id
-  
+
   ingress_rules       = ["https-443-tcp", "http-80-tcp"]
   ingress_cidr_blocks = [module.vpc.vpc_cidr_block]
-  
+
   egress_rules = ["all-all"]
 }
 ```
@@ -1099,27 +1124,30 @@ module "app_sg" {
 ### Monthly Cost Estimates (us-east-1)
 
 **VPC (Free Tier):**
+
 - VPC creation: FREE
 - VPC endpoints: $7.20/month per AZ per endpoint
 - VPC Flow Logs: $0.50/GB (ingestion) + S3/CloudWatch costs
 
 **NAT Gateway (Highest Cost Component):**
+
 - Single NAT Gateway: $32.85/month ($0.045/hour × 730 hours)
 - Multi-AZ NAT (3 AZs): $98.55/month
 - Data Processing: $0.045/GB ($45/TB)
 
 **Cost Comparison Table:**
 
-| Configuration | Monthly Cost | Use Case |
-|---------------|--------------|----------|
-| VPC only (no NAT) | $0 | Isolated workloads, batch processing |
-| Single NAT Gateway | $32.85 | Dev/test, non-critical workloads |
-| Multi-AZ NAT (2 AZ) | $65.70 | Production with 2 AZs |
-| Multi-AZ NAT (3 AZ) | $98.55 | Production with 3 AZs, HA |
-| + VPC Endpoints (2) | $28.80 | Add private S3/DynamoDB access |
-| + Flow Logs (500GB) | $45.00 | Full audit logging |
+| Configuration       | Monthly Cost | Use Case                             |
+| ------------------- | ------------ | ------------------------------------ |
+| VPC only (no NAT)   | $0           | Isolated workloads, batch processing |
+| Single NAT Gateway  | $32.85       | Dev/test, non-critical workloads     |
+| Multi-AZ NAT (2 AZ) | $65.70       | Production with 2 AZs                |
+| Multi-AZ NAT (3 AZ) | $98.55       | Production with 3 AZs, HA            |
+| + VPC Endpoints (2) | $28.80       | Add private S3/DynamoDB access       |
+| + Flow Logs (500GB) | $45.00       | Full audit logging                   |
 
 **NAT Gateway Data Processing Example:**
+
 ```
 Scenario: 500GB/month outbound from private subnet
 - NAT Gateway Hourly: $32.85
@@ -1133,6 +1161,7 @@ With VPC Endpoint for S3 (reduced by 200GB):
 ```
 
 **Elastic IP Addresses:**
+
 - First 100: FREE when attached to instance/NAT
 - Unattached: $3.60/month per IP
 - Remapped >100 times: $3.60 per remap
@@ -1150,6 +1179,7 @@ With VPC Endpoint for S3 (reduced by 200GB):
 ### Common Issues
 
 **1. Subnet IP Address Exhaustion**
+
 ```bash
 # Check free IPs in subnets
 aws ec2 describe-subnets --subnet-ids subnet-xxx --query "Subnets[*].[SubnetId,AvailableIpAddressCount]"
@@ -1159,13 +1189,14 @@ aws ec2 describe-subnets --subnet-ids subnet-xxx --query "Subnets[*].[SubnetId,A
 # Solution: Add secondary CIDR and new subnets
 module "vpc_expand" {
   source = "git::https://github.com/company/terraform-modules.git//aws/vpc?ref=v1.0.0"
-  
+
   secondary_cidr_blocks = ["10.1.0.0/16"]
   # ... rest of config
 }
 ```
 
 **2. Route Table Conflicts**
+
 ```bash
 # Check route tables
 aws ec2 describe-route-tables --filters Name=vpc-id,Values=vpc-xxx
@@ -1179,6 +1210,7 @@ terraform state show module.vpc.aws_route_table.public[0]
 ```
 
 **3. DNS Resolution Failures**
+
 ```bash
 # Check DNS settings
 aws ec2 describe-vpc-attribute --vpc-id vpc-xxx --attribute enableDnsSupport
@@ -1195,6 +1227,7 @@ aws ec2 describe-dhcp-options --dhcp-options-ids dopt-xxx
 ```
 
 **4. NAT Gateway Connectivity Issues**
+
 ```bash
 # Verify NAT Gateway status
 aws ec2 describe-nat-gateways --nat-gateway-ids nat-xxx
@@ -1203,7 +1236,7 @@ aws ec2 describe-nat-gateways --nat-gateway-ids nat-xxx
 # Check if NAT is in "Failed" state - usually due to deleted EIP
 
 # Debug from private instance:
-ping 8.8.8.8  # Should work if NAT is functioning  
+ping 8.8.8.8  # Should work if NAT is functioning
 curl -v https://amazon.com  # Should work for HTTP/HTTPS
 
 # Check route table for private subnet:
@@ -1212,6 +1245,7 @@ aws ec2 describe-route-tables --filters Name=association.subnet-id,Values=subnet
 ```
 
 **5. VPC Endpoint Connection Issues**
+
 ```bash
 # Check endpoint status
 aws ec2 describe-vpc-endpoints --vpc-endpoint-ids vpce-xxx
@@ -1227,6 +1261,7 @@ aws s3 ls s3://my-bucket/  # Should work with S3 endpoint
 ### Diagnostic Commands
 
 **VPC-Level Diagnostics:**
+
 ```bash
 # Check VPC overall status
 aws ec2 describe-vpcs --vpc-ids vpc-xxx --query "Vpcs[*].State"
@@ -1237,6 +1272,7 @@ aws ec2 describe-network-interfaces --filters Name=vpc-id,Values=vpc-xxx
 ```
 
 **Subnet-Level Diagnostics:**
+
 ```bash
 # Subnet utilization
 aws ec2 describe-subnets --filters Name=vpc-id,Values=vpc-xxx --query "Subnets[*].{ID:SubnetId,AZ:AvailabilityZone,CIDR:CidrBlock,Available:AvailableIpAddressCount}"
@@ -1246,6 +1282,7 @@ aws ec2 describe-subnets --filters Name=vpc-id,Values=vpc-xxx --query "Subnets[?
 ```
 
 **Networking Diagnostics:**
+
 ```bash
 # Check security group rules
 aws ec2 describe-security-groups --filters Name=vpc-id,Values=vpc-xxx --query "SecurityGroups[*].[GroupName,IpPermissions[0].IpRanges]"
@@ -1258,6 +1295,7 @@ aws ec2 describe-route-tables --filters Name=vpc-id,Values=vpc-xxx --query "Rout
 ```
 
 **Flow Logs Analysis:**
+
 ```bash
 # For CloudWatch flow logs
 group_name=$(aws logs describe-log-groups --log-group-name-prefix "vpc-flow-logs" --query "logGroups[0].logGroupName" --output text)
@@ -1271,6 +1309,7 @@ aws logs filter-log-events --log-group-name "$group_name" \
 ### Quick Fixes
 
 **Restore NAT Gateway:**
+
 ```bash
 # If NAT failed, replace it
 eip_id=$(aws ec2 allocate-address --domain vpc --query "AllocationId" --output text)
@@ -1278,6 +1317,7 @@ aws ec2 create-nat-gateway --subnet-id subnet-public-xxx --allocation-id "$eip_i
 ```
 
 **Fix Routing:**
+
 ```bash
 # Replace incorrect route
 aws ec2 replace-route --route-table-id rtb-xxx \
@@ -1286,6 +1326,7 @@ aws ec2 replace-route --route-table-id rtb-xxx \
 ```
 
 **Enable DNS:**
+
 ```bash
 # If DNS is disabled
 aws ec2 modify-vpc-attribute --vpc-id vpc-xxx --enable-dns-support
@@ -1295,6 +1336,7 @@ aws ec2 modify-vpc-attribute --vpc-id vpc-xxx --enable-dns-hostnames
 ## References
 
 ### AWS Documentation
+
 - [Amazon VPC User Guide](https://docs.aws.amazon.com/vpc/latest/userguide/)
 - [VPC Subnet Sizing](https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html#VPC_Sizing)
 - [NAT Gateway](https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html)
@@ -1303,11 +1345,13 @@ aws ec2 modify-vpc-attribute --vpc-id vpc-xxx --enable-dns-hostnames
 - [Pricing](https://aws.amazon.com/vpc/pricing/)
 
 ### Terraform Documentation
+
 - [AWS VPC Resource](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/vpc)
 - [AWS Subnet Resource](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/subnet)
 - [AWS NAT Gateway Resource](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/nat_gateway)
 
 ### Related Modules
+
 - [terraform-aws-modules/vpc/aws](https://registry.terraform.io/modules/terraform-aws-modules/vpc/aws)
 - [terraform-aws-modules/eks/aws](https://registry.terraform.io/modules/terraform-aws-modules/eks/aws)
 - [terraform-aws-modules/rds/aws](https://registry.terraform.io/modules/terraform-aws-modules/rds/aws)
@@ -1315,12 +1359,13 @@ aws ec2 modify-vpc-attribute --vpc-id vpc-xxx --enable-dns-hostnames
 - [terraform-aws-modules/security-group/aws](https://registry.terraform.io/modules/terraform-aws-modules/security-group/aws)
 
 ### Best Practices Guides
+
 - [AWS Well-Architected Framework - Security](https://docs.aws.amazon.com/wellarchitected/latest/security-pillar/welcome.html)
 - [AWS VPC CNI Best Practices](https://docs.aws.amazon.com/eks/latest/userguide/cni-best-practices.html)
 - [AWS VPC Design Patterns](https://aws.amazon.com/blogs/architecture/vpc-design-best-practices/)
 
 ### Community Resources
+
 - [AWS VPC IP Address Manager](https://aws.amazon.com/vpc/ipam/)
 - [AWS Reachability Analyzer](https://docs.aws.amazon.com/vpc/latest/reachability/)
 - [VPC Flow Log Analysis Tools](https://github.com/awslabs/vpc-flowlog-analysis-tools)
-

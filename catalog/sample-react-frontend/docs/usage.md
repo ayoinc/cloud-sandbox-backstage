@@ -47,7 +47,10 @@ npm run preview
 ```typescript
 // src/components/common/Button/Button.tsx
 import React from 'react';
-import { Button as MuiButton, ButtonProps as MuiButtonProps } from '@mui/material';
+import {
+  Button as MuiButton,
+  ButtonProps as MuiButtonProps,
+} from '@mui/material';
 import { styled } from '@mui/material/styles';
 
 export interface ButtonProps extends Omit<MuiButtonProps, 'color'> {
@@ -73,13 +76,11 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       >
         {children}
         {loading && (
-          <span className="loading-spinner">
-            {/* Spinner component */}
-          </span>
+          <span className="loading-spinner">{/* Spinner component */}</span>
         )}
       </StyledButton>
     );
-  }
+  },
 );
 
 Button.displayName = 'Button';
@@ -137,11 +138,11 @@ export function ProductList() {
         <Typography variant="h4" component="h1">
           Products
         </Typography>
-        
+
         <TextField
           placeholder="Search products..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={e => setSearch(e.target.value)}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
@@ -160,7 +161,7 @@ export function ProductList() {
                 <Skeleton variant="rectangular" height={300} />
               </Grid>
             ))
-          : data?.data.map((product) => (
+          : data?.data.map(product => (
               <Grid item xs={12} sm={6} md={4} lg={3} key={product.id}>
                 <ProductCard product={product} />
               </Grid>
@@ -258,7 +259,7 @@ interface PrivateRouteProps {
 }
 
 export function PrivateRoute({ redirectTo = '/login' }: PrivateRouteProps) {
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
   const location = useLocation();
 
   if (!isAuthenticated) {
@@ -270,7 +271,7 @@ export function PrivateRoute({ redirectTo = '/login' }: PrivateRouteProps) {
 
 // Guest only route (redirect if authenticated)
 export function GuestRoute({ redirectTo = '/' }: PrivateRouteProps) {
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
 
   if (isAuthenticated) {
     return <Navigate to={redirectTo} replace />;
@@ -299,7 +300,7 @@ describe('Button', () => {
   it('handles click events', () => {
     const handleClick = vi.fn();
     render(<Button onClick={handleClick}>Click me</Button>);
-    
+
     fireEvent.click(screen.getByRole('button'));
     expect(handleClick).toHaveBeenCalledTimes(1);
   });
@@ -310,7 +311,11 @@ describe('Button', () => {
   });
 
   it('applies variant styles', () => {
-    render(<Button variant="contained" color="primary">Primary</Button>);
+    render(
+      <Button variant="contained" color="primary">
+        Primary
+      </Button>,
+    );
     const button = screen.getByRole('button');
     expect(button).toHaveClass('MuiButton-containedPrimary');
   });
@@ -353,10 +358,8 @@ const renderWithProviders = (ui: React.ReactElement) => {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
-        {ui}
-      </MemoryRouter>
-    </QueryClientProvider>
+      <MemoryRouter>{ui}</MemoryRouter>
+    </QueryClientProvider>,
   );
 };
 
@@ -383,7 +386,7 @@ describe('ProductList', () => {
 
     await waitFor(() => {
       expect(productsService.getAll).toHaveBeenCalledWith(
-        expect.objectContaining({ search: 'Product 1' })
+        expect.objectContaining({ search: 'Product 1' }),
       );
     });
   });
@@ -543,13 +546,13 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
     ports:
-      - "80:80"
+      - '80:80'
     environment:
       - VITE_API_URL=http://api:3000/api/v1
     depends_on:
       - api
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost/health"]
+      test: ['CMD', 'wget', '-q', '--spider', 'http://localhost/health']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -654,14 +657,14 @@ spec:
 
 ### Common Issues
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| White screen | JavaScript error | Check browser console for errors |
-| API CORS error | Backend CORS config | Verify API CORS_ORIGIN includes frontend URL |
-| Token expired | JWT expired | Check refresh token flow implementation |
-| Hot reload not working | Vite cache | Clear `.vite` cache and restart dev server |
-| Build fails | Type errors | Run `npm run type-check` to find issues |
-| Styles not applied | CSS import order | Check theme provider is at root level |
+| Issue                  | Cause               | Solution                                     |
+| ---------------------- | ------------------- | -------------------------------------------- |
+| White screen           | JavaScript error    | Check browser console for errors             |
+| API CORS error         | Backend CORS config | Verify API CORS_ORIGIN includes frontend URL |
+| Token expired          | JWT expired         | Check refresh token flow implementation      |
+| Hot reload not working | Vite cache          | Clear `.vite` cache and restart dev server   |
+| Build fails            | Type errors         | Run `npm run type-check` to find issues      |
+| Styles not applied     | CSS import order    | Check theme provider is at root level        |
 
 ### Debug Commands
 

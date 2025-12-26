@@ -87,41 +87,17 @@
         "echo ''",
         "yarn start"
       ],
-      "start": [
-        "yarn start"
-      ],
-      "build": [
-        "echo 'Building backend...'",
-        "yarn build:backend"
-      ],
-      "build:all": [
-        "echo 'Building all packages...'",
-        "yarn build:all"
-      ],
-      "test": [
-        "yarn test"
-      ],
-      "test:all": [
-        "yarn test:all"
-      ],
-      "test:e2e": [
-        "yarn test:e2e"
-      ],
-      "lint": [
-        "yarn lint:all"
-      ],
-      "lint:fix": [
-        "yarn fix"
-      ],
-      "typecheck": [
-        "yarn tsc --noEmit"
-      ],
-      "format": [
-        "yarn prettier:check"
-      ],
-      "format:fix": [
-        "yarn prettier --write ."
-      ],
+      "start": ["yarn start"],
+      "build": ["echo 'Building backend...'", "yarn build:backend"],
+      "build:all": ["echo 'Building all packages...'", "yarn build:all"],
+      "test": ["yarn test"],
+      "test:all": ["yarn test:all"],
+      "test:e2e": ["yarn test:e2e"],
+      "lint": ["yarn lint:all"],
+      "lint:fix": ["yarn fix"],
+      "typecheck": ["yarn tsc --noEmit"],
+      "format": ["yarn prettier:check"],
+      "format:fix": ["yarn prettier --write ."],
       "techdocs": [
         "echo 'Generating TechDocs for all catalog items...'",
         "for dir in catalog/*/; do",
@@ -148,12 +124,8 @@
         "devbox run clean",
         "echo 'Environment reset. Run: yarn install && devbox run services:start'"
       ],
-      "install": [
-        "yarn install"
-      ],
-      "update": [
-        "yarn up"
-      ],
+      "install": ["yarn install"],
+      "update": ["yarn up"],
       "docker:build": [
         "echo 'Building Docker image...'",
         "docker compose -f docker-compose.yaml -f docker-compose.services.yaml build backstage"

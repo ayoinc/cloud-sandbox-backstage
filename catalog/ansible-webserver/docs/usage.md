@@ -14,7 +14,7 @@ title: Web Server Deployment Architecture {
 clients: Clients {
   shape: rectangle
   style.fill: "#E3F2FD"
-  
+
   browser: Browser
   mobile: Mobile App
   api: API Client
@@ -29,21 +29,21 @@ lb: Load Balancer {
 webservers: Web Server Cluster {
   shape: rectangle
   style.fill: "#C8E6C9"
-  
+
   web1: web01 {
     shape: rectangle
     style.fill: "#81C784"
     nginx1: Nginx
     php1: PHP-FPM
   }
-  
+
   web2: web02 {
     shape: rectangle
     style.fill: "#81C784"
     nginx2: Nginx
     php2: PHP-FPM
   }
-  
+
   web3: web03 {
     shape: rectangle
     style.fill: "#81C784"
@@ -55,7 +55,7 @@ webservers: Web Server Cluster {
 backends: Backend Services {
   shape: rectangle
   style.fill: "#E1BEE7"
-  
+
   api_servers: API Servers
   database: Database
   cache: Redis Cache
@@ -64,7 +64,7 @@ backends: Backend Services {
 ssl: SSL/TLS {
   shape: rectangle
   style.fill: "#FFF9C4"
-  
+
   letsencrypt: Let's Encrypt
   certs: Certificates
 }
@@ -85,21 +85,21 @@ ssl -> webservers: End-to-end TLS
 ---
 collections:
   - name: community.general
-    version: ">=7.0.0"
+    version: '>=7.0.0'
   - name: ansible.posix
-    version: ">=1.5.0"
+    version: '>=1.5.0'
   - name: community.crypto
-    version: ">=2.0.0"
+    version: '>=2.0.0'
   - name: amazon.aws
-    version: ">=6.0.0"
+    version: '>=6.0.0'
 
 roles:
   - name: geerlingguy.nginx
-    version: "3.1.0"
+    version: '3.1.0'
   - name: geerlingguy.apache
-    version: "3.2.0"
+    version: '3.2.0'
   - name: geerlingguy.certbot
-    version: "5.1.0"
+    version: '5.1.0'
 ```
 
 ```bash
@@ -147,18 +147,18 @@ enable_plugins = host_list, script, auto, yaml, ini, aws_ec2
 - name: Deploy Nginx Web Servers
   hosts: webservers
   become: yes
-  
+
   vars:
     webserver_type: nginx
-    nginx_worker_processes: "{{ ansible_processor_vcpus }}"
+    nginx_worker_processes: '{{ ansible_processor_vcpus }}'
     nginx_worker_connections: 4096
-    
+
     nginx_vhosts:
-      - server_name: "{{ inventory_hostname }}"
-        root: "/var/www/html"
-        index: "index.html"
+      - server_name: '{{ inventory_hostname }}'
+        root: '/var/www/html'
+        index: 'index.html'
         ssl: false
-  
+
   roles:
     - common
     - security
@@ -187,68 +187,68 @@ ansible-playbook playbooks/webserver.yml --tags "nginx,ssl"
 - name: Deploy Production Websites
   hosts: webservers
   become: yes
-  
+
   vars:
     nginx_vhosts:
       # Main website
-      - server_name: "example.com www.example.com"
-        root: "/var/www/example.com/public"
-        index: "index.php index.html"
+      - server_name: 'example.com www.example.com'
+        root: '/var/www/example.com/public'
+        index: 'index.php index.html'
         ssl: true
-        ssl_certificate: "/etc/letsencrypt/live/example.com/fullchain.pem"
-        ssl_certificate_key: "/etc/letsencrypt/live/example.com/privkey.pem"
+        ssl_certificate: '/etc/letsencrypt/live/example.com/fullchain.pem'
+        ssl_certificate_key: '/etc/letsencrypt/live/example.com/privkey.pem'
         http2: true
         locations:
-          - path: "/"
+          - path: '/'
             options:
-              - "try_files $uri $uri/ /index.php?$query_string"
+              - 'try_files $uri $uri/ /index.php?$query_string'
           - path: "~ \\.php$"
             options:
-              - "fastcgi_pass unix:/var/run/php/php8.2-fpm.sock"
-              - "fastcgi_index index.php"
-              - "include fastcgi_params"
-              - "fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name"
-      
+              - 'fastcgi_pass unix:/var/run/php/php8.2-fpm.sock'
+              - 'fastcgi_index index.php'
+              - 'include fastcgi_params'
+              - 'fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name'
+
       # API subdomain
-      - server_name: "api.example.com"
+      - server_name: 'api.example.com'
         ssl: true
-        ssl_certificate: "/etc/letsencrypt/live/api.example.com/fullchain.pem"
-        ssl_certificate_key: "/etc/letsencrypt/live/api.example.com/privkey.pem"
+        ssl_certificate: '/etc/letsencrypt/live/api.example.com/fullchain.pem'
+        ssl_certificate_key: '/etc/letsencrypt/live/api.example.com/privkey.pem'
         locations:
-          - path: "/"
-            proxy_pass: "http://api_backend"
+          - path: '/'
+            proxy_pass: 'http://api_backend'
             proxy_options:
-              - "proxy_http_version 1.1"
-              - "proxy_set_header Host $host"
-              - "proxy_set_header X-Real-IP $remote_addr"
-              - "proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for"
-              - "proxy_set_header X-Forwarded-Proto $scheme"
-              - "proxy_connect_timeout 60s"
-              - "proxy_send_timeout 60s"
-              - "proxy_read_timeout 60s"
-    
+              - 'proxy_http_version 1.1'
+              - 'proxy_set_header Host $host'
+              - 'proxy_set_header X-Real-IP $remote_addr'
+              - 'proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for'
+              - 'proxy_set_header X-Forwarded-Proto $scheme'
+              - 'proxy_connect_timeout 60s'
+              - 'proxy_send_timeout 60s'
+              - 'proxy_read_timeout 60s'
+
     nginx_upstreams:
       - name: api_backend
         strategy: least_conn
         keepalive: 32
         servers:
-          - "10.0.2.10:3000 weight=5"
-          - "10.0.2.11:3000 weight=5"
-          - "10.0.2.12:3000 weight=3"
-    
+          - '10.0.2.10:3000 weight=5'
+          - '10.0.2.11:3000 weight=5'
+          - '10.0.2.12:3000 weight=3'
+
     ssl_certificates:
       - domains:
-          - "example.com"
-          - "www.example.com"
-        webroot: "/var/www/example.com/public"
+          - 'example.com'
+          - 'www.example.com'
+        webroot: '/var/www/example.com/public'
       - domains:
-          - "api.example.com"
-        webroot: "/var/www/api.example.com/public"
-  
+          - 'api.example.com'
+        webroot: '/var/www/api.example.com/public'
+
   pre_tasks:
     - name: Create web directories
       file:
-        path: "{{ item }}"
+        path: '{{ item }}'
         state: directory
         owner: www-data
         group: www-data
@@ -256,18 +256,18 @@ ansible-playbook playbooks/webserver.yml --tags "nginx,ssl"
       loop:
         - /var/www/example.com/public
         - /var/www/api.example.com/public
-  
+
   roles:
     - common
     - security
     - nginx
     - ssl
-  
+
   post_tasks:
     - name: Verify Nginx configuration
       command: nginx -t
       changed_when: false
-    
+
     - name: Ensure Nginx is running
       service:
         name: nginx
@@ -283,52 +283,52 @@ ansible-playbook playbooks/webserver.yml --tags "nginx,ssl"
 - name: Configure Nginx Load Balancer
   hosts: load_balancers
   become: yes
-  
+
   vars:
-    nginx_worker_processes: "{{ ansible_processor_vcpus }}"
+    nginx_worker_processes: '{{ ansible_processor_vcpus }}'
     nginx_worker_connections: 8192
-    
+
     nginx_upstreams:
       - name: web_servers
         strategy: ip_hash
         keepalive: 64
         servers:
-          - "10.0.1.10:80 weight=5 max_fails=3 fail_timeout=30s"
-          - "10.0.1.11:80 weight=5 max_fails=3 fail_timeout=30s"
-          - "10.0.1.12:80 weight=5 max_fails=3 fail_timeout=30s"
-          - "10.0.1.13:80 backup"
+          - '10.0.1.10:80 weight=5 max_fails=3 fail_timeout=30s'
+          - '10.0.1.11:80 weight=5 max_fails=3 fail_timeout=30s'
+          - '10.0.1.12:80 weight=5 max_fails=3 fail_timeout=30s'
+          - '10.0.1.13:80 backup'
         health_check:
-          uri: "/health"
+          uri: '/health'
           interval: 5
           fails: 3
           passes: 2
-    
+
     nginx_vhosts:
-      - server_name: "example.com www.example.com"
+      - server_name: 'example.com www.example.com'
         ssl: true
-        ssl_certificate: "/etc/letsencrypt/live/example.com/fullchain.pem"
-        ssl_certificate_key: "/etc/letsencrypt/live/example.com/privkey.pem"
+        ssl_certificate: '/etc/letsencrypt/live/example.com/fullchain.pem'
+        ssl_certificate_key: '/etc/letsencrypt/live/example.com/privkey.pem'
         locations:
-          - path: "/"
-            proxy_pass: "http://web_servers"
+          - path: '/'
+            proxy_pass: 'http://web_servers'
             proxy_options:
-              - "proxy_http_version 1.1"
-              - "proxy_set_header Host $host"
-              - "proxy_set_header X-Real-IP $remote_addr"
-              - "proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for"
-              - "proxy_set_header X-Forwarded-Proto $scheme"
+              - 'proxy_http_version 1.1'
+              - 'proxy_set_header Host $host'
+              - 'proxy_set_header X-Real-IP $remote_addr'
+              - 'proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for'
+              - 'proxy_set_header X-Forwarded-Proto $scheme'
               - "proxy_set_header Connection ''"
-              - "proxy_buffering off"
-              - "proxy_request_buffering off"
-              - "proxy_connect_timeout 60s"
-              - "proxy_send_timeout 300s"
-              - "proxy_read_timeout 300s"
-          - path: "/health"
+              - 'proxy_buffering off'
+              - 'proxy_request_buffering off'
+              - 'proxy_connect_timeout 60s'
+              - 'proxy_send_timeout 300s'
+              - 'proxy_read_timeout 300s'
+          - path: '/health'
             options:
-              - "access_log off"
+              - 'access_log off'
               - "return 200 'OK'"
-              - "add_header Content-Type text/plain"
-  
+              - 'add_header Content-Type text/plain'
+
   roles:
     - common
     - security
@@ -344,17 +344,17 @@ ansible-playbook playbooks/webserver.yml --tags "nginx,ssl"
 - name: Renew SSL Certificates
   hosts: webservers
   become: yes
-  serial: 1  # One server at a time
-  
+  serial: 1 # One server at a time
+
   tasks:
     - name: Check certificate expiration
       community.crypto.x509_certificate_info:
-        path: "/etc/letsencrypt/live/{{ item.domains[0] }}/fullchain.pem"
+        path: '/etc/letsencrypt/live/{{ item.domains[0] }}/fullchain.pem'
       register: cert_info
-      loop: "{{ ssl_certificates }}"
+      loop: '{{ ssl_certificates }}'
       loop_control:
-        label: "{{ item.domains[0] }}"
-    
+        label: '{{ item.domains[0] }}'
+
     - name: Renew certificates expiring within 30 days
       command: >
         certbot renew
@@ -363,26 +363,26 @@ ansible-playbook playbooks/webserver.yml --tags "nginx,ssl"
         --non-interactive
         --quiet
       when: (item.not_after | to_datetime('%Y%m%d%H%M%SZ') - ansible_date_time.date | to_datetime('%Y-%m-%d')).days < 30
-      loop: "{{ cert_info.results }}"
+      loop: '{{ cert_info.results }}'
       loop_control:
-        label: "{{ item.item.domains[0] }}"
+        label: '{{ item.item.domains[0] }}'
       notify: Reload nginx
-    
+
     - name: Verify renewed certificates
       community.crypto.x509_certificate_info:
-        path: "/etc/letsencrypt/live/{{ item.domains[0] }}/fullchain.pem"
+        path: '/etc/letsencrypt/live/{{ item.domains[0] }}/fullchain.pem'
       register: new_cert_info
-      loop: "{{ ssl_certificates }}"
+      loop: '{{ ssl_certificates }}'
       loop_control:
-        label: "{{ item.domains[0] }}"
-    
+        label: '{{ item.domains[0] }}'
+
     - name: Display certificate expiration dates
       debug:
-        msg: "{{ item.item.domains[0] }}: expires {{ item.not_after }}"
-      loop: "{{ new_cert_info.results }}"
+        msg: '{{ item.item.domains[0] }}: expires {{ item.not_after }}'
+      loop: '{{ new_cert_info.results }}'
       loop_control:
-        label: "{{ item.item.domains[0] }}"
-  
+        label: '{{ item.item.domains[0] }}'
+
   handlers:
     - name: Reload nginx
       service:
@@ -400,35 +400,35 @@ ansible-playbook playbooks/webserver.yml --tags "nginx,ssl"
 - name: Rolling Update Web Servers
   hosts: webservers
   become: yes
-  serial: 1  # One server at a time
-  max_fail_percentage: 0  # Stop on any failure
-  
+  serial: 1 # One server at a time
+  max_fail_percentage: 0 # Stop on any failure
+
   pre_tasks:
     - name: Disable server in load balancer
       uri:
-        url: "http://{{ lb_api_endpoint }}/api/servers/{{ inventory_hostname }}/disable"
+        url: 'http://{{ lb_api_endpoint }}/api/servers/{{ inventory_hostname }}/disable'
         method: POST
         headers:
-          Authorization: "Bearer {{ lb_api_token }}"
+          Authorization: 'Bearer {{ lb_api_token }}'
       delegate_to: localhost
       when: lb_api_endpoint is defined
-    
+
     - name: Wait for connections to drain
       wait_for:
         timeout: 30
-    
+
     - name: Stop accepting new connections
       iptables:
         chain: INPUT
         protocol: tcp
         destination_port: 80
         jump: DROP
-        comment: "Block new connections during update"
+        comment: 'Block new connections during update'
       register: iptables_block
-  
+
   roles:
     - nginx
-  
+
   post_tasks:
     - name: Remove iptables block
       iptables:
@@ -438,25 +438,25 @@ ansible-playbook playbooks/webserver.yml --tags "nginx,ssl"
         jump: DROP
         state: absent
       when: iptables_block is changed
-    
+
     - name: Verify Nginx is healthy
       uri:
-        url: "http://127.0.0.1/health"
+        url: 'http://127.0.0.1/health'
         status_code: 200
       register: health_check
       retries: 5
       delay: 2
       until: health_check.status == 200
-    
+
     - name: Re-enable server in load balancer
       uri:
-        url: "http://{{ lb_api_endpoint }}/api/servers/{{ inventory_hostname }}/enable"
+        url: 'http://{{ lb_api_endpoint }}/api/servers/{{ inventory_hostname }}/enable'
         method: POST
         headers:
-          Authorization: "Bearer {{ lb_api_token }}"
+          Authorization: 'Bearer {{ lb_api_token }}'
       delegate_to: localhost
       when: lb_api_endpoint is defined
-    
+
     - name: Wait for server to receive traffic
       pause:
         seconds: 10
@@ -470,47 +470,47 @@ ansible-playbook playbooks/webserver.yml --tags "nginx,ssl"
 - name: Blue-Green Deployment
   hosts: localhost
   gather_facts: no
-  
+
   vars:
     current_env: "{{ lookup('file', '/tmp/current_env') | default('blue') }}"
     new_env: "{{ 'green' if current_env == 'blue' else 'blue' }}"
-  
+
   tasks:
     - name: Deploy to {{ new_env }} environment
       include_role:
         name: nginx
-      delegate_to: "{{ item }}"
+      delegate_to: '{{ item }}'
       loop: "{{ groups[new_env + '_webservers'] }}"
-    
+
     - name: Verify {{ new_env }} environment health
       uri:
-        url: "http://{{ item }}/health"
+        url: 'http://{{ item }}/health'
         status_code: 200
       loop: "{{ groups[new_env + '_webservers'] }}"
       register: health_checks
       failed_when: health_checks is failed
-    
+
     - name: Switch load balancer to {{ new_env }}
       uri:
-        url: "http://{{ lb_api_endpoint }}/api/backend"
+        url: 'http://{{ lb_api_endpoint }}/api/backend'
         method: PUT
         body_format: json
         body:
-          backend: "{{ new_env }}_servers"
+          backend: '{{ new_env }}_servers'
         headers:
-          Authorization: "Bearer {{ lb_api_token }}"
+          Authorization: 'Bearer {{ lb_api_token }}'
       when: health_checks is succeeded
-    
+
     - name: Record current environment
       copy:
-        content: "{{ new_env }}"
+        content: '{{ new_env }}'
         dest: /tmp/current_env
-    
+
     - name: Notify deployment success
       slack:
-        token: "{{ slack_token }}"
-        channel: "#deployments"
-        msg: "Successfully deployed to {{ new_env }} environment"
+        token: '{{ slack_token }}'
+        channel: '#deployments'
+        msg: 'Successfully deployed to {{ new_env }} environment'
       when: slack_token is defined
 ```
 
@@ -551,13 +551,13 @@ vault_ssl_private_key: |
 
 vault_htpasswd_users:
   - username: admin
-    password: "supersecretpassword"
+    password: 'supersecretpassword'
   - username: deploy
-    password: "anothersecretpassword"
+    password: 'anothersecretpassword'
 
 vault_api_keys:
-  datadog: "xxxxxxxxxxxxxxxxxxxx"
-  newrelic: "yyyyyyyyyyyyyyyyyyyy"
+  datadog: 'xxxxxxxxxxxxxxxxxxxx'
+  newrelic: 'yyyyyyyyyyyyyyyyyyyy'
 ```
 
 ### Using Vault in Playbooks
@@ -597,7 +597,7 @@ platforms:
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
     cgroupns_mode: host
-  
+
   - name: rocky9
     image: rockylinux:9
     command: /sbin/init
@@ -639,7 +639,7 @@ scenario:
 - name: Verify Nginx installation
   hosts: all
   become: yes
-  
+
   tasks:
     - name: Check Nginx is installed
       package:
@@ -648,7 +648,7 @@ scenario:
       check_mode: yes
       register: nginx_installed
       failed_when: nginx_installed.changed
-    
+
     - name: Check Nginx is running
       service:
         name: nginx
@@ -656,17 +656,17 @@ scenario:
       check_mode: yes
       register: nginx_running
       failed_when: nginx_running.changed
-    
+
     - name: Verify Nginx configuration syntax
       command: nginx -t
       changed_when: false
-    
+
     - name: Check Nginx responds on port 80
       uri:
         url: http://127.0.0.1/
         status_code: 200
       register: nginx_response
-    
+
     - name: Verify security headers
       uri:
         url: http://127.0.0.1/
@@ -701,16 +701,16 @@ molecule destroy
 
 ## Troubleshooting
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| SSH connection timeout | Firewall blocking SSH | Check security groups, ensure port 22 is open |
-| Permission denied (publickey) | Wrong SSH key | Verify `ansible_ssh_private_key_file` path |
-| Module not found | Missing collection | Run `ansible-galaxy install -r requirements.yml` |
-| Nginx config test fails | Syntax error in template | Check Jinja2 template syntax, run `nginx -t` locally |
-| SSL certificate not found | Let's Encrypt failed | Check domain DNS, verify webroot accessible |
-| Handler not triggered | Task unchanged | Use `changed_when: true` or `notify` on correct task |
-| Idempotence failure | Task always changes | Use `creates`, `removes`, or proper conditionals |
-| Variable undefined | Missing in inventory | Check `group_vars`, `host_vars`, and defaults |
+| Issue                         | Cause                    | Solution                                             |
+| ----------------------------- | ------------------------ | ---------------------------------------------------- |
+| SSH connection timeout        | Firewall blocking SSH    | Check security groups, ensure port 22 is open        |
+| Permission denied (publickey) | Wrong SSH key            | Verify `ansible_ssh_private_key_file` path           |
+| Module not found              | Missing collection       | Run `ansible-galaxy install -r requirements.yml`     |
+| Nginx config test fails       | Syntax error in template | Check Jinja2 template syntax, run `nginx -t` locally |
+| SSL certificate not found     | Let's Encrypt failed     | Check domain DNS, verify webroot accessible          |
+| Handler not triggered         | Task unchanged           | Use `changed_when: true` or `notify` on correct task |
+| Idempotence failure           | Task always changes      | Use `creates`, `removes`, or proper conditionals     |
+| Variable undefined            | Missing in inventory     | Check `group_vars`, `host_vars`, and defaults        |
 
 ### Debug Commands
 

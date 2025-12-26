@@ -21,7 +21,7 @@ site: site.yml {
 common: Common Role {
   shape: rectangle
   style.fill: "#C8E6C9"
-  
+
   tasks: |md
     - Update packages
     - Install prerequisites
@@ -34,7 +34,7 @@ common: Common Role {
 docker: Docker Role {
   shape: rectangle
   style.fill: "#BBDEFB"
-  
+
   tasks: |md
     - Add Docker repository
     - Install Docker CE
@@ -47,7 +47,7 @@ docker: Docker Role {
 compose: Compose Role {
   shape: rectangle
   style.fill: "#B3E5FC"
-  
+
   tasks: |md
     - Install Compose plugin
     - Install standalone (optional)
@@ -58,7 +58,7 @@ compose: Compose Role {
 security: Security Role {
   shape: rectangle
   style.fill: "#FFCDD2"
-  
+
   tasks: |md
     - Docker daemon security
     - User namespace remapping
@@ -71,7 +71,7 @@ swarm: Swarm Role (Optional) {
   shape: rectangle
   style.fill: "#E1BEE7"
   style.stroke-dash: 3
-  
+
   tasks: |md
     - Initialize Swarm
     - Join managers
@@ -95,8 +95,8 @@ docker -> swarm: optional
 # roles/docker/defaults/main.yml
 ---
 # Docker version (latest or specific)
-docker_version: "latest"  # or "5:24.0.7-1~ubuntu.22.04~jammy"
-docker_edition: "ce"      # ce or ee
+docker_version: 'latest' # or "5:24.0.7-1~ubuntu.22.04~jammy"
+docker_edition: 'ce' # ce or ee
 
 # Docker packages
 docker_packages:
@@ -108,22 +108,22 @@ docker_packages:
 
 # Docker daemon configuration
 docker_daemon_config:
-  storage-driver: "overlay2"
-  log-driver: "json-file"
+  storage-driver: 'overlay2'
+  log-driver: 'json-file'
   log-opts:
-    max-size: "100m"
-    max-file: "5"
+    max-size: '100m'
+    max-file: '5'
   live-restore: true
   userland-proxy: false
   no-new-privileges: true
-  
+
 # Storage configuration
-docker_storage_driver: "overlay2"
-docker_data_root: "/var/lib/docker"
+docker_storage_driver: 'overlay2'
+docker_data_root: '/var/lib/docker'
 
 # Network configuration
-docker_bip: "172.17.0.1/16"
-docker_fixed_cidr: ""
+docker_bip: '172.17.0.1/16'
+docker_fixed_cidr: ''
 docker_default_address_pools: []
 docker_dns: []
 docker_dns_search: []
@@ -141,7 +141,7 @@ docker_service_state: started
 
 # Cleanup options
 docker_cleanup_enabled: true
-docker_cleanup_schedule: "0 3 * * 0"  # Weekly at 3 AM Sunday
+docker_cleanup_schedule: '0 3 * * 0' # Weekly at 3 AM Sunday
 ```
 
 ### Daemon Configuration Template
@@ -213,7 +213,7 @@ docker_cleanup_schedule: "0 3 * * 0"  # Weekly at 3 AM Sunday
 ---
 - name: Install prerequisites
   package:
-    name: "{{ docker_prerequisites[ansible_os_family] }}"
+    name: '{{ docker_prerequisites[ansible_os_family] }}'
     state: present
 
 - name: Add Docker GPG key (Debian)
@@ -225,7 +225,7 @@ docker_cleanup_schedule: "0 3 * * 0"  # Weekly at 3 AM Sunday
 - name: Add Docker repository (Debian)
   when: ansible_os_family == 'Debian'
   apt_repository:
-    repo: "deb [arch={{ docker_arch }}] https://download.docker.com/linux/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} stable"
+    repo: 'deb [arch={{ docker_arch }}] https://download.docker.com/linux/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} stable'
     state: present
     filename: docker
 
@@ -240,13 +240,13 @@ docker_cleanup_schedule: "0 3 * * 0"  # Weekly at 3 AM Sunday
 
 - name: Install Docker packages
   package:
-    name: "{{ docker_packages }}"
+    name: '{{ docker_packages }}'
     state: present
   notify: Restart docker
 
 - name: Ensure Docker data directory exists
   file:
-    path: "{{ docker_data_root }}"
+    path: '{{ docker_data_root }}'
     state: directory
     mode: '0711'
   when: docker_data_root != "/var/lib/docker"
@@ -263,17 +263,17 @@ docker_cleanup_schedule: "0 3 * * 0"  # Weekly at 3 AM Sunday
 
 - name: Add users to docker group
   user:
-    name: "{{ item }}"
+    name: '{{ item }}'
     groups: docker
     append: yes
-  loop: "{{ docker_users }}"
+  loop: '{{ docker_users }}'
   when: docker_users | length > 0
 
 - name: Ensure Docker service is started
   service:
     name: docker
-    state: "{{ docker_service_state }}"
-    enabled: "{{ docker_service_enabled }}"
+    state: '{{ docker_service_state }}'
+    enabled: '{{ docker_service_enabled }}'
 ```
 
 ## Docker Compose Role
@@ -285,25 +285,25 @@ docker_cleanup_schedule: "0 3 * * 0"  # Weekly at 3 AM Sunday
 ---
 # Compose plugin (Docker CLI plugin)
 docker_compose_plugin: true
-docker_compose_plugin_version: "latest"
+docker_compose_plugin_version: 'latest'
 
 # Standalone compose (optional)
 docker_compose_standalone: false
-docker_compose_standalone_version: "2.24.5"
-docker_compose_standalone_path: "/usr/local/bin/docker-compose"
+docker_compose_standalone_version: '2.24.5'
+docker_compose_standalone_path: '/usr/local/bin/docker-compose'
 
 # Bash aliases
 docker_compose_aliases:
-  - alias: "dc"
-    command: "docker compose"
-  - alias: "dcu"
-    command: "docker compose up -d"
-  - alias: "dcd"
-    command: "docker compose down"
-  - alias: "dcl"
-    command: "docker compose logs -f"
-  - alias: "dcps"
-    command: "docker compose ps"
+  - alias: 'dc'
+    command: 'docker compose'
+  - alias: 'dcu'
+    command: 'docker compose up -d'
+  - alias: 'dcd'
+    command: 'docker compose down'
+  - alias: 'dcl'
+    command: 'docker compose logs -f'
+  - alias: 'dcps'
+    command: 'docker compose ps'
 ```
 
 ### Compose Installation Tasks
@@ -322,28 +322,28 @@ docker_compose_aliases:
   block:
     - name: Download Docker Compose
       get_url:
-        url: "https://github.com/docker/compose/releases/download/v{{ docker_compose_standalone_version }}/docker-compose-linux-{{ ansible_architecture }}"
-        dest: "{{ docker_compose_standalone_path }}"
+        url: 'https://github.com/docker/compose/releases/download/v{{ docker_compose_standalone_version }}/docker-compose-linux-{{ ansible_architecture }}'
+        dest: '{{ docker_compose_standalone_path }}'
         mode: '0755'
         owner: root
         group: root
 
     - name: Verify Docker Compose installation
-      command: "{{ docker_compose_standalone_path }} version"
+      command: '{{ docker_compose_standalone_path }} version'
       changed_when: false
 
 - name: Configure bash aliases
   blockinfile:
-    path: "/home/{{ item.0 }}/.bashrc"
+    path: '/home/{{ item.0 }}/.bashrc'
     block: |
       {% for alias in docker_compose_aliases %}
       alias {{ alias.alias }}='{{ alias.command }}'
       {% endfor %}
-    marker: "# {mark} ANSIBLE MANAGED - Docker aliases"
+    marker: '# {mark} ANSIBLE MANAGED - Docker aliases'
     create: yes
-  loop: "{{ docker_users | product([docker_compose_aliases]) | list }}"
+  loop: '{{ docker_users | product([docker_compose_aliases]) | list }}'
   loop_control:
-    label: "{{ item.0 }}"
+    label: '{{ item.0 }}'
 ```
 
 ## Security Role
@@ -357,14 +357,14 @@ docker_compose_aliases:
 docker_cis_benchmark: true
 
 # User namespace remapping
-docker_userns_remap: ""  # "default" or specific user
+docker_userns_remap: '' # "default" or specific user
 
 # Content trust
 docker_content_trust: true
-docker_content_trust_server: ""
+docker_content_trust_server: ''
 
 # Seccomp profile
-docker_seccomp_profile: "default"
+docker_seccomp_profile: 'default'
 
 # AppArmor
 docker_apparmor_enabled: true
@@ -372,18 +372,18 @@ docker_apparmor_enabled: true
 # Audit logging
 docker_audit_enabled: true
 docker_audit_rules:
-  - "-w /usr/bin/docker -k docker"
-  - "-w /var/lib/docker -k docker"
-  - "-w /etc/docker -k docker"
-  - "-w /lib/systemd/system/docker.service -k docker"
-  - "-w /lib/systemd/system/docker.socket -k docker"
-  - "-w /etc/docker/daemon.json -k docker"
+  - '-w /usr/bin/docker -k docker'
+  - '-w /var/lib/docker -k docker'
+  - '-w /etc/docker -k docker'
+  - '-w /lib/systemd/system/docker.service -k docker'
+  - '-w /lib/systemd/system/docker.socket -k docker'
+  - '-w /etc/docker/daemon.json -k docker'
 
 # TLS configuration for remote API
 docker_tls_enabled: false
-docker_tls_ca_cert: ""
-docker_tls_server_cert: ""
-docker_tls_server_key: ""
+docker_tls_ca_cert: ''
+docker_tls_server_cert: ''
+docker_tls_server_key: ''
 docker_tls_verify: true
 
 # Resource limits
@@ -403,16 +403,16 @@ docker_default_ulimits:
 ---
 - name: Configure sysctl for Docker security
   sysctl:
-    name: "{{ item.name }}"
-    value: "{{ item.value }}"
+    name: '{{ item.name }}'
+    value: '{{ item.value }}'
     state: present
     reload: yes
   loop:
-    - { name: "net.ipv4.ip_forward", value: "1" }
-    - { name: "net.bridge.bridge-nf-call-iptables", value: "1" }
-    - { name: "net.bridge.bridge-nf-call-ip6tables", value: "1" }
-    - { name: "kernel.pid_max", value: "4194304" }
-    - { name: "vm.max_map_count", value: "262144" }
+    - { name: 'net.ipv4.ip_forward', value: '1' }
+    - { name: 'net.bridge.bridge-nf-call-iptables', value: '1' }
+    - { name: 'net.bridge.bridge-nf-call-ip6tables', value: '1' }
+    - { name: 'kernel.pid_max', value: '4194304' }
+    - { name: 'vm.max_map_count', value: '262144' }
 
 - name: Enable Docker Content Trust
   when: docker_content_trust
@@ -450,13 +450,13 @@ docker_default_ulimits:
 
     - name: Copy TLS certificates
       copy:
-        content: "{{ item.content }}"
-        dest: "/etc/docker/{{ item.name }}"
+        content: '{{ item.content }}'
+        dest: '/etc/docker/{{ item.name }}'
         mode: '0600'
       loop:
-        - { name: "ca.pem", content: "{{ docker_tls_ca_cert }}" }
-        - { name: "server-cert.pem", content: "{{ docker_tls_server_cert }}" }
-        - { name: "server-key.pem", content: "{{ docker_tls_server_key }}" }
+        - { name: 'ca.pem', content: '{{ docker_tls_ca_cert }}' }
+        - { name: 'server-cert.pem', content: '{{ docker_tls_server_cert }}' }
+        - { name: 'server-key.pem', content: '{{ docker_tls_server_key }}' }
       no_log: true
       notify: Restart docker
 
@@ -478,13 +478,13 @@ docker_default_ulimits:
 - name: Check Docker data partition
   when: docker_data_root != "/var/lib/docker"
   stat:
-    path: "{{ docker_data_root }}"
+    path: '{{ docker_data_root }}'
   register: docker_partition
 
 # 1.2.1 - Ensure the container host is hardened
 - name: Ensure unnecessary packages are removed
   package:
-    name: "{{ item }}"
+    name: '{{ item }}'
     state: absent
   loop:
     - telnet
@@ -507,7 +507,7 @@ docker_default_ulimits:
   assert:
     that:
       - docker_storage_driver != "aufs"
-    msg: "AUFS storage driver is deprecated and insecure"
+    msg: 'AUFS storage driver is deprecated and insecure'
 
 # 2.8 - Enable user namespace support
 - name: Configure user namespace remapping
@@ -516,13 +516,13 @@ docker_default_ulimits:
     - name: Create subuid entry
       lineinfile:
         path: /etc/subuid
-        line: "dockremap:100000:65536"
+        line: 'dockremap:100000:65536'
         create: yes
 
     - name: Create subgid entry
       lineinfile:
         path: /etc/subgid
-        line: "dockremap:100000:65536"
+        line: 'dockremap:100000:65536'
         create: yes
 
 # 2.14 - Restrict network traffic between containers
@@ -530,7 +530,7 @@ docker_default_ulimits:
   assert:
     that:
       - docker_icc | default(false) == false
-    msg: "Inter-container communication should be disabled by default"
+    msg: 'Inter-container communication should be disabled by default'
 ```
 
 ## Swarm Role
@@ -542,8 +542,8 @@ docker_default_ulimits:
 ---
 docker_swarm_enabled: false
 docker_swarm_init: false
-docker_swarm_advertise_addr: "{{ ansible_default_ipv4.address }}"
-docker_swarm_listen_addr: "0.0.0.0:2377"
+docker_swarm_advertise_addr: '{{ ansible_default_ipv4.address }}'
+docker_swarm_listen_addr: '0.0.0.0:2377'
 
 # Swarm node labels
 docker_swarm_labels: {}
@@ -569,8 +569,8 @@ docker_swarm_configs: []
 - name: Initialize Docker Swarm
   community.docker.docker_swarm:
     state: present
-    advertise_addr: "{{ docker_swarm_advertise_addr }}"
-    listen_addr: "{{ docker_swarm_listen_addr }}"
+    advertise_addr: '{{ docker_swarm_advertise_addr }}'
+    listen_addr: '{{ docker_swarm_listen_addr }}'
   register: swarm_init
   run_once: true
   delegate_to: "{{ groups['swarm_managers'][0] }}"
@@ -584,9 +584,12 @@ docker_swarm_configs: []
 - name: Join managers to Swarm
   community.docker.docker_swarm:
     state: join
-    advertise_addr: "{{ docker_swarm_advertise_addr }}"
-    join_token: "{{ swarm_info.swarm_facts.JoinTokens.Manager }}"
-    remote_addrs: ["{{ hostvars[groups['swarm_managers'][0]]['ansible_default_ipv4']['address'] }}:2377"]
+    advertise_addr: '{{ docker_swarm_advertise_addr }}'
+    join_token: '{{ swarm_info.swarm_facts.JoinTokens.Manager }}'
+    remote_addrs:
+      [
+        "{{ hostvars[groups['swarm_managers'][0]]['ansible_default_ipv4']['address'] }}:2377",
+      ]
   when:
     - inventory_hostname in groups['swarm_managers']
     - inventory_hostname != groups['swarm_managers'][0]
@@ -594,25 +597,28 @@ docker_swarm_configs: []
 - name: Join workers to Swarm
   community.docker.docker_swarm:
     state: join
-    advertise_addr: "{{ docker_swarm_advertise_addr }}"
-    join_token: "{{ swarm_info.swarm_facts.JoinTokens.Worker }}"
-    remote_addrs: ["{{ hostvars[groups['swarm_managers'][0]]['ansible_default_ipv4']['address'] }}:2377"]
+    advertise_addr: '{{ docker_swarm_advertise_addr }}'
+    join_token: '{{ swarm_info.swarm_facts.JoinTokens.Worker }}'
+    remote_addrs:
+      [
+        "{{ hostvars[groups['swarm_managers'][0]]['ansible_default_ipv4']['address'] }}:2377",
+      ]
   when: inventory_hostname in groups['swarm_workers']
 
 - name: Apply node labels
   community.docker.docker_node:
-    hostname: "{{ inventory_hostname }}"
-    labels: "{{ docker_swarm_labels }}"
+    hostname: '{{ inventory_hostname }}'
+    labels: '{{ docker_swarm_labels }}'
   when: docker_swarm_labels | length > 0
   delegate_to: "{{ groups['swarm_managers'][0] }}"
 
 - name: Create overlay networks
   community.docker.docker_network:
-    name: "{{ item.name }}"
+    name: '{{ item.name }}'
     driver: "{{ item.driver | default('overlay') }}"
-    attachable: "{{ item.attachable | default(true) }}"
+    attachable: '{{ item.attachable | default(true) }}'
     scope: swarm
-  loop: "{{ docker_swarm_networks }}"
+  loop: '{{ docker_swarm_networks }}'
   run_once: true
   delegate_to: "{{ groups['swarm_managers'][0] }}"
 ```
@@ -697,7 +703,7 @@ compose:
 
 ```yaml
 # Enable Docker metrics endpoint
-docker_metrics_addr: "0.0.0.0:9323"
+docker_metrics_addr: '0.0.0.0:9323'
 docker_experimental: true
 
 # Prometheus scrape config
@@ -724,7 +730,7 @@ prometheus_scrape_configs:
       - /var/lib/docker/:/var/lib/docker:ro
       - /dev/disk/:/dev/disk:ro
     ports:
-      - "8080:8080"
+      - '8080:8080'
     privileged: true
     devices:
       - /dev/kmsg
@@ -745,7 +751,7 @@ prometheus_scrape_configs:
 
     - name: Add NVIDIA repository
       apt_repository:
-        repo: "deb https://nvidia.github.io/libnvidia-container/stable/ubuntu22.04/$(ARCH) /"
+        repo: 'deb https://nvidia.github.io/libnvidia-container/stable/ubuntu22.04/$(ARCH) /'
         state: present
         filename: nvidia-container-toolkit
 

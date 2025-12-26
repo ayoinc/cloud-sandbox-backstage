@@ -54,7 +54,7 @@ import (
 
 func main() {
     client := pagerduty.NewClient(os.Getenv("PD_API_TOKEN"))
-    
+
     // Create incident
     ctx := context.Background()
     opts := pagerduty.CreateIncidentOptions{
@@ -179,7 +179,7 @@ for oncall in oncalls:
     user = oncall.get('user', {})
     schedule = oncall.get('schedule', {})
     escalation = oncall.get('escalation_policy', {})
-    
+
     print(f"User: {user.get('summary', 'Unknown')}")
     print(f"  Schedule: {schedule.get('summary', 'Direct assignment')}")
     print(f"  Policy: {escalation.get('summary', 'Unknown')}")
@@ -278,23 +278,23 @@ async function triggerAlert() {
       custom_details: {
         disk_usage: '95%',
         mount_point: '/data',
-        available_gb: 5
-      }
+        available_gb: 5,
+      },
     },
     links: [
       {
         href: 'https://monitoring.example.com/srv01',
-        text: 'View in Monitoring'
-      }
+        text: 'View in Monitoring',
+      },
     ],
     images: [
       {
         src: 'https://monitoring.example.com/graphs/disk.png',
-        alt: 'Disk usage graph'
-      }
-    ]
+        alt: 'Disk usage graph',
+      },
+    ],
   });
-  
+
   console.log('Alert triggered:', response.data);
   return response.data.dedup_key;
 }
@@ -303,7 +303,7 @@ async function triggerAlert() {
 async function acknowledgeAlert(dedupKey) {
   await pdEvents.sendEvent({
     event_action: 'acknowledge',
-    dedup_key: dedupKey
+    dedup_key: dedupKey,
   });
   console.log('Alert acknowledged');
 }
@@ -312,7 +312,7 @@ async function acknowledgeAlert(dedupKey) {
 async function resolveAlert(dedupKey) {
   await pdEvents.sendEvent({
     event_action: 'resolve',
-    dedup_key: dedupKey
+    dedup_key: dedupKey,
   });
   console.log('Alert resolved');
 }
@@ -337,11 +337,11 @@ async function listIncidents(status = ['triggered', 'acknowledged']) {
   const response = await pd.get('/incidents', {
     data: {
       'statuses[]': status,
-      'sort_by': 'created_at:desc',
-      'limit': 25
-    }
+      sort_by: 'created_at:desc',
+      limit: 25,
+    },
   });
-  
+
   return response.data.incidents;
 }
 
@@ -354,17 +354,17 @@ async function createIncident(title, serviceId, urgency = 'high') {
         title,
         service: {
           id: serviceId,
-          type: 'service_reference'
+          type: 'service_reference',
         },
         urgency,
         body: {
           type: 'incident_body',
-          details: 'Created via API'
-        }
-      }
-    }
+          details: 'Created via API',
+        },
+      },
+    },
   });
-  
+
   return response.data.incident;
 }
 
@@ -374,11 +374,11 @@ async function updateIncidentStatus(incidentId, status) {
     data: {
       incident: {
         type: 'incident_reference',
-        status
-      }
-    }
+        status,
+      },
+    },
   });
-  
+
   return response.data.incident;
 }
 
@@ -386,10 +386,10 @@ async function updateIncidentStatus(incidentId, status) {
 async function addIncidentNote(incidentId, content) {
   const response = await pd.post(`/incidents/${incidentId}/notes`, {
     data: {
-      note: { content }
-    }
+      note: { content },
+    },
   });
-  
+
   return response.data.note;
 }
 
@@ -418,12 +418,9 @@ function verifySignature(payload, signature) {
     .createHmac('sha256', WEBHOOK_SECRET)
     .update(payload)
     .digest('hex');
-  
+
   const provided = signature.replace('v1=', '');
-  return crypto.timingSafeEqual(
-    Buffer.from(expected),
-    Buffer.from(provided)
-  );
+  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(provided));
 }
 
 // Raw body parser for signature verification
@@ -431,16 +428,16 @@ app.use('/webhooks/pagerduty', express.raw({ type: 'application/json' }));
 
 app.post('/webhooks/pagerduty', (req, res) => {
   const signature = req.headers['x-pagerduty-signature'];
-  
+
   if (!verifySignature(req.body, signature)) {
     return res.status(401).send('Invalid signature');
   }
-  
+
   const event = JSON.parse(req.body);
   const { event_type, data } = event.event;
-  
+
   console.log(`Received event: ${event_type}`);
-  
+
   switch (event_type) {
     case 'incident.triggered':
       handleIncidentTriggered(data);
@@ -454,7 +451,7 @@ app.post('/webhooks/pagerduty', (req, res) => {
     default:
       console.log(`Unhandled event type: ${event_type}`);
   }
-  
+
   res.status(200).send('OK');
 });
 
@@ -491,19 +488,19 @@ route:
   group_wait: 30s
   group_interval: 5m
   repeat_interval: 4h
-  
+
   routes:
     # Critical alerts -> PagerDuty high urgency
     - match:
         severity: critical
       receiver: 'pagerduty-critical'
       continue: true
-    
+
     # Warning alerts -> PagerDuty low urgency
     - match:
         severity: warning
       receiver: 'pagerduty-warning'
-    
+
     # Info alerts -> Don't page
     - match:
         severity: info
@@ -511,7 +508,7 @@ route:
 
 receivers:
   - name: 'null'
-  
+
   - name: 'pagerduty-critical'
     pagerduty_configs:
       - routing_key: 'YOUR_CRITICAL_ROUTING_KEY'
@@ -527,7 +524,7 @@ receivers:
             text: 'View in Prometheus'
           - href: 'https://grafana.example.com/d/alerts'
             text: 'View in Grafana'
-        
+
   - name: 'pagerduty-warning'
     pagerduty_configs:
       - routing_key: 'YOUR_WARNING_ROUTING_KEY'
@@ -549,27 +546,27 @@ groups:
           severity: critical
           team: infrastructure
         annotations:
-          summary: "High CPU usage on {{ $labels.instance }}"
-          description: "CPU usage is {{ $value | printf \"%.1f\" }}%"
-          runbook_url: "https://wiki.example.com/runbooks/high-cpu"
-      
+          summary: 'High CPU usage on {{ $labels.instance }}'
+          description: 'CPU usage is {{ $value | printf "%.1f" }}%'
+          runbook_url: 'https://wiki.example.com/runbooks/high-cpu'
+
       - alert: DiskSpaceLow
         expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100 < 10
         for: 10m
         labels:
           severity: critical
         annotations:
-          summary: "Disk space low on {{ $labels.instance }}"
-          description: "Only {{ $value | printf \"%.1f\" }}% disk space remaining"
-      
+          summary: 'Disk space low on {{ $labels.instance }}'
+          description: 'Only {{ $value | printf "%.1f" }}% disk space remaining'
+
       - alert: ServiceDown
         expr: up == 0
         for: 2m
         labels:
           severity: critical
         annotations:
-          summary: "Service {{ $labels.job }} is down"
-          description: "{{ $labels.instance }} has been down for more than 2 minutes"
+          summary: 'Service {{ $labels.job }} is down'
+          description: '{{ $labels.instance }} has been down for more than 2 minutes'
 ```
 
 ## Kubernetes Integration
@@ -584,7 +581,7 @@ metadata:
   name: pagerduty-config
   namespace: monitoring
 data:
-  PAGERDUTY_ROUTING_KEY: "YOUR_ROUTING_KEY"
+  PAGERDUTY_ROUTING_KEY: 'YOUR_ROUTING_KEY'
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -613,8 +610,8 @@ spec:
                   key: routing-key
           resources:
             limits:
-              memory: "128Mi"
-              cpu: "100m"
+              memory: '128Mi'
+              cpu: '100m'
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -627,9 +624,9 @@ kind: ClusterRole
 metadata:
   name: pagerduty-bridge
 rules:
-  - apiGroups: [""]
-    resources: ["events", "pods", "nodes"]
-    verbs: ["get", "list", "watch"]
+  - apiGroups: ['']
+    resources: ['events', 'pods', 'nodes']
+    verbs: ['get', 'list', 'watch']
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -654,7 +651,7 @@ alertmanager:
     global:
       resolve_timeout: 5m
       pagerduty_url: https://events.pagerduty.com/v2/enqueue
-    
+
     route:
       receiver: 'pagerduty'
       group_by: ['alertname', 'namespace', 'pod']
@@ -665,13 +662,13 @@ alertmanager:
         - match:
             severity: critical
           receiver: 'pagerduty'
-    
+
     receivers:
       - name: 'pagerduty'
         pagerduty_configs:
           - routing_key_file: /etc/alertmanager/secrets/pagerduty-routing-key
             send_resolved: true
-  
+
   extraSecretMounts:
     - name: pagerduty-secrets
       mountPath: /etc/alertmanager/secrets
@@ -688,10 +685,10 @@ import requests
 import os
 from datetime import datetime
 
-def send_change_event(routing_key: str, summary: str, source: str, 
+def send_change_event(routing_key: str, summary: str, source: str,
                        custom_details: dict = None, links: list = None):
     """Send a change event to PagerDuty for deployment correlation."""
-    
+
     payload = {
         "routing_key": routing_key,
         "payload": {
@@ -702,13 +699,13 @@ def send_change_event(routing_key: str, summary: str, source: str,
         },
         "links": links or []
     }
-    
+
     response = requests.post(
         "https://events.pagerduty.com/v2/change/enqueue",
         json=payload,
         headers={"Content-Type": "application/json"}
     )
-    
+
     response.raise_for_status()
     return response.json()
 
@@ -755,12 +752,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Deploy Application
         run: |
           # Your deployment steps here
           kubectl apply -f k8s/
-      
+
       - name: Send Change Event to PagerDuty
         if: success()
         env:
@@ -794,16 +791,16 @@ jobs:
 
 ## Troubleshooting
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| Alerts not triggering | Invalid routing key | Verify integration key in service settings |
-| Duplicate incidents | Missing dedup_key | Include unique dedup_key in all events |
-| Webhook failures | Signature mismatch | Ensure using raw body for signature verification |
-| No notifications | User contact not verified | Check user notification rules and verify phone/email |
-| High noise | Missing event rules | Configure alert grouping and suppression rules |
-| Escalations not working | Schedule timezone issues | Verify schedule timezone matches user timezone |
-| API rate limits | Too many requests | Implement exponential backoff, use pagination |
-| Missing alerts | Suppression rules active | Check global and service event rules |
+| Issue                   | Cause                     | Solution                                             |
+| ----------------------- | ------------------------- | ---------------------------------------------------- |
+| Alerts not triggering   | Invalid routing key       | Verify integration key in service settings           |
+| Duplicate incidents     | Missing dedup_key         | Include unique dedup_key in all events               |
+| Webhook failures        | Signature mismatch        | Ensure using raw body for signature verification     |
+| No notifications        | User contact not verified | Check user notification rules and verify phone/email |
+| High noise              | Missing event rules       | Configure alert grouping and suppression rules       |
+| Escalations not working | Schedule timezone issues  | Verify schedule timezone matches user timezone       |
+| API rate limits         | Too many requests         | Implement exponential backoff, use pagination        |
+| Missing alerts          | Suppression rules active  | Check global and service event rules                 |
 
 ### Debug API Calls
 

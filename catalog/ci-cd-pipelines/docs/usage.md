@@ -4,14 +4,14 @@
 
 ### Prerequisites
 
-| Requirement | Platform | Description |
-|-------------|----------|-------------|
-| GitHub Actions | GitHub | Enabled by default |
-| GitLab CI | GitLab | Runners configured |
-| Jenkins | Self-hosted | Jenkins controller + agents |
-| Docker | All | Container runtime |
-| kubectl | All | Kubernetes CLI |
-| Helm | All | Package manager |
+| Requirement    | Platform    | Description                 |
+| -------------- | ----------- | --------------------------- |
+| GitHub Actions | GitHub      | Enabled by default          |
+| GitLab CI      | GitLab      | Runners configured          |
+| Jenkins        | Self-hosted | Jenkins controller + agents |
+| Docker         | All         | Container runtime           |
+| kubectl        | All         | Kubernetes CLI              |
+| Helm           | All         | Package manager             |
 
 ### Quick Integration
 
@@ -135,9 +135,9 @@ jobs:
     environment: staging
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: azure/setup-helm@v3
-      
+
       - name: Deploy to staging
         run: |
           echo "${{ secrets.KUBECONFIG }}" | base64 -d > kubeconfig
@@ -154,9 +154,9 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: azure/setup-helm@v3
-      
+
       - name: Deploy to production
         run: |
           echo "${{ secrets.KUBECONFIG_PROD }}" | base64 -d > kubeconfig
@@ -233,12 +233,12 @@ jobs:
     runs-on: ubuntu-latest
     needs: [test, security]
     if: github.ref == 'refs/heads/main'
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: docker/setup-buildx-action@v3
-      
+
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -348,7 +348,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
@@ -371,10 +371,10 @@ jobs:
     if: github.event_name == 'pull_request'
     permissions:
       pull-requests: write
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
@@ -416,10 +416,10 @@ jobs:
     needs: validate
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment: production
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
@@ -468,7 +468,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
@@ -476,7 +476,7 @@ jobs:
 
       - run: npm ci
       - run: npm test
-      
+
       - name: Upload coverage
         if: matrix.coverage
         uses: codecov/codecov-action@v4
@@ -507,7 +507,7 @@ jobs:
       - name: Configure credentials
         run: |
           echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
-        
+
       - name: Deploy
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -524,7 +524,7 @@ jobs:
     permissions:
       id-token: write
       contents: read
-    
+
     steps:
       - name: Import secrets from Vault
         uses: hashicorp/vault-action@v2
@@ -535,7 +535,7 @@ jobs:
           secrets: |
             secret/data/myapp/prod database_url | DATABASE_URL ;
             secret/data/myapp/prod api_key | API_KEY
-      
+
       - name: Deploy with secrets
         run: ./deploy.sh
         env:
@@ -545,16 +545,16 @@ jobs:
 
 ## Troubleshooting
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| `Permission denied` | Missing permissions | Add required permissions to job |
-| `Secret not found` | Secret not set | Set secret in repository/org settings |
-| `Workflow not triggered` | Wrong event/paths | Check `on` trigger configuration |
-| `Cache not restored` | Key mismatch | Verify cache key matches |
-| `Docker build failed` | BuildKit issue | Ensure Docker Buildx is set up |
-| `Deployment timeout` | Slow rollout | Increase timeout or check pods |
-| `Rate limited` | Too many API calls | Add delays or use matrix throttling |
-| `Runner offline` | Self-hosted runner down | Check runner status and logs |
+| Issue                    | Cause                   | Solution                              |
+| ------------------------ | ----------------------- | ------------------------------------- |
+| `Permission denied`      | Missing permissions     | Add required permissions to job       |
+| `Secret not found`       | Secret not set          | Set secret in repository/org settings |
+| `Workflow not triggered` | Wrong event/paths       | Check `on` trigger configuration      |
+| `Cache not restored`     | Key mismatch            | Verify cache key matches              |
+| `Docker build failed`    | BuildKit issue          | Ensure Docker Buildx is set up        |
+| `Deployment timeout`     | Slow rollout            | Increase timeout or check pods        |
+| `Rate limited`           | Too many API calls      | Add delays or use matrix throttling   |
+| `Runner offline`         | Self-hosted runner down | Check runner status and logs          |
 
 ### Debug Workflows
 
@@ -587,12 +587,14 @@ gh run rerun 12345 --job build
 ## Best Practices
 
 ### Workflow Organization
+
 - [ ] Use reusable workflows for common patterns
 - [ ] Keep workflows focused and modular
 - [ ] Use meaningful job and step names
 - [ ] Add concurrency controls to prevent duplicates
 
 ### Security
+
 - [ ] Never hardcode secrets in workflows
 - [ ] Use least-privilege permissions
 - [ ] Pin action versions with SHA
@@ -600,12 +602,14 @@ gh run rerun 12345 --job build
 - [ ] Use environment protection rules
 
 ### Performance
+
 - [ ] Use caching for dependencies
 - [ ] Run jobs in parallel when possible
 - [ ] Use matrix builds efficiently
 - [ ] Skip unnecessary steps with conditions
 
 ### Reliability
+
 - [ ] Add retry logic for flaky steps
 - [ ] Set appropriate timeouts
 - [ ] Use `continue-on-error` wisely
@@ -623,25 +627,25 @@ concurrency:
 
 ### GitHub CLI
 
-| Command | Description |
-|---------|-------------|
-| `gh workflow list` | List workflows |
-| `gh workflow run <workflow>` | Trigger workflow |
-| `gh run list` | List workflow runs |
-| `gh run view <run-id>` | View run details |
-| `gh run watch <run-id>` | Watch run live |
-| `gh run rerun <run-id>` | Re-run workflow |
-| `gh secret list` | List secrets |
-| `gh secret set <name>` | Set secret |
+| Command                      | Description        |
+| ---------------------------- | ------------------ |
+| `gh workflow list`           | List workflows     |
+| `gh workflow run <workflow>` | Trigger workflow   |
+| `gh run list`                | List workflow runs |
+| `gh run view <run-id>`       | View run details   |
+| `gh run watch <run-id>`      | Watch run live     |
+| `gh run rerun <run-id>`      | Re-run workflow    |
+| `gh secret list`             | List secrets       |
+| `gh secret set <name>`       | Set secret         |
 
 ### GitLab CLI
 
-| Command | Description |
-|---------|-------------|
-| `glab ci list` | List pipelines |
-| `glab ci view <id>` | View pipeline |
-| `glab ci retry <id>` | Retry pipeline |
-| `glab ci status` | Current pipeline status |
+| Command              | Description             |
+| -------------------- | ----------------------- |
+| `glab ci list`       | List pipelines          |
+| `glab ci view <id>`  | View pipeline           |
+| `glab ci retry <id>` | Retry pipeline          |
+| `glab ci status`     | Current pipeline status |
 
 ## Related Resources
 

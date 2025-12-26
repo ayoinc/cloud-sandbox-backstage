@@ -67,16 +67,16 @@ with DAG(
 
 ## Features
 
-| Feature | Description |
-|---------|-------------|
-| **DAG Authoring** | Python-based workflow definitions with full programming capabilities |
-| **Dynamic Pipelines** | Generate tasks dynamically based on data or configuration |
-| **Extensive Operators** | 700+ pre-built operators for AWS, GCP, Azure, databases, etc. |
-| **Task Dependencies** | Complex dependency patterns with branching and joining |
-| **Scheduling** | Cron-based scheduling with timezone support |
-| **Backfilling** | Catch up on historical runs automatically |
-| **XComs** | Share data between tasks via cross-communication |
-| **Sensors** | Wait for external conditions before proceeding |
+| Feature                 | Description                                                          |
+| ----------------------- | -------------------------------------------------------------------- |
+| **DAG Authoring**       | Python-based workflow definitions with full programming capabilities |
+| **Dynamic Pipelines**   | Generate tasks dynamically based on data or configuration            |
+| **Extensive Operators** | 700+ pre-built operators for AWS, GCP, Azure, databases, etc.        |
+| **Task Dependencies**   | Complex dependency patterns with branching and joining               |
+| **Scheduling**          | Cron-based scheduling with timezone support                          |
+| **Backfilling**         | Catch up on historical runs automatically                            |
+| **XComs**               | Share data between tasks via cross-communication                     |
+| **Sensors**             | Wait for external conditions before proceeding                       |
 
 ## Architecture
 
@@ -180,13 +180,13 @@ airflow.workers -> result_backend: store results
 
 ## Executor Types
 
-| Executor | Description | Use Case |
-|----------|-------------|----------|
-| **SequentialExecutor** | Single process, tasks run sequentially | Development only |
-| **LocalExecutor** | Multi-process on single machine | Small deployments |
-| **CeleryExecutor** | Distributed workers via Celery | Production, horizontal scaling |
-| **KubernetesExecutor** | Each task runs in its own Pod | Cloud-native, isolation |
-| **CeleryKubernetesExecutor** | Hybrid Celery + Kubernetes | Mixed workloads |
+| Executor                     | Description                            | Use Case                       |
+| ---------------------------- | -------------------------------------- | ------------------------------ |
+| **SequentialExecutor**       | Single process, tasks run sequentially | Development only               |
+| **LocalExecutor**            | Multi-process on single machine        | Small deployments              |
+| **CeleryExecutor**           | Distributed workers via Celery         | Production, horizontal scaling |
+| **KubernetesExecutor**       | Each task runs in its own Pod          | Cloud-native, isolation        |
+| **CeleryKubernetesExecutor** | Hybrid Celery + Kubernetes             | Mixed workloads                |
 
 ## Version Information
 

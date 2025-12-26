@@ -11,6 +11,7 @@ Azure Virtual Network (VNet) is the fundamental building block for your private 
 Hub-spoke network topology is a way to isolate workloads while sharing common services such as Identity and Security. The hub is a virtual network in Azure that acts as a central point of connectivity to your on-premises network. The spokes are virtual networks that peer with the hub and can be used to isolate workloads.
 
 **Benefits:**
+
 - Cost savings by centralizing services that can be shared by multiple workloads
 - Overcome subscription limits by peering virtual networks from different subscriptions to the central hub
 - Separation of concerns between central IT (SecOps, InfraOps) and individual workload teams (workload DevOps)
@@ -53,17 +54,20 @@ spoke_vnets = {
 The hub-spoke architecture includes the following components:
 
 **Hub Virtual Network:**
+
 - Azure Bastion for remote administrative access
 - Azure Firewall for centralized security
 - VPN Gateway for hybrid connectivity
 - Shared services (Active Directory, DNS, NTP)
 
 **Spoke Virtual Networks:**
+
 - Workload isolation
 - Application tiers (web, app, data)
 - Development, test, and production environments
 
 **Connectivity:**
+
 - VNet peering (transit routing)
 - VPN/ExpressRoute for on-premises connectivity
 - User-defined routes (UDRs)
@@ -96,6 +100,7 @@ resource "azurerm_virtual_network_gateway" "vpn" {
 VNet peering enables you to connect virtual networks seamlessly. Network traffic between peered virtual networks is private through the Microsoft backbone network.
 
 **Key Features:**
+
 - Peering works across Azure regions (Global VNet Peering)
 - No downtime required to create peering
 - No VPN gateways or public internet involved
@@ -104,11 +109,13 @@ VNet peering enables you to connect virtual networks seamlessly. Network traffic
 ### VPN/ExpressRoute
 
 **VPN Gateway:**
+
 - Site-to-Site connectivity for on-premises to Azure
 - Point-to-Site for remote workers
 - VNet-to-VNet connections
 
 **ExpressRoute:**
+
 - Dedicated private connectivity to Azure
 - Higher reliability and faster speeds
 - Lower latencies than internet-based connections
@@ -125,7 +132,7 @@ module "simple_vnet" {
   resource_group_name = azurerm_resource_group.example.name
   location            = "eastus"
   address_space       = ["10.0.0.0/16"]
-  
+
   subnets = {
     web = {
       address_prefixes = ["10.0.1.0/24"]
@@ -158,7 +165,7 @@ module "simple_vnet" {
       address_prefixes = ["10.0.3.0/24"]
     }
   }
-  
+
   tags = {
     Environment = "development"
     CostCenter  = "engineering"
@@ -177,7 +184,7 @@ module "hub_vnet" {
   resource_group_name = azurerm_resource_group.hub.name
   location            = "eastus"
   address_space       = ["10.0.0.0/16"]
-  
+
   subnets = {
     AzureFirewallSubnet = {
       address_prefixes = ["10.0.0.0/26"]
@@ -192,7 +199,7 @@ module "hub_vnet" {
       address_prefixes = ["10.0.3.0/24"]
     }
   }
-  
+
   enable_ddos_protection_plan = true
   ddos_protection_plan_id     = azurerm_network_ddos_protection_plan.hub.id
 }
@@ -205,7 +212,7 @@ module "spoke_prod_vnet" {
   resource_group_name = azurerm_resource_group.prod.name
   location            = "eastus"
   address_space       = ["10.1.0.0/16"]
-  
+
   subnets = {
     web = {
       address_prefixes = ["10.1.1.0/24"]
@@ -217,13 +224,13 @@ module "spoke_prod_vnet" {
       address_prefixes = ["10.1.3.0/24"]
     }
   }
-  
+
   create_peering = true
   peer_with_hub  = {
     hub_vnet_id = module.hub_vnet.vnet_id
     allow_gateway_transit = true
   }
-  
+
   route_tables = {
     web = {
       routes = [{
@@ -262,7 +269,7 @@ module "aks_vnet" {
   resource_group_name = azurerm_resource_group.aks.name
   location            = "eastus2"
   address_space       = ["10.100.0.0/16"]
-  
+
   # Separate subnets for AKS system and user node pools
   subnets = {
     aks_system = {
@@ -314,7 +321,7 @@ module "aks_vnet" {
       enforce_private_link_endpoint_network_policies = true
     }
   }
-  
+
   # Enable service endpoints for AKS dependencies
   service_endpoints = ["Microsoft.Storage", "Microsoft.Sql"]
 }
@@ -355,27 +362,27 @@ resource "azurerm_kubernetes_cluster" "aks" {
 
 ### Required Parameters
 
-| Name | Description | Type | Example |
-|------|-------------|------|---------|
-| `name` | Name of the Virtual Network | `string` | `"production-vnet"` |
-| `resource_group_name` | Name of the resource group | `string` | `"rg-network-eastus"` |
-| `location` | Azure region | `string` | `"eastus"` |
-| `address_space` | VNet address space(s) | `list(string)` | `["10.0.0.0/16", "192.168.0.0/16"]` |
+| Name                  | Description                 | Type           | Example                             |
+| --------------------- | --------------------------- | -------------- | ----------------------------------- |
+| `name`                | Name of the Virtual Network | `string`       | `"production-vnet"`                 |
+| `resource_group_name` | Name of the resource group  | `string`       | `"rg-network-eastus"`               |
+| `location`            | Azure region                | `string`       | `"eastus"`                          |
+| `address_space`       | VNet address space(s)       | `list(string)` | `["10.0.0.0/16", "192.168.0.0/16"]` |
 
 ### Optional Parameters
 
-| Name | Description | Type | Default | Example |
-|------|-------------|------|---------|---------|
-| `subnets` | Map of subnet configurations | `map(object)` | `{}` | See Subnet Configuration |
-| `dns_servers` | Custom DNS server addresses | `list(string)` | `[]` | `["10.0.0.4", "10.0.0.5"]` |
-| `tags` | Resource tags | `map(string)` | `{}` | `{ Environment = "prod" }` |
-| `bgp_community` | BGP community attribute | `string` | `null` | `"12076:10010"` |
-| `ddos_protection_plan_id` | DDoS protection plan ID | `string` | `null` | `/subscriptions/.../ddosProtectionPlans/...` |
-| `enable_ddos_protection_plan` | Enable DDoS protection | `bool` | `false` | `true` |
-| `create_peering` | Create VNet peering | `bool` | `false` | `true` |
-| `peer_with_hub` | Hub peering configuration | `object` | `null` | See Peering Configuration |
-| `service_endpoints` | Default service endpoints for all subnets | `list(string)` | `[]` | `["Microsoft.Storage"]` |
-| `route_tables` | Route tables configuration | `map(object)` | `{}` | See Route Table Configuration |
+| Name                          | Description                               | Type           | Default | Example                                      |
+| ----------------------------- | ----------------------------------------- | -------------- | ------- | -------------------------------------------- |
+| `subnets`                     | Map of subnet configurations              | `map(object)`  | `{}`    | See Subnet Configuration                     |
+| `dns_servers`                 | Custom DNS server addresses               | `list(string)` | `[]`    | `["10.0.0.4", "10.0.0.5"]`                   |
+| `tags`                        | Resource tags                             | `map(string)`  | `{}`    | `{ Environment = "prod" }`                   |
+| `bgp_community`               | BGP community attribute                   | `string`       | `null`  | `"12076:10010"`                              |
+| `ddos_protection_plan_id`     | DDoS protection plan ID                   | `string`       | `null`  | `/subscriptions/.../ddosProtectionPlans/...` |
+| `enable_ddos_protection_plan` | Enable DDoS protection                    | `bool`         | `false` | `true`                                       |
+| `create_peering`              | Create VNet peering                       | `bool`         | `false` | `true`                                       |
+| `peer_with_hub`               | Hub peering configuration                 | `object`       | `null`  | See Peering Configuration                    |
+| `service_endpoints`           | Default service endpoints for all subnets | `list(string)` | `[]`    | `["Microsoft.Storage"]`                      |
+| `route_tables`                | Route tables configuration                | `map(object)`  | `{}`    | See Route Table Configuration                |
 
 ### Subnet Configuration
 
@@ -425,20 +432,21 @@ peer_with_hub = {
 
 ## Outputs
 
-| Name | Description | Usage Example |
-|------|-------------|---------------|
-| `vnet_id` | Resource ID of the Virtual Network | `module.vnet.vnet_id` |
-| `vnet_name` | Name of the Virtual Network | `module.vnet.vnet_name` |
-| `address_space` | VNet address space | `module.vnet.address_space` |
-| `subnets` | Map of subnet configurations | `module.vnet.subnets` |
-| `subnet_ids` | Map of subnet names to resource IDs | `module.vnet.subnet_ids["web"]` |
-| `subnet_names` | Map of subnet names | `module.vnet.subnet_names` |
-| `nsg_ids` | Map of NSG resource IDs | `module.vnet.nsg_ids["web"]` |
-| `peering_id` | VNet peering ID (if enabled) | `module.vnet.peering_id` |
+| Name            | Description                         | Usage Example                   |
+| --------------- | ----------------------------------- | ------------------------------- |
+| `vnet_id`       | Resource ID of the Virtual Network  | `module.vnet.vnet_id`           |
+| `vnet_name`     | Name of the Virtual Network         | `module.vnet.vnet_name`         |
+| `address_space` | VNet address space                  | `module.vnet.address_space`     |
+| `subnets`       | Map of subnet configurations        | `module.vnet.subnets`           |
+| `subnet_ids`    | Map of subnet names to resource IDs | `module.vnet.subnet_ids["web"]` |
+| `subnet_names`  | Map of subnet names                 | `module.vnet.subnet_names`      |
+| `nsg_ids`       | Map of NSG resource IDs             | `module.vnet.nsg_ids["web"]`    |
+| `peering_id`    | VNet peering ID (if enabled)        | `module.vnet.peering_id`        |
 
 ### Working with Outputs
 
 **Private Endpoints:**
+
 ```hcl
 resource "azurerm_private_endpoint" "storage" {
   name                = "storage-pe"
@@ -449,6 +457,7 @@ resource "azurerm_private_endpoint" "storage" {
 ```
 
 **AKS Integration:**
+
 ```hcl
 resource "azurerm_kubernetes_cluster" "aks" {
   network_profile {
@@ -458,6 +467,7 @@ resource "azurerm_kubernetes_cluster" "aks" {
 ```
 
 **Service Endpoints:**
+
 ```hcl
 resource "azurerm_storage_account" "sa" {
   network_rules {
@@ -473,6 +483,7 @@ resource "azurerm_storage_account" "sa" {
 ### Address Space Planning
 
 **Best Practices:**
+
 - Use private IP ranges: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
 - Plan for growth (larger CIDR blocks)
 - Consider service-specific requirements
@@ -481,19 +492,20 @@ resource "azurerm_storage_account" "sa" {
 
 **Subnet Sizing Examples:**
 
-| Service | Recommended Size | IPs Available | Notes |
-|---------|-----------------|---------------|-------|
-| GatewaySubnet | /27 or larger | 32+ IPs | Required for VPN/ExpressRoute |
-| AzureBastionSubnet | /26 or larger | 64+ IPs | Minimum /26 subnet |
-| AzureFirewallSubnet | /26 | 64 IP | Azure Firewall requires /26 |
-| Web Tier | /24 | 256 IPs | Public-facing applications |
-| App Tier | /24 | 256 IPs | Application servers |
-| Data Tier | /24 | 256 IPs | Databases, cache |
-| AKS Nodes | /23 | 512 IPs | Node pools |
-| AKS Pods | /22 | 1024 IPs | Pod networking (cluster size) |
-| Private Endpoints | /24 | 256 IPs | Private Link services |
+| Service             | Recommended Size | IPs Available | Notes                         |
+| ------------------- | ---------------- | ------------- | ----------------------------- |
+| GatewaySubnet       | /27 or larger    | 32+ IPs       | Required for VPN/ExpressRoute |
+| AzureBastionSubnet  | /26 or larger    | 64+ IPs       | Minimum /26 subnet            |
+| AzureFirewallSubnet | /26              | 64 IP         | Azure Firewall requires /26   |
+| Web Tier            | /24              | 256 IPs       | Public-facing applications    |
+| App Tier            | /24              | 256 IPs       | Application servers           |
+| Data Tier           | /24              | 256 IPs       | Databases, cache              |
+| AKS Nodes           | /23              | 512 IPs       | Node pools                    |
+| AKS Pods            | /22              | 1024 IPs      | Pod networking (cluster size) |
+| Private Endpoints   | /24              | 256 IPs       | Private Link services         |
 
 **Address Space Calculator:**
+
 ```bash
 # Calculate available IPs in CIDR
 python3 -c "import ipaddress; print(list(ipaddress.ip_network('10.0.1.0/24').hosts())[0:5])"
@@ -526,6 +538,7 @@ app-service-integration
 ### Which Services to Enable
 
 **Recommended Azure Services:**
+
 - **Microsoft.Storage**: Blob, File, Queue, Table storage
 - **Microsoft.Sql**: SQL Database, SQL Managed Instance
 - **Microsoft.AzureActiveDirectory**: Azure AD authentication
@@ -534,6 +547,7 @@ app-service-integration
 - **Microsoft.Web**: App Service, Functions
 
 **Security Benefits:**
+
 - Traffic stays on Azure backbone (no public internet exposure)
 - Improved latency and performance
 - Enhanced security with NSG rules and service tags
@@ -584,6 +598,7 @@ az network vnet subnet show \
 Subnet delegation enables you to designate a specific subnet for Azure PaaS services that need to inject into your virtual network.
 
 **Common Scenarios:**
+
 - Azure Kubernetes Service (AKS) node pools
 - Azure App Service with VNet integration
 - Azure Logic Apps
@@ -606,7 +621,7 @@ subnets = {
       }
     }
   }
-  
+
   functions = {
     address_prefixes = ["10.0.11.0/24"]
     delegation = {
@@ -617,7 +632,7 @@ subnets = {
       }
     }
   }
-  
+
   aci = {
     address_prefixes = ["10.0.12.0/24"]
     delegation = {
@@ -635,6 +650,7 @@ subnets = {
 ```
 
 **Important Notes:**
+
 - Each delegated subnet can only host the specific PaaS service
 - NSG rules still apply to delegated subnets
 - Route tables are required for App Service VNet integration
@@ -644,6 +660,7 @@ subnets = {
 ### Network Security Groups (NSGs)
 
 **Default Security Rules:**
+
 - Deny all inbound traffic from internet
 - Allow VNet-to-VNet communication
 - Allow outbound internet access
@@ -752,7 +769,7 @@ module "protected_vnet" {
   address_space                 = ["10.0.0.0/16"]
   enable_ddos_protection_plan   = true
   ddos_protection_plan_id       = azurerm_network_ddos_protection_plan.specialized.id
-  
+
   # Cost: ~$2,900/month per protected VNet
 }
 ```
@@ -847,7 +864,7 @@ module "hub_vnet" {
   resource_group_name = azurerm_resource_group.network.name
   location            = var.location
   address_space       = var.hub_address_space
-  
+
   subnets = {
     AzureFirewallSubnet = {
       address_prefixes = ["10.0.0.0/26"]
@@ -868,7 +885,7 @@ module "hub_vnet" {
       enforce_private_link_endpoint_network_policies = true
     }
   }
-  
+
   enable_ddos_protection_plan = true
   ddos_protection_plan_id     = azurerm_network_ddos_protection_plan.ddos.id
   dns_servers                 = ["10.0.3.4", "10.0.3.5"]
@@ -880,21 +897,21 @@ module "spoke_vnets" {
   source = "git::https://github.com/company/terraform-modules.git//azure/vnet?ref=v1.0.0"
 
   for_each = var.spoke_environments
-  
+
   name                = "${each.key}-vnet"
   resource_group_name = azurerm_resource_group.network.name
   location            = var.location
   address_space       = each.value.address_space
-  
+
   subnets = each.value.subnets
-  
+
   create_peering = true
   peer_with_hub = {
     hub_vnet_id         = module.hub_vnet.vnet_id
     allow_gateway_transit  = true
     allow_forwarded_traffic = true
   }
-  
+
   route_tables = each.value.route_tables
   tags         = merge(var.tags, { Environment = each.key })
 }
@@ -909,14 +926,14 @@ resource "azurerm_virtual_network_gateway" "vpn" {
   active_active       = true
   enable_bgp          = true
   sku                 = "VpnGw2AZ"
-  
+
   ip_configuration {
     name                          = "gateway-ip-config"
     public_ip_address_id          = azurerm_public_ip.vpn.id
     private_ip_address_allocation = "Dynamic"
     subnet_id                     = module.hub_vnet.subnet_ids["GatewaySubnet"]
   }
-  
+
   depends_on = [module.hub_vnet]
 }
 ```
@@ -931,7 +948,7 @@ module "aks_advanced_vnet" {
   resource_group_name = azurerm_resource_group.aks.name
   location            = "westus2"
   address_space       = ["10.200.0.0/16"]
-  
+
   # Subnets optimized for AKS with separate node pools
   subnets = {
     # System node pool (critical pods)
@@ -958,7 +975,7 @@ module "aks_advanced_vnet" {
         }
       ]
     }
-    
+
     # User node pool (workloads)
     user_node_pool = {
       address_prefixes = ["10.200.2.0/23"]     # 512 IPs
@@ -970,7 +987,7 @@ module "aks_advanced_vnet" {
         }
       }
     }
-    
+
     # Dedicated pod subnet (Azure CNI)
     pods_subnet = {
       address_prefixes = ["10.200.4.0/22"]     # 1024 IPs for pods
@@ -982,13 +999,13 @@ module "aks_advanced_vnet" {
         }
       }
     }
-    
+
     # Internal load balancer subnet
     internal_lb = {
       address_prefixes = ["10.200.8.0/24"]     # 256 IPs
       nsg_rules        = []
     }
-    
+
     # Ingress controller (Application Gateway)
     ingress_agw = {
       address_prefixes = ["10.200.9.0/24"]
@@ -1006,29 +1023,29 @@ module "aks_advanced_vnet" {
         }
       ]
     }
-    
+
     # Private endpoints for AKS dependencies
     private_endpoints = {
       address_prefixes                               = ["10.200.16.0/24"]
       enforce_private_link_endpoint_network_policies = true
       service_endpoints = ["Microsoft.Storage"]
     }
-    
+
     # Azure Bastion for management
     AzureBastionSubnet = {
       address_prefixes = ["10.200.17.0/27"]      # /27 minimum for Bastion
     }
   }
-  
+
   # Enable service endpoints for storage, container registry
   service_endpoints = [
     "Microsoft.Storage",
     "Microsoft.ContainerRegistry"
   ]
-  
+
   # Custom DNS for private AKS cluster
   dns_servers = ["168.63.129.16"]  # Azure DNS
-  
+
   tags = {
     Environment     = "production"
     Service         = "aks"
@@ -1048,7 +1065,7 @@ module "app_service_vnet" {
   resource_group_name = azurerm_resource_group.appservice.name
   location            = "eastus"
   address_space       = ["10.250.0.0/16"]
-  
+
   subnets = {
     # Delegated subnet for App Service
     app_service_delegated = {
@@ -1063,7 +1080,7 @@ module "app_service_vnet" {
       # Route table required for regional VNet integration
       route_table_required = true
     }
-    
+
     # Private endpoints for App Service dependencies
     app_dependendies = {
       address_prefixes  = ["10.250.1.0/24"]
@@ -1073,14 +1090,14 @@ module "app_service_vnet" {
         "Microsoft.KeyVault"
       ]
     }
-    
+
     # ASE (App Service Environment) subnet
     ase_subnet = {
       address_prefixes = ["10.250.16.0/24"]
       nsg_rules        = []
     }
   }
-  
+
   # Route table for VNet integration
   route_tables = {
     app_service_route_table = {
@@ -1104,7 +1121,7 @@ resource "azurerm_app_service_plan" "app_service" {
   resource_group_name = azurerm_resource_group.appservice.name
   kind                = "Linux"
   reserved            = true
-  
+
   sku {
     tier = "Standard"
     size = "S1"
@@ -1117,12 +1134,12 @@ resource "azurerm_app_service" "app" {
   location            = azurerm_resource_group.appservice.location
   resource_group_name = azurerm_resource_group.appservice.name
   app_service_plan_id = azurerm_app_service_plan.app_service.id
-  
+
   site_config {
     linux_fx_version = "NODE|14-lts"
     always_on        = true
   }
-  
+
   app_settings = {
     "WEBSITE_DNS_SERVER"     = "168.63.129.16"
     "WEBSITE_VNET_ROUTE_ALL" = "1"
@@ -1147,11 +1164,11 @@ resource "azurerm_linux_virtual_machine" "web" {
   resource_group_name = azurerm_resource_group.web.name
   location            = var.location
   size                = "Standard_B2s"
-  
+
   network_interface_ids = [
     azurerm_network_interface.web.id
   ]
-  
+
   admin_ssh_key {
     public_key = file("~/.ssh/id_rsa.pub")
   }
@@ -1162,7 +1179,7 @@ resource "azurerm_network_interface" "web" {
   name                = "web-nic"
   location            = var.location
   resource_group_name = azurerm_resource_group.web.name
-  
+
   ip_configuration {
     name                          = "internal"
     subnet_id                     = module.vnet.subnet_ids["web"]
@@ -1188,14 +1205,14 @@ resource "azurerm_kubernetes_cluster" "aks_private" {
   location                  = var.location
   dns_prefix                = "privatek8s"
   private_cluster_enabled   = true
-  
+
   linux_profile {
     admin_username = "adminuser"
     ssh_key {
       key_data = file("~/.ssh/id_rsa.pub")
     }
   }
-  
+
   network_profile {
     network_plugin     = "azure"
     network_policy     = "calico"
@@ -1204,7 +1221,7 @@ resource "azurerm_kubernetes_cluster" "aks_private" {
     dns_service_ip     = "172.100.0.10"
     docker_bridge_cidr = "172.101.0.1/16"
   }
-  
+
   depends_on = [module.aks_vnet]
 }
 
@@ -1256,14 +1273,14 @@ resource "azurerm_private_endpoint" "storage" {
   location            = var.location
   resource_group_name = var.resource_group
   subnet_id           = module.vnet.subnet_ids["private_endpoints"]
-  
+
   private_service_connection {
     name                           = "storage-connection"
     private_connection_resource_id = azurerm_storage_account.storage.id
     subresource_names              = ["blob"]
     is_manual_connection           = false
   }
-  
+
   depends_on = [azurerm_private_dns_zone_virtual_network_link.links]
 }
 ```
@@ -1273,6 +1290,7 @@ resource "azurerm_private_endpoint" "storage" {
 ### VNet Costs
 
 **Monthly Pricing (as of 2024):**
+
 - Virtual Network: **FREE** (up to 50 VNets per subscription)
 - Subnets: **FREE** (no direct charges for subnets)
 - Public IP Addresses: $3-4 per IP/month (Standard SKU)
@@ -1280,17 +1298,20 @@ resource "azurerm_private_endpoint" "storage" {
 ### Peering Costs
 
 **VNet Peering Pricing:**
+
 - Intra-region: $0.01 per GB (inbound + outbound)
 - Inter-region (Global Peering): $0.035 per GB (inbound + outbound)
 - Cross-tenant peering supported with additional charges
 
 **Cost Optimization:**
+
 - Consolidate workloads to reduce peering requirements
 - Use VPN Gateway for cross-region connectivity (if data transfer is high)
 
 ### VPN Gateway
 
 **Gateway Pricing:**
+
 - Basic: $26/month + $0.087 per connection hour
 - VpnGw1: $138/month + $0.361 per connection hour
 - VpnGw2: $512/month + $0.705 per connection hour
@@ -1298,17 +1319,20 @@ resource "azurerm_private_endpoint" "storage" {
 - Active-Active: Multiply costs by number of zones
 
 **Data Transfer:**
+
 - First 5 GB/month: FREE
 - Additional data: $0.087 per GB
 
 ### Azure Firewall
 
 **Firewall Pricing:**
+
 - Standard: $0.736/hour (~$550/month)
 - Premium: $2.67/hour (~$1,980/month)
 - Data processed: $0.008 per GB
 
 **Cost Optimization:**
+
 - Use Firewall Manager policies
 - Implement threat intelligence
 - Use forced tunneling for internet traffic
@@ -1317,14 +1341,17 @@ resource "azurerm_private_endpoint" "storage" {
 ### DDoS Protection
 
 **Standard DDoS Protection:**
+
 - **$2,944/month** per protected VNet
 - No additional charges for attack mitigation
 
 **Free Basic DDoS:**
+
 - Automatically enabled on all public IPs
 - Limited to 3 public IPs per VNet
 
 **Cost-Benefit Analysis:**
+
 - Recommended for mission-critical apps
 - Evaluate risk vs. cost for smaller environments
 - Consider Azure Front Door + WAF as alternative
@@ -1332,6 +1359,7 @@ resource "azurerm_private_endpoint" "storage" {
 ### Private Link
 
 **Private Endpoint Pricing:**
+
 - Private Endpoint: $0.10/hour (~$73/month)
 - Private Link Service: $0.036/hour (~$26/month)
 - Data processed: $0.01 per GB
@@ -1363,11 +1391,13 @@ Total: ~$4,828/month for enterprise hub
 #### 1. VNet Peering Failures
 
 **Symptoms:**
+
 - Peering status shows "Disconnected"
 - Unable to connect between peered VNets
 - Latency or packet loss
 
 **Solutions:**
+
 ```bash
 # Check peering status
 az network vnet peering list \
@@ -1399,11 +1429,13 @@ terraform apply -target=module.vnet.azurerm_virtual_network_peering.hub_to_spoke
 #### 2. IP Address Exhaustion
 
 **Symptoms:**
+
 - Unable to create new resources
 - "Subnet has insufficient IP addresses" errors
 - AKS cluster creation fails
 
 **Solutions:**
+
 ```bash
 # Check subnet utilization
 az network vnet subnet show \
@@ -1430,6 +1462,7 @@ az network vnet subnet update \
 ```
 
 **Prevention:**
+
 - Plan for growth (use larger subnets initially)
 - Monitor IP utilization with Azure Monitor
 - Implement subnet sizing policies
@@ -1438,11 +1471,13 @@ az network vnet subnet update \
 #### 3. Service Endpoint Configuration Issues
 
 **Symptoms:**
+
 - Cannot access Azure services (Storage, SQL)
 - "403 Forbidden" errors from Azure services
 - NSG rules not working as expected
 
 **Solutions:**
+
 ```bash
 # Verify service endpoint status
 az network vnet subnet show \
@@ -1471,6 +1506,7 @@ az storage account network-rule add \
 ```
 
 **Verify with Azure CLI:**
+
 ```bash
 # Test connectivity from VM in subnet
 az vm run-command invoke \
@@ -1483,11 +1519,13 @@ az vm run-command invoke \
 #### 4. Subnet Delegation Issues
 
 **Symptoms:**
+
 - Cannot deploy App Service to delegated subnet
 - AKS cluster creation fails
 - "Subnet is not delegated" errors
 
 **Solutions:**
+
 ```bash
 # Check current delegation
 az network vnet subnet show \
@@ -1510,11 +1548,13 @@ terraform apply -target=module.vnet.azurerm_subnet.subnets
 #### 5. DNS Resolution Issues
 
 **Symptoms:**
+
 - Private endpoint DNS resolution fails
 - Hybrid DNS not working
 - Custom DNS server not responding
 
 **Solutions:**
+
 ```bash
 # Check private DNS zone configuration
 az network private-dns zone show \

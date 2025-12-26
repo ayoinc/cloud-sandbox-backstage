@@ -19,7 +19,7 @@ reconciliation: AWX Operator Reconciliation Loop {
   manage: Create/Update/Delete Kubernetes Resources {
     shape: hexagon
   }
-  
+
   watch -> compare -> manage
   manage -> watch: Continuous Loop {
     style.stroke-dash: 3
@@ -117,7 +117,7 @@ operator:
     repository: quay.io/ansible/awx-operator
     tag: 2.10.0
     pullPolicy: IfNotPresent
-  
+
   # Operator resources
   resources:
     limits:
@@ -126,10 +126,10 @@ operator:
     requests:
       cpu: 100m
       memory: 256Mi
-  
+
   # Watch all namespaces or specific namespace
-  watchNamespace: ""  # Empty = watch all
-  
+  watchNamespace: '' # Empty = watch all
+
   # Operator replicas (1 is sufficient)
   replicas: 1
 
@@ -137,21 +137,21 @@ operator:
 AWX:
   # Enable AWX instance creation
   enabled: true
-  
+
   # AWX instance name
   name: awx
-  
+
   # AWX specification (maps to AWX CRD spec)
   spec:
     # Admin user configuration
     admin_user: admin
     admin_email: admin@example.com
-    
+
     # AWX image settings
     image: quay.io/ansible/awx
     image_version: 24.0.0
     image_pull_policy: IfNotPresent
-    
+
     # Web pod configuration
     web_replicas: 2
     web_resource_requirements:
@@ -161,7 +161,7 @@ AWX:
       limits:
         cpu: 2000m
         memory: 4Gi
-    
+
     # Task pod configuration
     task_replicas: 2
     task_resource_requirements:
@@ -171,10 +171,10 @@ AWX:
       limits:
         cpu: 4000m
         memory: 8Gi
-    
+
     # Redis configuration
     redis_image: docker.io/redis
-    redis_image_version: "7"
+    redis_image_version: '7'
     redis_resource_requirements:
       requests:
         cpu: 100m
@@ -182,33 +182,33 @@ AWX:
       limits:
         cpu: 500m
         memory: 1Gi
-    
+
     # PostgreSQL configuration
-    postgres_configuration_secret: ""  # Use external DB
-    postgres_storage_class: ""
+    postgres_configuration_secret: '' # Use external DB
+    postgres_storage_class: ''
     postgres_storage_requirements:
       requests:
         storage: 20Gi
-    
+
     # Projects persistence
     projects_persistence: true
-    projects_storage_class: ""
+    projects_storage_class: ''
     projects_storage_size: 10Gi
     projects_storage_access_mode: ReadWriteMany
-    
+
     # Execution environments
     ee_images:
       - name: AWX EE (latest)
         image: quay.io/ansible/awx-ee:latest
       - name: Minimal EE
         image: quay.io/ansible/ansible-runner:latest
-    
+
     # Extra configuration
     extra_settings:
       - setting: ALLOW_OAUTH2_FOR_EXTERNAL_USERS
-        value: "True"
+        value: 'True'
       - setting: AUTH_LDAP_SERVER_URI
-        value: "ldap://ldap.example.com"
+        value: 'ldap://ldap.example.com'
 ```
 
 ### Ingress Configuration
@@ -219,9 +219,9 @@ ingress:
   enabled: true
   className: nginx
   annotations:
-    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-body-size: '100m'
+    nginx.ingress.kubernetes.io/proxy-read-timeout: '600'
+    nginx.ingress.kubernetes.io/proxy-send-timeout: '600'
     cert-manager.io/cluster-issuer: letsencrypt-prod
   hosts:
     - host: awx.example.com
@@ -249,7 +249,7 @@ route:
 postgres:
   enabled: true
   image: postgres
-  version: "15"
+  version: '15'
   storage:
     class: standard
     size: 20Gi
@@ -279,16 +279,16 @@ externalDatabase:
 # LDAP Configuration
 ldap:
   enabled: true
-  serverUri: "ldap://ldap.example.com:389"
-  bindDn: "cn=awx,ou=services,dc=example,dc=com"
-  bindPassword: ""
+  serverUri: 'ldap://ldap.example.com:389'
+  bindDn: 'cn=awx,ou=services,dc=example,dc=com'
+  bindPassword: ''
   existingSecret: awx-ldap-credentials
   userSearch:
-    - "ou=users,dc=example,dc=com"
-    - "(uid=%(user)s)"
+    - 'ou=users,dc=example,dc=com'
+    - '(uid=%(user)s)'
   groupSearch:
-    - "ou=groups,dc=example,dc=com"
-    - "(objectClass=groupOfNames)"
+    - 'ou=groups,dc=example,dc=com'
+    - '(objectClass=groupOfNames)'
   userAttrMap:
     first_name: givenName
     last_name: sn
@@ -297,24 +297,24 @@ ldap:
 # SAML Configuration
 saml:
   enabled: false
-  entityId: "https://awx.example.com/sso/metadata/saml/"
-  idpMetadataUrl: "https://idp.example.com/metadata"
+  entityId: 'https://awx.example.com/sso/metadata/saml/'
+  idpMetadataUrl: 'https://idp.example.com/metadata'
   orgInfo:
-    name: "Example Corp"
-    displayName: "Example Corporation"
-    url: "https://example.com"
+    name: 'Example Corp'
+    displayName: 'Example Corporation'
+    url: 'https://example.com'
 
 # OAuth2/OIDC Configuration
 oauth2:
   enabled: false
   providers:
     github:
-      key: ""
-      secret: ""
+      key: ''
+      secret: ''
       existingSecret: awx-github-oauth
     google:
-      key: ""
-      secret: ""
+      key: ''
+      secret: ''
       existingSecret: awx-google-oauth
 ```
 
@@ -554,16 +554,16 @@ AWX:
   spec:
     # Multiple web replicas behind load balancer
     web_replicas: 3
-    
+
     # Multiple task workers for parallel execution
     task_replicas: 3
-    
+
     # Pod disruption budget
     web_pdb:
       minAvailable: 2
     task_pdb:
       minAvailable: 2
-    
+
     # Anti-affinity for spreading across nodes
     web_affinity:
       podAntiAffinity:
@@ -574,7 +574,7 @@ AWX:
                 matchLabels:
                   app.kubernetes.io/component: awx-web
               topologyKey: kubernetes.io/hostname
-    
+
     task_affinity:
       podAntiAffinity:
         preferredDuringSchedulingIgnoredDuringExecution:
@@ -598,16 +598,16 @@ metadata:
 spec:
   instances: 3
   primaryUpdateStrategy: unsupervised
-  
+
   storage:
     size: 50Gi
     storageClass: fast-ssd
-  
+
   postgresql:
     parameters:
-      max_connections: "200"
-      shared_buffers: "256MB"
-  
+      max_connections: '200'
+      shared_buffers: '256MB'
+
   backup:
     barmanObjectStore:
       destinationPath: s3://awx-backups/postgres
@@ -618,7 +618,7 @@ spec:
         secretAccessKey:
           name: s3-creds
           key: SECRET_ACCESS_KEY
-    retentionPolicy: "30d"
+    retentionPolicy: '30d'
 ```
 
 ## Related Documentation

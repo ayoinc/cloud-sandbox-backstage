@@ -33,18 +33,18 @@ curl -X POST "https://insights-collector.newrelic.com/v1/accounts/<ACCOUNT_ID>/e
 
 ## Features
 
-| Feature | Description | Use Case |
-|---------|-------------|----------|
-| **APM** | Application performance monitoring | Code-level visibility |
-| **Infrastructure** | Host, container, cloud monitoring | Capacity planning |
-| **Logs** | Log management and analytics | Centralized logging |
-| **Browser** | Real user monitoring (RUM) | Frontend performance |
-| **Mobile** | iOS/Android monitoring | Mobile app performance |
-| **Synthetics** | Proactive monitoring | Uptime, API testing |
-| **Serverless** | Lambda, Functions monitoring | Serverless debugging |
-| **NRQL** | Query language for telemetry | Custom analytics |
-| **Alerts** | AI-powered alerting | Incident detection |
-| **Dashboards** | Custom visualizations | Business metrics |
+| Feature            | Description                        | Use Case               |
+| ------------------ | ---------------------------------- | ---------------------- |
+| **APM**            | Application performance monitoring | Code-level visibility  |
+| **Infrastructure** | Host, container, cloud monitoring  | Capacity planning      |
+| **Logs**           | Log management and analytics       | Centralized logging    |
+| **Browser**        | Real user monitoring (RUM)         | Frontend performance   |
+| **Mobile**         | iOS/Android monitoring             | Mobile app performance |
+| **Synthetics**     | Proactive monitoring               | Uptime, API testing    |
+| **Serverless**     | Lambda, Functions monitoring       | Serverless debugging   |
+| **NRQL**           | Query language for telemetry       | Custom analytics       |
+| **Alerts**         | AI-powered alerting                | Incident detection     |
+| **Dashboards**     | Custom visualizations              | Business metrics       |
 
 ## Architecture
 
@@ -59,10 +59,10 @@ title: New Relic Architecture {
 
 infrastructure: Your Infrastructure {
   style.fill: "#E3F2FD"
-  
+
   agents: Agents {
     style.fill: "#BBDEFB"
-    
+
     apm: APM Agent {
       shape: hexagon
       style.fill: "#2196F3"
@@ -88,16 +88,16 @@ infrastructure: Your Infrastructure {
 
 platform: New Relic Platform {
   style.fill: "#E8F5E9"
-  
+
   nrdb: Telemetry Data Platform\n(NRDB) {
     shape: cylinder
     style.fill: "#4CAF50"
     style.font-color: white
   }
-  
+
   ui_row1: UI Components {
     style.fill: "#C8E6C9"
-    
+
     apm_ui: APM UI {
       shape: rectangle
       style.fill: "#81C784"
@@ -115,10 +115,10 @@ platform: New Relic Platform {
       style.fill: "#81C784"
     }
   }
-  
+
   ui_row2: Advanced Features {
     style.fill: "#C8E6C9"
-    
+
     dashboards: Dashboard Builder {
       shape: rectangle
       style.fill: "#81C784"
@@ -136,7 +136,7 @@ platform: New Relic Platform {
       style.fill: "#81C784"
     }
   }
-  
+
   nrdb -> ui_row1
   nrdb -> ui_row2
 }
@@ -148,33 +148,33 @@ infrastructure.agents -> platform.nrdb: HTTPS {
 
 ## Data Types
 
-| Type | Description | Retention |
-|------|-------------|-----------|
-| Metrics | Time-series numerical data | 13 months |
-| Events | Discrete occurrences | 8 days (extendable) |
-| Logs | Log messages | 30 days (configurable) |
-| Traces | Distributed traces | 8 days |
-| Spans | Individual trace segments | 8 days |
+| Type    | Description                | Retention              |
+| ------- | -------------------------- | ---------------------- |
+| Metrics | Time-series numerical data | 13 months              |
+| Events  | Discrete occurrences       | 8 days (extendable)    |
+| Logs    | Log messages               | 30 days (configurable) |
+| Traces  | Distributed traces         | 8 days                 |
+| Spans   | Individual trace segments  | 8 days                 |
 
 ## Version Information
 
-| Component | Version | Notes |
-|-----------|---------|-------|
-| Infrastructure Agent | 1.49+ | Current |
-| APM Agents | Language-specific | Various |
-| Browser Agent | 1.x | Loader script |
-| OpenTelemetry | 1.x | Native support |
+| Component            | Version           | Notes          |
+| -------------------- | ----------------- | -------------- |
+| Infrastructure Agent | 1.49+             | Current        |
+| APM Agents           | Language-specific | Various        |
+| Browser Agent        | 1.x               | Loader script  |
+| OpenTelemetry        | 1.x               | Native support |
 
 ## API Endpoints
 
-| Region | Endpoint |
-|--------|----------|
-| US | api.newrelic.com |
-| EU | api.eu.newrelic.com |
-| Metrics | metric-api.newrelic.com |
-| Events | insights-collector.newrelic.com |
-| Logs | log-api.newrelic.com |
-| Traces | trace-api.newrelic.com |
+| Region  | Endpoint                        |
+| ------- | ------------------------------- |
+| US      | api.newrelic.com                |
+| EU      | api.eu.newrelic.com             |
+| Metrics | metric-api.newrelic.com         |
+| Events  | insights-collector.newrelic.com |
+| Logs    | log-api.newrelic.com            |
+| Traces  | trace-api.newrelic.com          |
 
 ## Related Documentation
 

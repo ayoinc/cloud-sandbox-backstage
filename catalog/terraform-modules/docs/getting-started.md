@@ -10,7 +10,7 @@ graph TD
     A --> C[Compute Layer]
     A --> D[Security Layer]
     A --> E[Storage Layer]
-    
+
     B --> B1[VPC/Virtual Network]
     B --> B2[Subnets]
     B --> B3[Route Tables
@@ -21,7 +21,7 @@ graph TD
     D --> D2[IAM/RBAC Roles]
     E --> E1[S3/Blob/Cloud Storage]
     E --> E2[RDS/SQL/Cloud SQL]
-    
+
     B1 --> F[Complete Application Stack]
     B2 --> F
     C1 --> F
@@ -42,13 +42,13 @@ You can start using our Terraform modules in two ways:
 
 Our examples show complete, production-ready stacks with multiple modules composed together:
 
-| Example | Purpose | Modules Used |
-|---------|---------|--------------|
-| `simple-vpc` | Basic network setup | VPC, subnets, route tables |
-| `web-app` | Web application stack | VPC, EC2, ALB, security groups |
-| `microservices` | Containerized services | EKS/AKS, VPC, IAM |
-| `data-pipeline` | Data processing workflow | S3, Lambda, RDS |
-| `multi-region` | Global deployment | VPC, Route53, CloudFront |
+| Example         | Purpose                  | Modules Used                   |
+| --------------- | ------------------------ | ------------------------------ |
+| `simple-vpc`    | Basic network setup      | VPC, subnets, route tables     |
+| `web-app`       | Web application stack    | VPC, EC2, ALB, security groups |
+| `microservices` | Containerized services   | EKS/AKS, VPC, IAM              |
+| `data-pipeline` | Data processing workflow | S3, Lambda, RDS                |
+| `multi-region`  | Global deployment        | VPC, Route53, CloudFront       |
 
 ```bash
 # Start with an example
@@ -77,6 +77,7 @@ ls -la
 Each module is documented with inputs, outputs, and usage examples. See [Generating Documentation](#generating-documentation) below for auto-generated docs.
 
 ## Table of contents
+
 - [Prerequisites](#prerequisites)
 - [Installation Methods](#installation-methods)
 - [Authentication Setup](#authentication-setup)
@@ -196,7 +197,7 @@ Reference modules in Terraform:
 # SSH protocol with private key
 module "vpc" {
   source = "git::ssh://git@github.com/company/terraform-modules.git//aws/vpc?ref=v1.0.0"
-  
+
   name      = "production-vpc"
   cidr      = "10.0.0.0/16"
   azs       = ["us-west-2a", "us-west-2b"]
@@ -205,7 +206,7 @@ module "vpc" {
 # HTTPS with token (for CI/CD)
 module "vpc" {
   source = "git::https://TOKEN@github.com/company/terraform-modules.git//aws/vpc?ref=v1.0.0"
-  
+
   name      = "production-vpc"
   cidr      = "10.0.0.0/16"
 }
@@ -233,7 +234,7 @@ cd my-terraform-project
 ```hcl
 module "vpc" {
   source = "../terraform-modules/aws/vpc"
-  
+
   name      = "dev-vpc"
   cidr      = "10.0.0.0/16"
   azs       = ["us-west-2a", "us-west-2b"]
@@ -242,7 +243,7 @@ module "vpc" {
 # Override variables locally
 module "vpc" {
   source = "../terraform-modules/aws/vpc"
-  
+
   name      = try(var.vpc_name, "default-vpc")
   cidr      = var.cidr_block
   azs       = var.availability_zones
@@ -258,7 +259,7 @@ For public modules, use Terraform Registry:
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "~> 5.0"
-  
+
   name      = "vpc"
   cidr      = "10.0.0.0/16"
   azs       = data.aws_availability_zones.available.names
@@ -268,7 +269,7 @@ module "vpc" {
 module "resource_group" {
   source  = "Azure/resource-group/azurerm"
   version = "~> 1.0"
-  
+
   resource_group_name = "production-rg"
   location           = "eastus"
 }
@@ -368,7 +369,7 @@ terraform {
 
 provider "azurerm" {
   features {}
-  
+
   subscription_id = var.subscription_id
   tenant_id       = var.tenant_id
   client_id       = var.client_id
@@ -453,10 +454,10 @@ terraform {
     region         = "us-west-2"
     encrypt        = true
     dynamodb_table = "terraform-locks"
-    
+
     # Optional: Enable versioning
     acl = "bucket-owner-full-control"
-    
+
     # Optional: Assume role for backend access
     role_arn = "arn:aws:iam::123456789012:role/TerraformBackendRole"
   }
@@ -527,10 +528,10 @@ terraform {
     storage_account_name = "tfstateprodsa"
     container_name       = "tfstate"
     key                  = "prod.terraform.tfstate"
-    
+
     # Optional: Use access key
     # access_key           = "your-access-key"
-    
+
     # Optional: Use SAS token
     # sas_token            = "your-sas-token"
   }
@@ -589,10 +590,10 @@ terraform {
   backend "gcs" {
     bucket  = "terraform-state-prod"
     prefix  = "terraform/state"
-    
+
     # Optional: Use specific credentials
     # credentials = "path/to/service-account.json"
-    
+
     # Optional: Enable encryption
     # encryption_key = "your-encryption-key"
   }
@@ -766,22 +767,22 @@ terraform destroy -target=module.vpc.aws_vpc.this[0]
 # Create main.tf
 module "vpc" {
   source = "git::https://github.com/company/terraform-modules.git//aws/vpc?ref=v1.0.0"
-  
+
   name      = var.environment == "prod" ? "production-vpc" : "${var.environment}-vpc"
   cidr      = var.vpc_cidr
   azs       = slice(data.aws_availability_zones.available.names, 0, var.az_count)
-  
+
   public_subnets  = [for k, v in slice(data.aws_availability_zones.available.names, 0, var.az_count) :
                       cidrsubnet(var.vpc_cidr, 8, k)]
   private_subnets = [for k, v in slice(data.aws_availability_zones.available.names, 0, var.az_count) :
                       cidrsubnet(var.vpc_cidr, 8, k + 10)]
-  
+
   enable_nat_gateway    = true
   single_nat_gateway    = false
   enable_vpn_gateway    = false
   enable_dns_hostnames  = true
   enable_dns_support    = true
-  
+
   tags = {
     Environment = var.environment
     ManagedBy   = "Terraform"
@@ -846,10 +847,10 @@ terraform apply vpc-plan
 # main.tf
 module "resource_group" {
   source = "git::https://github.com/company/terraform-modules.git//azure/resource-group?ref=v1.0.0"
-  
+
   name     = "${var.environment}-rg"
   location = var.location
-  
+
   tags = {
     Environment     = var.environment
     ManagedBy       = "Terraform"
@@ -859,12 +860,12 @@ module "resource_group" {
 
 module "vnet" {
   source = "git::https://github.com/company/terraform-modules.git//azure/virtual-network?ref=v1.0.0"
-  
+
   name                = "${var.environment}-vnet"
   resource_group_name = module.resource_group.name
   location            = module.resource_group.location
   address_space       = [var.vnet_cidr]
-  
+
   subnets = {
     web = {
       address_prefixes = [cidrsubnet(var.vnet_cidr, 8, 1)]
@@ -909,11 +910,11 @@ variable "cost_center" {
 # main.tf
 module "vpc" {
   source = "git::https://github.com/company/terraform-modules.git//gcp/vpc?ref=v1.0.0"
-  
+
   project_id   = var.project_id
   network_name = "${var.environment}-vpc"
   routing_mode = "GLOBAL"
-  
+
   subnets = [
     {
       subnet_name   = "${var.environment}-subnet-1"
@@ -926,7 +927,7 @@ module "vpc" {
       subnet_region = "us-east1"
     }
   ]
-  
+
   secondary_ranges = {
     "${var.environment}-subnet-1" = [
       {
@@ -957,23 +958,23 @@ terraform {
 # Network module
 module "vpc" {
   source = "../modules/aws/vpc"
-  
+
   name = "${var.environment}-vpc"
   cidr = "10.0.0.0/16"
   azs  = data.aws_availability_zones.available.names
-  
+
   public_subnets  = ["10.0.1.0/24", "10.0.2.0/24"]
   private_subnets = ["10.0.11.0/24", "10.0.12.0/24"]
-  
+
   tags = merge(var.common_tags, { Component = "network" })
 }
 
 # Security module
 module "security_groups" {
   source = "../modules/aws/security-groups"
-  
+
   vpc_id = module.vpc.vpc_id
-  
+
   rules = {
     "allow_http" = {
       from_port   = 80
@@ -993,35 +994,35 @@ module "security_groups" {
 # Compute module
 module "ec2_instances" {
   source = "../modules/aws/ec2"
-  
+
   instance_count = var.instance_count
   instance_type  = var.instance_type
   subnet_ids     = module.vpc.public_subnets
   security_group_ids = [module.security_groups.web_sg_id]
-  
+
   user_data = base64encode(templatefile("${path.module}/templates/user_data.sh", {
     environment = var.environment
   }))
-  
+
   tags = var.common_tags
 }
 
 # Database module
 module "rds" {
   source = "../modules/aws/rds"
-  
+
   identifier = "${var.environment}-database"
-  
+
   subnet_ids = module.vpc.private_subnets
   vpc_security_group_ids = [module.security_groups.database_sg_id]
-  
+
   allocated_storage = var.db_allocated_storage
   instance_class    = var.db_instance_class
   engine            = "postgres"
   engine_version    = "14.7"
-  
+
   backup_retention_period = var.environment == "prod" ? 30 : 7
-  
+
   tags = var.common_tags
 }
 
@@ -1098,24 +1099,24 @@ terraform workspace show
 # Use workspace in configuration
 locals {
   environment = terraform.workspace
-  
+
   # Set environment-specific values
   environment_suffix = terraform.workspace == "default" ? "" : "-${terraform.workspace}"
-  
+
   # Map environments to regions
   region_map = {
     development = "us-west-2"
     staging     = "us-east-1"
     production  = "us-east-1"
   }
-  
+
   region = lookup(local.region_map, terraform.workspace, "us-west-2")
 }
 
 # Configure workspace-specific resources
 provider "aws" {
   region = local.region
-  
+
   default_tags {
     tags = {
       Environment = local.environment
@@ -1128,9 +1129,9 @@ provider "aws" {
 # Create environment-specific naming
 module "vpc" {
   source = "../modules/aws/vpc"
-  
+
   name = "${var.project_name}${local.environment_suffix}-vpc"
-  
+
   # Enable NAT only in non-dev environments
   enable_nat_gateway = terraform.workspace != "development"
 }
@@ -1148,7 +1149,7 @@ echo 'environment = "production"' > production.tfvars
 terraform workspace select development
 terraform plan -var-file="development.tfvars"
 
-terraform workspace select production  
+terraform workspace select production
 terraform plan -var-file="production.tfvars"
 ```
 
@@ -1160,7 +1161,7 @@ Terraform loads variables in the following order (later sources override earlier
 
 1. Environment variables (`TF_VAR_*`)
 2. terraform.tfvars file
-3. terraform.tfvars.json file  
+3. terraform.tfvars.json file
 4. Any `.auto.tfvars` or `.auto.tfvars.json` files, in lexical order
 5. `-var` and `-var-file` command-line options
 
@@ -1268,6 +1269,7 @@ find modules -type d -mindepth 1 -maxdepth 1 -exec sh -c 'cd "$1" && terraform-d
 ```
 
 Each module's `README.md` contains:
+
 - **Usage example** - Copy-paste ready code
 - **Requirements** - Terraform and provider versions
 - **Inputs** - All variables with types, defaults, and descriptions
@@ -1325,16 +1327,19 @@ terraform apply vpc.tfplan
 ### Learn More
 
 **Official Terraform Documentation:**
+
 - [Terraform Language](https://www.terraform.io/docs/language)
 - [Provider Documentation](https://registry.terraform.io/browse/providers)
 - [Module Registry](https://registry.terraform.io/)
 
 **Explore Module Catalog:**
+
 - [AWS Modules](modules/aws/) - VPC, EC2, RDS, ECS, EKS, Lambda
 - [Azure Modules](modules/azure/) - Virtual Networks, VMs, SQL, AKS
 - [GCP Modules](modules/gcp/) - VPC, Compute Engine, Cloud SQL, GKE
 
 **Advanced Examples:**
+
 - [Web Application Stack](examples/web-app/) - Full web app with load balancing
 - [Microservices Architecture](examples/microservices/) - Container orchestration
 - [Data Pipeline](examples/data-pipeline/) - Serverless data processing
@@ -1343,6 +1348,7 @@ terraform apply vpc.tfplan
 ### Best Practices
 
 Review our best practices guide:
+
 - [Module Composition](best-practices.md#module-composition)
 - [State Management](best-practices.md#state-management)
 - [Security](best-practices.md#security)
@@ -1351,6 +1357,7 @@ Review our best practices guide:
 ### CI/CD Integration
 
 Set up automated deployments:
+
 - [GitHub Actions](ci-cd/github-actions.md)
 - [GitLab CI/CD](ci-cd/gitlab-ci.md)
 - [Jenkins Pipeline](ci-cd/jenkins.md)
@@ -1365,4 +1372,4 @@ Set up automated deployments:
 
 ---
 
-*Ready to deploy? Start with `examples/simple-vpc` to build your foundation, then add compute, security, and storage modules to create your complete infrastructure stack.*
+_Ready to deploy? Start with `examples/simple-vpc` to build your foundation, then add compute, security, and storage modules to create your complete infrastructure stack._

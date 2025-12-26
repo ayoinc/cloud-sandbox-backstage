@@ -1,7 +1,7 @@
 # =============================================================================
 # Cloud Sandbox Backstage - Groups and Roles Configuration
 # =============================================================================
-# 
+#
 # IMPORTANT: Users are NOT defined in this file. Users are automatically
 # created when they sign in via GitHub OAuth. User group memberships are
 # determined by their GitHub organization teams.
@@ -30,7 +30,7 @@ metadata:
     APIs, or resources owned by that team are automatically reassigned to this group.
     Admins should review and reassign these entities to appropriate teams.
   annotations:
-    backstage.io/orphan-handler: "true"
+    backstage.io/orphan-handler: 'true'
 spec:
   type: team
   profile:
@@ -99,7 +99,7 @@ metadata:
   name: platform-team
   description: Platform engineering team responsible for infrastructure and developer tools
   annotations:
-    github.com/sync: "true"
+    github.com/sync: 'true'
     backstage.io/role: editors
 spec:
   type: team

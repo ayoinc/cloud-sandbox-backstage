@@ -2,3 +2,11 @@ dist
 dist-types
 coverage
 .vscode
+.devbox
+.yarn
+
+# Helm chart templates (contain Go template syntax)
+**/charts/**/templates/**
+
+# Backstage software templates with Jinja2 syntax
+templates/**/skeleton/**

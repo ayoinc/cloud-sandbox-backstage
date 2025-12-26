@@ -23,7 +23,7 @@ import GroupIcon from '@material-ui/icons/Group';
 import PersonIcon from '@material-ui/icons/Person';
 import { useApi, fetchApiRef } from '@backstage/core-plugin-api';
 
-const useStyles = makeStyles((theme) => ({
+const useStyles = makeStyles(theme => ({
   root: {
     marginBottom: theme.spacing(3),
   },
@@ -104,7 +104,7 @@ export const BrandingAdminManagement: React.FC = () => {
     try {
       setAdding(true);
       setError(null);
-      
+
       const response = await fetchApi.fetch('/api/branding-settings/admins', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -131,9 +131,12 @@ export const BrandingAdminManagement: React.FC = () => {
       setRemoving(id);
       setError(null);
 
-      const response = await fetchApi.fetch(`/api/branding-settings/admins/${id}`, {
-        method: 'DELETE',
-      });
+      const response = await fetchApi.fetch(
+        `/api/branding-settings/admins/${id}`,
+        {
+          method: 'DELETE',
+        },
+      );
 
       if (!response.ok) {
         const data = await response.json();
@@ -186,20 +189,22 @@ export const BrandingAdminManagement: React.FC = () => {
             className={classes.textField}
             label="Add User or Group"
             value={newAdmin}
-            onChange={(e) => setNewAdmin(e.target.value)}
+            onChange={e => setNewAdmin(e.target.value)}
             placeholder="username or group:default/team-name"
             helperText="Enter a username or full entity ref (e.g., user:default/john or group:default/admins)"
             variant="outlined"
             size="small"
             disabled={adding}
-            onKeyPress={(e) => {
+            onKeyPress={e => {
               if (e.key === 'Enter') handleAddAdmin();
             }}
           />
           <Button
             variant="contained"
             color="primary"
-            startIcon={adding ? <CircularProgress size={20} /> : <PersonAddIcon />}
+            startIcon={
+              adding ? <CircularProgress size={20} /> : <PersonAddIcon />
+            }
             onClick={handleAddAdmin}
             disabled={adding || !newAdmin.trim()}
           >
@@ -219,7 +224,7 @@ export const BrandingAdminManagement: React.FC = () => {
           </Box>
         ) : (
           <List className={classes.list}>
-            {admins.map((admin) => (
+            {admins.map(admin => (
               <ListItem key={admin.id} className={classes.listItem}>
                 <Chip
                   icon={admin.type === 'group' ? <GroupIcon /> : <PersonIcon />}
@@ -258,8 +263,9 @@ export const BrandingAdminManagement: React.FC = () => {
 
         <Box mt={2}>
           <Typography variant="caption" color="textSecondary">
-            Users listed here can upload logos, change the organization name, and manage other admins.
-            Groups allow all members to have admin access (requires catalog integration).
+            Users listed here can upload logos, change the organization name,
+            and manage other admins. Groups allow all members to have admin
+            access (requires catalog integration).
           </Typography>
         </Box>
       </CardContent>

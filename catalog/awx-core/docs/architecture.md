@@ -38,7 +38,7 @@ awx: AWX Cluster {
     fill: "#E3F2FD"
     stroke: "#1976D2"
   }
-  
+
   web: Web Pod {
     nginx: nginx {
       shape: hexagon
@@ -48,7 +48,7 @@ awx: AWX Cluster {
     }
     nginx -> uwsgi
   }
-  
+
   task: Task Pod {
     celery: Celery Workers {
       shape: hexagon
@@ -60,7 +60,7 @@ awx: AWX Cluster {
       shape: hexagon
     }
   }
-  
+
   ee: Execution Environment {
     style: {
       fill: "#FFF3E0"
@@ -81,7 +81,7 @@ data: Data Services {
     fill: "#FCE4EC"
     stroke: "#C2185B"
   }
-  
+
   postgres: PostgreSQL {
     shape: cylinder
     style: {
@@ -89,7 +89,7 @@ data: Data Services {
       font-color: white
     }
   }
-  
+
   redis: Redis {
     shape: cylinder
     style: {
@@ -143,7 +143,7 @@ launch: 1. Job Launch {
   user: User/API/Schedule
   create: Create Job
   queue: Queue to Celery
-  
+
   user -> create -> queue
 }
 
@@ -155,7 +155,7 @@ prep: 2. Pre-run Tasks {
   sync_proj: Sync Project
   sync_inv: Sync Inventory
   prep_ee: Prepare EE
-  
+
   decrypt -> sync_proj -> sync_inv -> prep_ee
 }
 
@@ -167,7 +167,7 @@ exec: 3. Execution {
   runner: ansible-runner
   playbook: Ansible Playbook
   stream: WebSocket Stream
-  
+
   receptor -> runner -> playbook
   runner -> stream
 }
@@ -180,7 +180,7 @@ post: 4. Post-run {
   notify: Send Notifications
   trigger: Trigger Workflows
   status: Update Status
-  
+
   store -> notify -> trigger -> status
 }
 
@@ -212,17 +212,17 @@ org: Organization {
     stroke: "#1976D2"
     stroke-width: 2
   }
-  
+
   teams: Teams {
     team1: Platform Team
     team2: DevOps Team
     team3: Security Team
   }
-  
+
   users: Users {
     shape: person
   }
-  
+
   teams -> users
 }
 
@@ -231,7 +231,7 @@ resources: Resources {
   style: {
     fill: "#FFF3E0"
   }
-  
+
   projects: Projects {
     shape: page
   }
@@ -254,7 +254,7 @@ roles: Permission Roles {
   style: {
     fill: "#E8F5E9"
   }
-  
+
   admin: Admin {
     style.fill: "#C8E6C9"
   }
@@ -296,7 +296,7 @@ central: Central Site {
   style: {
     fill: "#E3F2FD"
   }
-  
+
   awx: AWX Controller {
     shape: hexagon
     style: {
@@ -330,14 +330,14 @@ site1: Site A {
   style: {
     fill: "#E8F5E9"
   }
-  
+
   worker1: Execution Node {
     shape: hexagon
   }
   targets1: Servers {
     shape: cloud
   }
-  
+
   worker1 -> targets1: SSH
 }
 
@@ -345,14 +345,14 @@ site2: Site B {
   style: {
     fill: "#E8F5E9"
   }
-  
+
   worker2: Execution Node {
     shape: hexagon
   }
   targets2: Servers {
     shape: cloud
   }
-  
+
   worker2 -> targets2: SSH
 }
 
@@ -360,14 +360,14 @@ site3: Site C {
   style: {
     fill: "#E8F5E9"
   }
-  
+
   worker3: Execution Node {
     shape: hexagon
   }
   targets3: Servers {
     shape: cloud
   }
-  
+
   worker3 -> targets3: SSH
 }
 

@@ -14,19 +14,19 @@ title: Artifact Repository CI/CD Integration {
 cicd: CI/CD Pipeline {
   shape: rectangle
   style.fill: "#E3F2FD"
-  
+
   build: Build {
     shape: rectangle
     style.fill: "#2196F3"
     style.font-color: white
   }
-  
+
   test: Test {
     shape: rectangle
     style.fill: "#2196F3"
     style.font-color: white
   }
-  
+
   publish: Publish {
     shape: rectangle
     style.fill: "#2196F3"
@@ -37,7 +37,7 @@ cicd: CI/CD Pipeline {
 nexus: Nexus Repository {
   shape: rectangle
   style.fill: "#FFF3E0"
-  
+
   proxy: Proxy Repos {
     shape: cylinder
     style.fill: "#4FC3F7"
@@ -45,7 +45,7 @@ nexus: Nexus Repository {
     npmjs: npmjs.org
     dockerhub: Docker Hub
   }
-  
+
   hosted: Hosted Repos {
     shape: cylinder
     style.fill: "#81C784"
@@ -58,7 +58,7 @@ nexus: Nexus Repository {
 deploy: Deployment {
   shape: rectangle
   style.fill: "#C8E6C9"
-  
+
   k8s: Kubernetes
   ecs: ECS
   vms: VMs
@@ -83,9 +83,9 @@ services:
     image: sonatype/nexus3:3.66.0
     container_name: nexus
     ports:
-      - "8081:8081"      # Web UI and API
-      - "5000:5000"      # Docker registry (hosted)
-      - "5001:5001"      # Docker registry (group)
+      - '8081:8081' # Web UI and API
+      - '5000:5000' # Docker registry (hosted)
+      - '5001:5001' # Docker registry (group)
     volumes:
       - nexus-data:/nexus-data
     environment:
@@ -94,7 +94,8 @@ services:
         -XX:MaxDirectMemorySize=2g
         -Djava.util.prefs.userRoot=/nexus-data/javaprefs
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8081/service/rest/v1/status"]
+      test:
+        ['CMD', 'curl', '-f', 'http://localhost:8081/service/rest/v1/status']
       interval: 30s
       timeout: 10s
       retries: 5
@@ -106,8 +107,8 @@ services:
     image: nginx:alpine
     container_name: nexus-nginx
     ports:
-      - "443:443"
-      - "80:80"
+      - '443:443'
+      - '80:80'
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./certs:/etc/nginx/certs:ro
@@ -238,7 +239,7 @@ nexus:
         secretName: docker-registry-secret
   env:
     - name: INSTALL4J_ADD_VM_PARAMS
-      value: "-Xms4g -Xmx4g -XX:MaxDirectMemorySize=4g"
+      value: '-Xms4g -Xmx4g -XX:MaxDirectMemorySize=4g'
 
 resources:
   requests:
@@ -258,7 +259,7 @@ ingress:
   enabled: true
   annotations:
     kubernetes.io/ingress.class: nginx
-    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/proxy-body-size: '0'
     cert-manager.io/cluster-issuer: letsencrypt-prod
   hostPath: /
   hostRepo: nexus.company.com
@@ -519,7 +520,7 @@ stages:
   - publish
 
 variables:
-  MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
+  MAVEN_OPTS: '-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository'
 
 build:
   stage: build
@@ -570,19 +571,19 @@ publish-docker:
 // Jenkinsfile
 pipeline {
     agent any
-    
+
     environment {
         NEXUS_URL = 'https://nexus.company.com'
         NEXUS_CREDENTIALS = credentials('nexus-credentials')
     }
-    
+
     stages {
         stage('Build') {
             steps {
                 sh 'mvn clean package -DskipTests'
             }
         }
-        
+
         stage('Publish Maven') {
             steps {
                 configFileProvider([configFile(fileId: 'maven-settings', variable: 'MAVEN_SETTINGS')]) {
@@ -590,7 +591,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Publish Docker') {
             steps {
                 script {
@@ -602,7 +603,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Publish npm') {
             steps {
                 nodejs('nodejs-20') {
@@ -676,16 +677,16 @@ curl -u admin:admin123 -X POST \
 
 ## Troubleshooting
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| 401 Unauthorized | Invalid credentials | Check username/password, token |
-| 403 Forbidden | Missing permissions | Add required privileges to role |
-| 404 Not Found | Artifact doesn't exist | Check path, repository name |
-| 413 Entity Too Large | Upload size exceeded | Increase client_max_body_size |
-| 500 Internal Error | Server issue | Check logs, disk space |
-| Slow proxy downloads | Remote slow/unavailable | Check proxy settings, timeout |
-| Storage full | Blob store at capacity | Run cleanup, expand storage |
-| Database corruption | Improper shutdown | Restore from backup |
+| Issue                | Cause                   | Solution                        |
+| -------------------- | ----------------------- | ------------------------------- |
+| 401 Unauthorized     | Invalid credentials     | Check username/password, token  |
+| 403 Forbidden        | Missing permissions     | Add required privileges to role |
+| 404 Not Found        | Artifact doesn't exist  | Check path, repository name     |
+| 413 Entity Too Large | Upload size exceeded    | Increase client_max_body_size   |
+| 500 Internal Error   | Server issue            | Check logs, disk space          |
+| Slow proxy downloads | Remote slow/unavailable | Check proxy settings, timeout   |
+| Storage full         | Blob store at capacity  | Run cleanup, expand storage     |
+| Database corruption  | Improper shutdown       | Restore from backup             |
 
 ### Log Analysis
 

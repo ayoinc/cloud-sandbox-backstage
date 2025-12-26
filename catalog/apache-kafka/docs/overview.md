@@ -26,28 +26,28 @@ cluster: KRaft Cluster {
     stroke: "#1976D2"
     stroke-width: 2
   }
-  
+
   node1: Controller + Broker Node 1 {
     shape: hexagon
     style: {
       fill: "#BBDEFB"
     }
   }
-  
+
   node2: Controller + Broker Node 2 {
     shape: hexagon
     style: {
       fill: "#BBDEFB"
     }
   }
-  
+
   node3: Controller + Broker Node 3 {
     shape: hexagon
     style: {
       fill: "#BBDEFB"
     }
   }
-  
+
   node1 <-> node2: Raft
   node2 <-> node3: Raft
   node1 <-> node3: Raft
@@ -70,14 +70,14 @@ cluster -> consensus
 
 Kafka brokers are the servers that store data and serve clients.
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `broker.id` | - | Unique identifier for each broker |
-| `listeners` | PLAINTEXT://:9092 | Network listeners |
-| `log.dirs` | /var/kafka-logs | Data storage directories |
-| `num.partitions` | 1 | Default partitions for new topics |
-| `log.retention.hours` | 168 (7 days) | How long to retain messages |
-| `log.segment.bytes` | 1GB | Size of log segment files |
+| Setting               | Default           | Description                       |
+| --------------------- | ----------------- | --------------------------------- |
+| `broker.id`           | -                 | Unique identifier for each broker |
+| `listeners`           | PLAINTEXT://:9092 | Network listeners                 |
+| `log.dirs`            | /var/kafka-logs   | Data storage directories          |
+| `num.partitions`      | 1                 | Default partitions for new topics |
+| `log.retention.hours` | 168 (7 days)      | How long to retain messages       |
+| `log.segment.bytes`   | 1GB               | Size of log segment files         |
 
 ### Topics and Partitions
 
@@ -93,7 +93,7 @@ topic: "Topic: user-events (3 partitions, RF=2)" {
     stroke: "#388E3C"
     stroke-width: 2
   }
-  
+
   p0: "Partition 0" {
     leader: "Broker 1 (leader)" {
       style.fill: "#C8E6C9"
@@ -103,7 +103,7 @@ topic: "Topic: user-events (3 partitions, RF=2)" {
     }
     leader -> replica: replicate
   }
-  
+
   p1: "Partition 1" {
     leader: "Broker 2 (leader)" {
       style.fill: "#C8E6C9"
@@ -113,7 +113,7 @@ topic: "Topic: user-events (3 partitions, RF=2)" {
     }
     leader -> replica: replicate
   }
-  
+
   p2: "Partition 2" {
     leader: "Broker 3 (leader)" {
       style.fill: "#C8E6C9"
@@ -128,34 +128,34 @@ topic: "Topic: user-events (3 partitions, RF=2)" {
 
 **Partitioning Strategies:**
 
-| Strategy | Use Case |
-|----------|----------|
-| Round-robin | No key, even distribution |
-| Key-based hash | Messages with same key go to same partition |
-| Custom partitioner | Business logic-based routing |
+| Strategy           | Use Case                                    |
+| ------------------ | ------------------------------------------- |
+| Round-robin        | No key, even distribution                   |
+| Key-based hash     | Messages with same key go to same partition |
+| Custom partitioner | Business logic-based routing                |
 
 ### Producers
 
 Producer configuration options:
 
-| Setting | Values | Description |
-|---------|--------|-------------|
-| `acks` | 0, 1, all | Acknowledgment level |
-| `retries` | 0-N | Number of retry attempts |
-| `batch.size` | 16384 | Batch size in bytes |
-| `linger.ms` | 0-N | Time to wait for batch |
-| `compression.type` | none, gzip, snappy, lz4, zstd | Compression algorithm |
+| Setting            | Values                        | Description              |
+| ------------------ | ----------------------------- | ------------------------ |
+| `acks`             | 0, 1, all                     | Acknowledgment level     |
+| `retries`          | 0-N                           | Number of retry attempts |
+| `batch.size`       | 16384                         | Batch size in bytes      |
+| `linger.ms`        | 0-N                           | Time to wait for batch   |
+| `compression.type` | none, gzip, snappy, lz4, zstd | Compression algorithm    |
 
 ### Consumers
 
 Consumer configuration options:
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `group.id` | - | Consumer group identifier |
-| `auto.offset.reset` | latest | Where to start if no offset |
-| `enable.auto.commit` | true | Auto-commit offsets |
-| `max.poll.records` | 500 | Max records per poll |
+| Setting              | Default | Description                 |
+| -------------------- | ------- | --------------------------- |
+| `group.id`           | -       | Consumer group identifier   |
+| `auto.offset.reset`  | latest  | Where to start if no offset |
+| `enable.auto.commit` | true    | Auto-commit offsets         |
+| `max.poll.records`   | 500     | Max records per poll        |
 
 ## Configuration
 
@@ -273,15 +273,15 @@ kafka-acls.sh --bootstrap-server localhost:9092 \
 
 ### Key JMX Metrics
 
-| Metric | Description | Alert Threshold |
-|--------|-------------|-----------------|
-| `UnderReplicatedPartitions` | Partitions below RF | > 0 |
-| `OfflinePartitionsCount` | Unavailable partitions | > 0 |
-| `ActiveControllerCount` | Active controllers | != 1 |
-| `RequestHandlerAvgIdlePercent` | Handler utilization | < 30% |
-| `NetworkProcessorAvgIdlePercent` | Network thread usage | < 30% |
-| `MessagesInPerSec` | Incoming message rate | Monitor trend |
-| `BytesInPerSec` | Incoming bytes rate | Monitor trend |
+| Metric                           | Description            | Alert Threshold |
+| -------------------------------- | ---------------------- | --------------- |
+| `UnderReplicatedPartitions`      | Partitions below RF    | > 0             |
+| `OfflinePartitionsCount`         | Unavailable partitions | > 0             |
+| `ActiveControllerCount`          | Active controllers     | != 1            |
+| `RequestHandlerAvgIdlePercent`   | Handler utilization    | < 30%           |
+| `NetworkProcessorAvgIdlePercent` | Network thread usage   | < 30%           |
+| `MessagesInPerSec`               | Incoming message rate  | Monitor trend   |
+| `BytesInPerSec`                  | Incoming bytes rate    | Monitor trend   |
 
 ### Consumer Lag
 

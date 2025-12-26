@@ -30,16 +30,16 @@ docker exec rabbitmq1 rabbitmqctl cluster_status
 
 ## Features
 
-| Feature | Description |
-|---------|-------------|
-| **Multiple Protocols** | AMQP 0-9-1, AMQP 1.0, MQTT, STOMP, HTTP/WebSockets |
-| **Clustering** | Multiple nodes for high availability and throughput |
-| **Quorum Queues** | Raft-based replicated queues for data safety |
-| **Streams** | Append-only log with replay capability |
-| **Exchange Types** | Direct, Topic, Fanout, Headers routing patterns |
-| **Dead Letter Queues** | Automatic handling of failed messages |
-| **Message TTL** | Per-message and per-queue expiration |
-| **Federation/Shovel** | Cross-datacenter message routing |
+| Feature                | Description                                         |
+| ---------------------- | --------------------------------------------------- |
+| **Multiple Protocols** | AMQP 0-9-1, AMQP 1.0, MQTT, STOMP, HTTP/WebSockets  |
+| **Clustering**         | Multiple nodes for high availability and throughput |
+| **Quorum Queues**      | Raft-based replicated queues for data safety        |
+| **Streams**            | Append-only log with replay capability              |
+| **Exchange Types**     | Direct, Topic, Fanout, Headers routing patterns     |
+| **Dead Letter Queues** | Automatic handling of failed messages               |
+| **Message TTL**        | Per-message and per-queue expiration                |
+| **Federation/Shovel**  | Cross-datacenter message routing                    |
 
 ## Architecture
 
@@ -54,37 +54,37 @@ title: RabbitMQ Cluster Architecture {
 
 cluster: RabbitMQ Cluster {
   style.fill: "#E3F2FD"
-  
+
   node1: Node 1\n(rabbit@n1) {
     style.fill: "#FF6F00"
     style.font-color: white
-    
+
     exchanges: Exchanges {shape: rectangle}
     bindings: Bindings {shape: rectangle}
     queues: Queues {shape: cylinder}
     conns: Connections {shape: rectangle}
   }
-  
+
   node2: Node 2\n(rabbit@n2) {
     style.fill: "#FF6F00"
     style.font-color: white
-    
+
     exchanges: Exchanges {shape: rectangle}
     bindings: Bindings {shape: rectangle}
     queues: Queues {shape: cylinder}
     conns: Connections {shape: rectangle}
   }
-  
+
   node3: Node 3\n(rabbit@n3) {
     style.fill: "#FF6F00"
     style.font-color: white
-    
+
     exchanges: Exchanges {shape: rectangle}
     bindings: Bindings {shape: rectangle}
     queues: Queues {shape: cylinder}
     conns: Connections {shape: rectangle}
   }
-  
+
   node1 <-> node2: Erlang Distribution
   node2 <-> node3: Erlang Distribution
   node1 <-> node3: Erlang Distribution {style.stroke-dash: 3}
@@ -92,24 +92,24 @@ cluster: RabbitMQ Cluster {
 
 quorum: Quorum Queue {
   style.fill: "#E8F5E9"
-  
+
   leader: Leader: Node 1 {
     shape: hexagon
     style.fill: "#4CAF50"
     style.font-color: white
   }
-  
+
   followers: Follower: Node 2, 3 {
     shape: hexagon
     style.fill: "#81C784"
     style.font-color: white
   }
-  
+
   raft: Raft consensus\nfor replication {
     shape: text
     style.font-size: 12
   }
-  
+
   leader -> followers: Replicate
 }
 
@@ -118,20 +118,20 @@ cluster -> quorum: Quorum Queues
 
 ## Queue Types
 
-| Type | Durability | Replication | Use Case |
-|------|------------|-------------|----------|
-| **Classic** | Optional | Mirroring (deprecated) | Legacy, simple use cases |
-| **Quorum** | Always | Raft-based | Production, data safety |
-| **Stream** | Always | Raft-based | Log streaming, replay |
+| Type        | Durability | Replication            | Use Case                 |
+| ----------- | ---------- | ---------------------- | ------------------------ |
+| **Classic** | Optional   | Mirroring (deprecated) | Legacy, simple use cases |
+| **Quorum**  | Always     | Raft-based             | Production, data safety  |
+| **Stream**  | Always     | Raft-based             | Log streaming, replay    |
 
 ## Exchange Types
 
-| Type | Routing | Use Case |
-|------|---------|----------|
-| **Direct** | Exact routing key match | Point-to-point, RPC |
-| **Topic** | Pattern matching (*.logs.#) | Pub/sub with filtering |
-| **Fanout** | Broadcast to all queues | Notifications, events |
-| **Headers** | Header attribute matching | Complex routing logic |
+| Type        | Routing                      | Use Case               |
+| ----------- | ---------------------------- | ---------------------- |
+| **Direct**  | Exact routing key match      | Point-to-point, RPC    |
+| **Topic**   | Pattern matching (\*.logs.#) | Pub/sub with filtering |
+| **Fanout**  | Broadcast to all queues      | Notifications, events  |
+| **Headers** | Header attribute matching    | Complex routing logic  |
 
 ## Version Information
 

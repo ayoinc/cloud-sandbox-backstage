@@ -32,24 +32,24 @@ services:
       MINIO_SECRET_KEY: backstage123
       TECHDOCS_BUCKET: techdocs
     ports:
-      - "7007:7007"
-      - "9229:9229"  # Node.js debugger
+      - '7007:7007'
+      - '9229:9229' # Node.js debugger
     command: sh -c "yarn tsc && yarn build:backend && yarn start"
 
   nginx:
     ports:
-      - "80:80"
-      - "443:443"
+      - '80:80'
+      - '443:443'
 
   postgres:
     ports:
-      - "5432:5432"
+      - '5432:5432'
 
   redis:
     ports:
-      - "6379:6379"
+      - '6379:6379'
 
   minio:
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - '9000:9000'
+      - '9001:9001'

@@ -15,10 +15,10 @@ title: New Relic Agent Ecosystem {
 
 agents: New Relic Agents {
   style.fill: "#E3F2FD"
-  
+
   row1: Infrastructure & APM {
     style.fill: "#BBDEFB"
-    
+
     infra: Infrastructure Agent {
       shape: hexagon
       style.fill: "#2196F3"
@@ -33,7 +33,7 @@ agents: New Relic Agents {
       shape: document
       style.fill: "#E3F2FD"
     }
-    
+
     apm: APM Agent {
       shape: hexagon
       style.fill: "#2196F3"
@@ -48,7 +48,7 @@ agents: New Relic Agents {
       shape: document
       style.fill: "#E3F2FD"
     }
-    
+
     browser: Browser Agent {
       shape: hexagon
       style.fill: "#2196F3"
@@ -63,15 +63,15 @@ agents: New Relic Agents {
       shape: document
       style.fill: "#E3F2FD"
     }
-    
+
     infra -> infra_desc
     apm -> apm_desc
     browser -> browser_desc
   }
-  
+
   row2: Mobile & Synthetics {
     style.fill: "#E8F5E9"
-    
+
     mobile: Mobile Agent {
       shape: hexagon
       style.fill: "#4CAF50"
@@ -85,7 +85,7 @@ agents: New Relic Agents {
       shape: document
       style.fill: "#E8F5E9"
     }
-    
+
     synthetics: Synthetics Monitors {
       shape: hexagon
       style.fill: "#4CAF50"
@@ -99,7 +99,7 @@ agents: New Relic Agents {
       shape: document
       style.fill: "#E8F5E9"
     }
-    
+
     otel: OpenTelemetry Collector {
       shape: hexagon
       style.fill: "#4CAF50"
@@ -113,7 +113,7 @@ agents: New Relic Agents {
       shape: document
       style.fill: "#E8F5E9"
     }
-    
+
     mobile -> mobile_desc
     synthetics -> synth_desc
     otel -> otel_desc
@@ -143,7 +143,7 @@ custom_attributes:
 log:
   level: info
   file: /var/log/newrelic-infra/newrelic-infra.log
-  
+
 # Features
 enable_process_metrics: true
 metrics_process_sample_rate: 60
@@ -178,7 +178,7 @@ transaction_tracer.stack_trace_threshold = 0.5
 
 # Error collector
 error_collector.enabled = true
-error_collector.ignore_errors = 
+error_collector.ignore_errors =
 error_collector.ignore_status_codes = 404
 
 # Browser monitoring
@@ -199,7 +199,7 @@ high_security = false
 labels = Environment:production;Team:platform
 
 # Proxy
-proxy_host = 
+proxy_host =
 proxy_port =
 ```
 
@@ -207,57 +207,51 @@ proxy_port =
 
 ```javascript
 // newrelic.js
-'use strict'
+'use strict';
 
 exports.config = {
   app_name: ['My Node.js Application'],
   license_key: process.env.NEW_RELIC_LICENSE_KEY,
-  
+
   distributed_tracing: {
-    enabled: true
+    enabled: true,
   },
-  
+
   transaction_tracer: {
     enabled: true,
     record_sql: 'obfuscated',
-    explain_threshold: 500
+    explain_threshold: 500,
   },
-  
+
   error_collector: {
     enabled: true,
-    ignore_status_codes: [404]
+    ignore_status_codes: [404],
   },
-  
+
   browser_monitoring: {
-    enable: true
+    enable: true,
   },
-  
+
   custom_insights_events: {
     enabled: true,
-    max_samples_stored: 3000
+    max_samples_stored: 3000,
   },
-  
+
   attributes: {
-    include: [
-      'request.headers.host',
-      'request.headers.user-agent'
-    ],
-    exclude: [
-      'request.headers.cookie',
-      'request.headers.authorization'
-    ]
+    include: ['request.headers.host', 'request.headers.user-agent'],
+    exclude: ['request.headers.cookie', 'request.headers.authorization'],
   },
-  
+
   logging: {
     level: 'info',
-    filepath: '/var/log/newrelic/nodejs-agent.log'
+    filepath: '/var/log/newrelic/nodejs-agent.log',
   },
-  
+
   labels: {
     Environment: 'production',
-    Team: 'platform'
-  }
-}
+    Team: 'platform',
+  },
+};
 ```
 
 ## NRQL Query Language
@@ -278,7 +272,7 @@ SELECT average(duration) FROM Transaction WHERE appName = 'My App' SINCE 1 hour 
 SELECT percentile(duration, 50, 90, 95, 99) FROM Transaction SINCE 1 hour ago
 
 -- Error rate
-SELECT percentage(count(*), WHERE error IS true) as 'Error Rate' 
+SELECT percentage(count(*), WHERE error IS true) as 'Error Rate'
 FROM Transaction SINCE 1 hour ago
 
 -- Histogram
@@ -288,11 +282,11 @@ SELECT histogram(duration, 10, 20) FROM Transaction SINCE 1 hour ago
 SELECT average(duration) FROM Transaction TIMESERIES 5 minutes SINCE 1 hour ago
 
 -- Compare with previous period
-SELECT average(duration) FROM Transaction 
+SELECT average(duration) FROM Transaction
 SINCE 1 hour ago COMPARE WITH 1 week ago
 
 -- Filter and aggregate
-SELECT count(*), average(duration) FROM Transaction 
+SELECT count(*), average(duration) FROM Transaction
 WHERE httpResponseCode >= 500 FACET name SINCE 1 day ago LIMIT 20
 ```
 
@@ -300,7 +294,7 @@ WHERE httpResponseCode >= 500 FACET name SINCE 1 day ago LIMIT 20
 
 ```sql
 -- Funnel analysis
-SELECT funnel(session, 
+SELECT funnel(session,
   WHERE pageUrl LIKE '%/home%' AS 'Home',
   WHERE pageUrl LIKE '%/products%' AS 'Products',
   WHERE pageUrl LIKE '%/cart%' AS 'Cart',
@@ -308,7 +302,7 @@ SELECT funnel(session,
 ) FROM PageView SINCE 1 week ago
 
 -- Cohort analysis
-SELECT uniqueCount(userId) FROM Transaction 
+SELECT uniqueCount(userId) FROM Transaction
 FACET cases(
   WHERE duration < 1 AS 'Fast',
   WHERE duration >= 1 AND duration < 3 AS 'Normal',
@@ -320,13 +314,13 @@ SELECT rate(count(*), 1 minute) as 'Requests per minute'
 FROM Transaction SINCE 1 hour ago TIMESERIES
 
 -- Join-like (subquery)
-FROM Transaction SELECT average(duration) 
+FROM Transaction SELECT average(duration)
 WHERE name IN (
   FROM Transaction SELECT uniques(name) WHERE error IS true
 ) SINCE 1 hour ago
 
 -- Extrapolate for sampling
-SELECT count(*) FROM Transaction 
+SELECT count(*) FROM Transaction
 SINCE 1 hour ago EXTRAPOLATE
 
 -- Apdex score
@@ -348,18 +342,18 @@ newrelic.agent.initialize('/path/to/newrelic.ini')
 def process_order(order_id):
     # Add custom attribute
     newrelic.agent.add_custom_attribute('order_id', order_id)
-    
+
     # Custom span
     with newrelic.agent.FunctionTrace(name='validate_order'):
         validate_order(order_id)
-    
+
     # Record custom event
     newrelic.agent.record_custom_event('OrderProcessed', {
         'order_id': order_id,
         'amount': 99.99,
         'status': 'completed'
     })
-    
+
     return result
 
 # Custom metric
@@ -382,24 +376,26 @@ const newrelic = require('newrelic');
 function processOrder(orderId) {
   return newrelic.startBackgroundTransaction('processOrder', () => {
     const transaction = newrelic.getTransaction();
-    
+
     // Add custom attribute
     newrelic.addCustomAttribute('orderId', orderId);
-    
+
     // Create custom segment
-    return newrelic.startSegment('validateOrder', true, () => {
-      return validateOrder(orderId);
-    }).then(result => {
-      // Record custom event
-      newrelic.recordCustomEvent('OrderProcessed', {
-        orderId: orderId,
-        amount: 99.99,
-        status: 'completed'
+    return newrelic
+      .startSegment('validateOrder', true, () => {
+        return validateOrder(orderId);
+      })
+      .then(result => {
+        // Record custom event
+        newrelic.recordCustomEvent('OrderProcessed', {
+          orderId: orderId,
+          amount: 99.99,
+          status: 'completed',
+        });
+
+        transaction.end();
+        return result;
       });
-      
-      transaction.end();
-      return result;
-    });
   });
 }
 
@@ -433,7 +429,7 @@ try {
     "thresholdOccurrences": "all"
   },
   "warning": {
-    "operator": "above", 
+    "operator": "above",
     "threshold": 2,
     "thresholdDuration": 300,
     "thresholdOccurrences": "all"
@@ -444,14 +440,14 @@ try {
 
 ### Alert Condition Types
 
-| Type | Description | Use Case |
-|------|-------------|----------|
-| NRQL | Query-based conditions | Custom metrics, complex logic |
-| APM | Application conditions | Response time, error rate, Apdex |
-| Infrastructure | Host conditions | CPU, memory, disk |
-| Browser | Page load conditions | Page views, JS errors |
-| Synthetics | Monitor conditions | Uptime, response time |
-| Baseline | ML-based anomalies | Deviation from normal |
+| Type           | Description            | Use Case                         |
+| -------------- | ---------------------- | -------------------------------- |
+| NRQL           | Query-based conditions | Custom metrics, complex logic    |
+| APM            | Application conditions | Response time, error rate, Apdex |
+| Infrastructure | Host conditions        | CPU, memory, disk                |
+| Browser        | Page load conditions   | Page views, JS errors            |
+| Synthetics     | Monitor conditions     | Uptime, response time            |
+| Baseline       | ML-based anomalies     | Deviation from normal            |
 
 ## Integrations
 
@@ -486,11 +482,11 @@ integrations:
           headers:
             Authorization: Bearer ${MY_TOKEN}
           jq: '.metrics[]'
-        
+
         - name: CommandOutput
           commands:
             - run: cat /proc/meminfo | grep MemFree
-              split_by: ":"
+              split_by: ':'
               set_header: [metric, value]
 ```
 

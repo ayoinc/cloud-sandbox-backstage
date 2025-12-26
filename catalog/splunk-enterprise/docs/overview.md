@@ -21,27 +21,27 @@ manager: Cluster Manager {
 
 indexers: Indexers {
   style.fill: "#FFF3E0"
-  
+
   idx1: Indexer 1 {
     style.fill: "#FF9800"
     style.font-color: white
-    
+
     bucket_a: Bucket A (Primary) {shape: cylinder}
     bucket_b: Bucket B (Replica) {shape: cylinder}
   }
-  
+
   idx2: Indexer 2 {
     style.fill: "#FF9800"
     style.font-color: white
-    
+
     bucket_a: Bucket A (Replica) {shape: cylinder}
     bucket_c: Bucket C (Primary) {shape: cylinder}
   }
-  
+
   idx3: Indexer 3 {
     style.fill: "#FF9800"
     style.font-color: white
-    
+
     bucket_b: Bucket B (Primary) {shape: cylinder}
     bucket_c: Bucket C (Replica) {shape: cylinder}
   }
@@ -76,19 +76,19 @@ deployer: Deployer {
 
 searchheads: Search Heads {
   style.fill: "#FCE4EC"
-  
+
   sh1: Search Head 1\n(Captain) {
     shape: hexagon
     style.fill: "#E91E63"
     style.font-color: white
   }
-  
+
   sh2: Search Head 2\n(Member) {
     shape: hexagon
     style.fill: "#E91E63"
     style.font-color: white
   }
-  
+
   sh3: Search Head 3\n(Member) {
     shape: hexagon
     style.fill: "#E91E63"
@@ -288,17 +288,17 @@ index=main [search index=errors | return 100 user_id]
 index=main | lookup user_info user_id OUTPUT department, manager
 
 # Event correlation
-index=security sourcetype=firewall action=blocked 
-| stats count by src_ip 
+index=security sourcetype=firewall action=blocked
+| stats count by src_ip
 | where count > 100
 
 # Anomaly detection
-index=main | timechart span=1h count 
-| predict count as predicted_count 
+index=main | timechart span=1h count
+| predict count as predicted_count
 | eval anomaly=if(count > predicted_count*1.5, 1, 0)
 
 # Machine learning (MLTK)
-| inputlookup server_metrics.csv 
+| inputlookup server_metrics.csv
 | fit DensityFunction cpu_usage into cpu_model
 | apply cpu_model
 

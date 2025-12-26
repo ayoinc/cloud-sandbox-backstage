@@ -21,7 +21,7 @@ site: site.yml {
 common: Common Role {
   shape: rectangle
   style.fill: "#C8E6C9"
-  
+
   tasks: |md
     - Update packages
     - Install prerequisites
@@ -34,7 +34,7 @@ common: Common Role {
 security: Security Role {
   shape: rectangle
   style.fill: "#FFCDD2"
-  
+
   tasks: |md
     - SSH hardening
     - Fail2ban setup
@@ -46,19 +46,19 @@ security: Security Role {
 webserver: Webserver Role {
   shape: rectangle
   style.fill: "#BBDEFB"
-  
+
   nginx: Nginx {
     shape: hexagon
     style.fill: "#4CAF50"
     style.font-color: white
   }
-  
+
   apache: Apache {
     shape: hexagon
     style.fill: "#FF5722"
     style.font-color: white
   }
-  
+
   tasks: |md
     - Install web server
     - Configure main settings
@@ -71,7 +71,7 @@ webserver: Webserver Role {
 ssl: SSL Role {
   shape: rectangle
   style.fill: "#FFF9C4"
-  
+
   tasks: |md
     - Let's Encrypt setup
     - Certificate deployment
@@ -94,20 +94,20 @@ webserver.apache -> ssl
 
 ```yaml
 # roles/nginx/defaults/main.yml
-nginx_version: "1.24"
-nginx_user: "www-data"
-nginx_worker_processes: "auto"
+nginx_version: '1.24'
+nginx_user: 'www-data'
+nginx_worker_processes: 'auto'
 nginx_worker_connections: 4096
-nginx_multi_accept: "on"
+nginx_multi_accept: 'on'
 
 # Performance
 nginx_keepalive_timeout: 65
 nginx_keepalive_requests: 1000
-nginx_client_max_body_size: "64m"
-nginx_client_body_buffer_size: "128k"
+nginx_client_max_body_size: '64m'
+nginx_client_body_buffer_size: '128k'
 
 # Gzip compression
-nginx_gzip: "on"
+nginx_gzip: 'on'
 nginx_gzip_types:
   - text/plain
   - text/css
@@ -119,25 +119,25 @@ nginx_gzip_types:
 
 # Security headers
 nginx_security_headers:
-  X-Frame-Options: "SAMEORIGIN"
-  X-Content-Type-Options: "nosniff"
-  X-XSS-Protection: "1; mode=block"
-  Referrer-Policy: "strict-origin-when-cross-origin"
+  X-Frame-Options: 'SAMEORIGIN'
+  X-Content-Type-Options: 'nosniff'
+  X-XSS-Protection: '1; mode=block'
+  Referrer-Policy: 'strict-origin-when-cross-origin'
   Content-Security-Policy: "default-src 'self'"
 
 # SSL settings
-nginx_ssl_protocols: "TLSv1.2 TLSv1.3"
-nginx_ssl_ciphers: "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256"
-nginx_ssl_prefer_server_ciphers: "on"
-nginx_ssl_session_cache: "shared:SSL:10m"
-nginx_ssl_session_timeout: "1d"
-nginx_ssl_stapling: "on"
-nginx_ssl_stapling_verify: "on"
+nginx_ssl_protocols: 'TLSv1.2 TLSv1.3'
+nginx_ssl_ciphers: 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256'
+nginx_ssl_prefer_server_ciphers: 'on'
+nginx_ssl_session_cache: 'shared:SSL:10m'
+nginx_ssl_session_timeout: '1d'
+nginx_ssl_stapling: 'on'
+nginx_ssl_stapling_verify: 'on'
 
 # Logging
-nginx_access_log: "/var/log/nginx/access.log"
-nginx_error_log: "/var/log/nginx/error.log"
-nginx_log_format: "combined"
+nginx_access_log: '/var/log/nginx/access.log'
+nginx_error_log: '/var/log/nginx/error.log'
+nginx_log_format: 'combined'
 ```
 
 ### Virtual Host Configuration
@@ -145,66 +145,66 @@ nginx_log_format: "combined"
 ```yaml
 # group_vars/webservers.yml
 nginx_vhosts:
-  - server_name: "example.com www.example.com"
-    root: "/var/www/example.com/public"
-    index: "index.html index.php"
+  - server_name: 'example.com www.example.com'
+    root: '/var/www/example.com/public'
+    index: 'index.html index.php'
     ssl: true
-    ssl_certificate: "/etc/letsencrypt/live/example.com/fullchain.pem"
-    ssl_certificate_key: "/etc/letsencrypt/live/example.com/privkey.pem"
+    ssl_certificate: '/etc/letsencrypt/live/example.com/fullchain.pem'
+    ssl_certificate_key: '/etc/letsencrypt/live/example.com/privkey.pem'
     http2: true
-    
+
     locations:
-      - path: "/"
+      - path: '/'
         options:
-          - "try_files $uri $uri/ /index.php?$query_string"
-      
+          - 'try_files $uri $uri/ /index.php?$query_string'
+
       - path: "~ \\.php$"
         options:
-          - "fastcgi_pass unix:/var/run/php/php8.2-fpm.sock"
-          - "fastcgi_index index.php"
-          - "include fastcgi_params"
-          - "fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name"
-      
-      - path: "/api"
-        proxy_pass: "http://backend_servers"
+          - 'fastcgi_pass unix:/var/run/php/php8.2-fpm.sock'
+          - 'fastcgi_index index.php'
+          - 'include fastcgi_params'
+          - 'fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name'
+
+      - path: '/api'
+        proxy_pass: 'http://backend_servers'
         proxy_options:
-          - "proxy_http_version 1.1"
-          - "proxy_set_header Upgrade $http_upgrade"
+          - 'proxy_http_version 1.1'
+          - 'proxy_set_header Upgrade $http_upgrade'
           - "proxy_set_header Connection 'upgrade'"
-          - "proxy_set_header Host $host"
-          - "proxy_set_header X-Real-IP $remote_addr"
-          - "proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for"
-          - "proxy_set_header X-Forwarded-Proto $scheme"
-          - "proxy_cache_bypass $http_upgrade"
-      
+          - 'proxy_set_header Host $host'
+          - 'proxy_set_header X-Real-IP $remote_addr'
+          - 'proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for'
+          - 'proxy_set_header X-Forwarded-Proto $scheme'
+          - 'proxy_cache_bypass $http_upgrade'
+
       - path: "~* \\.(jpg|jpeg|png|gif|ico|css|js|woff2)$"
         options:
-          - "expires 30d"
+          - 'expires 30d'
           - "add_header Cache-Control 'public, immutable'"
-          - "access_log off"
-    
+          - 'access_log off'
+
     extra_config: |
       # Rate limiting
       limit_req zone=api burst=20 nodelay;
-      
+
       # Security
       location ~ /\\. {
           deny all;
       }
 
 nginx_upstreams:
-  - name: "backend_servers"
-    strategy: "least_conn"
+  - name: 'backend_servers'
+    strategy: 'least_conn'
     keepalive: 32
     servers:
-      - "10.0.1.10:8080 weight=5"
-      - "10.0.1.11:8080 weight=5"
-      - "10.0.1.12:8080 backup"
+      - '10.0.1.10:8080 weight=5'
+      - '10.0.1.11:8080 weight=5'
+      - '10.0.1.12:8080 backup'
 
 nginx_rate_limits:
-  - name: "api"
-    zone_size: "10m"
-    rate: "10r/s"
+  - name: 'api'
+    zone_size: '10m'
+    rate: '10r/s'
 ```
 
 ### Nginx Main Template
@@ -255,7 +255,7 @@ http {
     tcp_nodelay on;
     keepalive_timeout {{ nginx_keepalive_timeout }};
     keepalive_requests {{ nginx_keepalive_requests }};
-    
+
     # Buffer sizes
     client_max_body_size {{ nginx_client_max_body_size }};
     client_body_buffer_size {{ nginx_client_body_buffer_size }};
@@ -323,12 +323,12 @@ http {
 
 ```yaml
 # roles/apache/defaults/main.yml
-apache_version: "2.4"
-apache_user: "www-data"
-apache_group: "www-data"
+apache_version: '2.4'
+apache_user: 'www-data'
+apache_group: 'www-data'
 
 # MPM configuration
-apache_mpm: "event"  # prefork, worker, or event
+apache_mpm: 'event' # prefork, worker, or event
 apache_mpm_start_servers: 2
 apache_mpm_min_spare_threads: 25
 apache_mpm_max_spare_threads: 75
@@ -338,7 +338,7 @@ apache_mpm_max_request_workers: 150
 apache_mpm_max_connections_per_child: 0
 
 # Performance
-apache_keepalive: "On"
+apache_keepalive: 'On'
 apache_keepalive_timeout: 5
 apache_max_keepalive_requests: 100
 apache_timeout: 60
@@ -356,9 +356,9 @@ apache_modules:
   - http2
 
 # Security settings
-apache_server_tokens: "Prod"
-apache_server_signature: "Off"
-apache_trace_enable: "Off"
+apache_server_tokens: 'Prod'
+apache_server_signature: 'Off'
+apache_trace_enable: 'Off'
 ```
 
 ### Apache Virtual Host
@@ -366,39 +366,39 @@ apache_trace_enable: "Off"
 ```yaml
 # group_vars/webservers.yml (Apache)
 apache_vhosts:
-  - server_name: "example.com"
+  - server_name: 'example.com'
     server_aliases:
-      - "www.example.com"
-    document_root: "/var/www/example.com/public"
+      - 'www.example.com'
+    document_root: '/var/www/example.com/public'
     ssl: true
-    ssl_certificate: "/etc/letsencrypt/live/example.com/fullchain.pem"
-    ssl_certificate_key: "/etc/letsencrypt/live/example.com/privkey.pem"
-    
+    ssl_certificate: '/etc/letsencrypt/live/example.com/fullchain.pem'
+    ssl_certificate_key: '/etc/letsencrypt/live/example.com/privkey.pem'
+
     directory_options:
-      - "Options -Indexes +FollowSymLinks"
-      - "AllowOverride All"
-      - "Require all granted"
-    
-    custom_log: "/var/log/apache2/example.com-access.log combined"
-    error_log: "/var/log/apache2/example.com-error.log"
-    
+      - 'Options -Indexes +FollowSymLinks'
+      - 'AllowOverride All'
+      - 'Require all granted'
+
+    custom_log: '/var/log/apache2/example.com-access.log combined'
+    error_log: '/var/log/apache2/example.com-error.log'
+
     extra_config: |
       # PHP-FPM proxy
       <FilesMatch \.php$>
           SetHandler "proxy:unix:/var/run/php/php8.2-fpm.sock|fcgi://localhost"
       </FilesMatch>
-      
+
       # Security headers
       Header always set X-Frame-Options "SAMEORIGIN"
       Header always set X-Content-Type-Options "nosniff"
       Header always set X-XSS-Protection "1; mode=block"
-      
+
       # Compression
       <IfModule mod_deflate.c>
           AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css
           AddOutputFilterByType DEFLATE application/javascript application/json
       </IfModule>
-      
+
       # Caching
       <IfModule mod_expires.c>
           ExpiresActive On
@@ -417,10 +417,10 @@ apache_vhosts:
 
 ```yaml
 # roles/ssl/defaults/main.yml
-ssl_provider: "letsencrypt"  # letsencrypt or custom
-ssl_letsencrypt_email: "admin@example.com"
+ssl_provider: 'letsencrypt' # letsencrypt or custom
+ssl_letsencrypt_email: 'admin@example.com'
 ssl_letsencrypt_staging: false
-ssl_letsencrypt_webroot: "/var/www/letsencrypt"
+ssl_letsencrypt_webroot: '/var/www/letsencrypt'
 ssl_auto_renew: true
 ssl_renew_cron_hour: 2
 ssl_renew_cron_minute: 30
@@ -428,20 +428,20 @@ ssl_renew_cron_minute: 30
 # Certificate domains
 ssl_certificates:
   - domains:
-      - "example.com"
-      - "www.example.com"
-    webroot: "/var/www/example.com/public"
-  
+      - 'example.com'
+      - 'www.example.com'
+    webroot: '/var/www/example.com/public'
+
   - domains:
-      - "api.example.com"
-    webroot: "/var/www/api.example.com/public"
+      - 'api.example.com'
+    webroot: '/var/www/api.example.com/public'
 
 # Custom certificate deployment
 ssl_custom_certificates:
-  - name: "internal.example.com"
-    cert_content: "{{ vault_ssl_cert }}"
-    key_content: "{{ vault_ssl_key }}"
-    chain_content: "{{ vault_ssl_chain }}"
+  - name: 'internal.example.com'
+    cert_content: '{{ vault_ssl_cert }}'
+    key_content: '{{ vault_ssl_key }}'
+    chain_content: '{{ vault_ssl_chain }}'
 ```
 
 ### SSL Hardening Task
@@ -543,14 +543,14 @@ ssl_custom_certificates:
   block:
     - name: Install ModSecurity
       package:
-        name: "{{ modsecurity_packages[ansible_os_family] }}"
+        name: '{{ modsecurity_packages[ansible_os_family] }}'
         state: present
 
     - name: Deploy OWASP Core Rule Set
       git:
         repo: https://github.com/coreruleset/coreruleset.git
         dest: /etc/modsecurity/crs
-        version: "v3.3.5"
+        version: 'v3.3.5'
 
     - name: Configure ModSecurity
       template:
@@ -577,14 +577,14 @@ fail2ban_jails:
     filter: sshd
     logpath: /var/log/auth.log
     maxretry: 3
-  
+
   - name: nginx-http-auth
     enabled: true
     port: http,https
     filter: nginx-http-auth
     logpath: /var/log/nginx/error.log
     maxretry: 5
-  
+
   - name: nginx-botsearch
     enabled: true
     port: http,https
@@ -658,7 +658,7 @@ compose:
   command: nginx -t
   register: nginx_validate
   changed_when: false
-  listen: "Reload nginx"
+  listen: 'Reload nginx'
 
 - name: Reload nginx
   service:
@@ -676,17 +676,17 @@ compose:
   command: apachectl configtest
   register: apache_validate
   changed_when: false
-  listen: "Reload apache"
+  listen: 'Reload apache'
 
 - name: Reload apache
   service:
-    name: "{{ apache_service_name }}"
+    name: '{{ apache_service_name }}'
     state: reloaded
   when: apache_validate is succeeded
 
 - name: Restart apache
   service:
-    name: "{{ apache_service_name }}"
+    name: '{{ apache_service_name }}'
     state: restarted
 ```
 
@@ -701,7 +701,7 @@ compose:
   block:
     - name: Download nginx-prometheus-exporter
       get_url:
-        url: "https://github.com/nginxinc/nginx-prometheus-exporter/releases/download/v1.1.0/nginx-prometheus-exporter_1.1.0_linux_amd64.tar.gz"
+        url: 'https://github.com/nginxinc/nginx-prometheus-exporter/releases/download/v1.1.0/nginx-prometheus-exporter_1.1.0_linux_amd64.tar.gz'
         dest: /tmp/nginx-prometheus-exporter.tar.gz
         checksum: sha256:abc123...
 

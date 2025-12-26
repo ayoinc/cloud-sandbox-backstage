@@ -13,13 +13,13 @@ title: ZooKeeper Deployment Options {
 
 docker: Docker Compose {
   style.fill: "#E3F2FD"
-  
+
   single: Single Node\n(Development) {
     shape: rectangle
     style.fill: "#2196F3"
     style.font-color: white
   }
-  
+
   cluster: 3-Node Ensemble\n(Production) {
     shape: rectangle
     style.fill: "#4CAF50"
@@ -29,13 +29,13 @@ docker: Docker Compose {
 
 k8s: Kubernetes {
   style.fill: "#E8F5E9"
-  
+
   helm: Helm Chart\n(Bitnami) {
     shape: hexagon
     style.fill: "#4CAF50"
     style.font-color: white
   }
-  
+
   statefulset: StatefulSet\n(Manual) {
     shape: hexagon
     style.fill: "#4CAF50"
@@ -45,25 +45,25 @@ k8s: Kubernetes {
 
 clients: Client Libraries {
   style.fill: "#FFF3E0"
-  
+
   python: kazoo\n(Python) {
     shape: rectangle
     style.fill: "#FF9800"
     style.font-color: white
   }
-  
+
   java: Curator\n(Java) {
     shape: rectangle
     style.fill: "#FF9800"
     style.font-color: white
   }
-  
+
   go: go-zookeeper\n(Go) {
     shape: rectangle
     style.fill: "#FF9800"
     style.font-color: white
   }
-  
+
   node: node-zookeeper\n(Node.js) {
     shape: rectangle
     style.fill: "#FF9800"
@@ -88,20 +88,20 @@ services:
     image: zookeeper:3.9
     container_name: zookeeper
     ports:
-      - "2181:2181"
-      - "8080:8080"
+      - '2181:2181'
+      - '8080:8080'
     environment:
       ZOO_MY_ID: 1
       ZOO_TICK_TIME: 2000
       ZOO_INIT_LIMIT: 5
       ZOO_SYNC_LIMIT: 2
-      ZOO_4LW_COMMANDS_WHITELIST: "mntr,ruok,stat,srvr,isro"
-      ZOO_ADMINSERVER_ENABLED: "true"
+      ZOO_4LW_COMMANDS_WHITELIST: 'mntr,ruok,stat,srvr,isro'
+      ZOO_ADMINSERVER_ENABLED: 'true'
     volumes:
       - zookeeper_data:/data
       - zookeeper_log:/datalog
     healthcheck:
-      test: ["CMD", "zkServer.sh", "status"]
+      test: ['CMD', 'zkServer.sh', 'status']
       interval: 10s
       timeout: 5s
       retries: 3
@@ -123,8 +123,8 @@ services:
     container_name: zk1
     hostname: zk1
     ports:
-      - "2181:2181"
-      - "7001:7000"
+      - '2181:2181'
+      - '7001:7000'
     environment:
       ZOO_MY_ID: 1
       ZOO_SERVERS: server.1=zk1:2888:3888;2181 server.2=zk2:2888:3888;2181 server.3=zk3:2888:3888;2181
@@ -132,8 +132,8 @@ services:
       ZOO_INIT_LIMIT: 10
       ZOO_SYNC_LIMIT: 5
       ZOO_MAX_CLIENT_CNXNS: 100
-      ZOO_4LW_COMMANDS_WHITELIST: "*"
-      ZOO_CFG_EXTRA: "metricsProvider.className=org.apache.zookeeper.metrics.prometheus.PrometheusMetricsProvider metricsProvider.httpPort=7000"
+      ZOO_4LW_COMMANDS_WHITELIST: '*'
+      ZOO_CFG_EXTRA: 'metricsProvider.className=org.apache.zookeeper.metrics.prometheus.PrometheusMetricsProvider metricsProvider.httpPort=7000'
     volumes:
       - zk1_data:/data
       - zk1_log:/datalog
@@ -145,8 +145,8 @@ services:
     container_name: zk2
     hostname: zk2
     ports:
-      - "2182:2181"
-      - "7002:7000"
+      - '2182:2181'
+      - '7002:7000'
     environment:
       ZOO_MY_ID: 2
       ZOO_SERVERS: server.1=zk1:2888:3888;2181 server.2=zk2:2888:3888;2181 server.3=zk3:2888:3888;2181
@@ -154,8 +154,8 @@ services:
       ZOO_INIT_LIMIT: 10
       ZOO_SYNC_LIMIT: 5
       ZOO_MAX_CLIENT_CNXNS: 100
-      ZOO_4LW_COMMANDS_WHITELIST: "*"
-      ZOO_CFG_EXTRA: "metricsProvider.className=org.apache.zookeeper.metrics.prometheus.PrometheusMetricsProvider metricsProvider.httpPort=7000"
+      ZOO_4LW_COMMANDS_WHITELIST: '*'
+      ZOO_CFG_EXTRA: 'metricsProvider.className=org.apache.zookeeper.metrics.prometheus.PrometheusMetricsProvider metricsProvider.httpPort=7000'
     volumes:
       - zk2_data:/data
       - zk2_log:/datalog
@@ -167,8 +167,8 @@ services:
     container_name: zk3
     hostname: zk3
     ports:
-      - "2183:2181"
-      - "7003:7000"
+      - '2183:2181'
+      - '7003:7000'
     environment:
       ZOO_MY_ID: 3
       ZOO_SERVERS: server.1=zk1:2888:3888;2181 server.2=zk2:2888:3888;2181 server.3=zk3:2888:3888;2181
@@ -176,8 +176,8 @@ services:
       ZOO_INIT_LIMIT: 10
       ZOO_SYNC_LIMIT: 5
       ZOO_MAX_CLIENT_CNXNS: 100
-      ZOO_4LW_COMMANDS_WHITELIST: "*"
-      ZOO_CFG_EXTRA: "metricsProvider.className=org.apache.zookeeper.metrics.prometheus.PrometheusMetricsProvider metricsProvider.httpPort=7000"
+      ZOO_4LW_COMMANDS_WHITELIST: '*'
+      ZOO_CFG_EXTRA: 'metricsProvider.className=org.apache.zookeeper.metrics.prometheus.PrometheusMetricsProvider metricsProvider.httpPort=7000'
     volumes:
       - zk3_data:/data
       - zk3_log:/datalog
@@ -237,7 +237,7 @@ auth:
 
 persistence:
   enabled: true
-  storageClass: "standard"
+  storageClass: 'standard'
   size: 20Gi
 
 resources:
@@ -260,10 +260,10 @@ nodeSelector:
   node-role: data
 
 tolerations:
-  - key: "dedicated"
-    operator: "Equal"
-    value: "zookeeper"
-    effect: "NoSchedule"
+  - key: 'dedicated'
+    operator: 'Equal'
+    value: 'zookeeper'
+    effect: 'NoSchedule'
 
 configuration: |
   tickTime=2000
@@ -326,9 +326,9 @@ spec:
               name: metrics
           env:
             - name: ZOO_SERVERS
-              value: "server.1=zookeeper-0.zookeeper-headless:2888:3888;2181 server.2=zookeeper-1.zookeeper-headless:2888:3888;2181 server.3=zookeeper-2.zookeeper-headless:2888:3888;2181"
+              value: 'server.1=zookeeper-0.zookeeper-headless:2888:3888;2181 server.2=zookeeper-1.zookeeper-headless:2888:3888;2181 server.3=zookeeper-2.zookeeper-headless:2888:3888;2181'
             - name: ZOO_4LW_COMMANDS_WHITELIST
-              value: "*"
+              value: '*'
           command:
             - bash
             - -c
@@ -359,14 +359,14 @@ spec:
               command:
                 - bash
                 - -c
-                - "echo ruok | nc localhost 2181 | grep imok"
+                - 'echo ruok | nc localhost 2181 | grep imok'
             initialDelaySeconds: 10
             periodSeconds: 5
   volumeClaimTemplates:
     - metadata:
         name: data
       spec:
-        accessModes: ["ReadWriteOnce"]
+        accessModes: ['ReadWriteOnce']
         storageClassName: standard
         resources:
           requests:
@@ -374,7 +374,7 @@ spec:
     - metadata:
         name: log
       spec:
-        accessModes: ["ReadWriteOnce"]
+        accessModes: ['ReadWriteOnce']
         storageClassName: standard
         resources:
           requests:
@@ -449,7 +449,7 @@ print(f"Children: {children}")
 zk.delete('/myapp/config')
 
 # Ephemeral node (service registration)
-zk.create('/services/my-service/instance-1', 
+zk.create('/services/my-service/instance-1',
           b'{"host": "10.0.0.1", "port": 8080}',
           ephemeral=True)
 
@@ -473,7 +473,7 @@ election = Election(zk, '/election/my-service')
 def leader_func():
     print("I am the leader!")
     # Do leader work
-    
+
 election.run(leader_func)
 
 # Cleanup
@@ -510,35 +510,35 @@ public class ZooKeeperExample {
             .retryPolicy(new ExponentialBackoffRetry(1000, 3))
             .namespace("myapp")
             .build();
-        
+
         client.start();
         client.blockUntilConnected();
-        
+
         // Create node
         client.create()
             .creatingParentsIfNeeded()
             .withMode(CreateMode.PERSISTENT)
             .forPath("/config", "value".getBytes());
-        
+
         // Read node
         byte[] data = client.getData().forPath("/config");
         System.out.println("Data: " + new String(data));
-        
+
         // Update node
         client.setData().forPath("/config", "new_value".getBytes());
-        
+
         // Ephemeral node
         client.create()
             .withMode(CreateMode.EPHEMERAL)
             .forPath("/services/instance-1", "host:port".getBytes());
-        
+
         // Watch with CuratorCache
         CuratorCache cache = CuratorCache.build(client, "/config");
         cache.listenable().addListener((type, oldData, data) -> {
             System.out.println("Event: " + type);
         });
         cache.start();
-        
+
         // Distributed Lock
         InterProcessMutex lock = new InterProcessMutex(client, "/locks/resource");
         if (lock.acquire(10, TimeUnit.SECONDS)) {
@@ -549,7 +549,7 @@ public class ZooKeeperExample {
                 lock.release();
             }
         }
-        
+
         // Leader Election
         LeaderSelector selector = new LeaderSelector(client, "/election/leader",
             new LeaderSelectorListener() {
@@ -558,7 +558,7 @@ public class ZooKeeperExample {
                     System.out.println("I am the leader!");
                     Thread.sleep(Long.MAX_VALUE); // Hold leadership
                 }
-                
+
                 @Override
                 public void stateChanged(CuratorFramework client, ConnectionState state) {
                     System.out.println("State changed: " + state);
@@ -566,7 +566,7 @@ public class ZooKeeperExample {
             });
         selector.autoRequeue();
         selector.start();
-        
+
         // Cleanup
         client.close();
     }
@@ -584,7 +584,7 @@ import (
     "fmt"
     "log"
     "time"
-    
+
     "github.com/go-zookeeper/zk"
 )
 
@@ -596,48 +596,48 @@ func main() {
         log.Fatal(err)
     }
     defer conn.Close()
-    
+
     // Create node
     path := "/myapp/config"
     data := []byte(`{"setting": "value"}`)
     acl := zk.WorldACL(zk.PermAll)
-    
+
     // Create parent path first
     _, err = conn.Create("/myapp", nil, 0, acl)
     if err != nil && err != zk.ErrNodeExists {
         log.Fatal(err)
     }
-    
+
     _, err = conn.Create(path, data, 0, acl)
     if err != nil && err != zk.ErrNodeExists {
         log.Fatal(err)
     }
-    
+
     // Read node
     data, stat, err := conn.Get(path)
     if err != nil {
         log.Fatal(err)
     }
     fmt.Printf("Data: %s, Version: %d\n", string(data), stat.Version)
-    
+
     // Update node
     _, err = conn.Set(path, []byte(`{"setting": "new_value"}`), stat.Version)
     if err != nil {
         log.Fatal(err)
     }
-    
+
     // Watch for changes
     data, stat, watchCh, err := conn.GetW(path)
     if err != nil {
         log.Fatal(err)
     }
-    
+
     go func() {
         for event := range watchCh {
             fmt.Printf("Event: %v\n", event)
         }
     }()
-    
+
     // Ephemeral node
     ephPath, err := conn.CreateProtectedEphemeralSequential(
         "/services/instance-",
@@ -648,14 +648,14 @@ func main() {
         log.Fatal(err)
     }
     fmt.Printf("Created ephemeral: %s\n", ephPath)
-    
+
     // List children
     children, _, err := conn.Children("/myapp")
     if err != nil {
         log.Fatal(err)
     }
     fmt.Printf("Children: %v\n", children)
-    
+
     // Simple lock implementation
     lockPath := "/locks/my-resource"
     lock := zk.NewLock(conn, lockPath, acl)
@@ -666,7 +666,7 @@ func main() {
     fmt.Println("Lock acquired")
     // Do work
     lock.Unlock()
-    
+
     // Keep running
     select {}
 }
@@ -680,77 +680,91 @@ func main() {
 const zookeeper = require('node-zookeeper-client');
 
 // Connect
-const client = zookeeper.createClient('localhost:2181,localhost:2182,localhost:2183', {
+const client = zookeeper.createClient(
+  'localhost:2181,localhost:2182,localhost:2183',
+  {
     sessionTimeout: 30000,
     spinDelay: 1000,
-    retries: 3
-});
+    retries: 3,
+  },
+);
 
 client.once('connected', async () => {
-    console.log('Connected to ZooKeeper');
-    
-    // Create node
-    client.create('/myapp/config', 
-        Buffer.from(JSON.stringify({ setting: 'value' })),
-        zookeeper.CreateMode.PERSISTENT,
-        (error, path) => {
-            if (error) {
-                if (error.getCode() !== zookeeper.Exception.NODE_EXISTS) {
-                    console.error(error);
-                }
-            } else {
-                console.log('Created: %s', path);
-            }
+  console.log('Connected to ZooKeeper');
+
+  // Create node
+  client.create(
+    '/myapp/config',
+    Buffer.from(JSON.stringify({ setting: 'value' })),
+    zookeeper.CreateMode.PERSISTENT,
+    (error, path) => {
+      if (error) {
+        if (error.getCode() !== zookeeper.Exception.NODE_EXISTS) {
+          console.error(error);
         }
-    );
-    
-    // Read node
-    client.getData('/myapp/config', (event) => {
-        console.log('Watch event:', event);
-    }, (error, data, stat) => {
-        if (error) {
-            console.error(error);
-            return;
-        }
-        console.log('Data: %s, Version: %d', data.toString(), stat.version);
-    });
-    
-    // Update node
-    client.setData('/myapp/config', 
-        Buffer.from(JSON.stringify({ setting: 'new_value' })),
-        -1, // any version
-        (error, stat) => {
-            if (error) {
-                console.error(error);
-                return;
-            }
-            console.log('Updated, new version: %d', stat.version);
-        }
-    );
-    
-    // Ephemeral node (service registration)
-    client.create('/services/my-service-',
-        Buffer.from(JSON.stringify({ host: 'localhost', port: 8080 })),
-        zookeeper.CreateMode.EPHEMERAL_SEQUENTIAL,
-        (error, path) => {
-            if (error) {
-                console.error(error);
-            } else {
-                console.log('Registered service: %s', path);
-            }
-        }
-    );
-    
-    // List children
-    client.getChildren('/myapp', (event) => {
-        console.log('Children watch:', event);
-    }, (error, children, stat) => {
-        if (error) {
-            console.error(error);
-            return;
-        }
-        console.log('Children: %s', children);
-    });
+      } else {
+        console.log('Created: %s', path);
+      }
+    },
+  );
+
+  // Read node
+  client.getData(
+    '/myapp/config',
+    event => {
+      console.log('Watch event:', event);
+    },
+    (error, data, stat) => {
+      if (error) {
+        console.error(error);
+        return;
+      }
+      console.log('Data: %s, Version: %d', data.toString(), stat.version);
+    },
+  );
+
+  // Update node
+  client.setData(
+    '/myapp/config',
+    Buffer.from(JSON.stringify({ setting: 'new_value' })),
+    -1, // any version
+    (error, stat) => {
+      if (error) {
+        console.error(error);
+        return;
+      }
+      console.log('Updated, new version: %d', stat.version);
+    },
+  );
+
+  // Ephemeral node (service registration)
+  client.create(
+    '/services/my-service-',
+    Buffer.from(JSON.stringify({ host: 'localhost', port: 8080 })),
+    zookeeper.CreateMode.EPHEMERAL_SEQUENTIAL,
+    (error, path) => {
+      if (error) {
+        console.error(error);
+      } else {
+        console.log('Registered service: %s', path);
+      }
+    },
+  );
+
+  // List children
+  client.getChildren(
+    '/myapp',
+    event => {
+      console.log('Children watch:', event);
+    },
+    (error, children, stat) => {
+      if (error) {
+        console.error(error);
+        return;
+      }
+      console.log('Children: %s', children);
+    },
+  );
 });
 
 client.connect();
@@ -773,7 +787,7 @@ class ServiceRegistry:
         self.base_path = f'/services/{service_name}'
         self.zk.ensure_path(self.base_path)
         self.instance_path = None
-    
+
     def register(self, host, port, metadata=None):
         """Register this service instance"""
         data = {
@@ -788,7 +802,7 @@ class ServiceRegistry:
             sequence=True
         )
         return self.instance_path
-    
+
     def discover(self):
         """Discover all instances of this service"""
         instances = []
@@ -797,14 +811,14 @@ class ServiceRegistry:
             data, _ = self.zk.get(f'{self.base_path}/{child}')
             instances.append(json.loads(data.decode()))
         return instances
-    
+
     def watch_instances(self, callback):
         """Watch for instance changes"""
         @self.zk.ChildrenWatch(self.base_path)
         def watch(children):
             instances = self.discover()
             callback(instances)
-    
+
     def deregister(self):
         """Deregister this instance"""
         if self.instance_path:
@@ -841,17 +855,17 @@ class DistributedConfig:
         self.base_path = f'/config/{app_name}'
         self.zk.ensure_path(self.base_path)
         self.watchers = {}
-    
+
     def set(self, key, value):
         """Set configuration value"""
         path = f'{self.base_path}/{key}'
         data = json.dumps(value).encode()
-        
+
         if self.zk.exists(path):
             self.zk.set(path, data)
         else:
             self.zk.create(path, data)
-    
+
     def get(self, key, default=None):
         """Get configuration value"""
         path = f'{self.base_path}/{key}'
@@ -859,7 +873,7 @@ class DistributedConfig:
             data, _ = self.zk.get(path)
             return json.loads(data.decode())
         return default
-    
+
     def get_all(self):
         """Get all configuration"""
         config = {}
@@ -867,17 +881,17 @@ class DistributedConfig:
         for key in children:
             config[key] = self.get(key)
         return config
-    
+
     def watch(self, key, callback):
         """Watch for configuration changes"""
         path = f'{self.base_path}/{key}'
-        
+
         @self.zk.DataWatch(path)
         def watcher(data, stat):
             if data:
                 value = json.loads(data.decode())
                 callback(key, value)
-        
+
         self.watchers[key] = watcher
 
 # Usage
@@ -914,24 +928,24 @@ class LeaderElection:
         self.election = Election(self.zk, election_path)
         self.is_leader = False
         self.hostname = socket.gethostname()
-    
+
     def run_for_leader(self, leader_func, follower_func=None):
         """Run for leader position"""
         def on_leader():
             self.is_leader = True
             print(f"{self.hostname}: I am now the leader!")
             leader_func()
-        
+
         # Start election in background
         thread = threading.Thread(target=self.election.run, args=(on_leader,))
         thread.daemon = True
         thread.start()
-        
+
         # Run follower logic while not leader
         if follower_func:
             while not self.is_leader:
                 follower_func()
-    
+
     def get_leader(self):
         """Get current leader"""
         contenders = self.election.contenders()
@@ -955,16 +969,16 @@ election.run_for_leader(leader_work, follower_work)
 
 ### Common Issues
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| Connection refused | ZooKeeper not running | Check `zkServer.sh status`, verify port 2181 |
-| Session expired | Network issues or long GC pauses | Increase session timeout, tune JVM |
-| No quorum | Too many nodes down | Ensure majority of nodes are running |
-| Leader election stuck | Network partition | Check connectivity between nodes |
-| Disk full | Too many snapshots/logs | Enable autopurge or manually clean |
-| High latency | Disk I/O bottleneck | Use SSD, separate log disk |
-| Too many connections | Connection leak | Increase `maxClientCnxns`, fix client code |
-| Watch limit exceeded | Too many watches | Consolidate watches, use CuratorCache |
+| Issue                 | Cause                            | Solution                                     |
+| --------------------- | -------------------------------- | -------------------------------------------- |
+| Connection refused    | ZooKeeper not running            | Check `zkServer.sh status`, verify port 2181 |
+| Session expired       | Network issues or long GC pauses | Increase session timeout, tune JVM           |
+| No quorum             | Too many nodes down              | Ensure majority of nodes are running         |
+| Leader election stuck | Network partition                | Check connectivity between nodes             |
+| Disk full             | Too many snapshots/logs          | Enable autopurge or manually clean           |
+| High latency          | Disk I/O bottleneck              | Use SSD, separate log disk                   |
+| Too many connections  | Connection leak                  | Increase `maxClientCnxns`, fix client code   |
+| Watch limit exceeded  | Too many watches                 | Consolidate watches, use CuratorCache        |
 
 ### Diagnostic Commands
 

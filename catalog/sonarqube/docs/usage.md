@@ -19,13 +19,13 @@ services:
       SONAR_JDBC_URL: jdbc:postgresql://postgres:5432/sonarqube
       SONAR_JDBC_USERNAME: sonarqube
       SONAR_JDBC_PASSWORD: sonarqube_password
-      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: 'true'
     volumes:
       - sonarqube_data:/opt/sonarqube/data
       - sonarqube_logs:/opt/sonarqube/logs
       - sonarqube_extensions:/opt/sonarqube/extensions
     ports:
-      - "9000:9000"
+      - '9000:9000'
     networks:
       - sonarnet
     ulimits:
@@ -33,7 +33,7 @@ services:
         soft: 65536
         hard: 65536
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/api/system/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/api/system/health']
       interval: 30s
       timeout: 10s
       retries: 5
@@ -50,7 +50,7 @@ services:
     networks:
       - sonarnet
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sonarqube"]
+      test: ['CMD-SHELL', 'pg_isready -U sonarqube']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -92,7 +92,7 @@ services:
       - sonarqube_extensions:/opt/sonarqube/extensions
       - ./sonar.properties:/opt/sonarqube/conf/sonar.properties:ro
     expose:
-      - "9000"
+      - '9000'
     networks:
       - sonarnet
     deploy:
@@ -110,8 +110,8 @@ services:
     image: nginx:alpine
     container_name: sonarqube-nginx
     ports:
-      - "443:443"
-      - "80:80"
+      - '443:443'
+      - '80:80'
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./certs:/etc/nginx/certs:ro
@@ -167,7 +167,7 @@ ingress:
   enabled: true
   annotations:
     kubernetes.io/ingress.class: nginx
-    nginx.ingress.kubernetes.io/proxy-body-size: "64m"
+    nginx.ingress.kubernetes.io/proxy-body-size: '64m'
     cert-manager.io/cluster-issuer: letsencrypt-prod
   hosts:
     - name: sonarqube.example.com
@@ -204,13 +204,13 @@ plugins:
     - https://github.com/dependency-check/dependency-check-sonar-plugin/releases/download/4.0.1/sonar-dependency-check-plugin-4.0.1.jar
 
 sonarProperties:
-  sonar.forceAuthentication: "true"
-  sonar.core.serverBaseURL: "https://sonarqube.example.com"
+  sonar.forceAuthentication: 'true'
+  sonar.core.serverBaseURL: 'https://sonarqube.example.com'
 
-jvmOpts: "-Xmx2g -Xms2g"
-jvmCeOpts: "-Xmx2g -Xms2g"
+jvmOpts: '-Xmx2g -Xms2g'
+jvmCeOpts: '-Xmx2g -Xms2g'
 
-monitoringPasscode: "monitoring-secret"
+monitoringPasscode: 'monitoring-secret'
 ```
 
 ### Native Kubernetes Manifests
@@ -358,23 +358,23 @@ stages:
   - analyze
 
 variables:
-  SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"
+  SONAR_USER_HOME: '${CI_PROJECT_DIR}/.sonar'
   GIT_DEPTH: 0
 
 sonarqube-check:
   stage: analyze
   image: maven:3.9-eclipse-temurin-17
   cache:
-    key: "${CI_JOB_NAME}"
+    key: '${CI_JOB_NAME}'
     paths:
       - .sonar/cache
       - .m2/repository
   script:
     - mvn verify sonar:sonar
-        -Dsonar.projectKey=${CI_PROJECT_NAME}
-        -Dsonar.host.url=${SONAR_HOST_URL}
-        -Dsonar.token=${SONAR_TOKEN}
-        -Dsonar.qualitygate.wait=true
+      -Dsonar.projectKey=${CI_PROJECT_NAME}
+      -Dsonar.host.url=${SONAR_HOST_URL}
+      -Dsonar.token=${SONAR_TOKEN}
+      -Dsonar.qualitygate.wait=true
   only:
     - merge_requests
     - main
@@ -387,24 +387,24 @@ sonarqube-check:
 // Jenkinsfile
 pipeline {
     agent any
-    
+
     environment {
         SONAR_TOKEN = credentials('sonarqube-token')
     }
-    
+
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
             }
         }
-        
+
         stage('Build & Test') {
             steps {
                 sh 'mvn clean verify -Pcoverage'
             }
         }
-        
+
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarQube') {
@@ -417,7 +417,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Quality Gate') {
             steps {
                 timeout(time: 5, unit: 'MINUTES') {
@@ -426,7 +426,7 @@ pipeline {
             }
         }
     }
-    
+
     post {
         always {
             junit '**/target/surefire-reports/*.xml'
@@ -663,16 +663,16 @@ curl -u admin:admin -X POST \
 
 ## Troubleshooting
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| Elasticsearch bootstrap checks failed | Low vm.max_map_count | Run `sysctl -w vm.max_map_count=524288` on host |
-| Analysis takes too long | Large codebase or slow DB | Increase CE memory, optimize DB, use SSD |
-| Quality Gate timeout | Webhook not responding | Check webhook URL, increase timeout |
-| Scanner can't connect | Network/firewall issue | Verify URL, check proxy settings |
-| Out of memory during analysis | Heap too small | Increase `-Xmx` in scanner/CE settings |
-| Database connection errors | Pool exhausted | Increase `sonar.jdbc.maxActive` |
-| Plugin installation fails | Version incompatibility | Check plugin compatibility matrix |
-| Branch analysis not working | Community Edition | Upgrade to Developer Edition |
+| Issue                                 | Cause                     | Solution                                        |
+| ------------------------------------- | ------------------------- | ----------------------------------------------- |
+| Elasticsearch bootstrap checks failed | Low vm.max_map_count      | Run `sysctl -w vm.max_map_count=524288` on host |
+| Analysis takes too long               | Large codebase or slow DB | Increase CE memory, optimize DB, use SSD        |
+| Quality Gate timeout                  | Webhook not responding    | Check webhook URL, increase timeout             |
+| Scanner can't connect                 | Network/firewall issue    | Verify URL, check proxy settings                |
+| Out of memory during analysis         | Heap too small            | Increase `-Xmx` in scanner/CE settings          |
+| Database connection errors            | Pool exhausted            | Increase `sonar.jdbc.maxActive`                 |
+| Plugin installation fails             | Version incompatibility   | Check plugin compatibility matrix               |
+| Branch analysis not working           | Community Edition         | Upgrade to Developer Edition                    |
 
 ### Log Analysis
 

@@ -57,14 +57,14 @@ project     = "multi-cloud-platform"
 # AWS Configuration
 aws_config = {
   region = "us-east-1"
-  
+
   vpc = {
     cidr               = "10.0.0.0/16"
     availability_zones = ["us-east-1a", "us-east-1b", "us-east-1c"]
     private_subnets    = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
     public_subnets     = ["10.0.101.0/24", "10.0.102.0/24", "10.0.103.0/24"]
   }
-  
+
   eks = {
     cluster_version = "1.29"
     node_groups = {
@@ -82,7 +82,7 @@ aws_config = {
       }
     }
   }
-  
+
   rds = {
     engine_version    = "15.4"
     instance_class    = "db.r6g.large"
@@ -94,12 +94,12 @@ aws_config = {
 # Azure Configuration
 azure_config = {
   location = "eastus"
-  
+
   vnet = {
     address_space   = ["10.1.0.0/16"]
     private_subnets = ["10.1.1.0/24", "10.1.2.0/24", "10.1.3.0/24"]
   }
-  
+
   aks = {
     kubernetes_version = "1.29"
     node_pools = {
@@ -116,7 +116,7 @@ azure_config = {
       }
     }
   }
-  
+
   postgres = {
     sku_name   = "GP_Standard_D4s_v3"
     version    = "15"
@@ -128,11 +128,11 @@ azure_config = {
 # GCP Configuration
 gcp_config = {
   region = "us-east1"
-  
+
   vpc = {
     subnet_cidr = "10.2.0.0/16"
   }
-  
+
   gke = {
     release_channel = "REGULAR"
     node_pools = {
@@ -147,7 +147,7 @@ gcp_config = {
       }
     }
   }
-  
+
   cloudsql = {
     database_version = "POSTGRES_15"
     tier             = "db-custom-4-16384"
@@ -158,17 +158,17 @@ gcp_config = {
 # Cross-cloud networking
 cross_cloud_vpn = {
   enabled = true
-  
+
   aws_azure = {
     enabled = true
     tunnels = 2
   }
-  
+
   azure_gcp = {
     enabled = true
     tunnels = 2
   }
-  
+
   aws_gcp = {
     enabled = true
     tunnels = 2
@@ -191,108 +191,110 @@ common_tags = {
 
 ```typescript
 // pulumi/index.ts
-import * as pulumi from "@pulumi/pulumi";
-import * as aws from "@pulumi/aws";
-import * as azure from "@pulumi/azure-native";
-import * as gcp from "@pulumi/gcp";
+import * as pulumi from '@pulumi/pulumi';
+import * as aws from '@pulumi/aws';
+import * as azure from '@pulumi/azure-native';
+import * as gcp from '@pulumi/gcp';
 
 const config = new pulumi.Config();
-const environment = config.require("environment");
+const environment = config.require('environment');
 
 // AWS VPC and EKS
-const awsVpc = new aws.ec2.Vpc("main-vpc", {
-    cidrBlock: "10.0.0.0/16",
-    enableDnsHostnames: true,
-    enableDnsSupport: true,
-    tags: {
-        Name: `${environment}-vpc`,
-        Environment: environment,
-    },
+const awsVpc = new aws.ec2.Vpc('main-vpc', {
+  cidrBlock: '10.0.0.0/16',
+  enableDnsHostnames: true,
+  enableDnsSupport: true,
+  tags: {
+    Name: `${environment}-vpc`,
+    Environment: environment,
+  },
 });
 
-const eksCluster = new aws.eks.Cluster("eks-cluster", {
-    name: `${environment}-eks`,
-    roleArn: eksRole.arn,
-    version: "1.29",
-    vpcConfig: {
-        subnetIds: privateSubnets.map(s => s.id),
-        endpointPrivateAccess: true,
-        endpointPublicAccess: true,
-    },
-    tags: {
-        Environment: environment,
-    },
+const eksCluster = new aws.eks.Cluster('eks-cluster', {
+  name: `${environment}-eks`,
+  roleArn: eksRole.arn,
+  version: '1.29',
+  vpcConfig: {
+    subnetIds: privateSubnets.map(s => s.id),
+    endpointPrivateAccess: true,
+    endpointPublicAccess: true,
+  },
+  tags: {
+    Environment: environment,
+  },
 });
 
 // Azure VNet and AKS
-const resourceGroup = new azure.resources.ResourceGroup("rg", {
-    resourceGroupName: `${environment}-rg`,
-    location: "eastus",
+const resourceGroup = new azure.resources.ResourceGroup('rg', {
+  resourceGroupName: `${environment}-rg`,
+  location: 'eastus',
 });
 
-const azureVnet = new azure.network.VirtualNetwork("vnet", {
-    resourceGroupName: resourceGroup.name,
-    location: resourceGroup.location,
-    virtualNetworkName: `${environment}-vnet`,
-    addressSpace: {
-        addressPrefixes: ["10.1.0.0/16"],
-    },
+const azureVnet = new azure.network.VirtualNetwork('vnet', {
+  resourceGroupName: resourceGroup.name,
+  location: resourceGroup.location,
+  virtualNetworkName: `${environment}-vnet`,
+  addressSpace: {
+    addressPrefixes: ['10.1.0.0/16'],
+  },
 });
 
-const aksCluster = new azure.containerservice.ManagedCluster("aks", {
-    resourceGroupName: resourceGroup.name,
-    location: resourceGroup.location,
-    resourceName: `${environment}-aks`,
-    kubernetesVersion: "1.29",
-    dnsPrefix: `${environment}-aks`,
-    agentPoolProfiles: [{
-        name: "default",
-        count: 3,
-        vmSize: "Standard_D4s_v3",
-        mode: "System",
-        vnetSubnetId: aksSubnet.id,
-    }],
-    identity: {
-        type: "SystemAssigned",
+const aksCluster = new azure.containerservice.ManagedCluster('aks', {
+  resourceGroupName: resourceGroup.name,
+  location: resourceGroup.location,
+  resourceName: `${environment}-aks`,
+  kubernetesVersion: '1.29',
+  dnsPrefix: `${environment}-aks`,
+  agentPoolProfiles: [
+    {
+      name: 'default',
+      count: 3,
+      vmSize: 'Standard_D4s_v3',
+      mode: 'System',
+      vnetSubnetId: aksSubnet.id,
     },
-    networkProfile: {
-        networkPlugin: "azure",
-        networkPolicy: "calico",
-    },
+  ],
+  identity: {
+    type: 'SystemAssigned',
+  },
+  networkProfile: {
+    networkPlugin: 'azure',
+    networkPolicy: 'calico',
+  },
 });
 
 // GCP VPC and GKE
-const gcpNetwork = new gcp.compute.Network("vpc", {
-    name: `${environment}-vpc`,
-    autoCreateSubnetworks: false,
+const gcpNetwork = new gcp.compute.Network('vpc', {
+  name: `${environment}-vpc`,
+  autoCreateSubnetworks: false,
 });
 
-const gcpSubnet = new gcp.compute.Subnetwork("subnet", {
-    name: `${environment}-subnet`,
-    ipCidrRange: "10.2.0.0/16",
-    region: "us-east1",
-    network: gcpNetwork.id,
-    secondaryIpRanges: [
-        { rangeName: "pods", ipCidrRange: "10.3.0.0/16" },
-        { rangeName: "services", ipCidrRange: "10.4.0.0/20" },
-    ],
+const gcpSubnet = new gcp.compute.Subnetwork('subnet', {
+  name: `${environment}-subnet`,
+  ipCidrRange: '10.2.0.0/16',
+  region: 'us-east1',
+  network: gcpNetwork.id,
+  secondaryIpRanges: [
+    { rangeName: 'pods', ipCidrRange: '10.3.0.0/16' },
+    { rangeName: 'services', ipCidrRange: '10.4.0.0/20' },
+  ],
 });
 
-const gkeCluster = new gcp.container.Cluster("gke", {
-    name: `${environment}-gke`,
-    location: "us-east1",
-    network: gcpNetwork.name,
-    subnetwork: gcpSubnet.name,
-    removeDefaultNodePool: true,
-    initialNodeCount: 1,
-    releaseChannel: { channel: "REGULAR" },
-    ipAllocationPolicy: {
-        clusterSecondaryRangeName: "pods",
-        servicesSecondaryRangeName: "services",
-    },
-    workloadIdentityConfig: {
-        workloadPool: `${gcp.config.project}.svc.id.goog`,
-    },
+const gkeCluster = new gcp.container.Cluster('gke', {
+  name: `${environment}-gke`,
+  location: 'us-east1',
+  network: gcpNetwork.name,
+  subnetwork: gcpSubnet.name,
+  removeDefaultNodePool: true,
+  initialNodeCount: 1,
+  releaseChannel: { channel: 'REGULAR' },
+  ipAllocationPolicy: {
+    clusterSecondaryRangeName: 'pods',
+    servicesSecondaryRangeName: 'services',
+  },
+  workloadIdentityConfig: {
+    workloadPool: `${gcp.config.project}.svc.id.goog`,
+  },
 });
 
 // Export cluster endpoints
@@ -318,7 +320,7 @@ spec:
   compositeTypeRef:
     apiVersion: platform.example.com/v1alpha1
     kind: XDatabase
-  
+
   patchSets:
     - name: common-fields
       patches:
@@ -338,7 +340,7 @@ spec:
         spec:
           forProvider:
             engine: postgres
-            engineVersion: "15"
+            engineVersion: '15'
             instanceClass: db.t3.medium
             allocatedStorage: 20
             skipFinalSnapshotBeforeDeletion: true
@@ -369,7 +371,7 @@ spec:
         kind: FlexibleServer
         spec:
           forProvider:
-            version: "15"
+            version: '15'
             skuName: GP_Standard_D2s_v3
             storageSizeGb: 32
             publicNetworkAccess: Disabled
@@ -513,37 +515,37 @@ jobs:
     strategy:
       matrix:
         environment: [dev, staging, prod]
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
           cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
-      
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
-      
+
       - name: Configure Azure Credentials
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-      
+
       - name: Configure GCP Credentials
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
-      
+
       - name: Terraform Init
         working-directory: terraform/environments/${{ matrix.environment }}
         run: terraform init
-      
+
       - name: Terraform Plan
         working-directory: terraform/environments/${{ matrix.environment }}
         run: |
@@ -552,7 +554,7 @@ jobs:
             -out=tfplan \
             -no-color
         continue-on-error: true
-      
+
       - name: OPA Policy Check
         uses: open-policy-agent/opa-github-action@main
         with:
@@ -564,24 +566,24 @@ jobs:
     needs: plan
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
-    environment: 
+    environment:
       name: ${{ matrix.environment }}
     strategy:
       max-parallel: 1
       matrix:
         environment: [dev, staging, prod]
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
           cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
-      
+
       # Configure all cloud credentials...
-      
+
       - name: Terraform Apply
         working-directory: terraform/environments/${{ matrix.environment }}
         run: terraform apply -auto-approve tfplan
@@ -591,14 +593,14 @@ jobs:
 
 ### Common Issues
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| Cross-cloud VPN down | BGP session failed | Check VPN gateway logs, verify BGP ASN configuration |
-| Terraform state lock | Concurrent runs | Use `terraform force-unlock <LOCK_ID>` |
-| Provider auth failure | Expired credentials | Refresh credentials, check token expiry |
-| Resource quota exceeded | Cloud limits | Request quota increase or use different region |
-| DNS propagation slow | TTL settings | Lower TTL, check DNS health checks |
-| Cost anomaly detected | Unexpected usage | Review CloudWatch/Monitor/Ops metrics |
+| Issue                   | Cause               | Solution                                             |
+| ----------------------- | ------------------- | ---------------------------------------------------- |
+| Cross-cloud VPN down    | BGP session failed  | Check VPN gateway logs, verify BGP ASN configuration |
+| Terraform state lock    | Concurrent runs     | Use `terraform force-unlock <LOCK_ID>`               |
+| Provider auth failure   | Expired credentials | Refresh credentials, check token expiry              |
+| Resource quota exceeded | Cloud limits        | Request quota increase or use different region       |
+| DNS propagation slow    | TTL settings        | Lower TTL, check DNS health checks                   |
+| Cost anomaly detected   | Unexpected usage    | Review CloudWatch/Monitor/Ops metrics                |
 
 ### Diagnostic Commands
 
@@ -708,7 +710,7 @@ workflows:
       steps:
         - init
         - plan:
-            extra_args: ["-var-file", "prod.tfvars"]
+            extra_args: ['-var-file', 'prod.tfvars']
         - run: conftest test $PLANFILE -p policies/opa
     apply:
       steps:

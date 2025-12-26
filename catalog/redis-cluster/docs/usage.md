@@ -17,73 +17,73 @@ cache_aside: Cache-Aside Pattern {
   style.fill: "#e3f2fd"
   style.stroke: "#1565c2"
   style.stroke-width: 2
-  
+
   app: Application {
     shape: rectangle
     style.fill: "#1976d2"
     style.font-color: white
   }
-  
+
   cache: Redis Cache {
     shape: cylinder
     style.fill: "#42a5f5"
     style.font-color: white
   }
-  
+
   db: Database {
     shape: cylinder
     style.fill: "#0d47a1"
     style.font-color: white
   }
-  
+
   flow: Flow {
     style.fill: "#bbdefb"
     s1: "1. Check Cache" {shape: step; style.fill: "#64b5f6"}
     s2: "2. Cache Miss → Query DB" {shape: step; style.fill: "#42a5f5"; style.font-color: white}
     s3: "3. Store in Cache" {shape: step; style.fill: "#1e88e5"; style.font-color: white}
     s4: "4. Return Data" {shape: step; style.fill: "#1565c2"; style.font-color: white}
-    
+
     s1 -> s2 -> s3 -> s4
   }
-  
+
   app -> cache: "GET key" {style.stroke: "#4caf50"}
   cache -> app: "Cache Hit" {style.stroke: "#4caf50"; style.stroke-dash: 3}
   app -> db: "SELECT ..." {style.stroke: "#f44336"}
   app -> cache: "SETEX key TTL" {style.stroke: "#ff9800"}
 }
 
-# Write-Through Pattern  
+# Write-Through Pattern
 write_through: Write-Through Pattern {
   style.fill: "#fff3e0"
   style.stroke: "#ef6c00"
   style.stroke-width: 2
-  
+
   app: Application {
     shape: rectangle
     style.fill: "#ff9800"
     style.font-color: white
   }
-  
+
   cache: Redis Cache {
     shape: cylinder
     style.fill: "#ffb74d"
   }
-  
+
   db: Database {
     shape: cylinder
     style.fill: "#e65100"
     style.font-color: white
   }
-  
+
   flow: Flow {
     style.fill: "#ffe0b2"
     s1: "1. Write to Cache" {shape: step; style.fill: "#ffcc80"}
     s2: "2. Sync Write to DB" {shape: step; style.fill: "#ffb74d"}
     s3: "3. Confirm Write" {shape: step; style.fill: "#ffa726"}
-    
+
     s1 -> s2 -> s3
   }
-  
+
   app -> cache: "SET key value" {style.stroke: "#4caf50"; style.stroke-width: 2}
   cache -> db: "INSERT/UPDATE" {style.stroke: "#1976d2"; style.stroke-width: 2}
 }
@@ -93,38 +93,38 @@ read_through: Read-Through + TTL {
   style.fill: "#e8f5e9"
   style.stroke: "#2e7d32"
   style.stroke-width: 2
-  
+
   client: Client {
     shape: rectangle
     style.fill: "#4caf50"
     style.font-color: white
   }
-  
+
   service: Cache Service {
     shape: hexagon
     style.fill: "#66bb6a"
     style.font-color: white
   }
-  
+
   redis: Redis {
     shape: cylinder
     style.fill: "#81c784"
   }
-  
+
   source: Data Source {
     shape: cylinder
     style.fill: "#2e7d32"
     style.font-color: white
   }
-  
+
   ttl: TTL Strategy {
     style.fill: "#c8e6c9"
-    
+
     active: "Active: 1 hour" {shape: text; style.font-size: 11}
     stale: "Stale-while-revalidate" {shape: text; style.font-size: 11}
     refresh: "Background refresh" {shape: text; style.font-size: 11}
   }
-  
+
   client -> service: "Request"
   service -> redis: "GET"
   redis -> service: "Hit/Miss"
@@ -137,31 +137,31 @@ lock: Distributed Lock (Redlock) {
   style.fill: "#fce4ec"
   style.stroke: "#c2185b"
   style.stroke-width: 2
-  
+
   worker: Worker Process {
     shape: rectangle
     style.fill: "#e91e63"
     style.font-color: white
   }
-  
+
   nodes: Redis Nodes {
     style.fill: "#f8bbd9"
-    
+
     n1: Node 1 {shape: cylinder; style.fill: "#f48fb1"}
     n2: Node 2 {shape: cylinder; style.fill: "#f48fb1"}
     n3: Node 3 {shape: cylinder; style.fill: "#f48fb1"}
   }
-  
+
   lock_flow: Lock Flow {
     style.fill: "#fce4ec"
-    
+
     acquire: "SET lock:resource NX PX 30000" {shape: step; style.fill: "#ec407a"; style.font-color: white}
     work: "Do Critical Work" {shape: step; style.fill: "#e91e63"; style.font-color: white}
     release: "DEL lock:resource (Lua)" {shape: step; style.fill: "#c2185b"; style.font-color: white}
-    
+
     acquire -> work -> release
   }
-  
+
   worker -> nodes.n1: "Lock" {style.stroke: "#c2185b"}
   worker -> nodes.n2: "Lock" {style.stroke: "#c2185b"}
   worker -> nodes.n3: "Lock" {style.stroke: "#c2185b"}
@@ -189,8 +189,8 @@ services:
     container_name: redis-node-1
     command: redis-server /usr/local/etc/redis/redis.conf
     ports:
-      - "7000:7000"
-      - "17000:17000"
+      - '7000:7000'
+      - '17000:17000'
     volumes:
       - redis-node-1-data:/data
       - ./redis-cluster.conf:/usr/local/etc/redis/redis.conf
@@ -204,8 +204,8 @@ services:
     container_name: redis-node-2
     command: redis-server /usr/local/etc/redis/redis.conf
     ports:
-      - "7001:7001"
-      - "17001:17001"
+      - '7001:7001'
+      - '17001:17001'
     volumes:
       - redis-node-2-data:/data
       - ./redis-cluster-7001.conf:/usr/local/etc/redis/redis.conf
@@ -217,8 +217,8 @@ services:
     container_name: redis-node-3
     command: redis-server /usr/local/etc/redis/redis.conf
     ports:
-      - "7002:7002"
-      - "17002:17002"
+      - '7002:7002'
+      - '17002:17002'
     volumes:
       - redis-node-3-data:/data
       - ./redis-cluster-7002.conf:/usr/local/etc/redis/redis.conf
@@ -230,8 +230,8 @@ services:
     container_name: redis-node-4
     command: redis-server /usr/local/etc/redis/redis.conf
     ports:
-      - "7003:7003"
-      - "17003:17003"
+      - '7003:7003'
+      - '17003:17003'
     volumes:
       - redis-node-4-data:/data
       - ./redis-cluster-7003.conf:/usr/local/etc/redis/redis.conf
@@ -243,8 +243,8 @@ services:
     container_name: redis-node-5
     command: redis-server /usr/local/etc/redis/redis.conf
     ports:
-      - "7004:7004"
-      - "17004:17004"
+      - '7004:7004'
+      - '17004:17004'
     volumes:
       - redis-node-5-data:/data
       - ./redis-cluster-7004.conf:/usr/local/etc/redis/redis.conf
@@ -256,8 +256,8 @@ services:
     container_name: redis-node-6
     command: redis-server /usr/local/etc/redis/redis.conf
     ports:
-      - "7005:7005"
-      - "17005:17005"
+      - '7005:7005'
+      - '17005:17005'
     volumes:
       - redis-node-6-data:/data
       - ./redis-cluster-7005.conf:/usr/local/etc/redis/redis.conf
@@ -353,48 +353,48 @@ spec:
         app: redis-cluster
     spec:
       containers:
-      - name: redis
-        image: redis:7.2
-        ports:
-        - containerPort: 6379
-          name: client
-        - containerPort: 16379
-          name: gossip
-        command:
-        - redis-server
-        args:
-        - --port 6379
-        - --cluster-enabled yes
-        - --cluster-config-file nodes.conf
-        - --cluster-node-timeout 5000
-        - --appendonly yes
-        - --requirepass $(REDIS_PASSWORD)
-        - --masterauth $(REDIS_PASSWORD)
-        env:
-        - name: REDIS_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: redis-cluster-secret
-              key: password
-        volumeMounts:
-        - name: data
-          mountPath: /data
+        - name: redis
+          image: redis:7.2
+          ports:
+            - containerPort: 6379
+              name: client
+            - containerPort: 16379
+              name: gossip
+          command:
+            - redis-server
+          args:
+            - --port 6379
+            - --cluster-enabled yes
+            - --cluster-config-file nodes.conf
+            - --cluster-node-timeout 5000
+            - --appendonly yes
+            - --requirepass $(REDIS_PASSWORD)
+            - --masterauth $(REDIS_PASSWORD)
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-cluster-secret
+                  key: password
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 1000m
+              memory: 2Gi
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ['ReadWriteOnce']
+        storageClassName: fast-ssd
         resources:
           requests:
-            cpu: 500m
-            memory: 1Gi
-          limits:
-            cpu: 1000m
-            memory: 2Gi
-  volumeClaimTemplates:
-  - metadata:
-      name: data
-    spec:
-      accessModes: ["ReadWriteOnce"]
-      storageClassName: fast-ssd
-      resources:
-        requests:
-          storage: 10Gi
+            storage: 10Gi
 ---
 apiVersion: v1
 kind: Service
@@ -404,12 +404,12 @@ metadata:
 spec:
   clusterIP: None
   ports:
-  - port: 6379
-    targetPort: 6379
-    name: client
-  - port: 16379
-    targetPort: 16379
-    name: gossip
+    - port: 6379
+      targetPort: 6379
+      name: client
+    - port: 16379
+      targetPort: 16379
+      name: gossip
   selector:
     app: redis-cluster
 ```
@@ -581,15 +581,18 @@ for message in pubsub.listen():
 const Redis = require('ioredis');
 
 // Connect to cluster
-const cluster = new Redis.Cluster([
-  { port: 7000, host: 'localhost' },
-  { port: 7001, host: 'localhost' },
-  { port: 7002, host: 'localhost' }
-], {
-  redisOptions: {
-    password: 'your-password'
-  }
-});
+const cluster = new Redis.Cluster(
+  [
+    { port: 7000, host: 'localhost' },
+    { port: 7001, host: 'localhost' },
+    { port: 7002, host: 'localhost' },
+  ],
+  {
+    redisOptions: {
+      password: 'your-password',
+    },
+  },
+);
 
 // Basic operations
 await cluster.set('user:1000:name', 'John Doe');
@@ -626,19 +629,19 @@ def get_user(user_id):
     cached = redis.get(f'user:{user_id}')
     if cached:
         return json.loads(cached)
-    
+
     # Cache miss - fetch from database
     user = db.query(f"SELECT * FROM users WHERE id = {user_id}")
-    
+
     # Store in cache with TTL
     redis.setex(f'user:{user_id}', 3600, json.dumps(user))
-    
+
     return user
 
 def update_user(user_id, data):
     # Update database
     db.execute(f"UPDATE users SET ... WHERE id = {user_id}")
-    
+
     # Invalidate cache
     redis.delete(f'user:{user_id}')
 ```
@@ -650,7 +653,7 @@ def update_user(user_id, data):
     # Update cache first
     redis.hset(f'user:{user_id}', mapping=data)
     redis.expire(f'user:{user_id}', 3600)
-    
+
     # Then update database
     db.execute(f"UPDATE users SET ... WHERE id = {user_id}")
 ```
@@ -665,14 +668,14 @@ import time
 def acquire_lock(lock_name, timeout=10):
     identifier = str(uuid.uuid4())
     lock_key = f'lock:{lock_name}'
-    
+
     if redis.set(lock_key, identifier, nx=True, ex=timeout):
         return identifier
     return None
 
 def release_lock(lock_name, identifier):
     lock_key = f'lock:{lock_name}'
-    
+
     # Lua script for atomic check-and-delete
     script = """
     if redis.call('get', KEYS[1]) == ARGV[1] then
@@ -695,16 +698,16 @@ if lock_id:
 
 ## Troubleshooting
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| `CLUSTERDOWN` error | Not enough masters available | Ensure quorum of masters (N/2 + 1), check node health |
-| `MOVED` error in non-cluster client | Using single-node client for cluster | Use cluster-aware client (`redis-cli -c`) |
-| High latency | Slow commands, persistence | Check `SLOWLOG`, disable AOF fsync, use pipeline |
-| `OOM` errors | Memory limit reached | Increase `maxmemory`, set eviction policy |
-| Replication lag | Slow replica, network issues | Check replica resources, increase `repl-backlog-size` |
-| Connection refused | Max connections reached | Increase `maxclients`, check connection leaks |
-| Cluster slot gaps | Incomplete resharding | Run `redis-cli --cluster fix` |
-| Split brain | Network partition | Ensure proper `cluster-node-timeout`, check network |
+| Issue                               | Cause                                | Solution                                              |
+| ----------------------------------- | ------------------------------------ | ----------------------------------------------------- |
+| `CLUSTERDOWN` error                 | Not enough masters available         | Ensure quorum of masters (N/2 + 1), check node health |
+| `MOVED` error in non-cluster client | Using single-node client for cluster | Use cluster-aware client (`redis-cli -c`)             |
+| High latency                        | Slow commands, persistence           | Check `SLOWLOG`, disable AOF fsync, use pipeline      |
+| `OOM` errors                        | Memory limit reached                 | Increase `maxmemory`, set eviction policy             |
+| Replication lag                     | Slow replica, network issues         | Check replica resources, increase `repl-backlog-size` |
+| Connection refused                  | Max connections reached              | Increase `maxclients`, check connection leaks         |
+| Cluster slot gaps                   | Incomplete resharding                | Run `redis-cli --cluster fix`                         |
+| Split brain                         | Network partition                    | Ensure proper `cluster-node-timeout`, check network   |
 
 ### Diagnostic Commands
 

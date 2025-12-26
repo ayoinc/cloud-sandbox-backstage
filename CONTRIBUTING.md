@@ -152,13 +152,13 @@ packages/backend/src/
 
 ### Naming Conventions
 
-| Type | Convention | Example |
-|------|------------|---------|
-| Files | camelCase | `brandingSettings.ts` |
-| Classes | PascalCase | `GitHubOrgPermissionPolicy` |
-| Functions | camelCase | `getCurrentSettings` |
-| Constants | SCREAMING_SNAKE_CASE | `DEFAULT_SETTINGS` |
-| Interfaces | PascalCase | `BrandingSettings` |
+| Type       | Convention           | Example                     |
+| ---------- | -------------------- | --------------------------- |
+| Files      | camelCase            | `brandingSettings.ts`       |
+| Classes    | PascalCase           | `GitHubOrgPermissionPolicy` |
+| Functions  | camelCase            | `getCurrentSettings`        |
+| Constants  | SCREAMING_SNAKE_CASE | `DEFAULT_SETTINGS`          |
+| Interfaces | PascalCase           | `BrandingSettings`          |
 
 ## Pull Request Process
 
@@ -180,18 +180,22 @@ When creating a pull request, include:
 
 ```markdown
 ## Summary
+
 Brief description of the changes.
 
 ## Type of Change
+
 - [ ] Bug fix
 - [ ] New feature
 - [ ] Breaking change
 - [ ] Documentation update
 
 ## Testing
+
 Describe how you tested the changes.
 
 ## Checklist
+
 - [ ] TypeScript compiles without errors
 - [ ] All tests pass
 - [ ] Linting passes
@@ -316,7 +320,7 @@ For new API endpoints:
 ```typescript
 /**
  * Get current branding settings
- * 
+ *
  * @route GET /api/branding-settings
  * @returns {BrandingSettings} Current branding configuration
  */

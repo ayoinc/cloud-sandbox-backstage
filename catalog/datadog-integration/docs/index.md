@@ -38,18 +38,18 @@ curl -X POST "https://api.datadoghq.com/api/v1/series" \
 
 ## Features
 
-| Feature | Description | Use Case |
-|---------|-------------|----------|
-| **APM** | Distributed tracing and profiling | Performance optimization |
-| **Infrastructure** | Host, container, cloud monitoring | Capacity planning |
-| **Log Management** | Centralized logging with parsing | Troubleshooting |
-| **RUM** | Real User Monitoring for web/mobile | User experience |
-| **Synthetics** | API and browser testing | Uptime monitoring |
-| **Security Monitoring** | SIEM and threat detection | Security compliance |
-| **Network Monitoring** | NPM and DNS analytics | Network troubleshooting |
-| **Database Monitoring** | Query performance insights | DB optimization |
-| **Serverless** | Lambda, Functions monitoring | Serverless debugging |
-| **CI Visibility** | Pipeline and test analytics | DevOps insights |
+| Feature                 | Description                         | Use Case                 |
+| ----------------------- | ----------------------------------- | ------------------------ |
+| **APM**                 | Distributed tracing and profiling   | Performance optimization |
+| **Infrastructure**      | Host, container, cloud monitoring   | Capacity planning        |
+| **Log Management**      | Centralized logging with parsing    | Troubleshooting          |
+| **RUM**                 | Real User Monitoring for web/mobile | User experience          |
+| **Synthetics**          | API and browser testing             | Uptime monitoring        |
+| **Security Monitoring** | SIEM and threat detection           | Security compliance      |
+| **Network Monitoring**  | NPM and DNS analytics               | Network troubleshooting  |
+| **Database Monitoring** | Query performance insights          | DB optimization          |
+| **Serverless**          | Lambda, Functions monitoring        | Serverless debugging     |
+| **CI Visibility**       | Pipeline and test analytics         | DevOps insights          |
 
 ## Architecture
 
@@ -65,11 +65,11 @@ title: Datadog Monitoring Architecture {
 infrastructure: Your Infrastructure {
   shape: rectangle
   style.fill: "#E8F5E9"
-  
+
   agents: Agent Types {
     shape: rectangle
     style.fill: "#C8E6C9"
-    
+
     host: Host Agent {
       shape: hexagon
       style.fill: "#4CAF50"
@@ -91,11 +91,11 @@ infrastructure: Your Infrastructure {
       style.font-color: white
     }
   }
-  
+
   dd_agent: Datadog Agent {
     shape: rectangle
     style.fill: "#81C784"
-    
+
     metrics: Metrics Collector
     traces: Trace Agent
     logs: Logs Agent
@@ -106,11 +106,11 @@ infrastructure: Your Infrastructure {
 datadog: Datadog Cloud {
   shape: rectangle
   style.fill: "#E1BEE7"
-  
+
   platform: Platform Services {
     shape: rectangle
     style.fill: "#CE93D8"
-    
+
     metrics_exp: Metrics Explorer {
       shape: rectangle
       style.fill: "#9C27B0"
@@ -132,11 +132,11 @@ datadog: Datadog Cloud {
       style.font-color: white
     }
   }
-  
+
   tools: Tools {
     shape: rectangle
     style.fill: "#CE93D8"
-    
+
     dashboards: Dashboards
     alerts: Alerts
     notebooks: Notebooks
@@ -157,33 +157,33 @@ datadog.tools -> users: visualize & alert
 
 ## Agent Components
 
-| Component | Purpose | Port |
-|-----------|---------|------|
-| Core Agent | Metrics collection, orchestration | - |
-| APM Agent | Trace collection | 8126 |
-| Process Agent | Process/container monitoring | - |
-| Trace Agent | Distributed tracing | 8126 |
-| Logs Agent | Log collection and forwarding | - |
-| Security Agent | Runtime security | - |
+| Component      | Purpose                           | Port |
+| -------------- | --------------------------------- | ---- |
+| Core Agent     | Metrics collection, orchestration | -    |
+| APM Agent      | Trace collection                  | 8126 |
+| Process Agent  | Process/container monitoring      | -    |
+| Trace Agent    | Distributed tracing               | 8126 |
+| Logs Agent     | Log collection and forwarding     | -    |
+| Security Agent | Runtime security                  | -    |
 
 ## Datadog Sites
 
-| Site | URL | Region |
-|------|-----|--------|
-| US1 | datadoghq.com | US East |
-| US3 | us3.datadoghq.com | US West |
-| US5 | us5.datadoghq.com | US Central |
-| EU1 | datadoghq.eu | EU Frankfurt |
-| AP1 | ap1.datadoghq.com | Japan |
-| US1-FED | ddog-gov.com | US Gov |
+| Site    | URL               | Region       |
+| ------- | ----------------- | ------------ |
+| US1     | datadoghq.com     | US East      |
+| US3     | us3.datadoghq.com | US West      |
+| US5     | us5.datadoghq.com | US Central   |
+| EU1     | datadoghq.eu      | EU Frankfurt |
+| AP1     | ap1.datadoghq.com | Japan        |
+| US1-FED | ddog-gov.com      | US Gov       |
 
 ## Version Information
 
-| Component | Version | Notes |
-|-----------|---------|-------|
-| Agent 7 | 7.50+ | Current major version |
-| Agent 6 | 6.x | Legacy (Python 2) |
-| Agent 5 | 5.x | Deprecated |
+| Component | Version | Notes                 |
+| --------- | ------- | --------------------- |
+| Agent 7   | 7.50+   | Current major version |
+| Agent 6   | 6.x     | Legacy (Python 2)     |
+| Agent 5   | 5.x     | Deprecated            |
 
 ## Related Documentation
 

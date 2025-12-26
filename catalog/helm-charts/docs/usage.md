@@ -4,11 +4,11 @@
 
 ### Prerequisites
 
-| Requirement | Version | Installation |
-|-------------|---------|--------------|
-| Helm | 3.14+ | `brew install helm` |
-| kubectl | 1.28+ | `brew install kubectl` |
-| Kubernetes | 1.25+ | Local: Docker Desktop/minikube |
+| Requirement | Version | Installation                   |
+| ----------- | ------- | ------------------------------ |
+| Helm        | 3.14+   | `brew install helm`            |
+| kubectl     | 1.28+   | `brew install kubectl`         |
+| Kubernetes  | 1.25+   | Local: Docker Desktop/minikube |
 
 ### Installation
 
@@ -64,7 +64,7 @@ replicaCount: 3
 
 image:
   repository: company/myapp
-  tag: "v1.2.3"
+  tag: 'v1.2.3'
   pullPolicy: IfNotPresent
 
 imagePullSecrets:
@@ -94,8 +94,8 @@ ingress:
   className: nginx
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
-    nginx.ingress.kubernetes.io/rate-limit: "100"
-    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    nginx.ingress.kubernetes.io/rate-limit: '100'
+    nginx.ingress.kubernetes.io/rate-limit-window: '1m'
   hosts:
     - host: myapp.example.com
       paths:
@@ -200,13 +200,13 @@ resources:
 ```yaml
 # helm-values/dev/values.yaml
 image:
-  tag: "latest"
+  tag: 'latest'
 
 env:
   - name: NODE_ENV
     value: development
   - name: DEBUG
-    value: "true"
+    value: 'true'
 
 ingress:
   enabled: true
@@ -222,7 +222,7 @@ ingress:
 replicaCount: 5
 
 image:
-  tag: "v1.2.3"
+  tag: 'v1.2.3'
 
 autoscaling:
   enabled: true
@@ -270,7 +270,7 @@ replicaCount: 3
 
 image:
   repository: company/api-service
-  tag: "v2.0.0"
+  tag: 'v2.0.0'
 
 service:
   port: 80
@@ -280,8 +280,8 @@ ingress:
   enabled: true
   className: nginx
   annotations:
-    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-body-size: '10m'
+    nginx.ingress.kubernetes.io/proxy-read-timeout: '60'
   hosts:
     - host: api.example.com
       paths:
@@ -292,11 +292,11 @@ ingress:
 
 env:
   - name: PORT
-    value: "3000"
+    value: '3000'
   - name: DATABASE_HOST
-    value: "$(RELEASE_NAME)-postgresql"
+    value: '$(RELEASE_NAME)-postgresql'
   - name: REDIS_HOST
-    value: "$(RELEASE_NAME)-redis-master"
+    value: '$(RELEASE_NAME)-redis-master'
 
 envFrom:
   - secretRef:
@@ -354,7 +354,7 @@ replicaCount: 5
 
 image:
   repository: company/worker
-  tag: "v1.5.0"
+  tag: 'v1.5.0'
 
 # No service needed for workers
 service:
@@ -366,10 +366,10 @@ ingress:
 
 # Worker-specific command
 command:
-  - "/app/worker"
+  - '/app/worker'
 args:
-  - "--queue=default,high,low"
-  - "--concurrency=10"
+  - '--queue=default,high,low'
+  - '--concurrency=10'
 
 env:
   - name: REDIS_URL
@@ -394,7 +394,7 @@ resources:
 # Scale based on queue depth (KEDA)
 autoscaling:
   enabled: false
-  
+
 kedaScaling:
   enabled: true
   minReplicas: 2
@@ -404,7 +404,7 @@ kedaScaling:
       metadata:
         address: redis-master:6379
         listName: job_queue
-        listLength: "10"
+        listLength: '10'
 
 # Graceful shutdown for long-running jobs
 terminationGracePeriodSeconds: 300
@@ -415,27 +415,27 @@ lifecycle:
       command:
         - /bin/sh
         - -c
-        - "kill -TERM 1 && sleep 30"
+        - 'kill -TERM 1 && sleep 30'
 ```
 
 ### CronJob Deployment
 
 ```yaml
 # values-cronjob.yaml
-schedule: "0 2 * * *"  # Daily at 2 AM
+schedule: '0 2 * * *' # Daily at 2 AM
 
 image:
   repository: company/batch-processor
-  tag: "v1.0.0"
+  tag: 'v1.0.0'
 
 command:
-  - "/app/process.sh"
+  - '/app/process.sh'
 
 env:
   - name: BATCH_SIZE
-    value: "1000"
+    value: '1000'
   - name: DRY_RUN
-    value: "false"
+    value: 'false'
 
 envFrom:
   - secretRef:
@@ -458,7 +458,7 @@ startingDeadlineSeconds: 600
 # Pod configuration
 restartPolicy: OnFailure
 backoffLimit: 3
-activeDeadlineSeconds: 7200  # 2 hours max
+activeDeadlineSeconds: 7200 # 2 hours max
 ```
 
 ## GitOps Integration
@@ -487,7 +487,7 @@ spec:
         - values-prod.yaml
       parameters:
         - name: image.tag
-          value: "v1.2.3"
+          value: 'v1.2.3'
   destination:
     server: https://kubernetes.default.svc
     namespace: myapp
@@ -520,7 +520,7 @@ spec:
   chart:
     spec:
       chart: webapp
-      version: "2.5.x"
+      version: '2.5.x'
       sourceRef:
         kind: HelmRepository
         name: company-charts
@@ -531,7 +531,7 @@ spec:
     replicaCount: 3
     image:
       repository: company/myapp
-      tag: "v1.2.3"
+      tag: 'v1.2.3'
   valuesFrom:
     - kind: ConfigMap
       name: myapp-values
@@ -609,7 +609,7 @@ jobs:
       - name: Run chart-releaser
         uses: helm/chart-releaser-action@v1.6.0
         env:
-          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          CR_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
 ```
 
 ### GitLab CI
@@ -623,7 +623,7 @@ stages:
   - publish
 
 variables:
-  HELM_VERSION: "3.14.0"
+  HELM_VERSION: '3.14.0'
 
 .helm-setup:
   before_script:
@@ -656,7 +656,7 @@ package:
     - helm package charts/*
   artifacts:
     paths:
-      - "*.tgz"
+      - '*.tgz'
 
 publish:
   stage: publish
@@ -718,16 +718,16 @@ helm rollback myapp 3 --namespace myapp --wait --timeout 5m
 
 ## Troubleshooting
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| `Error: INSTALLATION FAILED: cannot re-use a name that is still in use` | Release already exists | Use `helm upgrade --install` or uninstall first |
-| `Error: rendered manifests contain a resource that already exists` | Resource exists outside Helm | Delete resource or use `--force` |
-| `Error: UPGRADE FAILED: another operation is in progress` | Previous operation failed | Run `helm rollback` or delete secret |
-| `Error: timed out waiting for the condition` | Pods not becoming ready | Check pod logs and events |
-| `Error: chart requires kubeVersion: >=1.25.0` | Kubernetes version mismatch | Upgrade cluster or use older chart |
-| `Error: failed to download` | Repository not accessible | Run `helm repo update` |
-| `Warning: Kubernetes configuration file is group-readable` | Insecure kubeconfig | `chmod 600 ~/.kube/config` |
-| Template rendering errors | Invalid values or templates | Use `helm template --debug` |
+| Issue                                                                   | Cause                        | Solution                                        |
+| ----------------------------------------------------------------------- | ---------------------------- | ----------------------------------------------- |
+| `Error: INSTALLATION FAILED: cannot re-use a name that is still in use` | Release already exists       | Use `helm upgrade --install` or uninstall first |
+| `Error: rendered manifests contain a resource that already exists`      | Resource exists outside Helm | Delete resource or use `--force`                |
+| `Error: UPGRADE FAILED: another operation is in progress`               | Previous operation failed    | Run `helm rollback` or delete secret            |
+| `Error: timed out waiting for the condition`                            | Pods not becoming ready      | Check pod logs and events                       |
+| `Error: chart requires kubeVersion: >=1.25.0`                           | Kubernetes version mismatch  | Upgrade cluster or use older chart              |
+| `Error: failed to download`                                             | Repository not accessible    | Run `helm repo update`                          |
+| `Warning: Kubernetes configuration file is group-readable`              | Insecure kubeconfig          | `chmod 600 ~/.kube/config`                      |
+| Template rendering errors                                               | Invalid values or templates  | Use `helm template --debug`                     |
 
 ### Debug Commands
 
@@ -787,8 +787,8 @@ helm install myapp company-charts/webapp --namespace myapp
 # Always pin chart versions
 dependencies:
   - name: postgresql
-    version: "14.0.5"  # Specific version, not 14.x.x
-    repository: "https://charts.bitnami.com/bitnami"
+    version: '14.0.5' # Specific version, not 14.x.x
+    repository: 'https://charts.bitnami.com/bitnami'
 ```
 
 ### Secrets Management
@@ -814,10 +814,10 @@ envFrom:
 # Always set resources
 resources:
   requests:
-    cpu: 100m      # Minimum guaranteed
+    cpu: 100m # Minimum guaranteed
     memory: 128Mi
   limits:
-    cpu: 500m      # Maximum allowed
+    cpu: 500m # Maximum allowed
     memory: 512Mi
 ```
 
@@ -853,27 +853,27 @@ startupProbe:
 
 ## CLI Reference
 
-| Command | Description |
-|---------|-------------|
-| `helm create <name>` | Create new chart scaffold |
-| `helm dependency update` | Update chart dependencies |
-| `helm package <chart>` | Package chart into archive |
-| `helm lint <chart>` | Lint chart for issues |
-| `helm template <chart>` | Render templates locally |
-| `helm install <name> <chart>` | Install chart |
-| `helm upgrade <name> <chart>` | Upgrade release |
-| `helm upgrade --install` | Install or upgrade |
-| `helm rollback <name> [rev]` | Rollback release |
-| `helm uninstall <name>` | Delete release |
-| `helm list` | List releases |
-| `helm history <name>` | Show release history |
-| `helm get values <name>` | Get deployed values |
-| `helm get manifest <name>` | Get deployed manifests |
-| `helm repo add <name> <url>` | Add repository |
-| `helm repo update` | Update repositories |
-| `helm search repo <keyword>` | Search charts |
-| `helm show values <chart>` | Show default values |
-| `helm diff upgrade` | Show upgrade diff (plugin) |
+| Command                       | Description                |
+| ----------------------------- | -------------------------- |
+| `helm create <name>`          | Create new chart scaffold  |
+| `helm dependency update`      | Update chart dependencies  |
+| `helm package <chart>`        | Package chart into archive |
+| `helm lint <chart>`           | Lint chart for issues      |
+| `helm template <chart>`       | Render templates locally   |
+| `helm install <name> <chart>` | Install chart              |
+| `helm upgrade <name> <chart>` | Upgrade release            |
+| `helm upgrade --install`      | Install or upgrade         |
+| `helm rollback <name> [rev]`  | Rollback release           |
+| `helm uninstall <name>`       | Delete release             |
+| `helm list`                   | List releases              |
+| `helm history <name>`         | Show release history       |
+| `helm get values <name>`      | Get deployed values        |
+| `helm get manifest <name>`    | Get deployed manifests     |
+| `helm repo add <name> <url>`  | Add repository             |
+| `helm repo update`            | Update repositories        |
+| `helm search repo <keyword>`  | Search charts              |
+| `helm show values <chart>`    | Show default values        |
+| `helm diff upgrade`           | Show upgrade diff (plugin) |
 
 ## Related Resources
 

@@ -17,33 +17,33 @@ master: Master Node {
   style.fill: "#e3f2fd"
   style.stroke: "#1565c2"
   style.stroke-width: 2
-  
+
   server: Redis Server {
     shape: hexagon
     style.fill: "#1976d2"
     style.font-color: white
     icon: https://icons.terrastruct.com/essentials%2F112-server.svg
   }
-  
+
   data: In-Memory Data {
     style.fill: "#bbdefb"
-    
+
     strings: Strings {shape: cylinder; style.fill: "#64b5f6"}
     hashes: Hashes {shape: cylinder; style.fill: "#42a5f5"}
     lists: Lists {shape: cylinder; style.fill: "#2196f3"; style.font-color: white}
     sets: Sets {shape: cylinder; style.fill: "#1e88e5"; style.font-color: white}
   }
-  
+
   aof: AOF Log {
     shape: document
     style.fill: "#90caf9"
   }
-  
+
   rdb: RDB Snapshot {
     shape: document
     style.fill: "#64b5f6"
   }
-  
+
   backlog: Replication Backlog {
     shape: queue
     style.fill: "#e3f2fd"
@@ -55,14 +55,14 @@ master: Master Node {
 stream: Replication Stream {
   style.fill: "#fff3e0"
   style.stroke: "#ef6c00"
-  
+
   sync: Sync Process {
     style.fill: "#ffe0b2"
-    
+
     full: "1. Full Sync (RDB)" {shape: step; style.fill: "#ffb74d"}
     partial: "2. Partial Sync" {shape: step; style.fill: "#ffa726"}
     commands: "3. Command Stream" {shape: step; style.fill: "#ff9800"; style.font-color: white}
-    
+
     full -> partial -> commands
   }
 }
@@ -71,12 +71,12 @@ stream: Replication Stream {
 replicas: Replica Nodes {
   style.fill: "#e8f5e9"
   style.stroke: "#2e7d32"
-  
+
   r1: Replica 1 {
     style.fill: "#4caf50"
     style.font-color: white
     icon: https://icons.terrastruct.com/essentials%2F112-server.svg
-    
+
     state: "Read-Only" {
       style.fill: "#81c784"
       style.font-size: 11
@@ -86,12 +86,12 @@ replicas: Replica Nodes {
       style.font-size: 10
     }
   }
-  
+
   r2: Replica 2 {
     style.fill: "#43a047"
     style.font-color: white
     icon: https://icons.terrastruct.com/essentials%2F112-server.svg
-    
+
     state: "Read-Only" {
       style.fill: "#81c784"
       style.font-size: 11
@@ -101,12 +101,12 @@ replicas: Replica Nodes {
       style.font-size: 10
     }
   }
-  
+
   r3: Replica 3 {
     style.fill: "#388e3c"
     style.font-color: white
     icon: https://icons.terrastruct.com/essentials%2F112-server.svg
-    
+
     state: "Read-Only" {
       style.fill: "#81c784"
       style.font-size: 11
@@ -122,11 +122,11 @@ replicas: Replica Nodes {
 failover: Automatic Failover {
   style.fill: "#fce4ec"
   style.stroke: "#c2185b"
-  
+
   detect: "1. Detect Failure" {shape: diamond; style.fill: "#f48fb1"}
   elect: "2. Elect Leader" {shape: diamond; style.fill: "#ec407a"; style.font-color: white}
   promote: "3. Promote Replica" {shape: diamond; style.fill: "#e91e63"; style.font-color: white}
-  
+
   detect -> elect -> promote
 }
 
@@ -155,12 +155,12 @@ slots: Hash Slot Distribution (16384 slots) {
     r1a: Replica 1a
     r1b: Replica 1b
   }
-  
+
   master2: Master 2 - Slots 5461-10922 {
     r2a: Replica 2a
     r2b: Replica 2b
   }
-  
+
   master3: Master 3 - Slots 10923-16383 {
     r3a: Replica 3a
     r3b: Replica 3b
@@ -280,16 +280,16 @@ sentinel client-reconfig-script mymaster /scripts/reconfig.sh
 
 ### Memory Policies
 
-| Policy | Description | Use Case |
-|--------|-------------|----------|
-| `noeviction` | Return error on writes when full | Critical data |
-| `allkeys-lru` | Evict least recently used | General caching |
-| `allkeys-lfu` | Evict least frequently used | Hot/cold data |
-| `volatile-lru` | LRU among keys with TTL | Mixed data |
-| `volatile-lfu` | LFU among keys with TTL | Mixed with access patterns |
-| `allkeys-random` | Random eviction | Uniform access |
-| `volatile-random` | Random among TTL keys | Uniform TTL data |
-| `volatile-ttl` | Evict shortest TTL first | Time-sensitive data |
+| Policy            | Description                      | Use Case                   |
+| ----------------- | -------------------------------- | -------------------------- |
+| `noeviction`      | Return error on writes when full | Critical data              |
+| `allkeys-lru`     | Evict least recently used        | General caching            |
+| `allkeys-lfu`     | Evict least frequently used      | Hot/cold data              |
+| `volatile-lru`    | LRU among keys with TTL          | Mixed data                 |
+| `volatile-lfu`    | LFU among keys with TTL          | Mixed with access patterns |
+| `allkeys-random`  | Random eviction                  | Uniform access             |
+| `volatile-random` | Random among TTL keys            | Uniform TTL data           |
+| `volatile-ttl`    | Evict shortest TTL first         | Time-sensitive data        |
 
 ## Security Configuration
 
@@ -364,13 +364,13 @@ repl-backlog-ttl 3600
 
 ### RDB vs AOF Comparison
 
-| Feature | RDB (Snapshots) | AOF (Append Only File) |
-|---------|-----------------|------------------------|
-| **Durability** | Point-in-time | Every operation |
-| **Performance** | Better | Slight overhead |
-| **Recovery Speed** | Fast | Slower (replay) |
-| **File Size** | Compact | Larger |
-| **Data Loss Risk** | Minutes | Seconds (configurable) |
+| Feature            | RDB (Snapshots) | AOF (Append Only File) |
+| ------------------ | --------------- | ---------------------- |
+| **Durability**     | Point-in-time   | Every operation        |
+| **Performance**    | Better          | Slight overhead        |
+| **Recovery Speed** | Fast            | Slower (replay)        |
+| **File Size**      | Compact         | Larger                 |
+| **Data Loss Risk** | Minutes         | Seconds (configurable) |
 
 ### Recommended Persistence Strategy
 
@@ -396,17 +396,17 @@ aof-use-rdb-preamble yes
 
 ### Key Metrics
 
-| Metric | Description | Alert Threshold |
-|--------|-------------|-----------------|
-| `used_memory` | Total memory used | > 80% of maxmemory |
-| `connected_clients` | Current connections | > 80% of maxclients |
-| `blocked_clients` | Clients waiting | > 0 sustained |
-| `instantaneous_ops_per_sec` | Current throughput | Sudden drops |
-| `hit_rate` | Cache hit ratio | < 90% |
-| `evicted_keys` | Keys evicted | > 0 with LRU/LFU |
-| `rejected_connections` | Connection failures | > 0 |
-| `replication_lag` | Replica delay | > 1 second |
-| `cluster_state` | Cluster health | != "ok" |
+| Metric                      | Description         | Alert Threshold     |
+| --------------------------- | ------------------- | ------------------- |
+| `used_memory`               | Total memory used   | > 80% of maxmemory  |
+| `connected_clients`         | Current connections | > 80% of maxclients |
+| `blocked_clients`           | Clients waiting     | > 0 sustained       |
+| `instantaneous_ops_per_sec` | Current throughput  | Sudden drops        |
+| `hit_rate`                  | Cache hit ratio     | < 90%               |
+| `evicted_keys`              | Keys evicted        | > 0 with LRU/LFU    |
+| `rejected_connections`      | Connection failures | > 0                 |
+| `replication_lag`           | Replica delay       | > 1 second          |
+| `cluster_state`             | Cluster health      | != "ok"             |
 
 ### Redis INFO Command
 
@@ -430,10 +430,10 @@ redis-cli INFO commandstats
 redis-exporter:
   image: oliver006/redis_exporter:latest
   environment:
-    REDIS_ADDR: "redis://redis-cluster:7000"
-    REDIS_PASSWORD: "your-password"
+    REDIS_ADDR: 'redis://redis-cluster:7000'
+    REDIS_PASSWORD: 'your-password'
   ports:
-    - "9121:9121"
+    - '9121:9121'
 
 # Prometheus scrape config
 scrape_configs:

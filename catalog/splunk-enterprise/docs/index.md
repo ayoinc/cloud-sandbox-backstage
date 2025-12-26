@@ -38,16 +38,16 @@ curl -k https://localhost:8088/services/collector/event \
 
 ## Features
 
-| Feature | Description | Use Case |
-|---------|-------------|----------|
-| **Search & Investigation** | SPL query language | Log analysis, troubleshooting |
-| **Dashboards & Reports** | Visualizations and alerts | Monitoring, reporting |
-| **SIEM** | Security monitoring | Threat detection |
-| **SOAR** | Security orchestration | Incident response |
-| **IT Service Intelligence** | ITSI | Service health monitoring |
-| **Observability** | APM, infrastructure | Full-stack visibility |
-| **Machine Learning** | MLTK | Anomaly detection |
-| **Data Streams** | Real-time processing | Streaming analytics |
+| Feature                     | Description               | Use Case                      |
+| --------------------------- | ------------------------- | ----------------------------- |
+| **Search & Investigation**  | SPL query language        | Log analysis, troubleshooting |
+| **Dashboards & Reports**    | Visualizations and alerts | Monitoring, reporting         |
+| **SIEM**                    | Security monitoring       | Threat detection              |
+| **SOAR**                    | Security orchestration    | Incident response             |
+| **IT Service Intelligence** | ITSI                      | Service health monitoring     |
+| **Observability**           | APM, infrastructure       | Full-stack visibility         |
+| **Machine Learning**        | MLTK                      | Anomaly detection             |
+| **Data Streams**            | Real-time processing      | Streaming analytics           |
 
 ## Architecture
 
@@ -62,25 +62,25 @@ title: Splunk Architecture {
 
 sources: Data Sources {
   style.fill: "#E3F2FD"
-  
+
   logs: Logs {
     shape: document
     style.fill: "#2196F3"
     style.font-color: white
   }
-  
+
   metrics: Metrics {
     shape: document
     style.fill: "#2196F3"
     style.font-color: white
   }
-  
+
   events: Events {
     shape: document
     style.fill: "#2196F3"
     style.font-color: white
   }
-  
+
   apis: APIs {
     shape: document
     style.fill: "#2196F3"
@@ -90,19 +90,19 @@ sources: Data Sources {
 
 collection: Data Collection Tier {
   style.fill: "#E8F5E9"
-  
+
   uf: Universal\nForwarder {
     shape: hexagon
     style.fill: "#4CAF50"
     style.font-color: white
   }
-  
+
   hf: Heavy\nForwarder {
     shape: hexagon
     style.fill: "#4CAF50"
     style.font-color: white
   }
-  
+
   hec: HEC\nEndpoint {
     shape: hexagon
     style.fill: "#4CAF50"
@@ -112,25 +112,25 @@ collection: Data Collection Tier {
 
 indexing: Indexing Tier {
   style.fill: "#FFF3E0"
-  
+
   idx1: Indexer 1 {
     shape: cylinder
     style.fill: "#FF9800"
     style.font-color: white
   }
-  
+
   idx2: Indexer 2 {
     shape: cylinder
     style.fill: "#FF9800"
     style.font-color: white
   }
-  
+
   idx3: Indexer 3 {
     shape: cylinder
     style.fill: "#FF9800"
     style.font-color: white
   }
-  
+
   cluster_label: Clustered Indexers {
     shape: text
     style.font-size: 12
@@ -139,19 +139,19 @@ indexing: Indexing Tier {
 
 search: Search Tier {
   style.fill: "#FCE4EC"
-  
+
   sh1: Search Head\n1 {
     shape: hexagon
     style.fill: "#E91E63"
     style.font-color: white
   }
-  
+
   sh2: Search Head\n2 {
     shape: hexagon
     style.fill: "#E91E63"
     style.font-color: white
   }
-  
+
   captain: Search Head\nCluster Captain {
     shape: hexagon
     style.fill: "#AD1457"
@@ -173,31 +173,31 @@ search -> users: Results
 
 ## Component Types
 
-| Component | Purpose | Typical Port |
-|-----------|---------|--------------|
-| Search Head | Search, dashboards, alerts | 8000 (Web), 8089 (API) |
-| Indexer | Data storage and retrieval | 9997 (Receiving), 8089 |
-| Universal Forwarder | Lightweight log shipping | 8089 (Management) |
-| Heavy Forwarder | Parsing, filtering | 9997, 8089 |
-| Cluster Manager | Indexer cluster management | 8089 |
-| Deployment Server | Forwarder management | 8089 |
-| License Manager | License management | 8089 |
+| Component           | Purpose                    | Typical Port           |
+| ------------------- | -------------------------- | ---------------------- |
+| Search Head         | Search, dashboards, alerts | 8000 (Web), 8089 (API) |
+| Indexer             | Data storage and retrieval | 9997 (Receiving), 8089 |
+| Universal Forwarder | Lightweight log shipping   | 8089 (Management)      |
+| Heavy Forwarder     | Parsing, filtering         | 9997, 8089             |
+| Cluster Manager     | Indexer cluster management | 8089                   |
+| Deployment Server   | Forwarder management       | 8089                   |
+| License Manager     | License management         | 8089                   |
 
 ## Version Information
 
-| Component | Version | Notes |
-|-----------|---------|-------|
-| Splunk Enterprise | 9.2.x | Current |
-| Universal Forwarder | 9.2.x | Matches Enterprise |
-| Splunk Cloud | Latest | SaaS offering |
+| Component           | Version | Notes              |
+| ------------------- | ------- | ------------------ |
+| Splunk Enterprise   | 9.2.x   | Current            |
+| Universal Forwarder | 9.2.x   | Matches Enterprise |
+| Splunk Cloud        | Latest  | SaaS offering      |
 
 ## Index Types
 
-| Type | Description | Use Case |
-|------|-------------|----------|
-| Events | Timestamped log data | Logs, events |
-| Metrics | Numeric time-series | Performance data |
-| Summary | Pre-aggregated data | Accelerated reports |
+| Type    | Description          | Use Case            |
+| ------- | -------------------- | ------------------- |
+| Events  | Timestamped log data | Logs, events        |
+| Metrics | Numeric time-series  | Performance data    |
+| Summary | Pre-aggregated data  | Accelerated reports |
 
 ## Related Documentation
 

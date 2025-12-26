@@ -29,30 +29,30 @@ physical_plan: Physical Plan {
 
 dag_scheduler: DAG Scheduler {
   style.fill: "#FFEBEE"
-  
+
   stages: Stages (based on shuffles) {
     direction: right
-    
+
     stage1: Stage 1 {
       style.fill: "#FFCDD2"
       t1: Task 1
       t2: Task 2
       t3: Task 3
     }
-    
+
     stage2: Stage 2 {
       style.fill: "#FFCDD2"
       t1: Task 1
       t2: Task 2
       t3: Task 3
     }
-    
+
     stage3: Stage 3 {
       style.fill: "#FFCDD2"
       t1: Task 1
       t2: Task 2
     }
-    
+
     stage1 -> stage2: Shuffle
     stage2 -> stage3: Shuffle
   }
@@ -66,14 +66,14 @@ physical_plan -> dag_scheduler: schedule
 
 ### RDD vs DataFrame vs Dataset
 
-| Feature | RDD | DataFrame | Dataset |
-|---------|-----|-----------|---------|
-| **Type Safety** | Compile-time | Runtime | Compile-time |
-| **Optimization** | Manual | Catalyst | Catalyst |
-| **API** | Functional | SQL-like | Functional + SQL |
-| **Schema** | No | Yes | Yes |
-| **Language** | All | All | Scala/Java |
-| **Performance** | Lower | Higher | Higher |
+| Feature          | RDD          | DataFrame | Dataset          |
+| ---------------- | ------------ | --------- | ---------------- |
+| **Type Safety**  | Compile-time | Runtime   | Compile-time     |
+| **Optimization** | Manual       | Catalyst  | Catalyst         |
+| **API**          | Functional   | SQL-like  | Functional + SQL |
+| **Schema**       | No           | Yes       | Yes              |
+| **Language**     | All          | All       | Scala/Java       |
+| **Performance**  | Lower        | Higher    | Higher           |
 
 ### Memory Management
 
@@ -90,9 +90,9 @@ executor: Executor Memory (spark.executor.memory) {
     }
     storage <-> execution: Can borrow from each other dynamically
   }
-  
+
   reserved: Reserved Memory (300MB)
-  
+
   user: User Memory (40% - reserved) - User data structures, UDFs
 }
 ```
@@ -160,34 +160,34 @@ spec:
   image: spark:3.5.0-python
   imagePullPolicy: IfNotPresent
   mainApplicationFile: s3a://bucket/jobs/etl.py
-  sparkVersion: "3.5.0"
-  
+  sparkVersion: '3.5.0'
+
   sparkConf:
-    spark.sql.adaptive.enabled: "true"
-    spark.sql.shuffle.partitions: "200"
+    spark.sql.adaptive.enabled: 'true'
+    spark.sql.shuffle.partitions: '200'
     spark.hadoop.fs.s3a.impl: org.apache.hadoop.fs.s3a.S3AFileSystem
     spark.hadoop.fs.s3a.aws.credentials.provider: com.amazonaws.auth.WebIdentityTokenCredentialsProvider
-  
+
   driver:
     cores: 2
-    memory: "4g"
+    memory: '4g'
     serviceAccount: spark-sa
     labels:
       app: spark-driver
-  
+
   executor:
     cores: 4
     instances: 5
-    memory: "8g"
+    memory: '8g'
     labels:
       app: spark-executor
-  
+
   dynamicAllocation:
     enabled: true
     initialExecutors: 2
     minExecutors: 2
     maxExecutors: 20
-  
+
   restartPolicy:
     type: OnFailure
     onFailureRetries: 3
@@ -264,7 +264,7 @@ df_ranked = df.withColumn("rank", row_number().over(window_spec))
 # SQL queries
 df.createOrReplaceTempView("transactions")
 result = spark.sql("""
-    SELECT 
+    SELECT
         category,
         SUM(amount) as total,
         AVG(amount) as average
@@ -391,14 +391,14 @@ model.bestModel.write().overwrite().save("s3://bucket/models/rf-model")
 
 ### Spark UI
 
-| Tab | Information |
-|-----|-------------|
-| **Jobs** | Active/completed jobs, stages, tasks |
-| **Stages** | DAG visualization, task metrics |
-| **Storage** | Cached RDDs/DataFrames |
-| **Environment** | Spark properties, classpath |
-| **Executors** | Memory/disk usage, task statistics |
-| **SQL** | Query plans, execution details |
+| Tab             | Information                          |
+| --------------- | ------------------------------------ |
+| **Jobs**        | Active/completed jobs, stages, tasks |
+| **Stages**      | DAG visualization, task metrics      |
+| **Storage**     | Cached RDDs/DataFrames               |
+| **Environment** | Spark properties, classpath          |
+| **Executors**   | Memory/disk usage, task statistics   |
+| **SQL**         | Query plans, execution details       |
 
 ### Prometheus Metrics
 
@@ -411,11 +411,11 @@ spark.metrics.conf.*.sink.prometheusServlet.path   /metrics/prometheus
 
 ### Key Metrics to Monitor
 
-| Metric | Description | Alert Threshold |
-|--------|-------------|-----------------|
-| Executor memory used | Heap usage per executor | > 85% |
-| GC time | Time spent in garbage collection | > 10% of task time |
-| Shuffle read/write | Data shuffled between stages | Sudden spikes |
-| Task failures | Failed task count | > 5% failure rate |
-| Stage duration | Time per stage | 10x increase |
-| Spill to disk | Memory spilling | Any spill events |
+| Metric               | Description                      | Alert Threshold    |
+| -------------------- | -------------------------------- | ------------------ |
+| Executor memory used | Heap usage per executor          | > 85%              |
+| GC time              | Time spent in garbage collection | > 10% of task time |
+| Shuffle read/write   | Data shuffled between stages     | Sudden spikes      |
+| Task failures        | Failed task count                | > 5% failure rate  |
+| Stage duration       | Time per stage                   | 10x increase       |
+| Spill to disk        | Memory spilling                  | Any spill events   |

@@ -33,17 +33,17 @@ curl http://localhost:8080/dispatch?customer=123
 
 ## Features
 
-| Feature | Description | Use Case |
-|---------|-------------|----------|
-| **Distributed Tracing** | End-to-end request tracking | Debug latency issues |
-| **Root Cause Analysis** | Identify failing services | Incident investigation |
-| **Service Dependencies** | Auto-discovered topology | Architecture visualization |
-| **Performance Optimization** | Latency breakdown | Bottleneck identification |
-| **OpenTelemetry Native** | OTLP protocol support | Vendor-neutral instrumentation |
-| **Adaptive Sampling** | Intelligent trace selection | Production cost control |
-| **Span Analytics** | Aggregated span metrics | SLO monitoring |
-| **Compare Traces** | Side-by-side analysis | Regression detection |
-| **Multi-Tenancy** | Tenant isolation | SaaS deployments |
+| Feature                      | Description                 | Use Case                       |
+| ---------------------------- | --------------------------- | ------------------------------ |
+| **Distributed Tracing**      | End-to-end request tracking | Debug latency issues           |
+| **Root Cause Analysis**      | Identify failing services   | Incident investigation         |
+| **Service Dependencies**     | Auto-discovered topology    | Architecture visualization     |
+| **Performance Optimization** | Latency breakdown           | Bottleneck identification      |
+| **OpenTelemetry Native**     | OTLP protocol support       | Vendor-neutral instrumentation |
+| **Adaptive Sampling**        | Intelligent trace selection | Production cost control        |
+| **Span Analytics**           | Aggregated span metrics     | SLO monitoring                 |
+| **Compare Traces**           | Side-by-side analysis       | Regression detection           |
+| **Multi-Tenancy**            | Tenant isolation            | SaaS deployments               |
 
 ## Architecture
 
@@ -65,9 +65,9 @@ collector: Jaeger Collector {
     jaeger: Jaeger\n:14250
     zipkin: Zipkin\n:9411
   }
-  
+
   sampling: Sampling Engine
-  
+
   receivers.otlp -> sampling
   receivers.jaeger -> sampling
   receivers.zipkin -> sampling
@@ -124,36 +124,36 @@ Trace (end-to-end request)
 
 ## Component Ports
 
-| Port | Protocol | Component | Purpose |
-|------|----------|-----------|---------|
-| 4317 | gRPC | Collector | OTLP gRPC receiver |
-| 4318 | HTTP | Collector | OTLP HTTP receiver |
-| 6831 | UDP | Agent | Thrift compact (deprecated) |
-| 6832 | UDP | Agent | Thrift binary (deprecated) |
-| 14250 | gRPC | Collector | Jaeger gRPC receiver |
-| 14268 | HTTP | Collector | Jaeger HTTP receiver |
-| 14269 | HTTP | Collector | Admin/health |
-| 16686 | HTTP | Query | Jaeger UI |
-| 16685 | gRPC | Query | Query gRPC API |
-| 5778 | HTTP | Agent | Sampling config (deprecated) |
+| Port  | Protocol | Component | Purpose                      |
+| ----- | -------- | --------- | ---------------------------- |
+| 4317  | gRPC     | Collector | OTLP gRPC receiver           |
+| 4318  | HTTP     | Collector | OTLP HTTP receiver           |
+| 6831  | UDP      | Agent     | Thrift compact (deprecated)  |
+| 6832  | UDP      | Agent     | Thrift binary (deprecated)   |
+| 14250 | gRPC     | Collector | Jaeger gRPC receiver         |
+| 14268 | HTTP     | Collector | Jaeger HTTP receiver         |
+| 14269 | HTTP     | Collector | Admin/health                 |
+| 16686 | HTTP     | Query     | Jaeger UI                    |
+| 16685 | gRPC     | Query     | Query gRPC API               |
+| 5778  | HTTP     | Agent     | Sampling config (deprecated) |
 
 ## Version Information
 
-| Component | Version | Release Date |
-|-----------|---------|--------------|
-| Jaeger | 1.54.0 | 2024 |
-| OpenTelemetry SDK | 1.33.0 | 2024 |
-| OTLP Protocol | 1.1.0 | 2024 |
+| Component         | Version | Release Date |
+| ----------------- | ------- | ------------ |
+| Jaeger            | 1.54.0  | 2024         |
+| OpenTelemetry SDK | 1.33.0  | 2024         |
+| OTLP Protocol     | 1.1.0   | 2024         |
 
 ## Sampling Strategies
 
-| Strategy | Description | Use Case |
-|----------|-------------|----------|
-| **Const** | Sample all or none | Development, low traffic |
-| **Probabilistic** | Random percentage | General production |
-| **Rate Limiting** | Traces per second | High traffic control |
-| **Remote** | Server-controlled | Dynamic adjustment |
-| **Adaptive** | Automatic optimization | Large scale systems |
+| Strategy          | Description            | Use Case                 |
+| ----------------- | ---------------------- | ------------------------ |
+| **Const**         | Sample all or none     | Development, low traffic |
+| **Probabilistic** | Random percentage      | General production       |
+| **Rate Limiting** | Traces per second      | High traffic control     |
+| **Remote**        | Server-controlled      | Dynamic adjustment       |
+| **Adaptive**      | Automatic optimization | Large scale systems      |
 
 ## Related Documentation
 

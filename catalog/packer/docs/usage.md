@@ -4,13 +4,13 @@
 
 ### Prerequisites
 
-| Requirement | Version | Installation |
-|-------------|---------|--------------|
-| Packer | 1.10+ | `brew install packer` |
-| AWS CLI | 2.x | `brew install awscli` |
-| Azure CLI | 2.x | `brew install azure-cli` |
-| gcloud CLI | Latest | `brew install google-cloud-sdk` |
-| Ansible | 2.15+ | `pip install ansible` |
+| Requirement | Version | Installation                    |
+| ----------- | ------- | ------------------------------- |
+| Packer      | 1.10+   | `brew install packer`           |
+| AWS CLI     | 2.x     | `brew install awscli`           |
+| Azure CLI   | 2.x     | `brew install azure-cli`        |
+| gcloud CLI  | Latest  | `brew install google-cloud-sdk` |
+| Ansible     | 2.15+   | `pip install ansible`           |
 
 ### Installation
 
@@ -177,7 +177,7 @@ source "azure-arm" "ubuntu" {
   image_sku          = "22_04-lts-gen2"
   location           = "westus2"
   vm_size            = "Standard_D2s_v3"
-  
+
   managed_image_name                = "company-app-${var.version}"
   managed_image_resource_group_name = "packer-images-rg"
 }
@@ -270,18 +270,18 @@ build {
     playbook_file = "ansible/playbook.yml"
     user          = "ubuntu"
     use_proxy     = false
-    
+
     extra_arguments = [
       "--extra-vars", "environment=${var.environment}",
       "--extra-vars", "app_version=${var.version}",
       "-vv"
     ]
-    
+
     ansible_env_vars = [
       "ANSIBLE_HOST_KEY_CHECKING=False",
       "ANSIBLE_SSH_ARGS='-o ForwardAgent=yes -o ControlMaster=auto -o ControlPersist=60s'"
     ]
-    
+
     # Use Ansible vault for secrets
     # ansible_vault_password_file = "vault-password.txt"
   }
@@ -294,22 +294,22 @@ build {
 - name: Configure application server
   hosts: all
   become: true
-  
+
   vars:
     app_version: "{{ lookup('env', 'APP_VERSION') | default('latest') }}"
-  
+
   roles:
     - role: common
     - role: security
     - role: docker
     - role: monitoring
-    
+
   tasks:
     - name: Deploy application
       ansible.builtin.include_role:
         name: app
       vars:
-        version: "{{ app_version }}"
+        version: '{{ app_version }}'
 ```
 
 ## CI/CD Integration
@@ -353,18 +353,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Packer
         uses: hashicorp/setup-packer@main
         with:
           version: ${{ env.PACKER_VERSION }}
-      
+
       - name: Initialize Packer
         run: packer init packer/templates/aws
-      
+
       - name: Validate Template
         run: packer validate packer/templates/aws
-      
+
       - name: Format Check
         run: packer fmt -check -recursive packer/
 
@@ -373,32 +373,32 @@ jobs:
     if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: development
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-west-2
-      
+
       - name: Setup Packer
         uses: hashicorp/setup-packer@main
         with:
           version: ${{ env.PACKER_VERSION }}
-      
+
       - name: Initialize Packer
         run: packer init packer/templates/aws
-      
+
       - name: Build AMI
         run: |
           packer build \
             -var "version=${{ github.event.inputs.version || '1.0.0' }}" \
             -var "environment=${{ github.event.inputs.environment || 'dev' }}" \
             packer/templates/aws
-      
+
       - name: Upload Manifest
         uses: actions/upload-artifact@v4
         with:
@@ -410,22 +410,22 @@ jobs:
     if: github.event.inputs.environment == 'prod'
     runs-on: ubuntu-latest
     environment: production
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
           aws-region: us-east-1
-      
+
       - name: Setup Packer
         uses: hashicorp/setup-packer@main
         with:
           version: ${{ env.PACKER_VERSION }}
-      
+
       - name: Build Production AMI
         run: |
           packer build \
@@ -445,7 +445,7 @@ stages:
   - build-prod
 
 variables:
-  PACKER_VERSION: "1.10.0"
+  PACKER_VERSION: '1.10.0'
 
 .packer-setup:
   before_script:
@@ -541,7 +541,7 @@ source "amazon-ebs" "ubuntu" {
 
 build {
   sources = ["source.amazon-ebs.ubuntu"]
-  
+
   provisioner "shell" {
     environment_vars = [
       "API_KEY=${local.api_key}"
@@ -574,7 +574,7 @@ build {
     post-processor "shell-local" {
       inline = ["echo 'AMI ID: {{.ArtifactId}}'"]
     }
-    
+
     post-processor "shell-local" {
       inline = ["./scripts/notify-slack.sh {{.ArtifactId}}"]
     }
@@ -584,16 +584,16 @@ build {
 
 ## Troubleshooting
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| `Plugin not found` | Plugins not initialized | Run `packer init .` |
-| `403 Access Denied` | Insufficient permissions | Check IAM/RBAC permissions |
-| `SSH connection failed` | Security group blocking | Allow SSH from builder IP |
-| `Timeout waiting for SSH` | Instance not ready | Increase `ssh_timeout` |
-| `AMI already exists` | Name collision | Use `{{timestamp}}` in name |
-| `Instance failed to start` | Capacity issues | Try different AZ or instance type |
-| `Provisioner failed` | Script error | Check script locally first |
-| `VPC not found` | Invalid VPC ID | Verify VPC exists in region |
+| Issue                      | Cause                    | Solution                          |
+| -------------------------- | ------------------------ | --------------------------------- |
+| `Plugin not found`         | Plugins not initialized  | Run `packer init .`               |
+| `403 Access Denied`        | Insufficient permissions | Check IAM/RBAC permissions        |
+| `SSH connection failed`    | Security group blocking  | Allow SSH from builder IP         |
+| `Timeout waiting for SSH`  | Instance not ready       | Increase `ssh_timeout`            |
+| `AMI already exists`       | Name collision           | Use `{{timestamp}}` in name       |
+| `Instance failed to start` | Capacity issues          | Try different AZ or instance type |
+| `Provisioner failed`       | Script error             | Check script locally first        |
+| `VPC not found`            | Invalid VPC ID           | Verify VPC exists in region       |
 
 ### Debug Commands
 
@@ -623,6 +623,7 @@ packer build -force .
 ## Best Practices
 
 ### Template Organization
+
 - [ ] Use HCL2 format (not legacy JSON)
 - [ ] Separate variables into pkrvars.hcl files
 - [ ] Use data sources for dynamic values
@@ -630,6 +631,7 @@ packer build -force .
 - [ ] Use meaningful naming conventions
 
 ### Security
+
 - [ ] Never hardcode credentials
 - [ ] Use IAM roles/managed identities
 - [ ] Encrypt AMIs with KMS
@@ -638,6 +640,7 @@ packer build -force .
 - [ ] Run security hardening scripts
 
 ### CI/CD
+
 - [ ] Validate templates in CI
 - [ ] Use version tags for builds
 - [ ] Store manifests as artifacts
@@ -645,6 +648,7 @@ packer build -force .
 - [ ] Clean up old images periodically
 
 ### Performance
+
 - [ ] Use fast instance types for building
 - [ ] Leverage build caching where possible
 - [ ] Run parallel builds when independent
@@ -652,22 +656,22 @@ packer build -force .
 
 ## CLI Reference
 
-| Command | Description |
-|---------|-------------|
-| `packer init` | Initialize plugins |
-| `packer validate` | Validate template |
-| `packer fmt` | Format HCL files |
-| `packer inspect` | Show template info |
-| `packer build` | Build images |
-| `packer build -only` | Build specific sources |
-| `packer build -except` | Exclude sources |
-| `packer build -var` | Set variable |
-| `packer build -var-file` | Use variables file |
-| `packer build -parallel-builds` | Limit parallelism |
-| `packer build -debug` | Step-by-step debug |
-| `packer build -force` | Force overwrite |
-| `packer build -on-error` | Error handling |
-| `packer plugins` | Manage plugins |
+| Command                         | Description            |
+| ------------------------------- | ---------------------- |
+| `packer init`                   | Initialize plugins     |
+| `packer validate`               | Validate template      |
+| `packer fmt`                    | Format HCL files       |
+| `packer inspect`                | Show template info     |
+| `packer build`                  | Build images           |
+| `packer build -only`            | Build specific sources |
+| `packer build -except`          | Exclude sources        |
+| `packer build -var`             | Set variable           |
+| `packer build -var-file`        | Use variables file     |
+| `packer build -parallel-builds` | Limit parallelism      |
+| `packer build -debug`           | Step-by-step debug     |
+| `packer build -force`           | Force overwrite        |
+| `packer build -on-error`        | Error handling         |
+| `packer plugins`                | Manage plugins         |
 
 ## Related Resources
 

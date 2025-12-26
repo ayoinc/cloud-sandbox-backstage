@@ -52,12 +52,12 @@ version: '3.8'
 services:
   otel-collector:
     image: otel/opentelemetry-collector-contrib:latest
-    command: ["--config=/etc/otel-collector-config.yaml"]
+    command: ['--config=/etc/otel-collector-config.yaml']
     volumes:
       - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
     ports:
-      - "4317:4317"   # OTLP gRPC
-      - "4318:4318"   # OTLP HTTP
+      - '4317:4317' # OTLP gRPC
+      - '4318:4318' # OTLP HTTP
 ```
 
 ```yaml
@@ -130,9 +130,9 @@ helm install newrelic-bundle newrelic/nri-bundle \
 ```yaml
 # values.yaml
 global:
-  licenseKey: ""  # Set via --set or secret
+  licenseKey: '' # Set via --set or secret
   cluster: production-k8s
-  
+
 newrelic-infrastructure:
   enabled: true
   privileged: true
@@ -179,7 +179,8 @@ nri-prometheus:
         kubernetes_sd_configs:
           - role: pod
         relabel_configs:
-          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+          - source_labels:
+              [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
             action: keep
             regex: true
 ```
@@ -198,8 +199,8 @@ spec:
       labels:
         app: my-app
       annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "8080"
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '8080'
     spec:
       containers:
         - name: my-app
@@ -211,13 +212,13 @@ spec:
                   name: newrelic-license-key
                   key: license-key
             - name: NEW_RELIC_APP_NAME
-              value: "my-app"
+              value: 'my-app'
             - name: NEW_RELIC_DISTRIBUTED_TRACING_ENABLED
-              value: "true"
+              value: 'true'
             - name: NEW_RELIC_LOG_LEVEL
-              value: "info"
+              value: 'info'
             - name: NEW_RELIC_LABELS
-              value: "Environment:production;Team:platform;Cluster:$(CLUSTER_NAME)"
+              value: 'Environment:production;Team:platform;Cluster:$(CLUSTER_NAME)'
             - name: CLUSTER_NAME
               valueFrom:
                 fieldRef:
@@ -365,14 +366,14 @@ print(response.json())
 
 ### Common Issues
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| No data in New Relic | Invalid license key | Verify key format and region |
-| APM traces missing | Agent not initialized | Check agent startup logs |
-| Container metrics missing | Docker socket not mounted | Mount /var/run/docker.sock |
-| High agent memory | Too many integrations | Reduce collection frequency |
-| NRQL timeout | Query too complex | Add LIMIT, reduce time range |
-| Labels not appearing | Wrong format | Use key:value format |
+| Issue                     | Cause                     | Solution                     |
+| ------------------------- | ------------------------- | ---------------------------- |
+| No data in New Relic      | Invalid license key       | Verify key format and region |
+| APM traces missing        | Agent not initialized     | Check agent startup logs     |
+| Container metrics missing | Docker socket not mounted | Mount /var/run/docker.sock   |
+| High agent memory         | Too many integrations     | Reduce collection frequency  |
+| NRQL timeout              | Query too complex         | Add LIMIT, reduce time range |
+| Labels not appearing      | Wrong format              | Use key:value format         |
 
 ### Diagnostic Commands
 
@@ -407,7 +408,7 @@ sudo ls -la /var/db/newrelic-infra/newrelic-integrations/
 log:
   level: debug
   file: /var/log/newrelic-infra/newrelic-infra.log
-  
+
 # Environment variable
 NRIA_LOG_LEVEL=debug
 ```
@@ -423,7 +424,7 @@ labels:
   Team: platform
   Service: api-gateway
   Region: us-east-1
-  CostCenter: "12345"
+  CostCenter: '12345'
 ```
 
 ### Query Optimization

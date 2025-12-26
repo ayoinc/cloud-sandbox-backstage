@@ -37,24 +37,24 @@ kubectl get secret awx-admin-password -n awx -o jsonpath='{.data.password}' | ba
 
 ## Features
 
-| Feature | Description | Benefit |
-|---------|-------------|---------|
-| **Declarative Management** | Define AWX state via CRDs | GitOps-friendly |
-| **Automated Upgrades** | Seamless version upgrades | Zero-downtime updates |
-| **Self-Healing** | Automatic pod recovery | High availability |
-| **Scaling** | Horizontal pod scaling | Handle load increases |
-| **Backup/Restore** | Built-in backup CRD | Disaster recovery |
-| **External DB Support** | Connect to existing PostgreSQL | Enterprise integration |
-| **TLS Management** | Automatic certificate handling | Secure by default |
-| **Resource Tuning** | Fine-grained resource control | Optimized performance |
+| Feature                    | Description                    | Benefit                |
+| -------------------------- | ------------------------------ | ---------------------- |
+| **Declarative Management** | Define AWX state via CRDs      | GitOps-friendly        |
+| **Automated Upgrades**     | Seamless version upgrades      | Zero-downtime updates  |
+| **Self-Healing**           | Automatic pod recovery         | High availability      |
+| **Scaling**                | Horizontal pod scaling         | Handle load increases  |
+| **Backup/Restore**         | Built-in backup CRD            | Disaster recovery      |
+| **External DB Support**    | Connect to existing PostgreSQL | Enterprise integration |
+| **TLS Management**         | Automatic certificate handling | Secure by default      |
+| **Resource Tuning**        | Fine-grained resource control  | Optimized performance  |
 
 ## Custom Resource Definitions
 
-| CRD | API Version | Purpose |
-|-----|-------------|---------|
-| **AWX** | awx.ansible.com/v1beta1 | AWX instance deployment |
-| **AWXBackup** | awx.ansible.com/v1beta1 | Database and secret backup |
-| **AWXRestore** | awx.ansible.com/v1beta1 | Restore from backup |
+| CRD            | API Version             | Purpose                    |
+| -------------- | ----------------------- | -------------------------- |
+| **AWX**        | awx.ansible.com/v1beta1 | AWX instance deployment    |
+| **AWXBackup**  | awx.ansible.com/v1beta1 | Database and secret backup |
+| **AWXRestore** | awx.ansible.com/v1beta1 | Restore from backup        |
 
 ## Architecture
 
@@ -72,7 +72,7 @@ title: Kubernetes Operator Pattern - AWX Operator {
 
 k8s_api: Kubernetes API Server {
   style.fill: "#e3f2fd"
-  
+
   crds: Custom Resource Definitions (CRDs) {
     style.fill: "#bbdefb"
     awx_crd: AWX {
@@ -92,7 +92,7 @@ k8s_api: Kubernetes API Server {
 
 operator: AWX Operator Controller {
   style.fill: "#e8f5e9"
-  
+
   awx_controller: AWX\nController {
     shape: hexagon
     style.fill: "#a5d6a7"
@@ -109,7 +109,7 @@ operator: AWX Operator Controller {
 
 reconcile_loop: Reconciliation Loop {
   style.fill: "#fff3e0"
-  
+
   watch: Watch for Changes {
     shape: rectangle
     style.fill: "#ffe0b2"
@@ -122,14 +122,14 @@ reconcile_loop: Reconciliation Loop {
     shape: rectangle
     style.fill: "#ffb74d"
   }
-  
+
   watch -> compare -> apply
   apply -> watch: Requeue
 }
 
 managed_resources: Managed Resources {
   style.fill: "#f3e5f5"
-  
+
   workloads: Workloads {
     style.fill: "#e1bee7"
     deployment: Deployments {
@@ -139,7 +139,7 @@ managed_resources: Managed Resources {
       shape: rectangle
     }
   }
-  
+
   networking: Networking {
     style.fill: "#e1bee7"
     services: Services {
@@ -149,7 +149,7 @@ managed_resources: Managed Resources {
       shape: rectangle
     }
   }
-  
+
   config: Configuration {
     style.fill: "#e1bee7"
     configmaps: ConfigMaps {
@@ -166,7 +166,7 @@ managed_resources: Managed Resources {
 
 awx_instance: AWX Instance {
   style.fill: "#c8e6c9"
-  
+
   web: AWX Web {
     shape: rectangle
   }
@@ -200,20 +200,20 @@ reconciliation: Reconciliation Loop {
     child_changes: Child resources changed
     requeue: Periodic requeue
   }
-  
+
   reconcile: 2. Reconcile {
     compare: Compare desired state (CR spec) with actual state
     create: Create missing resources
     update: Update changed resources
     delete: Delete orphaned resources
   }
-  
+
   status: 3. Update Status {
     conditions: Set conditions (Ready, Progressing, Degraded)
     generation: Update observed generation
     events: Record events
   }
-  
+
   watch -> reconcile -> status
   status -> watch: requeue {
     style.stroke-dash: 3
@@ -223,21 +223,21 @@ reconciliation: Reconciliation Loop {
 
 ## Version Information
 
-| Component | Version | Notes |
-|-----------|---------|-------|
-| AWX Operator | 2.12+ | Latest stable |
-| Kubernetes | 1.24+ | Required |
-| Kustomize | 5.0+ | For installation |
-| AWX | 24.0+ | Deployed version |
+| Component    | Version | Notes            |
+| ------------ | ------- | ---------------- |
+| AWX Operator | 2.12+   | Latest stable    |
+| Kubernetes   | 1.24+   | Required         |
+| Kustomize    | 5.0+    | For installation |
+| AWX          | 24.0+   | Deployed version |
 
 ## Installation Methods
 
-| Method | Best For | Command |
-|--------|----------|---------|
-| **Kustomize** | Direct install | `kubectl apply -k` |
-| **Helm** | Package management | `helm install` |
-| **OLM** | OpenShift/OLM clusters | OperatorHub |
-| **Manual** | Air-gapped environments | YAML manifests |
+| Method        | Best For                | Command            |
+| ------------- | ----------------------- | ------------------ |
+| **Kustomize** | Direct install          | `kubectl apply -k` |
+| **Helm**      | Package management      | `helm install`     |
+| **OLM**       | OpenShift/OLM clusters  | OperatorHub        |
+| **Manual**    | Air-gapped environments | YAML manifests     |
 
 ## Related Documentation
 

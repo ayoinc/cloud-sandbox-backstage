@@ -39,10 +39,7 @@ import type { LoggerService } from '@backstage/backend-plugin-api';
  */
 
 // Permissions that require admin role
-const ADMIN_PERMISSIONS = [
-  'catalog.entity.delete',
-  'catalog.location.delete',
-];
+const ADMIN_PERMISSIONS = ['catalog.entity.delete', 'catalog.location.delete'];
 
 // Permissions that editors and viewers can use (for scaffolder workflows)
 const SCAFFOLDER_CATALOG_PERMISSIONS = [
@@ -59,7 +56,10 @@ const EDITOR_GROUPS = ['editors', 'developers', 'platform-editors'];
 class GitHubOrgPermissionPolicy implements PermissionPolicy {
   private logger: LoggerService;
   private catalog: CatalogApi;
-  private groupMembershipCache: Map<string, { groups: string[]; timestamp: number }> = new Map();
+  private groupMembershipCache: Map<
+    string,
+    { groups: string[]; timestamp: number }
+  > = new Map();
   private cacheTTL = 5 * 60 * 1000; // 5 minutes cache
 
   constructor(logger: LoggerService, catalog: CatalogApi) {
@@ -88,7 +88,9 @@ class GitHubOrgPermissionPolicy implements PermissionPolicy {
       const [, namespace, name] = match;
 
       // Fetch the user entity from the catalog
-      const userEntity = await this.catalog.getEntityByRef(`user:${namespace}/${name}`);
+      const userEntity = await this.catalog.getEntityByRef(
+        `user:${namespace}/${name}`,
+      );
 
       if (!userEntity) {
         this.logger.debug(`User entity not found: ${userEntityRef}`);
@@ -142,7 +144,10 @@ class GitHubOrgPermissionPolicy implements PermissionPolicy {
           }
         }
       } catch (error) {
-        this.logger.debug('Error fetching groups for membership check', error as Error);
+        this.logger.debug(
+          'Error fetching groups for membership check',
+          error as Error,
+        );
       }
 
       // Update cache
@@ -151,10 +156,17 @@ class GitHubOrgPermissionPolicy implements PermissionPolicy {
         timestamp: Date.now(),
       });
 
-      this.logger.debug(`User ${userEntityRef} belongs to groups: ${groups.join(', ') || 'none'}`);
+      this.logger.debug(
+        `User ${userEntityRef} belongs to groups: ${
+          groups.join(', ') || 'none'
+        }`,
+      );
       return groups;
     } catch (error) {
-      this.logger.error(`Failed to get user groups for ${userEntityRef}`, error as Error);
+      this.logger.error(
+        `Failed to get user groups for ${userEntityRef}`,
+        error as Error,
+      );
       return [];
     }
   }
@@ -297,11 +309,19 @@ export default createBackendModule({
         logger.info(
           'Users are granted access based on their GitHub org team membership:',
         );
-        logger.info(`  - Admin groups (${ADMIN_GROUPS.join(', ')}): Full access`);
-        logger.info(`  - Editor groups (${EDITOR_GROUPS.join(', ')}): Create/modify access`);
+        logger.info(
+          `  - Admin groups (${ADMIN_GROUPS.join(', ')}): Full access`,
+        );
+        logger.info(
+          `  - Editor groups (${EDITOR_GROUPS.join(
+            ', ',
+          )}): Create/modify access`,
+        );
         logger.info('  - All authenticated users: Read-only access (viewer)');
         logger.info('Group membership is now resolved via catalog lookup');
-        policy.setPolicy(new GitHubOrgPermissionPolicy(logger, catalog as CatalogApi));
+        policy.setPolicy(
+          new GitHubOrgPermissionPolicy(logger, catalog as CatalogApi),
+        );
       },
     });
   },

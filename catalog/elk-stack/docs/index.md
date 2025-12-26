@@ -42,17 +42,17 @@ curl -X GET "localhost:9200/logs/_search?q=level:INFO&pretty"
 
 ## Features
 
-| Feature | Component | Description | Use Case |
-|---------|-----------|-------------|----------|
-| **Full-Text Search** | Elasticsearch | Inverted index search engine | Log searching, analytics |
-| **Log Ingestion** | Logstash | Data pipeline with filters | Parse, transform, enrich |
-| **Visualization** | Kibana | Dashboards and analytics | Monitoring, reporting |
-| **Beats Agents** | Filebeat, Metricbeat | Lightweight data shippers | Edge collection |
-| **Machine Learning** | Elasticsearch ML | Anomaly detection | Proactive alerting |
-| **Alerting** | Kibana Alerting | Rule-based notifications | Incident response |
-| **Security** | X-Pack Security | RBAC, encryption, audit | Compliance |
-| **APM** | Elastic APM | Application performance | Tracing, profiling |
-| **SIEM** | Elastic Security | Security analytics | Threat detection |
+| Feature              | Component            | Description                  | Use Case                 |
+| -------------------- | -------------------- | ---------------------------- | ------------------------ |
+| **Full-Text Search** | Elasticsearch        | Inverted index search engine | Log searching, analytics |
+| **Log Ingestion**    | Logstash             | Data pipeline with filters   | Parse, transform, enrich |
+| **Visualization**    | Kibana               | Dashboards and analytics     | Monitoring, reporting    |
+| **Beats Agents**     | Filebeat, Metricbeat | Lightweight data shippers    | Edge collection          |
+| **Machine Learning** | Elasticsearch ML     | Anomaly detection            | Proactive alerting       |
+| **Alerting**         | Kibana Alerting      | Rule-based notifications     | Incident response        |
+| **Security**         | X-Pack Security      | RBAC, encryption, audit      | Compliance               |
+| **APM**              | Elastic APM          | Application performance      | Tracing, profiling       |
+| **SIEM**             | Elastic Security     | Security analytics           | Threat detection         |
 
 ## Architecture
 
@@ -68,7 +68,7 @@ title: ELK Stack Architecture {
 sources: Data Sources {
   shape: rectangle
   style.fill: "#E3F2FD"
-  
+
   apps: App Logs {
     shape: document
     style.fill: "#BBDEFB"
@@ -90,7 +90,7 @@ sources: Data Sources {
 beats: Beats Agents {
   shape: rectangle
   style.fill: "#FFF3E0"
-  
+
   filebeat: Filebeat {
     shape: hexagon
     style.fill: "#FF9800"
@@ -116,7 +116,7 @@ beats: Beats Agents {
 logstash: Logstash {
   shape: rectangle
   style.fill: "#C8E6C9"
-  
+
   input: Input {
     shape: rectangle
     style.fill: "#4CAF50"
@@ -138,7 +138,7 @@ logstash: Logstash {
 elasticsearch: Elasticsearch Cluster {
   shape: rectangle
   style.fill: "#FFCDD2"
-  
+
   node1: Node 1 (Master) {
     shape: cylinder
     style.fill: "#F44336"
@@ -154,14 +154,14 @@ elasticsearch: Elasticsearch Cluster {
     style.fill: "#F44336"
     style.font-color: white
   }
-  
+
   shards: Primary + Replica Shards
 }
 
 kibana: Kibana {
   shape: rectangle
   style.fill: "#E1BEE7"
-  
+
   discover: Discover
   dashboard: Dashboard
   visualize: Visualize
@@ -184,25 +184,25 @@ kibana -> users: visualize
 
 ## Component Overview
 
-| Component | Port | Purpose |
-|-----------|------|---------|
-| Elasticsearch | 9200 (HTTP), 9300 (Transport) | Search and analytics engine |
-| Logstash | 5044 (Beats), 9600 (API) | Data processing pipeline |
-| Kibana | 5601 | Visualization and management |
-| Filebeat | - | Log file shipping |
-| Metricbeat | - | Metrics collection |
-| APM Server | 8200 | Application performance monitoring |
+| Component     | Port                          | Purpose                            |
+| ------------- | ----------------------------- | ---------------------------------- |
+| Elasticsearch | 9200 (HTTP), 9300 (Transport) | Search and analytics engine        |
+| Logstash      | 5044 (Beats), 9600 (API)      | Data processing pipeline           |
+| Kibana        | 5601                          | Visualization and management       |
+| Filebeat      | -                             | Log file shipping                  |
+| Metricbeat    | -                             | Metrics collection                 |
+| APM Server    | 8200                          | Application performance monitoring |
 
 ## Version Information
 
-| Component | Version | Release Date |
-|-----------|---------|--------------|
-| Elasticsearch | 8.12.0 | 2024 |
-| Logstash | 8.12.0 | 2024 |
-| Kibana | 8.12.0 | 2024 |
-| Filebeat | 8.12.0 | 2024 |
-| Metricbeat | 8.12.0 | 2024 |
-| APM Server | 8.12.0 | 2024 |
+| Component     | Version | Release Date |
+| ------------- | ------- | ------------ |
+| Elasticsearch | 8.12.0  | 2024         |
+| Logstash      | 8.12.0  | 2024         |
+| Kibana        | 8.12.0  | 2024         |
+| Filebeat      | 8.12.0  | 2024         |
+| Metricbeat    | 8.12.0  | 2024         |
+| APM Server    | 8.12.0  | 2024         |
 
 ## Data Flow Patterns
 
@@ -210,7 +210,7 @@ kibana -> users: visualize
 Pattern 1: Direct to Elasticsearch
 App ──► Filebeat ──► Elasticsearch ──► Kibana
 
-Pattern 2: With Logstash Processing  
+Pattern 2: With Logstash Processing
 App ──► Filebeat ──► Logstash ──► Elasticsearch ──► Kibana
 
 Pattern 3: Multi-Tier

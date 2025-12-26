@@ -50,16 +50,16 @@ spark-submit \
 
 ## Features
 
-| Feature | Description |
-|---------|-------------|
-| **Spark SQL** | SQL queries on structured data with DataFrames API |
-| **Spark Streaming** | Micro-batch and continuous stream processing |
-| **MLlib** | Scalable machine learning library |
-| **GraphX** | Graph processing and analytics |
-| **Structured Streaming** | Stream processing with DataFrame semantics |
-| **Delta Lake** | ACID transactions on data lakes |
-| **Adaptive Query Execution** | Runtime query optimization |
-| **Dynamic Resource Allocation** | Auto-scaling executors based on workload |
+| Feature                         | Description                                        |
+| ------------------------------- | -------------------------------------------------- |
+| **Spark SQL**                   | SQL queries on structured data with DataFrames API |
+| **Spark Streaming**             | Micro-batch and continuous stream processing       |
+| **MLlib**                       | Scalable machine learning library                  |
+| **GraphX**                      | Graph processing and analytics                     |
+| **Structured Streaming**        | Stream processing with DataFrame semantics         |
+| **Delta Lake**                  | ACID transactions on data lakes                    |
+| **Adaptive Query Execution**    | Runtime query optimization                         |
+| **Dynamic Resource Allocation** | Auto-scaling executors based on workload           |
 
 ## Architecture
 
@@ -72,9 +72,9 @@ app: Spark Application {
 
 driver: Driver Program {
   style.fill: "#BBDEFB"
-  
+
   context: SparkContext/SparkSession
-  
+
   schedulers: Schedulers {
     direction: right
     dag: DAG Scheduler
@@ -85,7 +85,7 @@ driver: Driver Program {
 
 workers: Workers {
   direction: right
-  
+
   executor1: Executor 1 (Worker 1) {
     style.fill: "#C8E6C9"
     tasks1: Tasks {
@@ -98,7 +98,7 @@ workers: Workers {
       style.fill: "#A5D6A7"
     }
   }
-  
+
   executor2: Executor 2 (Worker 2) {
     style.fill: "#C8E6C9"
     tasks2: Tasks {
@@ -111,7 +111,7 @@ workers: Workers {
       style.fill: "#A5D6A7"
     }
   }
-  
+
   executor3: Executor 3 (Worker 3) {
     style.fill: "#C8E6C9"
     tasks3: Tasks {
@@ -138,22 +138,22 @@ cluster_manager -> driver: allocate resources
 
 ## Deployment Modes
 
-| Mode | Description | Use Case |
-|------|-------------|----------|
-| **Local** | Single JVM with multiple threads | Development, testing |
-| **Standalone** | Spark's built-in cluster manager | Simple deployments |
-| **YARN** | Hadoop resource manager | Hadoop ecosystem integration |
-| **Kubernetes** | Container orchestration | Cloud-native deployments |
-| **Mesos** | General cluster manager | Mixed workloads |
+| Mode           | Description                      | Use Case                     |
+| -------------- | -------------------------------- | ---------------------------- |
+| **Local**      | Single JVM with multiple threads | Development, testing         |
+| **Standalone** | Spark's built-in cluster manager | Simple deployments           |
+| **YARN**       | Hadoop resource manager          | Hadoop ecosystem integration |
+| **Kubernetes** | Container orchestration          | Cloud-native deployments     |
+| **Mesos**      | General cluster manager          | Mixed workloads              |
 
 ## Data Sources
 
-| Source | Format | Example |
-|--------|--------|---------|
-| Files | Parquet, ORC, JSON, CSV, Avro | `spark.read.parquet("s3://bucket/data")` |
-| Databases | JDBC, Hive, Delta Lake | `spark.read.jdbc(url, table, props)` |
-| Streaming | Kafka, Kinesis, Files | `spark.readStream.format("kafka")` |
-| Cloud | S3, GCS, ADLS, HDFS | Native cloud connectors |
+| Source    | Format                        | Example                                  |
+| --------- | ----------------------------- | ---------------------------------------- |
+| Files     | Parquet, ORC, JSON, CSV, Avro | `spark.read.parquet("s3://bucket/data")` |
+| Databases | JDBC, Hive, Delta Lake        | `spark.read.jdbc(url, table, props)`     |
+| Streaming | Kafka, Kinesis, Files         | `spark.readStream.format("kafka")`       |
+| Cloud     | S3, GCS, ADLS, HDFS           | Native cloud connectors                  |
 
 ## Version Information
 

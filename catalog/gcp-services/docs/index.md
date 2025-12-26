@@ -22,16 +22,16 @@ gcloud config list
 
 ## Core Services
 
-| Service | Purpose | Use Case |
-|---------|---------|----------|
-| **Compute Engine** | Virtual machines | Custom workloads, lift-and-shift |
-| **GKE** | Managed Kubernetes | Container orchestration |
-| **Cloud Functions** | Serverless compute | Event-driven functions |
-| **Cloud Storage** | Object storage | Files, backups, data lakes |
-| **Cloud SQL** | Managed databases | PostgreSQL, MySQL, SQL Server |
-| **VPC** | Networking | Network isolation, connectivity |
-| **IAM** | Identity & access | Authentication, authorization |
-| **Deployment Manager** | Infrastructure as Code | Automated provisioning |
+| Service                | Purpose                | Use Case                         |
+| ---------------------- | ---------------------- | -------------------------------- |
+| **Compute Engine**     | Virtual machines       | Custom workloads, lift-and-shift |
+| **GKE**                | Managed Kubernetes     | Container orchestration          |
+| **Cloud Functions**    | Serverless compute     | Event-driven functions           |
+| **Cloud Storage**      | Object storage         | Files, backups, data lakes       |
+| **Cloud SQL**          | Managed databases      | PostgreSQL, MySQL, SQL Server    |
+| **VPC**                | Networking             | Network isolation, connectivity  |
+| **IAM**                | Identity & access      | Authentication, authorization    |
+| **Deployment Manager** | Infrastructure as Code | Automated provisioning           |
 
 ## Features
 
@@ -72,7 +72,7 @@ lb: Cloud Load Balancer {
 
 compute: Compute Tier {
   style.fill: "#E8F5E9"
-  
+
   gke: GKE Cluster {
     shape: hexagon
     style.fill: "#4CAF50"
@@ -92,7 +92,7 @@ compute: Compute Tier {
 
 data: Data Tier {
   style.fill: "#FFF3E0"
-  
+
   sql: Cloud SQL {
     shape: cylinder
     style.fill: "#FF9800"

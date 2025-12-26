@@ -18,13 +18,13 @@ import { defineConfig, devices } from '@playwright/test';
 
 /**
  * Backstage E2E Test Configuration
- * 
+ *
  * Test Categories:
  * - Smoke Tests: Quick health checks (yarn test:e2e --grep "Smoke")
  * - Integration Tests: API integration (yarn test:e2e --grep "Integration")
  * - E2E Tests: User workflows (yarn test:e2e --grep "E2E")
  * - All Tests: Full suite (yarn test:e2e)
- * 
+ *
  * Environment Variables:
  * - PLAYWRIGHT_URL: Base URL for tests (default: http://localhost:7007)
  * - CI: Set in CI environments for stricter settings
@@ -32,7 +32,7 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './packages/app/e2e-tests',
   timeout: 60_000,
-  
+
   expect: {
     timeout: 10_000,
   },
@@ -52,32 +52,38 @@ export default defineConfig({
   // Reporter configuration
   reporter: [
     ['list'],
-    ['html', { 
-      open: 'never', 
-      outputFolder: 'e2e-test-report' 
-    }],
-    ['json', { 
-      outputFile: 'e2e-test-results.json' 
-    }],
+    [
+      'html',
+      {
+        open: 'never',
+        outputFolder: 'e2e-test-report',
+      },
+    ],
+    [
+      'json',
+      {
+        outputFile: 'e2e-test-results.json',
+      },
+    ],
   ],
 
   // Shared settings for all projects
   use: {
     // Base URL for the tests
     baseURL: process.env.PLAYWRIGHT_URL ?? 'http://localhost:7007',
-    
+
     // Collect trace when retrying the failed test
     trace: 'on-first-retry',
-    
+
     // Screenshot on failure
     screenshot: 'only-on-failure',
-    
+
     // Video on failure (useful for debugging)
     video: 'on-first-retry',
-    
+
     // Timeout for each action
     actionTimeout: 15_000,
-    
+
     // Timeout for navigation
     navigationTimeout: 30_000,
   },

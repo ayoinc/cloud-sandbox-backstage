@@ -28,8 +28,8 @@ services:
       - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
     ports:
-      - "8126:8126"  # APM
-      - "8125:8125/udp"  # DogStatsD
+      - '8126:8126' # APM
+      - '8125:8125/udp' # DogStatsD
 
   # Example application with APM
   web-app:
@@ -73,8 +73,8 @@ services:
       - ./datadog.yaml:/etc/datadog-agent/datadog.yaml:ro
       - ./conf.d:/etc/datadog-agent/conf.d:ro
     ports:
-      - "8126:8126"
-      - "8125:8125/udp"
+      - '8126:8126'
+      - '8125:8125/udp'
     cap_add:
       - SYS_ADMIN
       - SYS_RESOURCE
@@ -129,35 +129,35 @@ datadog:
   apiKeyExistingSecret: datadog-secret
   appKeyExistingSecret: datadog-secret
   site: datadoghq.com
-  
+
   clusterName: production-k8s
-  
+
   tags:
     - env:production
     - team:platform
-  
+
   apm:
     portEnabled: true
     socketEnabled: true
-  
+
   logs:
     enabled: true
     containerCollectAll: true
     containerCollectUsingFiles: true
-  
+
   processAgent:
     enabled: true
     processCollection: true
-  
+
   networkMonitoring:
     enabled: true
-  
+
   securityAgent:
     runtime:
       enabled: true
     compliance:
       enabled: true
-  
+
   prometheusScrape:
     enabled: true
     serviceEndpoints: true
@@ -170,11 +170,11 @@ clusterAgent:
   admissionController:
     enabled: true
     mutateUnlabelled: true
-  
+
 agents:
   tolerations:
     - operator: Exists
-  
+
   resources:
     requests:
       cpu: 200m
@@ -198,14 +198,14 @@ metadata:
   labels:
     tags.datadoghq.com/env: production
     tags.datadoghq.com/service: my-app
-    tags.datadoghq.com/version: "1.0.0"
+    tags.datadoghq.com/version: '1.0.0'
 spec:
   template:
     metadata:
       labels:
         tags.datadoghq.com/env: production
         tags.datadoghq.com/service: my-app
-        tags.datadoghq.com/version: "1.0.0"
+        tags.datadoghq.com/version: '1.0.0'
       annotations:
         ad.datadoghq.com/my-app.logs: |
           [{
@@ -239,9 +239,9 @@ spec:
                 fieldRef:
                   fieldPath: metadata.labels['tags.datadoghq.com/version']
             - name: DD_LOGS_INJECTION
-              value: "true"
+              value: 'true'
             - name: DD_TRACE_SAMPLE_RATE
-              value: "1"
+              value: '1'
 ```
 
 ## Dashboard and Visualization
@@ -317,38 +317,38 @@ print(f"Dashboard URL: https://app.datadoghq.com{response.url}")
 ```yaml
 # Log parsing pipeline (via API or UI)
 pipeline:
-  name: "Python Application Logs"
+  name: 'Python Application Logs'
   filter:
-    query: "source:python"
+    query: 'source:python'
   processors:
     - grok_parser:
         source: message
         samples:
-          - "2024-01-15 10:30:00,123 INFO [module] - User login successful"
+          - '2024-01-15 10:30:00,123 INFO [module] - User login successful'
         grok:
           match_rules: |
             rule %{date("yyyy-MM-dd HH:mm:ss,SSS"):timestamp} %{word:level} \[%{word:module}\] - %{data:message}
-    
+
     - status_remapper:
         sources:
           - level
-    
+
     - date_remapper:
         sources:
           - timestamp
-    
+
     - attribute_remapper:
         source: module
         target: logger.name
-        
+
     - category_processor:
         categories:
           - filter:
-              query: "@level:ERROR"
-            name: "Error"
+              query: '@level:ERROR'
+            name: 'Error'
           - filter:
-              query: "@level:WARN"
-            name: "Warning"
+              query: '@level:WARN'
+            name: 'Warning'
         target: severity
 ```
 
@@ -367,14 +367,14 @@ host:web-* source:nginx @http.url:/api/*
 
 ### Common Issues
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| No data in Datadog | Invalid API key | Verify key in agent status |
-| Missing APM traces | Agent not reachable | Check network, port 8126 |
-| Container logs missing | Docker socket not mounted | Mount /var/run/docker.sock |
-| High agent CPU | Too many checks | Reduce check frequency |
-| Metrics delayed | Clock skew | Sync NTP on hosts |
-| Tags not appearing | Env vars not set | Verify DD_TAGS configuration |
+| Issue                  | Cause                     | Solution                     |
+| ---------------------- | ------------------------- | ---------------------------- |
+| No data in Datadog     | Invalid API key           | Verify key in agent status   |
+| Missing APM traces     | Agent not reachable       | Check network, port 8126     |
+| Container logs missing | Docker socket not mounted | Mount /var/run/docker.sock   |
+| High agent CPU         | Too many checks           | Reduce check frequency       |
+| Metrics delayed        | Clock skew                | Sync NTP on hosts            |
+| Tags not appearing     | Env vars not set          | Verify DD_TAGS configuration |
 
 ### Diagnostic Commands
 
@@ -421,12 +421,12 @@ DD_LOG_LEVEL=debug
 ```yaml
 # Recommended tags
 tags:
-  - env:production          # Environment
-  - service:api-gateway     # Service name
-  - version:1.2.3           # Version
-  - team:platform           # Owner team
-  - cost-center:12345       # Cost allocation
-  - region:us-east-1        # Region
+  - env:production # Environment
+  - service:api-gateway # Service name
+  - version:1.2.3 # Version
+  - team:platform # Owner team
+  - cost-center:12345 # Cost allocation
+  - region:us-east-1 # Region
 ```
 
 ### Cost Optimization

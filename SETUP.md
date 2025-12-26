@@ -21,28 +21,28 @@ This guide provides comprehensive instructions for setting up the Cloud Sandbox 
 
 ### Minimum Requirements
 
-| Component | Version | Notes |
-|-----------|---------|-------|
-| Docker | 24.0+ | Required for all setups |
-| Docker Compose | 2.20+ | V2 compose plugin |
-| RAM | 8GB | 16GB recommended |
-| Disk | 20GB | For Docker images and node_modules |
+| Component      | Version | Notes                              |
+| -------------- | ------- | ---------------------------------- |
+| Docker         | 24.0+   | Required for all setups            |
+| Docker Compose | 2.20+   | V2 compose plugin                  |
+| RAM            | 8GB     | 16GB recommended                   |
+| Disk           | 20GB    | For Docker images and node_modules |
 
 ### For Devbox Development (Recommended)
 
-| Component | Version | Notes |
-|-----------|---------|-------|
-| Devbox | 0.10+ | Manages all dev tools |
-| Nix | 2.18+ | Installed automatically by Devbox |
+| Component | Version | Notes                             |
+| --------- | ------- | --------------------------------- |
+| Devbox    | 0.10+   | Manages all dev tools             |
+| Nix       | 2.18+   | Installed automatically by Devbox |
 
 ### For Manual Development
 
-| Component | Version | Notes |
-|-----------|---------|-------|
-| Node.js | 22.x | LTS recommended |
-| Yarn | 4.4.1 | Via Corepack |
-| Python | 3.11+ | For TechDocs |
-| D2 | 0.6+ | For diagrams |
+| Component | Version | Notes           |
+| --------- | ------- | --------------- |
+| Node.js   | 22.x    | LTS recommended |
+| Yarn      | 4.4.1   | Via Corepack    |
+| Python    | 3.11+   | For TechDocs    |
+| D2        | 0.6+    | For diagrams    |
 
 ---
 
@@ -120,11 +120,13 @@ devbox shell
 ```
 
 This will:
+
 - Download and install Node.js 22, Yarn 4, Python 3.12, D2, Git, and other tools
 - Set up environment variables
 - Display available commands
 
 You should see:
+
 ```
 ╔══════════════════════════════════════════════════════════════╗
 ║     Cloud Sandbox Backstage - Development Environment        ║
@@ -148,11 +150,13 @@ devbox run services:start
 ```
 
 This starts:
+
 - PostgreSQL (port 5432)
 - Redis (port 6379)
 - MinIO (ports 9000, 9001)
 
 Verify services are running:
+
 ```bash
 devbox run services:status
 ```
@@ -168,6 +172,7 @@ nano .env  # or vim, code, etc.
 ```
 
 **Minimum required configuration:**
+
 ```bash
 # GitHub (required for authentication)
 GITHUB_TOKEN=ghp_your_personal_access_token
@@ -194,25 +199,26 @@ devbox run dev
 ```
 
 Access the portal:
+
 - **Frontend:** http://localhost:3000
 - **Backend API:** http://localhost:7007
 - **MinIO Console:** http://localhost:9001 (user: backstage, password: backstage123)
 
 ### Devbox Command Reference
 
-| Command | Description |
-|---------|-------------|
-| `devbox shell` | Enter development environment |
-| `devbox run services:start` | Start PostgreSQL, Redis, MinIO |
-| `devbox run services:stop` | Stop all services |
-| `devbox run services:status` | Check service health |
-| `devbox run dev` | Start Backstage with hot reload |
-| `devbox run build` | Build backend for production |
-| `devbox run test` | Run test suite |
-| `devbox run lint` | Run linter |
-| `devbox run techdocs` | Generate TechDocs |
-| `devbox run clean` | Clean build artifacts |
-| `devbox run reset` | Full environment reset |
+| Command                      | Description                     |
+| ---------------------------- | ------------------------------- |
+| `devbox shell`               | Enter development environment   |
+| `devbox run services:start`  | Start PostgreSQL, Redis, MinIO  |
+| `devbox run services:stop`   | Stop all services               |
+| `devbox run services:status` | Check service health            |
+| `devbox run dev`             | Start Backstage with hot reload |
+| `devbox run build`           | Build backend for production    |
+| `devbox run test`            | Run test suite                  |
+| `devbox run lint`            | Run linter                      |
+| `devbox run techdocs`        | Generate TechDocs               |
+| `devbox run clean`           | Clean build artifacts           |
+| `devbox run reset`           | Full environment reset          |
 
 ---
 
@@ -235,6 +241,7 @@ nano .env
 ```
 
 **Required for Docker mode:**
+
 ```bash
 # GitHub
 GITHUB_TOKEN=ghp_your_personal_access_token
@@ -282,14 +289,14 @@ docker compose -f docker-compose.yaml -f docker-compose.services.yaml ps
 
 ### Docker Command Reference
 
-| Command | Description |
-|---------|-------------|
-| `docker compose -f docker-compose.yaml -f docker-compose.services.yaml up -d` | Start full stack |
-| `docker compose -f docker-compose.yaml -f docker-compose.services.yaml down` | Stop all containers |
-| `docker compose -f docker-compose.yaml -f docker-compose.services.yaml logs -f` | Tail logs |
-| `docker compose -f docker-compose.yaml -f docker-compose.services.yaml ps` | Show status |
-| `docker compose -f docker-compose.yaml -f docker-compose.services.yaml up -d --build` | Rebuild and start |
-| `docker compose -f docker-compose.yaml -f docker-compose.services.yaml down -v` | Stop and remove volumes |
+| Command                                                                               | Description             |
+| ------------------------------------------------------------------------------------- | ----------------------- |
+| `docker compose -f docker-compose.yaml -f docker-compose.services.yaml up -d`         | Start full stack        |
+| `docker compose -f docker-compose.yaml -f docker-compose.services.yaml down`          | Stop all containers     |
+| `docker compose -f docker-compose.yaml -f docker-compose.services.yaml logs -f`       | Tail logs               |
+| `docker compose -f docker-compose.yaml -f docker-compose.services.yaml ps`            | Show status             |
+| `docker compose -f docker-compose.yaml -f docker-compose.services.yaml up -d --build` | Rebuild and start       |
+| `docker compose -f docker-compose.yaml -f docker-compose.services.yaml down -v`       | Stop and remove volumes |
 
 ---
 
@@ -307,6 +314,7 @@ docker compose -f docker-compose.yaml -f docker-compose.services.yaml ps
 ### Step 2: Get Credentials
 
 After creating the app:
+
 1. Copy the **Client ID**
 2. Generate a new **Client Secret** and copy it
 
@@ -322,6 +330,7 @@ After creating the app:
 ### Step 4: Configure Environment
 
 Add to your `.env`:
+
 ```bash
 GITHUB_TOKEN=ghp_your_personal_access_token
 GITHUB_CLIENT_ID=Iv1.xxxxxxxxxxxx
@@ -436,6 +445,7 @@ mkdocs build
 ### TechDocs Storage
 
 TechDocs are stored in MinIO (S3-compatible storage):
+
 - **Bucket:** techdocs
 - **Console:** http://localhost:9001
 
@@ -443,7 +453,7 @@ TechDocs are stored in MinIO (S3-compatible storage):
 
 D2 diagrams are supported in TechDocs. Example:
 
-```markdown
+````markdown
 # Architecture
 
 ```d2
@@ -451,7 +461,9 @@ user -> frontend: HTTPS
 frontend -> backend: API calls
 backend -> database: Queries
 ```
-```
+````
+
+````
 
 ---
 
@@ -461,11 +473,12 @@ backend -> database: Queries
 
 ```bash
 docker build -t backstage:latest .
-```
+````
 
 ### Step 2: Configure Production Environment
 
 Create `.env.production`:
+
 ```bash
 NODE_ENV=production
 POSTGRES_HOST=your-production-db.example.com
@@ -500,6 +513,7 @@ docker compose -f docker-compose.yaml -f docker-compose.services.yaml -f docker-
 ### Devbox Issues
 
 **"Nix is not installed" error:**
+
 ```bash
 # Install Nix manually
 curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
@@ -509,6 +523,7 @@ devbox shell
 ```
 
 **Packages fail to install:**
+
 ```bash
 # Clear cache and retry
 devbox rm --all
@@ -517,6 +532,7 @@ devbox shell
 ```
 
 **Wrong Node.js version:**
+
 ```bash
 # Verify you're in Devbox shell
 node --version  # Should show v22.x
@@ -528,6 +544,7 @@ devbox shell
 ### Docker Issues
 
 **Container won't start:**
+
 ```bash
 # Check logs
 docker compose -f docker-compose.yaml -f docker-compose.services.yaml logs backstage
@@ -538,6 +555,7 @@ docker compose -f docker-compose.yaml -f docker-compose.services.yaml up -d --bu
 ```
 
 **Port already in use:**
+
 ```bash
 # Find what's using the port
 lsof -i :7007
@@ -548,6 +566,7 @@ lsof -i :6379
 ```
 
 **Out of disk space:**
+
 ```bash
 # Clean up Docker
 docker system prune -a --volumes
@@ -556,6 +575,7 @@ docker system prune -a --volumes
 ### Database Issues
 
 **Connection refused:**
+
 ```bash
 # Check PostgreSQL is running
 docker ps | grep postgres
@@ -565,6 +585,7 @@ psql -h localhost -U backstage -d backstage -c "SELECT 1"
 ```
 
 **Migration errors:**
+
 ```bash
 # Reset and retry
 docker compose -f docker-compose.yaml -f docker-compose.services.yaml down -v
@@ -574,11 +595,13 @@ docker compose -f docker-compose.yaml -f docker-compose.services.yaml up -d
 ### Authentication Issues
 
 **GitHub OAuth fails:**
+
 1. Verify callback URL matches exactly: `http://localhost:7007/api/auth/github/handler/frame`
 2. Check `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` are correct
 3. Ensure OAuth app is not suspended
 
 **"Guest access disabled" error:**
+
 ```bash
 # Enable guest access for development
 echo "GUEST_AUTH_ENABLED=true" >> .env
@@ -587,6 +610,7 @@ echo "GUEST_AUTH_ENABLED=true" >> .env
 ### Build Issues
 
 **yarn install fails:**
+
 ```bash
 # Clear cache
 rm -rf node_modules .yarn/cache
@@ -595,6 +619,7 @@ yarn install
 ```
 
 **Build fails:**
+
 ```bash
 # Clear build artifacts
 yarn clean

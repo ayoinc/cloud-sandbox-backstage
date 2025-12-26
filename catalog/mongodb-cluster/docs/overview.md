@@ -16,25 +16,25 @@ rs: Replica Set (rs0) {
     data: Data /data/db
     priority: Priority 2
   }
-  
+
   secondary1: SECONDARY (Read-only) {
     shape: cylinder
     oplog: Oplog 50GB
     data: Data /data/db
     priority: Priority 1
   }
-  
+
   secondary2: SECONDARY (Read-only) {
     shape: cylinder
     oplog: Oplog 50GB
     data: Data /data/db
     priority: Priority 1
   }
-  
+
   arbiter: ARBITER (Vote only, No data) {
     shape: hexagon
   }
-  
+
   primary -> secondary1: Replication
   primary -> secondary2: Replication
   secondary1 -> arbiter
@@ -160,23 +160,23 @@ mongos_layer.mongos2 -> shards.shard2: Route Data
 mongos_layer.mongos2 -> shards.shard3: Route Data
 ```
 
-| Component | Role | Recommended Count |
-|-----------|------|-------------------|
-| **Mongos** | Query router, distributes operations | 2+ (behind load balancer) |
-| **Config Servers** | Store metadata, chunk mappings | 3 (replica set) |
-| **Shards** | Store data partitions | 2+ (each a replica set) |
+| Component          | Role                                 | Recommended Count         |
+| ------------------ | ------------------------------------ | ------------------------- |
+| **Mongos**         | Query router, distributes operations | 2+ (behind load balancer) |
+| **Config Servers** | Store metadata, chunk mappings       | 3 (replica set)           |
+| **Shards**         | Store data partitions                | 2+ (each a replica set)   |
 
 ## Component Configuration
 
 ### Replica Set Member Types
 
-| Type | Votes | Priority | Data | Use Case |
-|------|-------|----------|------|----------|
-| **Primary** | 1 | > 0 | Yes | Accept writes |
-| **Secondary** | 1 | >= 0 | Yes | Read scaling, failover |
-| **Arbiter** | 1 | 0 | No | Tie-breaking votes |
-| **Hidden** | 0 or 1 | 0 | Yes | Backup, reporting |
-| **Delayed** | 0 or 1 | 0 | Yes | Point-in-time recovery |
+| Type          | Votes  | Priority | Data | Use Case               |
+| ------------- | ------ | -------- | ---- | ---------------------- |
+| **Primary**   | 1      | > 0      | Yes  | Accept writes          |
+| **Secondary** | 1      | >= 0     | Yes  | Read scaling, failover |
+| **Arbiter**   | 1      | 0        | No   | Tie-breaking votes     |
+| **Hidden**    | 0 or 1 | 0        | Yes  | Backup, reporting      |
+| **Delayed**   | 0 or 1 | 0        | Yes  | Point-in-time recovery |
 
 ### Storage Engines
 
@@ -187,11 +187,11 @@ storage:
   engine: wiredTiger
   wiredTiger:
     engineConfig:
-      cacheSizeGB: 8                    # 50% of RAM - 1GB
+      cacheSizeGB: 8 # 50% of RAM - 1GB
       journalCompressor: snappy
       directoryForIndexes: true
     collectionConfig:
-      blockCompressor: snappy           # Options: none, snappy, zlib, zstd
+      blockCompressor: snappy # Options: none, snappy, zlib, zstd
     indexConfig:
       prefixCompression: true
 ```
@@ -202,12 +202,12 @@ storage:
 # mongod.conf - Replication Settings
 replication:
   replSetName: rs0
-  oplogSizeMB: 51200                    # 50GB oplog
+  oplogSizeMB: 51200 # 50GB oplog
   enableMajorityReadConcern: true
 
 # For sharding
 sharding:
-  clusterRole: shardsvr                 # or configsvr
+  clusterRole: shardsvr # or configsvr
 ```
 
 ## Network Configuration
@@ -233,36 +233,36 @@ mongodb+srv://user:pass@cluster.example.com/database
 
 ### Read Preferences
 
-| Preference | Description | Use Case |
-|------------|-------------|----------|
-| `primary` | All reads from primary | Strong consistency required |
-| `primaryPreferred` | Primary, fallback to secondary | Prefer consistency |
-| `secondary` | All reads from secondaries | Read scaling |
-| `secondaryPreferred` | Secondary, fallback to primary | Read scaling with fallback |
-| `nearest` | Lowest latency member | Geo-distributed reads |
+| Preference           | Description                    | Use Case                    |
+| -------------------- | ------------------------------ | --------------------------- |
+| `primary`            | All reads from primary         | Strong consistency required |
+| `primaryPreferred`   | Primary, fallback to secondary | Prefer consistency          |
+| `secondary`          | All reads from secondaries     | Read scaling                |
+| `secondaryPreferred` | Secondary, fallback to primary | Read scaling with fallback  |
+| `nearest`            | Lowest latency member          | Geo-distributed reads       |
 
 ### Write Concerns
 
 ```javascript
 // Write concern examples
 db.collection.insertOne(
-  { name: "example" },
-  { 
-    writeConcern: { 
-      w: "majority",        // Wait for majority acknowledgment
-      j: true,              // Wait for journal commit
-      wtimeout: 5000        // Timeout in milliseconds
-    }
-  }
-)
+  { name: 'example' },
+  {
+    writeConcern: {
+      w: 'majority', // Wait for majority acknowledgment
+      j: true, // Wait for journal commit
+      wtimeout: 5000, // Timeout in milliseconds
+    },
+  },
+);
 ```
 
-| Write Concern | Durability | Performance |
-|---------------|------------|-------------|
-| `w: 1` | Primary acknowledged | Fastest |
-| `w: "majority"` | Majority acknowledged | Recommended |
-| `w: <n>` | n members acknowledged | Specific requirements |
-| `j: true` | Journal committed | Most durable |
+| Write Concern   | Durability             | Performance           |
+| --------------- | ---------------------- | --------------------- |
+| `w: 1`          | Primary acknowledged   | Fastest               |
+| `w: "majority"` | Majority acknowledged  | Recommended           |
+| `w: <n>`        | n members acknowledged | Specific requirements |
+| `j: true`       | Journal committed      | Most durable          |
 
 ## Security Configuration
 
@@ -272,10 +272,10 @@ db.collection.insertOne(
 # mongod.conf - Security Settings
 security:
   authorization: enabled
-  keyFile: /etc/mongodb/keyfile          # For replica set auth
+  keyFile: /etc/mongodb/keyfile # For replica set auth
   # Or use x.509 certificates
   clusterAuthMode: x509
-  
+
 net:
   tls:
     mode: requireTLS
@@ -289,43 +289,39 @@ net:
 ```javascript
 // Create admin user
 db.createUser({
-  user: "admin",
-  pwd: "securePassword",
-  roles: [
-    { role: "root", db: "admin" }
-  ]
-})
+  user: 'admin',
+  pwd: 'securePassword',
+  roles: [{ role: 'root', db: 'admin' }],
+});
 
 // Create application user
 db.createUser({
-  user: "appuser",
-  pwd: "appPassword",
+  user: 'appuser',
+  pwd: 'appPassword',
   roles: [
-    { role: "readWrite", db: "myapp" },
-    { role: "read", db: "analytics" }
-  ]
-})
+    { role: 'readWrite', db: 'myapp' },
+    { role: 'read', db: 'analytics' },
+  ],
+});
 
 // Create read-only user
 db.createUser({
-  user: "reader",
-  pwd: "readerPassword",
-  roles: [
-    { role: "read", db: "myapp" }
-  ]
-})
+  user: 'reader',
+  pwd: 'readerPassword',
+  roles: [{ role: 'read', db: 'myapp' }],
+});
 ```
 
 ### Built-in Roles
 
-| Role | Database | Permissions |
-|------|----------|-------------|
-| `read` | Specific DB | Read all collections |
-| `readWrite` | Specific DB | Read/write all collections |
-| `dbAdmin` | Specific DB | Schema management, indexing |
-| `dbOwner` | Specific DB | Full control of database |
-| `clusterAdmin` | admin | Cluster management |
-| `root` | admin | Superuser access |
+| Role           | Database    | Permissions                 |
+| -------------- | ----------- | --------------------------- |
+| `read`         | Specific DB | Read all collections        |
+| `readWrite`    | Specific DB | Read/write all collections  |
+| `dbAdmin`      | Specific DB | Schema management, indexing |
+| `dbOwner`      | Specific DB | Full control of database    |
+| `clusterAdmin` | admin       | Cluster management          |
+| `root`         | admin       | Superuser access            |
 
 ## Indexing Strategy
 
@@ -333,42 +329,42 @@ db.createUser({
 
 ```javascript
 // Single field index
-db.users.createIndex({ email: 1 })
+db.users.createIndex({ email: 1 });
 
 // Compound index
-db.orders.createIndex({ customerId: 1, orderDate: -1 })
+db.orders.createIndex({ customerId: 1, orderDate: -1 });
 
 // Unique index
-db.users.createIndex({ email: 1 }, { unique: true })
+db.users.createIndex({ email: 1 }, { unique: true });
 
 // TTL index (auto-expire documents)
-db.sessions.createIndex({ createdAt: 1 }, { expireAfterSeconds: 3600 })
+db.sessions.createIndex({ createdAt: 1 }, { expireAfterSeconds: 3600 });
 
 // Text index (full-text search)
-db.articles.createIndex({ title: "text", content: "text" })
+db.articles.createIndex({ title: 'text', content: 'text' });
 
 // Geospatial index
-db.locations.createIndex({ coordinates: "2dsphere" })
+db.locations.createIndex({ coordinates: '2dsphere' });
 
 // Partial index
 db.orders.createIndex(
   { status: 1 },
-  { partialFilterExpression: { status: "pending" } }
-)
+  { partialFilterExpression: { status: 'pending' } },
+);
 
 // Wildcard index
-db.products.createIndex({ "attributes.$**": 1 })
+db.products.createIndex({ 'attributes.$**': 1 });
 ```
 
 ### Index Best Practices
 
-| Practice | Description |
-|----------|-------------|
-| **ESR Rule** | Equality, Sort, Range order in compound indexes |
-| **Covered Queries** | Include all query/projection fields in index |
-| **Index Intersection** | MongoDB can use multiple indexes |
-| **Background Building** | Use `background: true` for production |
-| **Index Size** | Keep indexes in RAM for best performance |
+| Practice                | Description                                     |
+| ----------------------- | ----------------------------------------------- |
+| **ESR Rule**            | Equality, Sort, Range order in compound indexes |
+| **Covered Queries**     | Include all query/projection fields in index    |
+| **Index Intersection**  | MongoDB can use multiple indexes                |
+| **Background Building** | Use `background: true` for production           |
+| **Index Size**          | Keep indexes in RAM for best performance        |
 
 ## Monitoring and Metrics
 
@@ -376,31 +372,31 @@ db.products.createIndex({ "attributes.$**": 1 })
 
 ```javascript
 // Server status
-db.serverStatus()
+db.serverStatus();
 
 // Replica set status
-rs.status()
+rs.status();
 
 // Current operations
-db.currentOp()
+db.currentOp();
 
 // Collection statistics
-db.collection.stats()
+db.collection.stats();
 
 // Index usage
-db.collection.aggregate([{ $indexStats: {} }])
+db.collection.aggregate([{ $indexStats: {} }]);
 ```
 
 ### Important Metrics
 
-| Metric | Healthy Range | Alert Threshold |
-|--------|---------------|-----------------|
-| Replication Lag | < 10 seconds | > 60 seconds |
-| Connections | < 80% of max | > 90% of max |
-| Cache Usage | < 80% | > 95% |
-| Oplog Window | > 24 hours | < 1 hour |
-| Lock Percentage | < 5% | > 20% |
-| Page Faults | Low | Sudden increase |
+| Metric          | Healthy Range | Alert Threshold |
+| --------------- | ------------- | --------------- |
+| Replication Lag | < 10 seconds  | > 60 seconds    |
+| Connections     | < 80% of max  | > 90% of max    |
+| Cache Usage     | < 80%         | > 95%           |
+| Oplog Window    | > 24 hours    | < 1 hour        |
+| Lock Percentage | < 5%          | > 20%           |
+| Page Faults     | Low           | Sudden increase |
 
 ### Prometheus Metrics
 
@@ -416,12 +412,12 @@ db.collection.aggregate([{ $indexStats: {} }])
 
 ### Backup Methods
 
-| Method | Use Case | RTO | RPO |
-|--------|----------|-----|-----|
-| **mongodump** | Small databases | Hours | Point-in-time |
-| **Filesystem Snapshots** | Large databases | Minutes | Point-in-time |
-| **Ops Manager / Atlas** | Enterprise | Minutes | Continuous |
-| **Delayed Secondary** | Accidental deletion | Minutes | Delay window |
+| Method                   | Use Case            | RTO     | RPO           |
+| ------------------------ | ------------------- | ------- | ------------- |
+| **mongodump**            | Small databases     | Hours   | Point-in-time |
+| **Filesystem Snapshots** | Large databases     | Minutes | Point-in-time |
+| **Ops Manager / Atlas**  | Enterprise          | Minutes | Continuous    |
+| **Delayed Secondary**    | Accidental deletion | Minutes | Delay window  |
 
 ### mongodump Commands
 

@@ -144,12 +144,12 @@ spec:
           title: Kubernetes Version
           type: string
           description: Kubernetes version for the cluster
-          default: "1.28"
+          default: '1.28'
           enum:
-            - "1.26"
-            - "1.27"
-            - "1.28"
-            - "1.29"
+            - '1.26'
+            - '1.27'
+            - '1.28'
+            - '1.29'
         node_instance_type:
           title: Node Instance Type
           type: string
@@ -270,10 +270,10 @@ spec:
           title: Environments to Create
           type: array
           description: Target environments
-          default: ["staging", "production"]
+          default: ['staging', 'production']
           items:
             type: string
-            enum: ["development", "staging", "production"]
+            enum: ['development', 'staging', 'production']
           uniqueItems: true
           ui:widget: checkboxes
         enable_disaster_recovery:

@@ -6,12 +6,12 @@ PostgreSQL clusters provide high availability through streaming replication and 
 
 ### Replication Types
 
-| Type | Description | Use Case |
-|------|-------------|----------|
-| **Streaming** | Real-time WAL streaming | HA, read replicas |
-| **Logical** | Row-level changes | Cross-version, selective |
-| **Synchronous** | Wait for replica ACK | Zero data loss |
-| **Asynchronous** | Fire and forget | Performance priority |
+| Type             | Description             | Use Case                 |
+| ---------------- | ----------------------- | ------------------------ |
+| **Streaming**    | Real-time WAL streaming | HA, read replicas        |
+| **Logical**      | Row-level changes       | Cross-version, selective |
+| **Synchronous**  | Wait for replica ACK    | Zero data loss           |
+| **Asynchronous** | Fire and forget         | Performance priority     |
 
 ### Cluster Topologies
 
@@ -284,13 +284,13 @@ GRANT readwrite TO app_writer;
 
 ### Key Metrics
 
-| Metric | Query | Alert Threshold |
-|--------|-------|-----------------|
-| Active connections | `SELECT count(*) FROM pg_stat_activity` | > 80% max |
-| Replication lag | `SELECT pg_wal_lsn_diff(...)` | > 1MB |
-| Cache hit ratio | `pg_stat_database` | < 95% |
-| Transaction rate | `pg_stat_database.xact_commit` | Monitor trend |
-| Dead tuples | `pg_stat_user_tables.n_dead_tup` | > 10% of live |
+| Metric             | Query                                   | Alert Threshold |
+| ------------------ | --------------------------------------- | --------------- |
+| Active connections | `SELECT count(*) FROM pg_stat_activity` | > 80% max       |
+| Replication lag    | `SELECT pg_wal_lsn_diff(...)`           | > 1MB           |
+| Cache hit ratio    | `pg_stat_database`                      | < 95%           |
+| Transaction rate   | `pg_stat_database.xact_commit`          | Monitor trend   |
+| Dead tuples        | `pg_stat_user_tables.n_dead_tup`        | > 10% of live   |
 
 ### pg_stat_statements
 
@@ -299,7 +299,7 @@ GRANT readwrite TO app_writer;
 CREATE EXTENSION pg_stat_statements;
 
 -- Top queries by time
-SELECT 
+SELECT
   calls,
   round(total_exec_time::numeric, 2) as total_ms,
   round(mean_exec_time::numeric, 2) as mean_ms,
@@ -317,7 +317,7 @@ LIMIT 20;
 postgres_exporter:
   image: prometheuscommunity/postgres-exporter
   environment:
-    DATA_SOURCE_NAME: "postgresql://postgres:password@postgres:5432/postgres?sslmode=disable"
+    DATA_SOURCE_NAME: 'postgresql://postgres:password@postgres:5432/postgres?sslmode=disable'
   ports:
-    - "9187:9187"
+    - '9187:9187'
 ```

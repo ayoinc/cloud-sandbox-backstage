@@ -23,7 +23,7 @@ users: {
 edge: {
   label: "Edge Layer"
   style.fill: "#e3f2fd"
-  
+
   nginx: {
     shape: hexagon
     label: "Nginx\nReverse Proxy"
@@ -34,12 +34,12 @@ edge: {
 app: {
   label: "Application Layer"
   style.fill: "#f3e5f5"
-  
+
   frontend: {
     shape: rectangle
     label: "Frontend\n(React)"
   }
-  
+
   backend: {
     shape: rectangle
     label: "Backend\n(Node.js)"
@@ -50,18 +50,18 @@ app: {
 plugins: {
   label: "Backend Plugins"
   style.fill: "#fff3e0"
-  
+
   catalog: "Catalog"
   scaffolder: "Scaffolder"
   techdocs: "TechDocs"
   auth: "Auth"
   permission: "Permission"
   search: "Search"
-  
+
   custom: {
     label: "Custom Plugins"
     style.fill: "#ffecb3"
-    
+
     branding: "Branding\nSettings"
     ownership: "Ownership\nManagement"
     github_sync: "GitHub\nTeam Sync"
@@ -72,17 +72,17 @@ plugins: {
 data: {
   label: "Data Layer"
   style.fill: "#e8f5e9"
-  
+
   postgres: {
     shape: cylinder
     label: "PostgreSQL"
   }
-  
+
   redis: {
     shape: cylinder
     label: "Redis Cache"
   }
-  
+
   minio: {
     shape: cylinder
     label: "MinIO\n(S3 Storage)"
@@ -93,12 +93,12 @@ data: {
 external: {
   label: "External Services"
   style.fill: "#fce4ec"
-  
+
   github: {
     shape: cloud
     label: "GitHub API"
   }
-  
+
   k8s: {
     shape: cloud
     label: "Kubernetes\nClusters"
@@ -144,6 +144,7 @@ app.backend -> external.k8s: "Cluster Info"
 ### Edge Layer
 
 #### Nginx Reverse Proxy
+
 - Terminates TLS connections
 - Routes requests to frontend or backend
 - Serves static assets from MinIO
@@ -152,12 +153,14 @@ app.backend -> external.k8s: "Cluster Info"
 ### Application Layer
 
 #### Frontend (React)
+
 - Single-page application built with React
 - Material-UI component library
 - Backstage core components
 - Custom branding support
 
 #### Backend (Node.js)
+
 - Express-based HTTP server
 - Plugin-based architecture
 - Backstage backend framework
@@ -167,37 +170,40 @@ app.backend -> external.k8s: "Cluster Info"
 
 #### Core Plugins
 
-| Plugin | Purpose |
-|--------|---------|
-| **Catalog** | Software catalog management |
-| **Scaffolder** | Template-based project creation |
-| **TechDocs** | Documentation generation and serving |
-| **Auth** | Authentication providers (GitHub, Guest) |
-| **Permission** | Role-based access control |
-| **Search** | Full-text search across entities |
+| Plugin         | Purpose                                  |
+| -------------- | ---------------------------------------- |
+| **Catalog**    | Software catalog management              |
+| **Scaffolder** | Template-based project creation          |
+| **TechDocs**   | Documentation generation and serving     |
+| **Auth**       | Authentication providers (GitHub, Guest) |
+| **Permission** | Role-based access control                |
+| **Search**     | Full-text search across entities         |
 
 #### Custom Plugins
 
-| Plugin | Purpose |
-|--------|---------|
-| **Branding Settings** | Admin-configurable organization branding |
+| Plugin                   | Purpose                                     |
+| ------------------------ | ------------------------------------------- |
+| **Branding Settings**    | Admin-configurable organization branding    |
 | **Ownership Management** | Orphan detection and ownership reassignment |
-| **GitHub Team Sync** | Bi-directional GitHub team synchronization |
+| **GitHub Team Sync**     | Bi-directional GitHub team synchronization  |
 
 ### Data Layer
 
 #### PostgreSQL
+
 - Primary data store
 - Catalog entities
 - Authentication tokens
 - Plugin state
 
 #### Redis
+
 - Caching layer
 - Session storage
 - Performance optimization
 
 #### MinIO (S3-Compatible)
+
 - TechDocs static files
 - Branding assets (logos)
 - Template artifacts
@@ -205,12 +211,14 @@ app.backend -> external.k8s: "Cluster Info"
 ### External Services
 
 #### GitHub API
+
 - OAuth authentication
 - Organization/team sync
 - Repository scaffolding
 - Token management
 
 #### Kubernetes
+
 - Cluster information
 - Service discovery
 - Deployment status
@@ -282,7 +290,7 @@ request: Incoming Request
 
 auth_check: {
   label: "Auth Check"
-  
+
   cookie: "Session Cookie?"
   token: "API Token?"
   guest: "Guest Allowed?"
@@ -304,12 +312,12 @@ auth_check.guest -> deny: "No"
 
 Role-based access control with group membership:
 
-| Role | Source | Permissions |
-|------|--------|-------------|
-| Admin | `admins` group | Full access |
-| Editor | `editors` group | Create/modify entities |
-| Viewer | Authenticated users | Read-only access |
-| Guest | Unauthenticated | Limited read access |
+| Role   | Source              | Permissions            |
+| ------ | ------------------- | ---------------------- |
+| Admin  | `admins` group      | Full access            |
+| Editor | `editors` group     | Create/modify entities |
+| Viewer | Authenticated users | Read-only access       |
+| Guest  | Unauthenticated     | Limited read access    |
 
 ## Deployment Architecture
 
@@ -397,10 +405,10 @@ For production, consider:
 
 ### Backup Strategy
 
-| Component | Backup Method | Frequency |
-|-----------|--------------|-----------|
-| PostgreSQL | pg_dump | Daily |
-| MinIO | S3 replication | Real-time |
+| Component     | Backup Method  | Frequency |
+| ------------- | -------------- | --------- |
+| PostgreSQL    | pg_dump        | Daily     |
+| MinIO         | S3 replication | Real-time |
 | Configuration | Git repository | On change |
 
 ### Recovery Procedures

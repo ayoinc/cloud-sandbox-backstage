@@ -79,20 +79,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
-      
+
       - name: Install cfn-lint
         run: pip install cfn-lint
-      
+
       - name: Lint templates
         run: cfn-lint templates/**/*.yaml
-      
+
       - name: Validate templates
         run: |
           for template in templates/**/*.yaml; do
@@ -104,7 +104,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Run cfn-nag
         uses: stelligent/cfn_nag@master
         with:
@@ -118,14 +118,14 @@ jobs:
     environment: staging
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
-      
+
       - name: Deploy VPC stack
         run: |
           aws cloudformation deploy \
@@ -134,7 +134,7 @@ jobs:
             --parameter-overrides file://parameters/staging/vpc.json \
             --capabilities CAPABILITY_IAM \
             --no-fail-on-empty-changeset
-      
+
       - name: Deploy ECS stack
         run: |
           aws cloudformation deploy \
@@ -152,13 +152,13 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::123456789012:role/CloudFormationDeployRole
           aws-region: ${{ env.AWS_REGION }}
-      
+
       - name: Create change set
         id: changeset
         run: |
@@ -169,27 +169,27 @@ jobs:
             --parameters file://parameters/production/vpc.json \
             --capabilities CAPABILITY_IAM \
             --change-set-name $CHANGESET_NAME
-          
+
           echo "changeset_name=$CHANGESET_NAME" >> $GITHUB_OUTPUT
-          
+
           # Wait for change set creation
           aws cloudformation wait change-set-create-complete \
             --stack-name production-vpc \
             --change-set-name $CHANGESET_NAME
-      
+
       - name: Review change set
         run: |
           aws cloudformation describe-change-set \
             --stack-name production-vpc \
             --change-set-name ${{ steps.changeset.outputs.changeset_name }} \
             --query 'Changes[*].ResourceChange.{Action:Action,Resource:LogicalResourceId,Type:ResourceType}'
-      
+
       - name: Execute change set
         run: |
           aws cloudformation execute-change-set \
             --stack-name production-vpc \
             --change-set-name ${{ steps.changeset.outputs.changeset_name }}
-          
+
           aws cloudformation wait stack-update-complete \
             --stack-name production-vpc
 ```
@@ -334,7 +334,7 @@ tests:
       Environment: test
       VpcCIDR: 10.99.0.0/16
       EnableNatGateway: 'false'
-  
+
   ecs-test:
     template: templates/compute/ecs-cluster.yaml
     parameters:
@@ -506,16 +506,16 @@ aws cloudformation update-stack-instances \
 
 ## Troubleshooting
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| CREATE_FAILED | Resource creation error | Check stack events for specific error message |
-| UPDATE_ROLLBACK_FAILED | Rollback cannot complete | Use continue-update-rollback with skip resources |
-| DELETE_FAILED | Resource has dependencies | Delete dependent resources first or use retain |
-| ROLLBACK_IN_PROGRESS | Update failed | Wait for rollback, check events for cause |
-| Circular dependency | Resources reference each other | Use DependsOn or refactor template |
-| Template validation error | Invalid YAML/JSON | Use cfn-lint to validate syntax |
-| Insufficient permissions | Missing IAM permissions | Add required permissions to execution role |
-| Resource limit exceeded | Account limits | Request limit increase or use different region |
+| Issue                     | Cause                          | Solution                                         |
+| ------------------------- | ------------------------------ | ------------------------------------------------ |
+| CREATE_FAILED             | Resource creation error        | Check stack events for specific error message    |
+| UPDATE_ROLLBACK_FAILED    | Rollback cannot complete       | Use continue-update-rollback with skip resources |
+| DELETE_FAILED             | Resource has dependencies      | Delete dependent resources first or use retain   |
+| ROLLBACK_IN_PROGRESS      | Update failed                  | Wait for rollback, check events for cause        |
+| Circular dependency       | Resources reference each other | Use DependsOn or refactor template               |
+| Template validation error | Invalid YAML/JSON              | Use cfn-lint to validate syntax                  |
+| Insufficient permissions  | Missing IAM permissions        | Add required permissions to execution role       |
+| Resource limit exceeded   | Account limits                 | Request limit increase or use different region   |
 
 ### Debug Commands
 

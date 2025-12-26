@@ -17,19 +17,19 @@ title: CI/CD Security Pipeline {
 
 precommit: Pre-Commit Hooks {
   style.fill: "#E3F2FD"
-  
+
   gitleaks: Gitleaks\n(Secrets) {
     shape: hexagon
     style.fill: "#2196F3"
     style.font-color: white
   }
-  
+
   hooks: Pre-commit\nHooks {
     shape: hexagon
     style.fill: "#2196F3"
     style.font-color: white
   }
-  
+
   semgrep_local: Local Semgrep\n(Quick SAST) {
     shape: hexagon
     style.fill: "#2196F3"
@@ -39,19 +39,19 @@ precommit: Pre-Commit Hooks {
 
 pr: Pull Request Scans {
   style.fill: "#E8F5E9"
-  
+
   semgrep: Semgrep\nSAST {
     shape: hexagon
     style.fill: "#4CAF50"
     style.font-color: white
   }
-  
+
   deps: Dependency\nScanning {
     shape: hexagon
     style.fill: "#4CAF50"
     style.font-color: white
   }
-  
+
   iac: IaC Scanning\n(Checkov/tfsec) {
     shape: hexagon
     style.fill: "#4CAF50"
@@ -61,19 +61,19 @@ pr: Pull Request Scans {
 
 build: Build Stage {
   style.fill: "#FFF3E0"
-  
+
   container: Container\nScanning {
     shape: hexagon
     style.fill: "#FF9800"
     style.font-color: white
   }
-  
+
   sbom: SBOM\nGeneration {
     shape: document
     style.fill: "#FF9800"
     style.font-color: white
   }
-  
+
   license: License\nCompliance {
     shape: hexagon
     style.fill: "#FFB74D"
@@ -83,19 +83,19 @@ build: Build Stage {
 
 postdeploy: Post-Deploy Scans {
   style.fill: "#FFCDD2"
-  
+
   dast: DAST\n(ZAP) {
     shape: hexagon
     style.fill: "#F44336"
     style.font-color: white
   }
-  
+
   api: API Security\nTesting {
     shape: hexagon
     style.fill: "#F44336"
     style.font-color: white
   }
-  
+
   monitoring: Continuous\nMonitoring {
     shape: hexagon
     style.fill: "#EF5350"
@@ -121,25 +121,25 @@ title: Results Aggregation {
 
 scanners: Scanner Results {
   style.fill: "#E3F2FD"
-  
+
   trivy: Trivy\nResults {
     shape: document
     style.fill: "#2196F3"
     style.font-color: white
   }
-  
+
   semgrep: Semgrep\nResults {
     shape: document
     style.fill: "#4CAF50"
     style.font-color: white
   }
-  
+
   zap: ZAP\nResults {
     shape: document
     style.fill: "#F44336"
     style.font-color: white
   }
-  
+
   grype: Grype\nResults {
     shape: document
     style.fill: "#FF9800"
@@ -149,13 +149,13 @@ scanners: Scanner Results {
 
 formats: Output Formats {
   style.fill: "#E8F5E9"
-  
+
   sarif: SARIF Format\n(Unified) {
     shape: document
     style.fill: "#4CAF50"
     style.font-color: white
   }
-  
+
   native: JSON/XML\n(Native) {
     shape: document
     style.fill: "#81C784"
@@ -171,19 +171,19 @@ defectdojo: DefectDojo {
 
 outputs: Integrations {
   style.fill: "#FCE4EC"
-  
+
   jira: Jira\nTickets {
     shape: rectangle
     style.fill: "#0052CC"
     style.font-color: white
   }
-  
+
   slack: Slack\nAlerts {
     shape: rectangle
     style.fill: "#4A154B"
     style.font-color: white
   }
-  
+
   grafana: Dashboards\n(Grafana) {
     shape: rectangle
     style.fill: "#F46800"
@@ -207,7 +207,7 @@ scan:
     - vuln
     - secret
     - misconfig
-  
+
 severity:
   - CRITICAL
   - HIGH
@@ -218,20 +218,20 @@ vulnerability:
     - os
     - library
   ignore-unfixed: false
-  
+
 secret:
   config: trivy-secret.yaml
 
 misconfig:
   policy-bundle-repository: ghcr.io/aquasecurity/trivy-policies:latest
-  
+
 cache:
   backend: fs
   ttl: 24h
 
 db:
   repository: ghcr.io/aquasecurity/trivy-db
-  
+
 output:
   format: sarif
   output: trivy-results.sarif
@@ -251,8 +251,8 @@ rules:
     languages: [python, javascript, typescript]
     severity: ERROR
     metadata:
-      cwe: "CWE-89"
-      owasp: "A03:2021"
+      cwe: 'CWE-89'
+      owasp: 'A03:2021'
 
   - id: hardcoded-secret
     pattern: $KEY = "..."
@@ -277,9 +277,9 @@ paths:
     - src/
     - lib/
   exclude:
-    - "**/test/**"
-    - "**/vendor/**"
-    - "**/*.test.*"
+    - '**/test/**'
+    - '**/vendor/**'
+    - '**/*.test.*'
 
 options:
   max-target-bytes: 1000000
@@ -293,28 +293,28 @@ options:
 # zap-config.yaml
 env:
   contexts:
-    - name: "Default Context"
+    - name: 'Default Context'
       urls:
-        - "https://target-app.com"
+        - 'https://target-app.com'
       includePaths:
-        - "https://target-app.com/.*"
+        - 'https://target-app.com/.*'
       excludePaths:
-        - ".*logout.*"
-        - ".*static.*"
+        - '.*logout.*'
+        - '.*static.*'
       authentication:
-        method: "form"
+        method: 'form'
         parameters:
-          loginUrl: "https://target-app.com/login"
-          loginRequestData: "username={%username%}&password={%password%}"
+          loginUrl: 'https://target-app.com/login'
+          loginRequestData: 'username={%username%}&password={%password%}'
         verification:
-          method: "response"
+          method: 'response'
           loggedInRegex: "\\Qlogout\\E"
           loggedOutRegex: "\\Qlogin\\E"
       users:
-        - name: "test-user"
+        - name: 'test-user'
           credentials:
-            username: "testuser"
-            password: "testpassword"
+            username: 'testuser'
+            password: 'testpassword'
 
 jobs:
   - type: passiveScan-config
@@ -333,7 +333,7 @@ jobs:
     parameters:
       maxRuleDurationInMins: 5
       maxScanDurationInMins: 60
-      policy: "API-Scan"
+      policy: 'API-Scan'
 ```
 
 ### Gitleaks Configuration
@@ -391,8 +391,8 @@ output:
 output-file-path: checkov-results
 quiet: true
 skip-check:
-  - CKV_AWS_18  # Skip specific check
-  - CKV_K8S_21  # Skip default namespace check
+  - CKV_AWS_18 # Skip specific check
+  - CKV_K8S_21 # Skip default namespace check
 soft-fail: false
 ```
 
@@ -408,7 +408,7 @@ vulnerability_thresholds:
     high: 5
     medium: 20
     low: 100
-  
+
   warn:
     critical: 0
     high: 0
@@ -446,28 +446,28 @@ schedules:
     tools:
       - gitleaks
     blocking: true
-    
+
   pull_request:
     tools:
       - semgrep
       - trivy-fs
       - checkov
     blocking: true
-    
+
   merge_to_main:
     tools:
       - trivy-image
       - grype
       - sbom-generation
     blocking: true
-    
+
   nightly:
     tools:
       - zap-full-scan
       - nuclei
       - trivy-repo
     blocking: false
-    
+
   weekly:
     tools:
       - full-dependency-audit
@@ -491,28 +491,28 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "Critical vulnerability detected"
-          description: "{{ $value }} critical vulnerabilities in {{ $labels.image }}"
-      
+          summary: 'Critical vulnerability detected'
+          description: '{{ $value }} critical vulnerabilities in {{ $labels.image }}'
+
       - alert: ScanFailure
         expr: security_scan_status{status="failed"} == 1
         for: 10m
         labels:
           severity: warning
         annotations:
-          summary: "Security scan failed"
-          description: "{{ $labels.scanner }} scan failed for {{ $labels.target }}"
+          summary: 'Security scan failed'
+          description: '{{ $labels.scanner }} scan failed for {{ $labels.target }}'
 ```
 
 ### Grafana Dashboard Metrics
 
-| Metric | Description | Alert Threshold |
-|--------|-------------|-----------------|
-| `vulnerabilities_total` | Total vulnerabilities by severity | Critical > 0 |
-| `scan_duration_seconds` | Time taken for scans | > 30 min |
-| `scan_success_rate` | Percentage of successful scans | < 95% |
-| `mttr_hours` | Mean time to remediate | Critical > 4h |
-| `sla_compliance_rate` | SLA compliance percentage | < 90% |
+| Metric                  | Description                       | Alert Threshold |
+| ----------------------- | --------------------------------- | --------------- |
+| `vulnerabilities_total` | Total vulnerabilities by severity | Critical > 0    |
+| `scan_duration_seconds` | Time taken for scans              | > 30 min        |
+| `scan_success_rate`     | Percentage of successful scans    | < 95%           |
+| `mttr_hours`            | Mean time to remediate            | Critical > 4h   |
+| `sla_compliance_rate`   | SLA compliance percentage         | < 90%           |
 
 ## SBOM (Software Bill of Materials)
 
@@ -557,11 +557,11 @@ sbom:
 
 ## Compliance Frameworks
 
-| Framework | Relevant Checks | Tools |
-|-----------|-----------------|-------|
-| **PCI-DSS** | 6.5.x (Secure coding) | Semgrep, ZAP |
-| **HIPAA** | Security controls | Trivy, Checkov |
-| **SOC 2** | Vulnerability management | All scanners |
-| **GDPR** | Data protection | Gitleaks, Semgrep |
-| **OWASP Top 10** | Web vulnerabilities | ZAP, Semgrep |
-| **CIS Benchmarks** | Container hardening | Trivy, Checkov |
+| Framework          | Relevant Checks          | Tools             |
+| ------------------ | ------------------------ | ----------------- |
+| **PCI-DSS**        | 6.5.x (Secure coding)    | Semgrep, ZAP      |
+| **HIPAA**          | Security controls        | Trivy, Checkov    |
+| **SOC 2**          | Vulnerability management | All scanners      |
+| **GDPR**           | Data protection          | Gitleaks, Semgrep |
+| **OWASP Top 10**   | Web vulnerabilities      | ZAP, Semgrep      |
+| **CIS Benchmarks** | Container hardening      | Trivy, Checkov    |

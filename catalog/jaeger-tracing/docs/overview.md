@@ -22,7 +22,7 @@ otel-collector: Jaeger V2 (OTEL Collector Based) {
     sampling: Sampling
     tail: Tail-Based\nSampling
     attributes: Attribute\nProcessor
-    
+
     batch -> sampling -> tail -> attributes
   }
 
@@ -38,7 +38,7 @@ otel-collector: Jaeger V2 (OTEL Collector Based) {
   receivers.jaeger -> processors.batch
   receivers.zipkin -> processors.batch
   receivers.kafka -> processors.batch
-  
+
   processors.attributes -> exporters.jaeger-storage
   processors.attributes -> exporters.otlp-export
   processors.attributes -> exporters.kafka-producer
@@ -48,22 +48,22 @@ otel-collector: Jaeger V2 (OTEL Collector Based) {
 
 ### Deployment Modes
 
-| Mode | Components | Use Case |
-|------|------------|----------|
-| **All-in-one** | Single binary | Development, testing |
-| **Collector + Query** | Separate binaries | Small production |
-| **Distributed** | Collectors, Query, Storage | Large scale |
-| **Streaming** | + Kafka ingestion | High throughput |
+| Mode                  | Components                 | Use Case             |
+| --------------------- | -------------------------- | -------------------- |
+| **All-in-one**        | Single binary              | Development, testing |
+| **Collector + Query** | Separate binaries          | Small production     |
+| **Distributed**       | Collectors, Query, Storage | Large scale          |
+| **Streaming**         | + Kafka ingestion          | High throughput      |
 
 ### Storage Backend Comparison
 
-| Backend | Pros | Cons | Best For |
-|---------|------|------|----------|
-| **Elasticsearch** | Mature, scalable, analytics | Resource intensive | Large scale, analytics |
-| **Cassandra** | High write throughput | Complex operations | High cardinality |
-| **ClickHouse** | Fast queries, compression | Newer integration | Analytics focus |
-| **Badger** | Simple, embedded | Single node only | Small deployments |
-| **Kafka** | Buffering, reprocessing | Adds complexity | High throughput ingestion |
+| Backend           | Pros                        | Cons               | Best For                  |
+| ----------------- | --------------------------- | ------------------ | ------------------------- |
+| **Elasticsearch** | Mature, scalable, analytics | Resource intensive | Large scale, analytics    |
+| **Cassandra**     | High write throughput       | Complex operations | High cardinality          |
+| **ClickHouse**    | Fast queries, compression   | Newer integration  | Analytics focus           |
+| **Badger**        | Simple, embedded            | Single node only   | Small deployments         |
+| **Kafka**         | Buffering, reprocessing     | Adds complexity    | High throughput ingestion |
 
 ## Configuration
 
@@ -78,7 +78,7 @@ receivers:
         endpoint: 0.0.0.0:4317
       http:
         endpoint: 0.0.0.0:4318
-  
+
   jaeger:
     protocols:
       grpc:
@@ -91,19 +91,19 @@ processors:
     timeout: 1s
     send_batch_size: 10000
     send_batch_max_size: 11000
-  
+
   memory_limiter:
     check_interval: 1s
     limit_mib: 2000
     spike_limit_mib: 500
-  
+
   probabilistic_sampler:
     sampling_percentage: 10
 
 exporters:
   jaeger_storage_exporter:
     trace_storage: elasticsearch-main
-  
+
   prometheus:
     endpoint: 0.0.0.0:8889
 
@@ -114,7 +114,7 @@ extensions:
       index_prefix: jaeger
       tags_as_fields:
         all: true
-      
+
   jaeger_query:
     trace_storage: elasticsearch-main
     grpc:
@@ -136,32 +136,32 @@ service:
 ```yaml
 # sampling.yaml
 service_strategies:
-  - service: "api-gateway"
+  - service: 'api-gateway'
     type: probabilistic
-    param: 0.5  # 50% sampling
-    
-  - service: "payment-service"
+    param: 0.5 # 50% sampling
+
+  - service: 'payment-service'
     type: const
-    param: 1  # Sample all traces (critical service)
-    
-  - service: "logging-service"
+    param: 1 # Sample all traces (critical service)
+
+  - service: 'logging-service'
     type: ratelimiting
-    param: 100  # 100 traces per second
+    param: 100 # 100 traces per second
 
 default_strategy:
   type: probabilistic
-  param: 0.1  # 10% default sampling
+  param: 0.1 # 10% default sampling
 
 # Per-operation strategies
 per_operation_strategies:
-  - service: "api-gateway"
+  - service: 'api-gateway'
     per_operation_strategies:
-      - operation: "GET /health"
+      - operation: 'GET /health'
         type: const
-        param: 0  # Never sample health checks
-      - operation: "POST /api/orders"
+        param: 0 # Never sample health checks
+      - operation: 'POST /api/orders'
         type: const
-        param: 1  # Always sample orders
+        param: 1 # Always sample orders
 ```
 
 ### Environment Variables
@@ -287,14 +287,14 @@ scrape_configs:
 
 ### Key Metrics
 
-| Metric | Description | Alert Threshold |
-|--------|-------------|-----------------|
-| `jaeger_collector_spans_received_total` | Total spans received | Rate drop > 50% |
-| `jaeger_collector_spans_dropped_total` | Dropped spans | > 0 sustained |
-| `jaeger_collector_queue_length` | Queue size | > 80% capacity |
-| `jaeger_collector_save_latency_bucket` | Storage latency | p99 > 500ms |
-| `jaeger_query_latency_bucket` | Query latency | p99 > 2s |
-| `jaeger_agent_reporter_batches_failures_total` | Agent failures | > 0 |
+| Metric                                         | Description          | Alert Threshold |
+| ---------------------------------------------- | -------------------- | --------------- |
+| `jaeger_collector_spans_received_total`        | Total spans received | Rate drop > 50% |
+| `jaeger_collector_spans_dropped_total`         | Dropped spans        | > 0 sustained   |
+| `jaeger_collector_queue_length`                | Queue size           | > 80% capacity  |
+| `jaeger_collector_save_latency_bucket`         | Storage latency      | p99 > 500ms     |
+| `jaeger_query_latency_bucket`                  | Query latency        | p99 > 2s        |
+| `jaeger_agent_reporter_batches_failures_total` | Agent failures       | > 0             |
 
 ### Grafana Dashboard
 
@@ -305,27 +305,35 @@ scrape_configs:
     "panels": [
       {
         "title": "Spans Received Rate",
-        "targets": [{
-          "expr": "rate(jaeger_collector_spans_received_total[5m])"
-        }]
+        "targets": [
+          {
+            "expr": "rate(jaeger_collector_spans_received_total[5m])"
+          }
+        ]
       },
       {
         "title": "Spans Dropped",
-        "targets": [{
-          "expr": "rate(jaeger_collector_spans_dropped_total[5m])"
-        }]
+        "targets": [
+          {
+            "expr": "rate(jaeger_collector_spans_dropped_total[5m])"
+          }
+        ]
       },
       {
         "title": "Save Latency p99",
-        "targets": [{
-          "expr": "histogram_quantile(0.99, rate(jaeger_collector_save_latency_bucket[5m]))"
-        }]
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.99, rate(jaeger_collector_save_latency_bucket[5m]))"
+          }
+        ]
       },
       {
         "title": "Queue Length",
-        "targets": [{
-          "expr": "jaeger_collector_queue_length"
-        }]
+        "targets": [
+          {
+            "expr": "jaeger_collector_queue_length"
+          }
+        ]
       }
     ]
   }
@@ -396,25 +404,25 @@ receivers:
   "startTime": 1705312800000000,
   "duration": 150000,
   "tags": [
-    {"key": "http.method", "value": "GET"},
-    {"key": "http.status_code", "value": 200},
-    {"key": "span.kind", "value": "server"},
-    {"key": "component", "value": "net/http"}
+    { "key": "http.method", "value": "GET" },
+    { "key": "http.status_code", "value": 200 },
+    { "key": "span.kind", "value": "server" },
+    { "key": "component", "value": "net/http" }
   ],
   "logs": [
     {
       "timestamp": 1705312800050000,
       "fields": [
-        {"key": "event", "value": "cache.miss"},
-        {"key": "cache.key", "value": "user:123"}
+        { "key": "event", "value": "cache.miss" },
+        { "key": "cache.key", "value": "user:123" }
       ]
     }
   ],
   "process": {
     "serviceName": "user-service",
     "tags": [
-      {"key": "hostname", "value": "user-service-pod-abc"},
-      {"key": "ip", "value": "10.0.0.42"}
+      { "key": "hostname", "value": "user-service-pod-abc" },
+      { "key": "ip", "value": "10.0.0.42" }
     ]
   }
 }
@@ -430,7 +438,7 @@ processors:
     timeout: 200ms
     send_batch_size: 8192
     send_batch_max_size: 10000
-  
+
   memory_limiter:
     check_interval: 1s
     limit_mib: 4000
@@ -454,7 +462,7 @@ exporters:
 
 ```yaml
 # Bulk indexing optimization
-ES_BULK_SIZE: 5000000  # 5MB
+ES_BULK_SIZE: 5000000 # 5MB
 ES_BULK_WORKERS: 3
 ES_BULK_ACTIONS: 1000
 ES_BULK_FLUSH_INTERVAL: 200ms

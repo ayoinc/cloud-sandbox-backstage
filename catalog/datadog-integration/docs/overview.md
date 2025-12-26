@@ -15,10 +15,10 @@ title: Datadog Agent 7 Architecture {
 
 agent: Datadog Agent 7 {
   style.fill: "#E3F2FD"
-  
+
   core: Core Agent {
     style.fill: "#BBDEFB"
-    
+
     collector: Collector {
       shape: hexagon
       style.fill: "#2196F3"
@@ -35,10 +35,10 @@ agent: Datadog Agent 7 {
       style.font-color: white
     }
   }
-  
+
   agents: Sub-Agents {
     style.fill: "#E8F5E9"
-    
+
     trace: Trace Agent\n:8126 {
       shape: hexagon
       style.fill: "#4CAF50"
@@ -55,10 +55,10 @@ agent: Datadog Agent 7 {
       style.font-color: white
     }
   }
-  
+
   integrations: Integrations {
     style.fill: "#FFF3E0"
-    
+
     nginx: nginx {
       shape: rectangle
       style.fill: "#FF9800"
@@ -191,8 +191,8 @@ apm_config:
   max_traces_per_second: 100
   # Ignore specific resources
   ignore_resources:
-    - "GET /health"
-    - "GET /ready"
+    - 'GET /health'
+    - 'GET /ready'
 
 # Logs Configuration
 logs_enabled: true
@@ -201,11 +201,11 @@ logs_config:
   processing_rules:
     - type: exclude_at_match
       name: exclude_healthchecks
-      pattern: "health_check"
+      pattern: 'health_check'
 
 # Process Monitoring
 process_config:
-  enabled: "true"
+  enabled: 'true'
   container_collection:
     enabled: true
 
@@ -321,12 +321,12 @@ def process_order(order_id):
     # Add tags to current span
     span = tracer.current_span()
     span.set_tag('order.id', order_id)
-    
+
     # Create child span
     with tracer.trace('database.query') as span:
         span.set_tag('db.type', 'postgresql')
         result = db.query(order_id)
-    
+
     return result
 
 # Flask example
@@ -357,7 +357,7 @@ const tracer = require('dd-trace').init({
   service: 'my-node-app',
   version: '1.0.0',
   logInjection: true,
-  runtimeMetrics: true
+  runtimeMetrics: true,
 });
 
 // Express example
@@ -367,21 +367,21 @@ const app = express();
 app.get('/api/orders/:id', (req, res) => {
   const span = tracer.scope().active();
   span.setTag('order.id', req.params.id);
-  
+
   // Custom span
   const childSpan = tracer.startSpan('database.query', {
     childOf: span,
-    tags: { 'db.type': 'postgresql' }
+    tags: { 'db.type': 'postgresql' },
   });
-  
+
   const order = db.getOrder(req.params.id);
   childSpan.finish();
-  
+
   res.json(order);
 });
 
 // Manual instrumentation
-tracer.trace('custom.operation', { resource: 'process-data' }, (span) => {
+tracer.trace('custom.operation', { resource: 'process-data' }, span => {
   span.setTag('custom.tag', 'value');
   // Do work
   span.finish();
@@ -406,13 +406,13 @@ import io.opentracing.Span;
 import io.opentracing.util.GlobalTracer;
 
 public class OrderService {
-    
+
     @Trace(operationName = "process.order", resourceName = "OrderService.processOrder")
     public Order processOrder(String orderId) {
         Span span = GlobalTracer.get().activeSpan();
         span.setTag("order.id", orderId);
         span.setTag(DDTags.SERVICE_NAME, "order-service");
-        
+
         try {
             Order order = orderRepository.findById(orderId);
             span.setTag("order.status", order.getStatus());
@@ -475,7 +475,7 @@ configuration.api_key['appKeyAuth'] = '<APP_KEY>'
 
 with ApiClient(configuration) as api_client:
     api = MetricsApi(api_client)
-    
+
     body = MetricsPayload(
         series=[
             Series(
@@ -486,7 +486,7 @@ with ApiClient(configuration) as api_client:
             )
         ]
     )
-    
+
     api.submit_metrics(body=body)
 ```
 
@@ -494,16 +494,16 @@ with ApiClient(configuration) as api_client:
 
 ### Monitor Types
 
-| Type | Use Case | Example |
-|------|----------|---------|
-| Metric | Threshold alerting | CPU > 80% |
-| APM | Latency, error rate | p99 > 500ms |
-| Log | Log pattern matching | Error count > 10 |
-| Composite | Multiple conditions | CPU high AND memory high |
-| Anomaly | ML-based detection | Unusual traffic |
-| Forecast | Predictive alerts | Disk full in 7 days |
-| Outlier | Compare to peers | Host slower than others |
-| Integration | Service-specific | Kafka lag > 1000 |
+| Type        | Use Case             | Example                  |
+| ----------- | -------------------- | ------------------------ |
+| Metric      | Threshold alerting   | CPU > 80%                |
+| APM         | Latency, error rate  | p99 > 500ms              |
+| Log         | Log pattern matching | Error count > 10         |
+| Composite   | Multiple conditions  | CPU high AND memory high |
+| Anomaly     | ML-based detection   | Unusual traffic          |
+| Forecast    | Predictive alerts    | Disk full in 7 days      |
+| Outlier     | Compare to peers     | Host slower than others  |
+| Integration | Service-specific     | Kafka lag > 1000         |
 
 ### Monitor API Example
 
@@ -563,12 +563,12 @@ kubectl create secret generic datadog-secret \
 
 ### RBAC Configuration
 
-| Role | Permissions |
-|------|-------------|
-| Admin | Full access |
-| Standard | View/edit dashboards, monitors |
-| Read-Only | View only |
-| Custom | Granular permissions |
+| Role      | Permissions                    |
+| --------- | ------------------------------ |
+| Admin     | Full access                    |
+| Standard  | View/edit dashboards, monitors |
+| Read-Only | View only                      |
+| Custom    | Granular permissions           |
 
 ## Integrations
 
@@ -594,14 +594,14 @@ kubectl create secret generic datadog-secret \
 
 ### Common Integrations
 
-| Category | Integrations |
-|----------|--------------|
-| Web Servers | nginx, Apache, HAProxy |
-| Databases | PostgreSQL, MySQL, MongoDB, Redis |
-| Message Queues | Kafka, RabbitMQ, SQS |
-| Containers | Docker, Kubernetes, ECS |
-| CI/CD | Jenkins, GitLab, CircleCI |
-| Cloud | AWS, GCP, Azure |
+| Category       | Integrations                      |
+| -------------- | --------------------------------- |
+| Web Servers    | nginx, Apache, HAProxy            |
+| Databases      | PostgreSQL, MySQL, MongoDB, Redis |
+| Message Queues | Kafka, RabbitMQ, SQS              |
+| Containers     | Docker, Kubernetes, ECS           |
+| CI/CD          | Jenkins, GitLab, CircleCI         |
+| Cloud          | AWS, GCP, Azure                   |
 
 ## Related Documentation
 

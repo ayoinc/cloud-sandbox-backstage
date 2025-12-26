@@ -18,7 +18,7 @@ client: Client Application {
   style.stroke: "#1565c2"
   shape: rectangle
   icon: https://icons.terrastruct.com/tech%2Fdesktop.svg
-  
+
   doc: Document {
     shape: page
     style.fill: "#bbdefb"
@@ -29,11 +29,11 @@ client: Client Application {
 coord: Coordinating Node {
   style.fill: "#fff3e0"
   style.stroke: "#ef6c00"
-  
+
   route: Routing {
     shape: diamond
     style.fill: "#ffb74d"
-    
+
     hash: "_id hash % shards" {
       shape: text
       style.font-size: 12
@@ -45,15 +45,15 @@ coord: Coordinating Node {
 pipeline: Ingest Pipeline {
   style.fill: "#f3e5f5"
   style.stroke: "#7b1fa2"
-  
+
   steps: Processing Steps {
     style.fill: "#e1bee7"
-    
+
     parse: "1. Parse" {shape: step; style.fill: "#ce93d8"}
     transform: "2. Transform" {shape: step; style.fill: "#ba68c8"}
     enrich: "3. Enrich" {shape: step; style.fill: "#ab47bc"}
     validate: "4. Validate" {shape: step; style.fill: "#9c27b0"; style.font-color: white}
-    
+
     parse -> transform -> enrich -> validate
   }
 }
@@ -62,24 +62,24 @@ pipeline: Ingest Pipeline {
 primary: Primary Shard {
   style.fill: "#e8f5e9"
   style.stroke: "#2e7d32"
-  
+
   write: Write to Translog {
     shape: cylinder
     style.fill: "#81c784"
   }
-  
+
   index: Index in Memory {
     shape: hexagon
     style.fill: "#66bb6a"
     style.font-color: white
   }
-  
+
   segment: Create Segment {
     shape: document
     style.fill: "#4caf50"
     style.font-color: white
   }
-  
+
   write -> index: "1. Durability"
   index -> segment: "2. Refresh (1s)"
 }
@@ -88,7 +88,7 @@ primary: Primary Shard {
 replicas: Replica Shards {
   style.fill: "#fce4ec"
   style.stroke: "#c2185b"
-  
+
   r1: Replica 1 {
     shape: cylinder
     style.fill: "#f48fb1"
@@ -104,7 +104,7 @@ response: Response to Client {
   shape: document
   style.fill: "#c8e6c9"
   style.stroke: "#2e7d32"
-  
+
   ack: "_id, _version, result: created" {
     shape: text
     style.font-size: 12
@@ -150,7 +150,7 @@ services:
       - bootstrap.memory_lock=true
       - xpack.security.enabled=true
       - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:-changeme}
-      - "ES_JAVA_OPTS=-Xms4g -Xmx4g"
+      - 'ES_JAVA_OPTS=-Xms4g -Xmx4g'
     ulimits:
       memlock:
         soft: -1
@@ -158,11 +158,15 @@ services:
     volumes:
       - es01-data:/usr/share/elasticsearch/data
     ports:
-      - "9200:9200"
+      - '9200:9200'
     networks:
       - elastic
     healthcheck:
-      test: ["CMD-SHELL", "curl -s -u elastic:${ELASTIC_PASSWORD:-changeme} http://localhost:9200/_cluster/health | grep -q 'green\\|yellow'"]
+      test:
+        [
+          'CMD-SHELL',
+          "curl -s -u elastic:${ELASTIC_PASSWORD:-changeme} http://localhost:9200/_cluster/health | grep -q 'green\\|yellow'",
+        ]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -178,7 +182,7 @@ services:
       - bootstrap.memory_lock=true
       - xpack.security.enabled=true
       - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:-changeme}
-      - "ES_JAVA_OPTS=-Xms4g -Xmx4g"
+      - 'ES_JAVA_OPTS=-Xms4g -Xmx4g'
     ulimits:
       memlock:
         soft: -1
@@ -199,7 +203,7 @@ services:
       - bootstrap.memory_lock=true
       - xpack.security.enabled=true
       - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:-changeme}
-      - "ES_JAVA_OPTS=-Xms4g -Xmx4g"
+      - 'ES_JAVA_OPTS=-Xms4g -Xmx4g'
     ulimits:
       memlock:
         soft: -1
@@ -217,7 +221,7 @@ services:
       - ELASTICSEARCH_USERNAME=kibana_system
       - ELASTICSEARCH_PASSWORD=${KIBANA_PASSWORD:-changeme}
     ports:
-      - "5601:5601"
+      - '5601:5601'
     networks:
       - elastic
     depends_on:
@@ -245,80 +249,80 @@ metadata:
 spec:
   version: 8.12.0
   nodeSets:
-  - name: masters
-    count: 3
-    config:
-      node.roles: ["master"]
-      xpack.ml.enabled: false
-    podTemplate:
-      spec:
-        containers:
-        - name: elasticsearch
-          resources:
-            requests:
-              memory: 4Gi
-              cpu: 1
-            limits:
-              memory: 4Gi
-    volumeClaimTemplates:
-    - metadata:
-        name: elasticsearch-data
-      spec:
-        accessModes: ["ReadWriteOnce"]
-        resources:
-          requests:
-            storage: 10Gi
-        storageClassName: fast-ssd
+    - name: masters
+      count: 3
+      config:
+        node.roles: ['master']
+        xpack.ml.enabled: false
+      podTemplate:
+        spec:
+          containers:
+            - name: elasticsearch
+              resources:
+                requests:
+                  memory: 4Gi
+                  cpu: 1
+                limits:
+                  memory: 4Gi
+      volumeClaimTemplates:
+        - metadata:
+            name: elasticsearch-data
+          spec:
+            accessModes: ['ReadWriteOnce']
+            resources:
+              requests:
+                storage: 10Gi
+            storageClassName: fast-ssd
 
-  - name: hot
-    count: 3
-    config:
-      node.roles: ["data_hot", "data_content", "ingest"]
-      node.attr.data: hot
-    podTemplate:
-      spec:
-        containers:
-        - name: elasticsearch
-          resources:
-            requests:
-              memory: 16Gi
-              cpu: 4
-            limits:
-              memory: 16Gi
-    volumeClaimTemplates:
-    - metadata:
-        name: elasticsearch-data
-      spec:
-        accessModes: ["ReadWriteOnce"]
-        resources:
-          requests:
-            storage: 500Gi
-        storageClassName: fast-ssd
+    - name: hot
+      count: 3
+      config:
+        node.roles: ['data_hot', 'data_content', 'ingest']
+        node.attr.data: hot
+      podTemplate:
+        spec:
+          containers:
+            - name: elasticsearch
+              resources:
+                requests:
+                  memory: 16Gi
+                  cpu: 4
+                limits:
+                  memory: 16Gi
+      volumeClaimTemplates:
+        - metadata:
+            name: elasticsearch-data
+          spec:
+            accessModes: ['ReadWriteOnce']
+            resources:
+              requests:
+                storage: 500Gi
+            storageClassName: fast-ssd
 
-  - name: warm
-    count: 2
-    config:
-      node.roles: ["data_warm"]
-      node.attr.data: warm
-    podTemplate:
-      spec:
-        containers:
-        - name: elasticsearch
-          resources:
-            requests:
-              memory: 8Gi
-              cpu: 2
-            limits:
-              memory: 8Gi
-    volumeClaimTemplates:
-    - metadata:
-        name: elasticsearch-data
-      spec:
-        accessModes: ["ReadWriteOnce"]
-        resources:
-          requests:
-            storage: 2Ti
-        storageClassName: standard
+    - name: warm
+      count: 2
+      config:
+        node.roles: ['data_warm']
+        node.attr.data: warm
+      podTemplate:
+        spec:
+          containers:
+            - name: elasticsearch
+              resources:
+                requests:
+                  memory: 8Gi
+                  cpu: 2
+                limits:
+                  memory: 8Gi
+      volumeClaimTemplates:
+        - metadata:
+            name: elasticsearch-data
+          spec:
+            accessModes: ['ReadWriteOnce']
+            resources:
+              requests:
+                storage: 2Ti
+            storageClassName: standard
 ```
 
 ## Query Examples
@@ -680,11 +684,11 @@ const client = new Client({
   node: 'https://localhost:9200',
   auth: {
     username: 'elastic',
-    password: 'password'
+    password: 'password',
   },
   tls: {
-    rejectUnauthorized: false
-  }
+    rejectUnauthorized: false,
+  },
 });
 
 // Index document
@@ -693,16 +697,16 @@ await client.index({
   id: '1',
   document: {
     name: 'Laptop',
-    price: 999.99
-  }
+    price: 999.99,
+  },
 });
 
 // Search
 const response = await client.search({
   index: 'products',
   query: {
-    match: { name: 'laptop' }
-  }
+    match: { name: 'laptop' },
+  },
 });
 
 console.log(response.hits.hits);
@@ -779,15 +783,15 @@ POST _reindex
 
 ## Troubleshooting
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| Cluster RED | Unassigned primary shards | Check disk space, node health; `GET _cluster/allocation/explain` |
-| Cluster YELLOW | Missing replica shards | Add nodes, reduce replicas for single-node clusters |
-| High heap usage | Large aggregations, field data | Add more memory, use `doc_values`, paginate results |
-| Slow queries | Missing indexes, large result sets | Add keyword fields, use filters, limit size |
-| Bulk indexing slow | Small batch size, sync refresh | Increase batch to 5-15MB, disable refresh during bulk |
-| Circuit breaker trips | Query too large | Reduce aggregation cardinality, add memory |
-| Mapping explosion | Dynamic mapping with unique fields | Set `dynamic: strict`, control field count |
+| Issue                 | Cause                              | Solution                                                         |
+| --------------------- | ---------------------------------- | ---------------------------------------------------------------- |
+| Cluster RED           | Unassigned primary shards          | Check disk space, node health; `GET _cluster/allocation/explain` |
+| Cluster YELLOW        | Missing replica shards             | Add nodes, reduce replicas for single-node clusters              |
+| High heap usage       | Large aggregations, field data     | Add more memory, use `doc_values`, paginate results              |
+| Slow queries          | Missing indexes, large result sets | Add keyword fields, use filters, limit size                      |
+| Bulk indexing slow    | Small batch size, sync refresh     | Increase batch to 5-15MB, disable refresh during bulk            |
+| Circuit breaker trips | Query too large                    | Reduce aggregation cardinality, add memory                       |
+| Mapping explosion     | Dynamic mapping with unique fields | Set `dynamic: strict`, control field count                       |
 
 ### Diagnostic Commands
 

@@ -4,14 +4,14 @@
 
 ### Prerequisites
 
-| Framework | Language | Installation |
-|-----------|----------|--------------|
-| Jest | JavaScript/TS | `npm install --save-dev jest` |
-| Vitest | JavaScript/TS | `npm install --save-dev vitest` |
-| pytest | Python | `pip install pytest pytest-cov` |
-| go test | Go | Built-in |
-| Playwright | Any | `npm install --save-dev @playwright/test` |
-| JUnit 5 | Java | Gradle/Maven dependency |
+| Framework  | Language      | Installation                              |
+| ---------- | ------------- | ----------------------------------------- |
+| Jest       | JavaScript/TS | `npm install --save-dev jest`             |
+| Vitest     | JavaScript/TS | `npm install --save-dev vitest`           |
+| pytest     | Python        | `pip install pytest pytest-cov`           |
+| go test    | Go            | Built-in                                  |
+| Playwright | Any           | `npm install --save-dev @playwright/test` |
+| JUnit 5    | Java          | Gradle/Maven dependency                   |
 
 ### Quick Setup
 
@@ -73,9 +73,7 @@ describe('Users API', () => {
     });
 
     it('should require authentication', async () => {
-      await request(app)
-        .get('/api/users')
-        .expect(401);
+      await request(app).get('/api/users').expect(401);
     });
   });
 
@@ -109,7 +107,7 @@ describe('Users API', () => {
         .expect(400);
 
       expect(response.body.errors).toContainEqual(
-        expect.objectContaining({ field: 'email' })
+        expect.objectContaining({ field: 'email' }),
       );
     });
   });
@@ -133,12 +131,12 @@ async def client(db_session: AsyncSession):
     """Create test client with database session."""
     async def override_get_db():
         yield db_session
-    
+
     app.dependency_overrides[get_db] = override_get_db
-    
+
     async with AsyncClient(app=app, base_url="http://test") as client:
         yield client
-    
+
     app.dependency_overrides.clear()
 
 @pytest.fixture
@@ -156,7 +154,7 @@ class TestUsersAPI:
     @pytest.mark.asyncio
     async def test_list_users(self, client: AsyncClient, auth_headers: dict):
         response = await client.get("/api/users", headers=auth_headers)
-        
+
         assert response.status_code == 200
         assert "users" in response.json()
         assert isinstance(response.json()["users"], list)
@@ -168,13 +166,13 @@ class TestUsersAPI:
             "email": "newuser@example.com",
             "password": "SecurePass123!"
         }
-        
+
         response = await client.post(
             "/api/users",
             json=user_data,
             headers=auth_headers
         )
-        
+
         assert response.status_code == 201
         data = response.json()
         assert data["name"] == user_data["name"]
@@ -202,7 +200,10 @@ class TestUsersAPI:
 
 ```typescript
 // tests/integration/database.test.ts
-import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers/postgresql';
+import {
+  PostgreSqlContainer,
+  StartedPostgreSqlContainer,
+} from '@testcontainers/postgresql';
 import { Pool } from 'pg';
 import { UserRepository } from '../../src/repositories/userRepository';
 
@@ -304,7 +305,7 @@ describe('User API Consumer', () => {
         },
       });
 
-    await provider.executeTest(async (mockServer) => {
+    await provider.executeTest(async mockServer => {
       const client = new UserApiClient(mockServer.url);
       const user = await client.getUser('1');
 
@@ -333,7 +334,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -414,22 +415,22 @@ coverage:
         threshold: 5%
 
 comment:
-  layout: "reach,diff,flags,files"
+  layout: 'reach,diff,flags,files'
   behavior: default
   require_changes: true
 ```
 
 ## Troubleshooting
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| Tests timeout | Async operations not awaited | Add `await` to async calls |
-| Mock not working | Wrong mock path | Use full module path in jest.mock |
-| Flaky tests | Race conditions | Use proper wait/retry logic |
-| Coverage too low | Untested branches | Add edge case tests |
-| Database tests fail | Connection issues | Check container/service health |
-| E2E tests slow | Too many browser instances | Reduce parallelism |
-| Snapshot mismatch | Expected change | Run with `-u` flag to update |
+| Issue               | Cause                        | Solution                          |
+| ------------------- | ---------------------------- | --------------------------------- |
+| Tests timeout       | Async operations not awaited | Add `await` to async calls        |
+| Mock not working    | Wrong mock path              | Use full module path in jest.mock |
+| Flaky tests         | Race conditions              | Use proper wait/retry logic       |
+| Coverage too low    | Untested branches            | Add edge case tests               |
+| Database tests fail | Connection issues            | Check container/service health    |
+| E2E tests slow      | Too many browser instances   | Reduce parallelism                |
+| Snapshot mismatch   | Expected change              | Run with `-u` flag to update      |
 
 ### Debug Commands
 
@@ -451,24 +452,28 @@ go test -v -run TestSpecificTest ./...
 ## Best Practices
 
 ### Test Organization
+
 - [ ] Follow AAA pattern (Arrange, Act, Assert)
 - [ ] One assertion concept per test
 - [ ] Descriptive test names
 - [ ] Group related tests with describe/context
 
 ### Test Data
+
 - [ ] Use factories for test data
 - [ ] Isolate test data between tests
 - [ ] Clean up after tests
 - [ ] Use realistic data
 
 ### Mocking
+
 - [ ] Mock external dependencies
 - [ ] Don't mock what you don't own
 - [ ] Verify mock calls when relevant
 - [ ] Reset mocks between tests
 
 ### Coverage
+
 - [ ] Focus on meaningful coverage
 - [ ] Test edge cases and error paths
 - [ ] Don't chase 100% blindly
@@ -476,19 +481,19 @@ go test -v -run TestSpecificTest ./...
 
 ## CLI Reference
 
-| Command | Description |
-|---------|-------------|
-| `npm test` | Run all tests |
-| `npm test -- --watch` | Watch mode |
-| `npm test -- --coverage` | With coverage |
-| `npm test -- -t "pattern"` | Run matching tests |
-| `pytest -v` | Verbose output |
-| `pytest -k "pattern"` | Run matching tests |
-| `pytest --lf` | Run last failed |
-| `go test ./...` | Run all tests |
-| `go test -race ./...` | With race detection |
-| `npx playwright test` | Run E2E tests |
-| `npx playwright test --ui` | Interactive mode |
+| Command                    | Description         |
+| -------------------------- | ------------------- |
+| `npm test`                 | Run all tests       |
+| `npm test -- --watch`      | Watch mode          |
+| `npm test -- --coverage`   | With coverage       |
+| `npm test -- -t "pattern"` | Run matching tests  |
+| `pytest -v`                | Verbose output      |
+| `pytest -k "pattern"`      | Run matching tests  |
+| `pytest --lf`              | Run last failed     |
+| `go test ./...`            | Run all tests       |
+| `go test -race ./...`      | With race detection |
+| `npx playwright test`      | Run E2E tests       |
+| `npx playwright test --ui` | Interactive mode    |
 
 ## Related Resources
 
