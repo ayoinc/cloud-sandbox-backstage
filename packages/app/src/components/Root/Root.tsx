@@ -1,12 +1,9 @@
 import { PropsWithChildren } from 'react';
 import { makeStyles } from '@material-ui/core';
-import HomeIcon from '@material-ui/icons/Home';
 import ExtensionIcon from '@material-ui/icons/Extension';
 import LibraryBooks from '@material-ui/icons/LibraryBooks';
 import CreateComponentIcon from '@material-ui/icons/AddCircleOutline';
-import CategoryIcon from '@material-ui/icons/Category';
-import BrushIcon from '@material-ui/icons/Brush';
-import SwapHorizIcon from '@material-ui/icons/SwapHoriz';
+import ExitToAppIcon from '@material-ui/icons/ExitToApp';
 import LogoFull from './LogoFull';
 import LogoIcon from './LogoIcon';
 import {
@@ -14,7 +11,6 @@ import {
   UserSettingsSignInAvatar,
 } from '@backstage/plugin-user-settings';
 import { identityApiRef, useApi } from '@backstage/core-plugin-api';
-import ExitToAppIcon from '@material-ui/icons/ExitToApp';
 import { SidebarSearchModal } from '@backstage/plugin-search';
 import {
   Sidebar,
@@ -32,15 +28,13 @@ import MenuIcon from '@material-ui/icons/Menu';
 import SearchIcon from '@material-ui/icons/Search';
 import { MyGroupsSidebarItem } from '@backstage/plugin-org';
 import GroupIcon from '@material-ui/icons/People';
+// Additional icons for catalog kinds
+import CategoryIcon from '@material-ui/icons/Category';
+import WidgetsIcon from '@material-ui/icons/Widgets';
+import StorageIcon from '@material-ui/icons/Storage';
+import AccountTreeIcon from '@material-ui/icons/AccountTree';
+import DomainIcon from '@material-ui/icons/Domain';
 import PersonIcon from '@material-ui/icons/Person';
-import GitHubIcon from '@material-ui/icons/GitHub';
-import { NotificationsSidebarItem } from '@backstage/plugin-notifications';
-import { useIsGuest } from '../../hooks/useIsGuest';
-
-// =============================================================================
-// PLACEHOLDER: Enterprise Plugin Icons (uncomment when configured)
-// =============================================================================
-// import MoneyIcon from '@material-ui/icons/MonetizationOn';  // Cost Insights
 
 const useSidebarLogoStyles = makeStyles({
   root: {
@@ -79,73 +73,85 @@ const SignOutButton = () => {
   };
 
   return (
-    <SidebarItem
-      icon={ExitToAppIcon}
-      text="Sign Out"
-      onClick={handleSignOut}
-    />
+    <SidebarItem icon={ExitToAppIcon} text="Sign Out" onClick={handleSignOut} />
   );
 };
 
-export const Root = ({ children }: PropsWithChildren<{}>) => {
-  const isGuest = useIsGuest();
-
-  return (
-    <SidebarPage>
-      <Sidebar>
-        <SidebarLogo />
-        <SidebarGroup label="Search" icon={<SearchIcon />} to="/search">
-          <SidebarSearchModal />
-        </SidebarGroup>
+export const Root = ({ children }: PropsWithChildren<{}>) => (
+  <SidebarPage>
+    <Sidebar>
+      <SidebarLogo />
+      <SidebarGroup label="Search" icon={<SearchIcon />} to="/search">
+        <SidebarSearchModal />
+      </SidebarGroup>
+      <SidebarDivider />
+      <SidebarGroup label="Menu" icon={<MenuIcon />}>
+        {/* Catalog entity kinds */}
+        <SidebarItem
+          icon={WidgetsIcon}
+          to="catalog?filters[kind]=component"
+          text="Components"
+        />
+        <SidebarItem
+          icon={ExtensionIcon}
+          to="catalog?filters[kind]=api"
+          text="APIs"
+        />
+        <SidebarItem
+          icon={StorageIcon}
+          to="catalog?filters[kind]=resource"
+          text="Resources"
+        />
+        <SidebarItem
+          icon={CategoryIcon}
+          to="catalog?filters[kind]=template"
+          text="Templates"
+        />
         <SidebarDivider />
-        <SidebarGroup label="Menu" icon={<MenuIcon />}>
-          <SidebarItem icon={HomeIcon} to="catalog" text="Home" />
-          <SidebarItem icon={CategoryIcon} to="catalog?filters[kind]=component" text="Components" />
-          <SidebarItem icon={ExtensionIcon} to="api-docs" text="APIs" />
-          <SidebarItem icon={LibraryBooks} to="docs" text="Docs" />
-          {!isGuest && (
-            <SidebarItem icon={CreateComponentIcon} to="create" text="Create..." />
-          )}
-          {!isGuest && (
-            <>
-              <SidebarDivider />
-              <MyGroupsSidebarItem
-                singularTitle="My Group"
-                pluralTitle="My Groups"
-                icon={GroupIcon}
-              />
-              <SidebarItem icon={GroupIcon} to="catalog?filters[kind]=group" text="Teams" />
-              <SidebarItem icon={PersonIcon} to="catalog?filters[kind]=user" text="Users" />
-              <SidebarItem icon={GitHubIcon} to="github-org" text="GitHub Org" />
-            </>
-          )}
-          <SidebarDivider />
-          <SidebarScrollWrapper>
-            {/* ============================================================= */}
-            {/* PLACEHOLDER: Enterprise Plugin Sidebar Items                  */}
-            {/* ============================================================= */}
-            {/* Uncomment when Cost Insights is configured                    */}
-            {/* <SidebarItem icon={MoneyIcon} to="cost-insights" text="Cost Insights" /> */}
-          </SidebarScrollWrapper>
-        </SidebarGroup>
-        <SidebarSpace />
+        <SidebarItem
+          icon={DomainIcon}
+          to="catalog?filters[kind]=domain"
+          text="Domains"
+        />
+        <SidebarItem
+          icon={AccountTreeIcon}
+          to="catalog?filters[kind]=system"
+          text="Systems"
+        />
+        <SidebarItem
+          icon={GroupIcon}
+          to="catalog?filters[kind]=group"
+          text="Groups"
+        />
         <SidebarDivider />
-        <NotificationsSidebarItem />
+        <SidebarItem icon={LibraryBooks} to="docs" text="Docs" />
+        <SidebarItem icon={CreateComponentIcon} to="create" text="Create..." />
+        <SidebarScrollWrapper>
+          {/* Items in this group will be scrollable if they run out of space */}
+        </SidebarScrollWrapper>
+      </SidebarGroup>
+      <SidebarSpace />
+      <SidebarDivider />
+      <SidebarGroup
+        label="Settings"
+        icon={<UserSettingsSignInAvatar />}
+        to="/settings"
+      >
+        <MyGroupsSidebarItem
+          singularTitle="Team"
+          pluralTitle="Teams"
+          icon={GroupIcon}
+        />
+        <SidebarItem
+          icon={PersonIcon}
+          to="catalog?filters[kind]=user"
+          text="Users"
+        />
+        <SidebarSettings />
         <SidebarDivider />
-        <SidebarGroup
-          label="Settings"
-          icon={<UserSettingsSignInAvatar />}
-          to="/settings"
-        >
-          <SidebarSettings />
-          <SidebarDivider />
-          <SidebarItem icon={BrushIcon} to="/admin/branding" text="Branding" />
-          <SidebarItem icon={SwapHorizIcon} to="/admin/ownership" text="Ownership" />
-          <SidebarDivider />
-          <SignOutButton />
-        </SidebarGroup>
-      </Sidebar>
-      {children}
-    </SidebarPage>
-  );
-};
+        <SignOutButton />
+      </SidebarGroup>
+    </Sidebar>
+    {children}
+  </SidebarPage>
+);

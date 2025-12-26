@@ -101,7 +101,6 @@ export const BrandingSettingsPanel: React.FC = () => {
   const [organizationName, setOrganizationName] = useState(
     settings.organizationName || '',
   );
-  const [primaryColor, setPrimaryColor] = useState(settings.primaryColor || '');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -112,7 +111,6 @@ export const BrandingSettingsPanel: React.FC = () => {
   // Sync local state when settings change
   useEffect(() => {
     setOrganizationName(settings.organizationName || '');
-    setPrimaryColor(settings.primaryColor || '');
   }, [settings]);
 
   if (!isAdmin) {
@@ -134,7 +132,6 @@ export const BrandingSettingsPanel: React.FC = () => {
       setSuccessMessage(null);
       await updateSettings({
         organizationName: organizationName || null,
-        primaryColor: primaryColor || null,
       });
       setSuccessMessage('Settings saved successfully');
     } catch {
@@ -164,8 +161,8 @@ export const BrandingSettingsPanel: React.FC = () => {
   };
 
   const handleResetLogo = async () => {
-    // eslint-disable-next-line no-alert
     if (
+      // eslint-disable-next-line no-alert
       !window.confirm('Are you sure you want to reset the logo to default?')
     ) {
       return;
@@ -182,8 +179,8 @@ export const BrandingSettingsPanel: React.FC = () => {
   };
 
   const handleResetAll = async () => {
-    // eslint-disable-next-line no-alert
     if (
+      // eslint-disable-next-line no-alert
       !window.confirm(
         'Are you sure you want to reset ALL branding settings to default? This cannot be undone.',
       )
@@ -386,25 +383,6 @@ export const BrandingSettingsPanel: React.FC = () => {
               </Button>
             </Box>
           )}
-        </div>
-
-        <Divider style={{ margin: '24px 0' }} />
-
-        {/* Primary Color Section (future) */}
-        <div className={classes.section}>
-          <Typography variant="h6" className={classes.sectionTitle}>
-            Theme Color (Coming Soon)
-          </Typography>
-          <TextField
-            fullWidth
-            label="Primary Color"
-            value={primaryColor}
-            onChange={e => setPrimaryColor(e.target.value)}
-            placeholder="#7df3e1"
-            helperText="Hex color code for primary brand color (feature coming soon)"
-            variant="outlined"
-            disabled
-          />
         </div>
 
         {/* Save Button */}

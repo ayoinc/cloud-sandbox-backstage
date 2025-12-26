@@ -29,10 +29,9 @@ import { searchPage } from './components/search/SearchPage';
 import { Root } from './components/Root';
 import { IdleTimeoutMonitor } from './components/IdleTimeoutMonitor';
 import { GitHubOrgPage } from './components/github';
-import { ThemeProvider } from './components/ThemeProvider';
 
-import { AlertDisplay, OAuthRequestDialog } from '@backstage/core-components';
-import { CustomSignInPage } from './components/SignIn';
+import { OAuthRequestDialog, SignInPage } from '@backstage/core-components';
+import { CustomAlertDisplay } from './components/CustomAlertDisplay';
 import { createApp } from '@backstage/app-defaults';
 import { AppRouter, FlatRoutes } from '@backstage/core-app-api';
 import { CatalogGraphPage } from '@backstage/plugin-catalog-graph';
@@ -41,12 +40,14 @@ import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/
 import { NotificationsPage } from '@backstage/plugin-notifications';
 import { SignalsDisplay } from '@backstage/plugin-signals';
 import { taskCreatePermission } from '@backstage/plugin-scaffolder-common/alpha';
+import { githubAuthApiRef } from '@backstage/core-plugin-api';
 
 const app = createApp({
   apis,
   bindRoutes({ bind }) {
     bind(catalogPlugin.externalRoutes, {
-      createComponent: scaffolderPlugin.routes.root,
+      // createComponent intentionally not bound to hide the redundant "Create" button
+      // in the top-right of the catalog page (we have "Create..." in the sidebar)
       viewTechDoc: techdocsPlugin.routes.docRoot,
       createFromTemplate: scaffolderPlugin.routes.selectedTemplate,
     });
@@ -62,7 +63,21 @@ const app = createApp({
     });
   },
   components: {
-    SignInPage: props => <CustomSignInPage {...props} />,
+    SignInPage: props => (
+      <SignInPage
+        {...props}
+        auto
+        providers={[
+          {
+            id: 'github-auth-provider',
+            title: 'GitHub',
+            message: 'Sign in with GitHub',
+            apiRef: githubAuthApiRef,
+          },
+          'guest',
+        ]}
+      />
+    ),
   },
 });
 
@@ -117,15 +132,14 @@ const routes = (
   </FlatRoutes>
 );
 
-// Wrap the entire app with ThemeProvider so ThemeSwitcher works everywhere
 export default app.createRoot(
-  <ThemeProvider>
-    <AlertDisplay />
+  <>
+    <CustomAlertDisplay />
     <OAuthRequestDialog />
     <SignalsDisplay />
     <IdleTimeoutMonitor />
     <AppRouter>
       <Root>{routes}</Root>
     </AppRouter>
-  </ThemeProvider>,
+  </>,
 );
