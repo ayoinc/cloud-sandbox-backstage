@@ -19,3 +19,61 @@ spec:
 
     # APIs and Resources
     - ./apis-and-resources.yaml
+
+    # Components - Ansible
+    - ./ansible-docker-host/catalog-info.yaml
+    - ./ansible-webserver/catalog-info.yaml
+
+    # Components - Data Platform
+    - ./apache-airflow/catalog-info.yaml
+    - ./apache-kafka/catalog-info.yaml
+    - ./apache-spark/catalog-info.yaml
+    - ./elasticsearch-data/catalog-info.yaml
+    - ./minio-storage/catalog-info.yaml
+    - ./mongodb-cluster/catalog-info.yaml
+    - ./postgresql-cluster/catalog-info.yaml
+    - ./rabbitmq-cluster/catalog-info.yaml
+    - ./redis-cluster/catalog-info.yaml
+    - ./zookeeper-ensemble/catalog-info.yaml
+
+    # Components - AWX Automation Platform
+    - ./awx-core/catalog-info.yaml
+    - ./awx-helm-chart/catalog-info.yaml
+    - ./awx-operator/catalog-info.yaml
+
+    # Components - Cloud Services
+    - ./aws-services/catalog-info.yaml
+    - ./azure-services/catalog-info.yaml
+    - ./gcp-services/catalog-info.yaml
+    - ./multi-cloud-management/catalog-info.yaml
+
+    # Components - CI/CD and DevOps
+    - ./artifact-repository/catalog-info.yaml
+    - ./ci-cd-pipelines/catalog-info.yaml
+    - ./docker-images/catalog-info.yaml
+    - ./helm-charts/catalog-info.yaml
+    - ./packer/catalog-info.yaml
+
+    # Components - Infrastructure as Code
+    - ./cloudformation-templates/catalog-info.yaml
+    - ./pulumi-projects/catalog-info.yaml
+    - ./terraform-modules/catalog-info.yaml
+
+    # Components - Observability
+    - ./datadog-integration/catalog-info.yaml
+    - ./elk-stack/catalog-info.yaml
+    - ./jaeger-tracing/catalog-info.yaml
+    - ./new-relic-integration/catalog-info.yaml
+    - ./pagerduty-integration/catalog-info.yaml
+    - ./prometheus-stack/catalog-info.yaml
+    - ./splunk-enterprise/catalog-info.yaml
+
+    # Components - Sample Applications
+    - ./sample-nodejs-api/catalog-info.yaml
+    - ./sample-react-frontend/catalog-info.yaml
+
+    # Components - Security and Testing
+    - ./performance-testing/catalog-info.yaml
+    - ./security-scanning-suite/catalog-info.yaml
+    - ./sonarqube/catalog-info.yaml
+    - ./testing-frameworks/catalog-info.yaml

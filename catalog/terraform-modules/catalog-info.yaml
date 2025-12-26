@@ -21,3 +21,5 @@ spec:
   lifecycle: production
   owner: platform-team
   system: infrastructure-as-code-platform
+  providesApis:
+    - terraform-modules-api

@@ -6,7 +6,7 @@ metadata:
   annotations:
     backstage.io/techdocs-ref: dir:./docs
 spec:
-  type: url
+  type: file
   targets:
     - ./gcp-vpc.yaml
     - ./aws-vpc.yaml
