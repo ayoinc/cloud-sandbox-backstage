@@ -101,8 +101,6 @@ spec:
         copyWithoutTemplating:
           - '**/*.sh'
           - '**/*.tpl'
-          - '**/user_data.sh'
-          - '**/startup.sh'
           - '**/cloud-init.yaml'
           - '.github/workflows/**'
           # Provider submodule .tf files contain || operators that break Nunjucks
@@ -110,10 +108,6 @@ spec:
           - 'azure/**/*.tf'
           - 'gcp/**/*.tf'
           - 'examples/**/*.tf'
-          - 'tests/**/*.hcl'
-          # Also exclude auto.tfvars files
-          - '**/*.tfvars'
-          - '**/*.tfvars.example'
 
     - id: remove-aws
       name: Remove AWS folder (not selected)
