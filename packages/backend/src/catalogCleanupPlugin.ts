@@ -542,8 +542,9 @@ export default createBackendPlugin({
                     `🗑️  Removing orphaned entity: ${entityRef} (after ${MAX_FAILURES} failures)`,
                   );
 
-                  // If repo was deleted, perform cascading delete of ALL entities from that repo
-                  if (repoDeleted && ghRepo) {
+                  // If we have a GitHub repo identified (either via 404 or from annotations),
+                  // perform cascading delete of ALL entities from that repo
+                  if (ghRepo) {
                     const result = await deleteAllEntitiesForRepo(
                       ghRepo.owner,
                       ghRepo.repo,
@@ -553,11 +554,11 @@ export default createBackendPlugin({
 
                     await sendNotification(
                       'Repository Cleanup Complete',
-                      `Repository "${ghRepo.owner}/${ghRepo.repo}" was deleted. ${result.deleted} catalog entities have been automatically removed.`,
+                      `Repository "${ghRepo.owner}/${ghRepo.repo}" cleanup complete. ${result.deleted} catalog entities have been automatically removed.`,
                       'info',
                     );
                   } else {
-                    // Single entity deletion (not repo-related)
+                    // Single entity deletion (no repo identified)
                     const deleted = await deleteEntity(entity, token);
                     if (deleted) {
                       stats.deleted++;
