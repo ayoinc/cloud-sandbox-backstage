@@ -1,0 +1,80 @@
+name: Terraform GCP Services
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'catalog/gcp-services/modules/**'
+      - '.github/workflows/terraform-gcp.yaml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'catalog/gcp-services/modules/**'
+      - '.github/workflows/terraform-gcp.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  validate:
+    name: Validate Terraform
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - cloud-storage
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.6'
+
+      - name: Terraform Format
+        run: terraform fmt -check -recursive
+        working-directory: catalog/gcp-services/modules/${{ matrix.module }}
+        continue-on-error: true
+
+      - name: Terraform Init
+        run: terraform init -backend=false
+        working-directory: catalog/gcp-services/modules/${{ matrix.module }}
+
+      - name: Terraform Validate
+        run: terraform validate
+        working-directory: catalog/gcp-services/modules/${{ matrix.module }}
+
+  security:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    needs: [validate]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run tfsec
+        uses: aquasecurity/tfsec-action@v1.0.0
+        with:
+          working_directory: catalog/gcp-services/modules
+          soft_fail: true
+
+      - name: Run checkov
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: catalog/gcp-services/modules
+          framework: terraform
+          output_format: cli,sarif
+          output_file_path: console,checkov-results.sarif
+          soft_fail: true
+
+      - name: Upload Checkov SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: checkov-results.sarif
+        continue-on-error: true
