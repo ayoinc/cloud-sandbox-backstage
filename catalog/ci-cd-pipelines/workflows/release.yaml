@@ -1,0 +1,175 @@
+# Reusable Release Workflow
+# Semantic versioning with changelog generation
+
+name: Release
+
+on:
+  workflow_call:
+    inputs:
+      release-type:
+        required: false
+        type: string
+        default: 'auto'
+        description: 'Release type (major, minor, patch, auto)'
+      dry-run:
+        required: false
+        type: boolean
+        default: false
+        description: 'Perform dry run without creating release'
+      generate-changelog:
+        required: false
+        type: boolean
+        default: true
+        description: 'Generate changelog from commits'
+    outputs:
+      version:
+        description: 'Released version'
+        value: ${{ jobs.release.outputs.version }}
+      release-url:
+        description: 'Release URL'
+        value: ${{ jobs.release.outputs.release-url }}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.new-version }}
+      release-url: ${{ steps.release.outputs.url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Get latest tag
+        id: latest-tag
+        run: |
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          echo "Latest tag: $LATEST_TAG"
+
+      - name: Determine version bump
+        id: version
+        run: |
+          LATEST="${{ steps.latest-tag.outputs.tag }}"
+          LATEST=${LATEST#v}
+
+          # Parse current version
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$LATEST"
+          MAJOR=${MAJOR:-0}
+          MINOR=${MINOR:-0}
+          PATCH=${PATCH:-0}
+
+          # Determine bump type
+          if [ "${{ inputs.release-type }}" == "auto" ]; then
+            # Analyze commits since last tag
+            COMMITS=$(git log ${{ steps.latest-tag.outputs.tag }}..HEAD --pretty=format:"%s" 2>/dev/null || git log --pretty=format:"%s")
+
+            if echo "$COMMITS" | grep -qE "^(BREAKING CHANGE|feat!|fix!):"; then
+              BUMP="major"
+            elif echo "$COMMITS" | grep -qE "^feat(\(.+\))?:"; then
+              BUMP="minor"
+            else
+              BUMP="patch"
+            fi
+          else
+            BUMP="${{ inputs.release-type }}"
+          fi
+
+          # Calculate new version
+          case $BUMP in
+            major) NEW_VERSION="$((MAJOR + 1)).0.0" ;;
+            minor) NEW_VERSION="${MAJOR}.$((MINOR + 1)).0" ;;
+            patch) NEW_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))" ;;
+          esac
+
+          echo "bump-type=$BUMP" >> $GITHUB_OUTPUT
+          echo "new-version=v$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "Bumping $BUMP: $LATEST -> $NEW_VERSION"
+
+      - name: Generate changelog
+        if: inputs.generate-changelog
+        id: changelog
+        run: |
+          LATEST_TAG="${{ steps.latest-tag.outputs.tag }}"
+
+          {
+            echo "## What's Changed"
+            echo ""
+
+            # Features
+            FEATURES=$(git log ${LATEST_TAG}..HEAD --pretty=format:"- %s (%h)" --grep="^feat" 2>/dev/null || true)
+            if [ -n "$FEATURES" ]; then
+              echo "### Features"
+              echo "$FEATURES"
+              echo ""
+            fi
+
+            # Bug Fixes
+            FIXES=$(git log ${LATEST_TAG}..HEAD --pretty=format:"- %s (%h)" --grep="^fix" 2>/dev/null || true)
+            if [ -n "$FIXES" ]; then
+              echo "### Bug Fixes"
+              echo "$FIXES"
+              echo ""
+            fi
+
+            # Other changes
+            OTHER=$(git log ${LATEST_TAG}..HEAD --pretty=format:"- %s (%h)" --invert-grep --grep="^feat" --grep="^fix" 2>/dev/null | head -20 || true)
+            if [ -n "$OTHER" ]; then
+              echo "### Other Changes"
+              echo "$OTHER"
+              echo ""
+            fi
+
+            echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${LATEST_TAG}...${{ steps.version.outputs.new-version }}"
+          } > CHANGELOG.md
+
+          cat CHANGELOG.md
+
+          # Set multiline output
+          {
+            echo "changelog<<EOF"
+            cat CHANGELOG.md
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+      - name: Create and push tag
+        if: ${{ !inputs.dry-run }}
+        run: |
+          git tag ${{ steps.version.outputs.new-version }}
+          git push origin ${{ steps.version.outputs.new-version }}
+
+      - name: Create GitHub Release
+        if: ${{ !inputs.dry-run }}
+        id: release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.new-version }}
+          name: Release ${{ steps.version.outputs.new-version }}
+          body: ${{ steps.changelog.outputs.changelog }}
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+
+      - name: Output release info
+        run: |
+          echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: ${{ steps.version.outputs.new-version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Bump Type**: ${{ steps.version.outputs.bump-type }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Dry Run**: ${{ inputs.dry-run }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ inputs.dry-run }}" != "true" ]; then
+            echo "- **Release URL**: ${{ steps.release.outputs.url }}" >> $GITHUB_STEP_SUMMARY
+          fi

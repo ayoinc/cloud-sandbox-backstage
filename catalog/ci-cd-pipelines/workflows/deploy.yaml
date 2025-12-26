@@ -1,0 +1,249 @@
+# Reusable Deploy Workflow
+# Supports Kubernetes, AWS ECS, and static deployments
+
+name: Deploy
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+        description: 'Target environment (dev, staging, production)'
+      deploy-type:
+        required: true
+        type: string
+        description: 'Deployment type (kubernetes, ecs, static, helm)'
+      image:
+        required: false
+        type: string
+        description: 'Docker image to deploy'
+      helm-chart:
+        required: false
+        type: string
+        default: './charts/app'
+        description: 'Path to Helm chart'
+      helm-values:
+        required: false
+        type: string
+        description: 'Path to Helm values file'
+      namespace:
+        required: false
+        type: string
+        default: 'default'
+        description: 'Kubernetes namespace'
+      aws-region:
+        required: false
+        type: string
+        default: 'us-east-1'
+        description: 'AWS region'
+      ecs-cluster:
+        required: false
+        type: string
+        description: 'ECS cluster name'
+      ecs-service:
+        required: false
+        type: string
+        description: 'ECS service name'
+      s3-bucket:
+        required: false
+        type: string
+        description: 'S3 bucket for static deployments'
+      cloudfront-distribution:
+        required: false
+        type: string
+        description: 'CloudFront distribution ID'
+    secrets:
+      KUBECONFIG:
+        required: false
+        description: 'Kubernetes config'
+      AWS_ACCESS_KEY_ID:
+        required: false
+      AWS_SECRET_ACCESS_KEY:
+        required: false
+      AWS_ROLE_ARN:
+        required: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    name: Deploy to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ steps.deploy.outputs.url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ===== Kubernetes with kubectl =====
+      - name: Deploy to Kubernetes
+        if: inputs.deploy-type == 'kubernetes'
+        id: deploy-k8s
+        run: |
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > /tmp/kubeconfig
+          export KUBECONFIG=/tmp/kubeconfig
+
+          kubectl set image deployment/app app=${{ inputs.image }} \
+            -n ${{ inputs.namespace }} \
+            --record
+
+          kubectl rollout status deployment/app \
+            -n ${{ inputs.namespace }} \
+            --timeout=300s
+
+          URL=$(kubectl get ingress -n ${{ inputs.namespace }} -o jsonpath='{.items[0].spec.rules[0].host}')
+          echo "url=https://${URL}" >> $GITHUB_OUTPUT
+
+      # ===== Kubernetes with Helm =====
+      - name: Install Helm
+        if: inputs.deploy-type == 'helm'
+        uses: azure/setup-helm@v4
+        with:
+          version: 'v3.14.0'
+
+      - name: Deploy with Helm
+        if: inputs.deploy-type == 'helm'
+        id: deploy-helm
+        run: |
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > /tmp/kubeconfig
+          export KUBECONFIG=/tmp/kubeconfig
+
+          VALUES_FILE=""
+          if [ -n "${{ inputs.helm-values }}" ]; then
+            VALUES_FILE="-f ${{ inputs.helm-values }}"
+          fi
+
+          helm upgrade --install app ${{ inputs.helm-chart }} \
+            --namespace ${{ inputs.namespace }} \
+            --create-namespace \
+            --set image.tag=${{ github.sha }} \
+            --set environment=${{ inputs.environment }} \
+            ${VALUES_FILE} \
+            --wait \
+            --timeout 10m
+
+          URL=$(kubectl get ingress -n ${{ inputs.namespace }} -o jsonpath='{.items[0].spec.rules[0].host}')
+          echo "url=https://${URL}" >> $GITHUB_OUTPUT
+
+      # ===== AWS ECS =====
+      - name: Configure AWS credentials
+        if: inputs.deploy-type == 'ecs'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ inputs.aws-region }}
+
+      - name: Deploy to ECS
+        if: inputs.deploy-type == 'ecs'
+        id: deploy-ecs
+        run: |
+          # Get current task definition
+          TASK_DEF=$(aws ecs describe-services \
+            --cluster ${{ inputs.ecs-cluster }} \
+            --services ${{ inputs.ecs-service }} \
+            --query 'services[0].taskDefinition' \
+            --output text)
+
+          # Get task definition and update image
+          aws ecs describe-task-definition \
+            --task-definition $TASK_DEF \
+            --query 'taskDefinition' > task-def.json
+
+          jq --arg IMAGE "${{ inputs.image }}" \
+            '.containerDefinitions[0].image = $IMAGE' task-def.json > new-task-def.json
+
+          # Register new task definition
+          NEW_TASK_DEF=$(aws ecs register-task-definition \
+            --cli-input-json file://new-task-def.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+
+          # Update service
+          aws ecs update-service \
+            --cluster ${{ inputs.ecs-cluster }} \
+            --service ${{ inputs.ecs-service }} \
+            --task-definition $NEW_TASK_DEF
+
+          # Wait for deployment
+          aws ecs wait services-stable \
+            --cluster ${{ inputs.ecs-cluster }} \
+            --services ${{ inputs.ecs-service }}
+
+          echo "url=https://${{ inputs.ecs-service }}.${{ inputs.environment }}.example.com" >> $GITHUB_OUTPUT
+
+      # ===== Static to S3/CloudFront =====
+      - name: Configure AWS credentials (static)
+        if: inputs.deploy-type == 'static'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ inputs.aws-region }}
+
+      - name: Download build artifact
+        if: inputs.deploy-type == 'static'
+        uses: actions/download-artifact@v4
+        with:
+          name: build-${{ github.sha }}
+          path: dist
+
+      - name: Deploy to S3
+        if: inputs.deploy-type == 'static'
+        id: deploy-static
+        run: |
+          aws s3 sync dist/ s3://${{ inputs.s3-bucket }}/ \
+            --delete \
+            --cache-control "public, max-age=31536000" \
+            --exclude "*.html" \
+            --exclude "sw.js"
+
+          # HTML files should not be cached
+          aws s3 sync dist/ s3://${{ inputs.s3-bucket }}/ \
+            --delete \
+            --cache-control "no-cache, no-store, must-revalidate" \
+            --include "*.html" \
+            --include "sw.js"
+
+          # Invalidate CloudFront
+          if [ -n "${{ inputs.cloudfront-distribution }}" ]; then
+            aws cloudfront create-invalidation \
+              --distribution-id ${{ inputs.cloudfront-distribution }} \
+              --paths "/*"
+          fi
+
+          echo "url=https://${{ inputs.s3-bucket }}" >> $GITHUB_OUTPUT
+
+      - name: Set deployment URL
+        id: deploy
+        run: |
+          if [ "${{ inputs.deploy-type }}" == "kubernetes" ]; then
+            echo "url=${{ steps.deploy-k8s.outputs.url }}" >> $GITHUB_OUTPUT
+          elif [ "${{ inputs.deploy-type }}" == "helm" ]; then
+            echo "url=${{ steps.deploy-helm.outputs.url }}" >> $GITHUB_OUTPUT
+          elif [ "${{ inputs.deploy-type }}" == "ecs" ]; then
+            echo "url=${{ steps.deploy-ecs.outputs.url }}" >> $GITHUB_OUTPUT
+          elif [ "${{ inputs.deploy-type }}" == "static" ]; then
+            echo "url=${{ steps.deploy-static.outputs.url }}" >> $GITHUB_OUTPUT
+          fi
+
+  smoke-test:
+    name: Smoke Test
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      - name: Health check
+        run: |
+          for i in {1..5}; do
+            if curl -sf "${{ needs.deploy.outputs.url }}/health" > /dev/null 2>&1; then
+              echo "Health check passed!"
+              exit 0
+            fi
+            echo "Attempt $i failed, retrying..."
+            sleep 10
+          done
+          echo "Health check failed after 5 attempts"
+          exit 1

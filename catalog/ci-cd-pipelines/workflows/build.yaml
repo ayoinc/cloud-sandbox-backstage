@@ -1,0 +1,177 @@
+# Reusable Build Workflow
+# Supports Node.js, Python, Go, and Java builds
+
+name: Build
+
+on:
+  workflow_call:
+    inputs:
+      language:
+        required: true
+        type: string
+        description: 'Programming language (node, python, go, java)'
+      node-version:
+        required: false
+        type: string
+        default: '20'
+      python-version:
+        required: false
+        type: string
+        default: '3.12'
+      go-version:
+        required: false
+        type: string
+        default: '1.22'
+      java-version:
+        required: false
+        type: string
+        default: '21'
+      build-command:
+        required: false
+        type: string
+        default: ''
+        description: 'Custom build command override'
+      working-directory:
+        required: false
+        type: string
+        default: '.'
+        description: 'Working directory for build'
+    outputs:
+      artifact-name:
+        description: 'Name of the build artifact'
+        value: ${{ jobs.build.outputs.artifact-name }}
+      build-version:
+        description: 'Build version'
+        value: ${{ jobs.build.outputs.build-version }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ inputs.language }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    outputs:
+      artifact-name: build-${{ github.sha }}
+      build-version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate version
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+          elif [[ "${{ github.ref }}" == refs/heads/main ]]; then
+            VERSION="$(git describe --tags --always 2>/dev/null || echo 'v0.0.0')-$(git rev-parse --short HEAD)"
+          else
+            VERSION="dev-$(git rev-parse --short HEAD)"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
+
+      # ===== Node.js =====
+      - name: Setup Node.js
+        if: inputs.language == 'node'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'npm'
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+
+      - name: Install Node.js dependencies
+        if: inputs.language == 'node'
+        run: npm ci
+
+      - name: Build Node.js
+        if: inputs.language == 'node'
+        run: |
+          if [ -n "${{ inputs.build-command }}" ]; then
+            ${{ inputs.build-command }}
+          else
+            npm run build --if-present
+          fi
+
+      # ===== Python =====
+      - name: Setup Python
+        if: inputs.language == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+          cache: 'pip'
+
+      - name: Install Python dependencies
+        if: inputs.language == 'python'
+        run: |
+          python -m pip install --upgrade pip wheel setuptools
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+          if [ -f pyproject.toml ]; then pip install -e .[dev]; fi
+
+      - name: Build Python
+        if: inputs.language == 'python'
+        run: |
+          if [ -n "${{ inputs.build-command }}" ]; then
+            ${{ inputs.build-command }}
+          else
+            python -m build 2>/dev/null || echo "No build step configured"
+          fi
+
+      # ===== Go =====
+      - name: Setup Go
+        if: inputs.language == 'go'
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ inputs.go-version }}
+          cache: true
+          cache-dependency-path: ${{ inputs.working-directory }}/go.sum
+
+      - name: Build Go
+        if: inputs.language == 'go'
+        run: |
+          go mod download
+          go mod verify
+          if [ -n "${{ inputs.build-command }}" ]; then
+            ${{ inputs.build-command }}
+          else
+            CGO_ENABLED=0 go build \
+              -ldflags="-s -w -X main.version=${{ steps.version.outputs.version }}" \
+              -o dist/app ./cmd/...
+          fi
+
+      # ===== Java =====
+      - name: Setup Java
+        if: inputs.language == 'java'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ inputs.java-version }}
+          cache: 'gradle'
+
+      - name: Build Java
+        if: inputs.language == 'java'
+        run: |
+          if [ -n "${{ inputs.build-command }}" ]; then
+            ${{ inputs.build-command }}
+          else
+            ./gradlew build -x test --no-daemon --console=plain
+          fi
+
+      # ===== Upload Artifacts =====
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ github.sha }}
+          path: |
+            ${{ inputs.working-directory }}/dist/
+            ${{ inputs.working-directory }}/build/libs/
+            ${{ inputs.working-directory }}/target/
+          if-no-files-found: ignore
+          retention-days: 7

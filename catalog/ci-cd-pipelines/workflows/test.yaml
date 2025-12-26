@@ -1,0 +1,210 @@
+# Reusable Test Workflow
+# Supports Node.js, Python, Go, and Java testing with coverage
+
+name: Test
+
+on:
+  workflow_call:
+    inputs:
+      language:
+        required: true
+        type: string
+        description: 'Programming language (node, python, go, java)'
+      node-version:
+        required: false
+        type: string
+        default: '20'
+      python-version:
+        required: false
+        type: string
+        default: '3.12'
+      go-version:
+        required: false
+        type: string
+        default: '1.22'
+      java-version:
+        required: false
+        type: string
+        default: '21'
+      coverage-threshold:
+        required: false
+        type: number
+        default: 80
+        description: 'Minimum code coverage percentage'
+      test-command:
+        required: false
+        type: string
+        default: ''
+        description: 'Custom test command override'
+      working-directory:
+        required: false
+        type: string
+        default: '.'
+    outputs:
+      coverage:
+        description: 'Code coverage percentage'
+        value: ${{ jobs.test.outputs.coverage }}
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  test:
+    name: Test ${{ inputs.language }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    outputs:
+      coverage: ${{ steps.coverage.outputs.percentage }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ===== Node.js =====
+      - name: Setup Node.js
+        if: inputs.language == 'node'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'npm'
+
+      - name: Install Node.js dependencies
+        if: inputs.language == 'node'
+        run: npm ci
+
+      - name: Run Node.js tests
+        if: inputs.language == 'node'
+        run: |
+          if [ -n "${{ inputs.test-command }}" ]; then
+            ${{ inputs.test-command }}
+          else
+            npm test -- --coverage --watchAll=false
+          fi
+
+      - name: Upload Node.js coverage
+        if: inputs.language == 'node'
+        uses: codecov/codecov-action@v4
+        with:
+          directory: coverage
+          fail_ci_if_error: false
+
+      # ===== Python =====
+      - name: Setup Python
+        if: inputs.language == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+          cache: 'pip'
+
+      - name: Install Python dependencies
+        if: inputs.language == 'python'
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov pytest-xdist
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+
+      - name: Run Python tests
+        if: inputs.language == 'python'
+        run: |
+          if [ -n "${{ inputs.test-command }}" ]; then
+            ${{ inputs.test-command }}
+          else
+            pytest --cov=. --cov-report=xml --cov-report=html --junitxml=test-results.xml -n auto
+          fi
+
+      - name: Upload Python coverage
+        if: inputs.language == 'python'
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage.xml
+          fail_ci_if_error: false
+
+      # ===== Go =====
+      - name: Setup Go
+        if: inputs.language == 'go'
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ inputs.go-version }}
+          cache: true
+
+      - name: Run Go tests
+        if: inputs.language == 'go'
+        run: |
+          if [ -n "${{ inputs.test-command }}" ]; then
+            ${{ inputs.test-command }}
+          else
+            go test -race -coverprofile=coverage.out -covermode=atomic -json ./... > test-results.json
+            go tool cover -html=coverage.out -o coverage.html
+          fi
+
+      - name: Upload Go coverage
+        if: inputs.language == 'go'
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage.out
+          fail_ci_if_error: false
+
+      # ===== Java =====
+      - name: Setup Java
+        if: inputs.language == 'java'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ inputs.java-version }}
+          cache: 'gradle'
+
+      - name: Run Java tests
+        if: inputs.language == 'java'
+        run: |
+          if [ -n "${{ inputs.test-command }}" ]; then
+            ${{ inputs.test-command }}
+          else
+            ./gradlew test jacocoTestReport --no-daemon --console=plain
+          fi
+
+      - name: Upload Java coverage
+        if: inputs.language == 'java'
+        uses: codecov/codecov-action@v4
+        with:
+          files: build/reports/jacoco/test/jacocoTestReport.xml
+          fail_ci_if_error: false
+
+      # ===== Coverage Check =====
+      - name: Check coverage threshold
+        id: coverage
+        run: |
+          COVERAGE=0
+          if [ "${{ inputs.language }}" == "node" ] && [ -f coverage/coverage-summary.json ]; then
+            COVERAGE=$(jq '.total.lines.pct' coverage/coverage-summary.json)
+          elif [ "${{ inputs.language }}" == "python" ] && [ -f coverage.xml ]; then
+            COVERAGE=$(grep -oP 'line-rate="\K[^"]+' coverage.xml | head -1 | awk '{print $1 * 100}')
+          elif [ "${{ inputs.language }}" == "go" ] && [ -f coverage.out ]; then
+            COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | tr -d '%')
+          elif [ "${{ inputs.language }}" == "java" ] && [ -f build/reports/jacoco/test/jacocoTestReport.xml ]; then
+            COVERAGE=$(grep -oP 'INSTRUCTION.*covered="\K[^"]+' build/reports/jacoco/test/jacocoTestReport.xml | head -1)
+          fi
+
+          echo "percentage=$COVERAGE" >> $GITHUB_OUTPUT
+          echo "Code coverage: ${COVERAGE}%"
+
+          if [ -n "$COVERAGE" ] && [ "$COVERAGE" != "0" ]; then
+            if (( $(echo "$COVERAGE < ${{ inputs.coverage-threshold }}" | bc -l) )); then
+              echo "::warning::Coverage ${COVERAGE}% is below threshold ${{ inputs.coverage-threshold }}%"
+            fi
+          fi
+
+      - name: Publish test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Test Results
+          path: |
+            test-results.xml
+            build/test-results/**/*.xml
+          reporter: java-junit
+          fail-on-error: false

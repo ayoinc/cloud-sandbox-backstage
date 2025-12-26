@@ -1,0 +1,156 @@
+# Reusable Docker Build and Push Workflow
+# Builds multi-arch images with security scanning
+
+name: Docker Build
+
+on:
+  workflow_call:
+    inputs:
+      image-name:
+        required: true
+        type: string
+        description: 'Docker image name (without registry)'
+      dockerfile:
+        required: false
+        type: string
+        default: 'Dockerfile'
+        description: 'Path to Dockerfile'
+      context:
+        required: false
+        type: string
+        default: '.'
+        description: 'Docker build context'
+      target:
+        required: false
+        type: string
+        default: ''
+        description: 'Docker build target stage'
+      platforms:
+        required: false
+        type: string
+        default: 'linux/amd64,linux/arm64'
+        description: 'Target platforms'
+      push:
+        required: false
+        type: boolean
+        default: false
+        description: 'Push image to registry'
+      registry:
+        required: false
+        type: string
+        default: 'ghcr.io'
+        description: 'Container registry'
+      scan-severity:
+        required: false
+        type: string
+        default: 'CRITICAL,HIGH'
+        description: 'Trivy scan severity levels'
+    outputs:
+      image-digest:
+        description: 'Image digest'
+        value: ${{ jobs.build.outputs.digest }}
+      image-tags:
+        description: 'Image tags'
+        value: ${{ jobs.build.outputs.tags }}
+
+permissions:
+  contents: read
+  packages: write
+  security-events: write
+
+jobs:
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+      tags: ${{ steps.meta.outputs.tags }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        if: inputs.push
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ inputs.registry }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ inputs.registry }}/${{ github.repository_owner }}/${{ inputs.image-name }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=
+            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ inputs.context }}
+          file: ${{ inputs.dockerfile }}
+          target: ${{ inputs.target }}
+          platforms: ${{ inputs.push && inputs.platforms || 'linux/amd64' }}
+          push: ${{ inputs.push }}
+          load: ${{ !inputs.push }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: ${{ inputs.push }}
+          sbom: ${{ inputs.push }}
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ inputs.registry }}/${{ github.repository_owner }}/${{ inputs.image-name }}:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: ${{ inputs.scan-severity }}
+          ignore-unfixed: true
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Run Hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: ${{ inputs.dockerfile }}
+          failure-threshold: warning
+
+  scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: build
+    if: inputs.push
+    steps:
+      - name: Run Grype scanner
+        uses: anchore/scan-action@v3
+        with:
+          image: ${{ inputs.registry }}/${{ github.repository_owner }}/${{ inputs.image-name }}@${{ needs.build.outputs.digest }}
+          fail-build: false
+          severity-cutoff: high
+          output-format: sarif
+
+      - name: Upload Grype scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: results.sarif
