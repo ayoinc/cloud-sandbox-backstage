@@ -22,13 +22,43 @@ on:
         description: 'Test duration'
         required: false
         default: '5m'
+  pull_request:
+    branches: [main]
   schedule:
     - cron: '0 6 * * 1'  # Weekly on Monday at 6 AM
+
+permissions:
+  contents: read
+  security-events: write
 
 env:
   BASE_URL: ${{ values.baseUrl }}
 
 jobs:
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Trivy filesystem scanner
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: Upload Trivy SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy
+
   load-test:
     name: Run k6 ${{ github.event.inputs.test_type || 'load' }} Test
     runs-on: ubuntu-latest

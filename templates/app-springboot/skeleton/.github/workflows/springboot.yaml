@@ -33,6 +33,77 @@ jobs:
           name: test-results
           path: target/surefire-reports/
 
+  security:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build project for analysis
+        run: ./mvnw compile -DskipTests
+
+      - name: OWASP Dependency Check
+        uses: dependency-check/Dependency-Check_Action@main
+        continue-on-error: true
+        with:
+          project: '${{ github.repository }}'
+          path: '.'
+          format: 'SARIF'
+          out: 'reports'
+          args: >
+            --enableExperimental
+            --scan pom.xml
+            --scan **/pom.xml
+
+      - name: Upload OWASP Dependency Check SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        continue-on-error: true
+        if: always()
+        with:
+          sarif_file: reports/dependency-check-report.sarif
+          category: owasp-dependency-check
+
+      - name: SpotBugs Analysis
+        run: ./mvnw spotbugs:spotbugs -Dspotbugs.sarifOutput=true -Dspotbugs.sarifOutputFilename=spotbugs.sarif
+        continue-on-error: true
+
+      - name: Upload SpotBugs SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        continue-on-error: true
+        if: always()
+        with:
+          sarif_file: target/spotbugs.sarif
+          category: spotbugs
+
+      - name: Trivy Filesystem Scan
+        uses: aquasecurity/trivy-action@master
+        continue-on-error: true
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-fs-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: Upload Trivy Filesystem SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        continue-on-error: true
+        if: always()
+        with:
+          sarif_file: trivy-fs-results.sarif
+          category: trivy-filesystem
+
   docker:
     name: Docker Build
     runs-on: ubuntu-latest
@@ -41,6 +112,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      security-events: write
     steps:
       - uses: actions/checkout@v4
 
@@ -50,8 +122,36 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: docker/build-push-action@v5
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: ghcr.io/${{ github.repository }}:${{ github.sha }}
+          load: true
+
+      - name: Trivy Container Image Scan
+        uses: aquasecurity/trivy-action@master
+        continue-on-error: true
+        with:
+          image-ref: 'ghcr.io/${{ github.repository }}:${{ github.sha }}'
+          format: 'sarif'
+          output: 'trivy-image-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: Upload Trivy Container SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        continue-on-error: true
+        if: always()
+        with:
+          sarif_file: trivy-image-results.sarif
+          category: trivy-container
+
+      - name: Push Docker image
+        uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: ghcr.io/${{ github.repository }}:latest
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
