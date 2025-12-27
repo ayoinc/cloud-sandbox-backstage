@@ -1,0 +1,103 @@
+direction: right
+
+github_org: {
+  shape: cloud
+  label: "🐙 GitHub Org"
+  style: {
+    fill: "#ECEFF1"
+    stroke: "#333333"
+    stroke-width: 3
+    font-size: 14
+    bold: true
+    shadow: true
+  }
+}
+
+provider: {
+  label: "📥 Entity Provider"
+  style: {
+    fill: "#FFECB3"
+    stroke: "#FF6F00"
+    stroke-width: 3
+    font-size: 14
+    bold: true
+    border-radius: 8
+    shadow: true
+  }
+}
+
+processor: {
+  label: "⚙️ Entity Processor"
+  style: {
+    fill: "#FFECB3"
+    stroke: "#FF6F00"
+    stroke-width: 3
+    font-size: 14
+    bold: true
+    border-radius: 8
+    shadow: true
+  }
+}
+
+db: {
+  shape: cylinder
+  label: "🐘 PostgreSQL"
+  style: {
+    fill: "#E3F2FD"
+    stroke: "#336791"
+    stroke-width: 3
+    font-size: 14
+    bold: true
+    shadow: true
+  }
+}
+
+cache: {
+  shape: cylinder
+  label: "⚡ Redis"
+  style: {
+    fill: "#FFEBEE"
+    stroke: "#DC382D"
+    stroke-width: 3
+    font-size: 14
+    bold: true
+    shadow: true
+  }
+}
+
+github_org -> provider: "1️⃣ Fetch Teams/Users" {
+  style: {
+    stroke: "#333333"
+    stroke-width: 3
+    font-size: 12
+    bold: true
+  }
+}
+
+provider -> processor: "2️⃣ Raw Entities" {
+  style: {
+    stroke: "#FF6F00"
+    stroke-width: 3
+    font-size: 12
+    bold: true
+  }
+}
+
+processor -> db: "3️⃣ Store Entities" {
+  style: {
+    stroke: "#336791"
+    stroke-width: 3
+    font-size: 12
+    bold: true
+  }
+}
+
+db -> cache: "4️⃣ Invalidate Cache" {
+  style: {
+    stroke: "#DC382D"
+    stroke-width: 3
+    font-size: 12
+    bold: true
+    stroke-dash: 5
+  }
+}

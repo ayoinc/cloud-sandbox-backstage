@@ -1,0 +1,139 @@
+direction: right
+
+compose: {
+  label: "🐳 Docker Compose"
+  style: {
+    fill: "#E3F2FD"
+    stroke: "#1976D2"
+    stroke-width: 4
+    font-size: 18
+    bold: true
+    border-radius: 8
+    shadow: true
+  }
+}
+
+backstage: {
+  label: "🎭 Backstage Container"
+  style: {
+    fill: "#F3E5F5"
+    stroke: "#7B1FA2"
+    stroke-width: 3
+    shadow: true
+    border-radius: 8
+    font-size: 16
+    bold: true
+  }
+  
+  frontend: {
+    label: "⚛️ Frontend"
+    style: {
+      fill: "#E1F5FE"
+      stroke: "#61DAFB"
+      stroke-width: 2
+      font-size: 14
+      bold: true
+      border-radius: 6
+    }
+  }
+  
+  backend: {
+    label: "🟢 Backend"
+    style: {
+      fill: "#E8F5E9"
+      stroke: "#68A063"
+      stroke-width: 2
+      font-size: 14
+      bold: true
+      border-radius: 6
+    }
+  }
+}
+
+services: {
+  label: "⚙️ Services"
+  style: {
+    fill: "#E8F5E9"
+    stroke: "#2E7D32"
+    stroke-width: 3
+    shadow: true
+    border-radius: 8
+    font-size: 16
+    bold: true
+  }
+  
+  postgres: {
+    label: "🐘 PostgreSQL"
+    shape: cylinder
+    style: {
+      fill: "#E3F2FD"
+      stroke: "#336791"
+      stroke-width: 2
+      font-size: 14
+      bold: true
+    }
+  }
+  
+  redis: {
+    label: "⚡ Redis"
+    shape: cylinder
+    style: {
+      fill: "#FFEBEE"
+      stroke: "#DC382D"
+      stroke-width: 2
+      font-size: 14
+      bold: true
+    }
+  }
+  
+  minio: {
+    label: "🗄️ MinIO"
+    shape: cylinder
+    style: {
+      fill: "#FCE4EC"
+      stroke: "#C72C48"
+      stroke-width: 2
+      font-size: 14
+      bold: true
+    }
+  }
+}
+
+compose -> backstage: "Orchestrates" {
+  style: {
+    stroke: "#7B1FA2"
+    stroke-width: 4
+    font-size: 12
+    bold: true
+  }
+}
+
+compose -> services: "Orchestrates" {
+  style: {
+    stroke: "#2E7D32"
+    stroke-width: 4
+    font-size: 12
+    bold: true
+  }
+}
+
+backstage -> services.postgres: "Queries" {
+  style: {
+    stroke: "#336791"
+    stroke-width: 3
+  }
+}
+
+backstage -> services.redis: "Cache" {
+  style: {
+    stroke: "#DC382D"
+    stroke-width: 3
+  }
+}
+
+backstage -> services.minio: "Assets" {
+  style: {
+    stroke: "#C72C48"
+    stroke-width: 3
+  }
+}

@@ -1,0 +1,148 @@
+direction: down
+
+request: {
+  label: "🌐 Incoming Request"
+  style: {
+    fill: "#E3F2FD"
+    stroke: "#1976D2"
+    stroke-width: 3
+    font-size: 16
+    bold: true
+    border-radius: 8
+    shadow: true
+  }
+}
+
+auth_check: {
+  label: "🔐 Auth Check"
+  style: {
+    fill: "#FFF3E0"
+    stroke: "#E65100"
+    stroke-width: 3
+    shadow: true
+    border-radius: 8
+    font-size: 16
+    bold: true
+  }
+
+  cookie: {
+    label: "🍪 Session Cookie?"
+    style: {
+      fill: "#FFECB3"
+      stroke: "#FF6F00"
+      stroke-width: 2
+      border-radius: 8
+      font-size: 14
+      bold: true
+    }
+  }
+  
+  token: {
+    label: "🔑 API Token?"
+    style: {
+      fill: "#FFECB3"
+      stroke: "#FF6F00"
+      stroke-width: 2
+      border-radius: 8
+      font-size: 14
+      bold: true
+    }
+  }
+  
+  guest: {
+    label: "👤 Guest Allowed?"
+    style: {
+      fill: "#FFECB3"
+      stroke: "#FF6F00"
+      stroke-width: 2
+      border-radius: 8
+      font-size: 14
+      bold: true
+    }
+  }
+}
+
+allow: {
+  label: "✅ Allow Request"
+  style: {
+    fill: "#C8E6C9"
+    stroke: "#2E7D32"
+    stroke-width: 4
+    font-size: 16
+    bold: true
+    border-radius: 8
+    shadow: true
+  }
+}
+
+deny: {
+  label: "❌ Deny Request"
+  style: {
+    fill: "#FFCDD2"
+    stroke: "#C62828"
+    stroke-width: 4
+    font-size: 16
+    bold: true
+    border-radius: 8
+    shadow: true
+  }
+}
+
+request -> auth_check.cookie {
+  style: {
+    stroke: "#1976D2"
+    stroke-width: 3
+  }
+}
+
+auth_check.cookie -> allow: "Valid" {
+  style: {
+    stroke: "#2E7D32"
+    stroke-width: 4
+    font-size: 12
+    bold: true
+  }
+}
+
+auth_check.cookie -> auth_check.token: "Invalid/Missing" {
+  style: {
+    stroke: "#FF6F00"
+    stroke-width: 2
+    font-size: 11
+  }
+}
+
+auth_check.token -> allow: "Valid" {
+  style: {
+    stroke: "#2E7D32"
+    stroke-width: 4
+    font-size: 12
+    bold: true
+  }
+}
+
+auth_check.token -> auth_check.guest: "Invalid/Missing" {
+  style: {
+    stroke: "#FF6F00"
+    stroke-width: 2
+    font-size: 11
+  }
+}
+
+auth_check.guest -> allow: "Yes" {
+  style: {
+    stroke: "#2E7D32"
+    stroke-width: 4
+    font-size: 12
+    bold: true
+  }
+}
+
+auth_check.guest -> deny: "No" {
+  style: {
+    stroke: "#C62828"
+    stroke-width: 4
+    font-size: 12
+    bold: true
+  }
+}

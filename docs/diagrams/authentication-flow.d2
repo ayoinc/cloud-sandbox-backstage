@@ -1,0 +1,131 @@
+direction: right
+
+user: {
+  shape: person
+  label: "👤 User"
+  style: {
+    fill: "#E3F2FD"
+    stroke: "#1976D2"
+    stroke-width: 3
+    font-size: 14
+    bold: true
+    shadow: true
+  }
+}
+
+frontend: {
+  label: "⚛️ Frontend"
+  style: {
+    fill: "#E1F5FE"
+    stroke: "#61DAFB"
+    stroke-width: 3
+    font-size: 14
+    bold: true
+    shadow: true
+    border-radius: 8
+  }
+}
+
+backend: {
+  label: "🟢 Backend"
+  style: {
+    fill: "#E8F5E9"
+    stroke: "#68A063"
+    stroke-width: 3
+    font-size: 14
+    bold: true
+    shadow: true
+    border-radius: 8
+  }
+}
+
+github: {
+  shape: cloud
+  label: "🐙 GitHub OAuth"
+  style: {
+    fill: "#ECEFF1"
+    stroke: "#333333"
+    stroke-width: 3
+    font-size: 14
+    bold: true
+    shadow: true
+  }
+}
+
+db: {
+  shape: cylinder
+  label: "🐘 PostgreSQL"
+  style: {
+    fill: "#E3F2FD"
+    stroke: "#336791"
+    stroke-width: 3
+    font-size: 14
+    bold: true
+    shadow: true
+  }
+}
+
+user -> frontend: "1️⃣ Click Login" {
+  style: {
+    stroke: "#1976D2"
+    stroke-width: 4
+    font-size: 12
+    bold: true
+    animated: true
+  }
+}
+
+frontend -> backend: "2️⃣ Initiate OAuth" {
+  style: {
+    stroke: "#61DAFB"
+    stroke-width: 3
+    font-size: 12
+    bold: true
+  }
+}
+
+backend -> github: "3️⃣ Redirect to GitHub" {
+  style: {
+    stroke: "#333333"
+    stroke-width: 3
+    font-size: 12
+    bold: true
+  }
+}
+
+github -> backend: "4️⃣ OAuth Callback" {
+  style: {
+    stroke: "#333333"
+    stroke-width: 3
+    font-size: 12
+    bold: true
+  }
+}
+
+backend -> db: "5️⃣ Store Session" {
+  style: {
+    stroke: "#336791"
+    stroke-width: 3
+    font-size: 12
+    bold: true
+  }
+}
+
+backend -> frontend: "6️⃣ Set Cookie" {
+  style: {
+    stroke: "#68A063"
+    stroke-width: 3
+    font-size: 12
+    bold: true
+  }
+}
+
+frontend -> user: "7️⃣ ✅ Logged In" {
+  style: {
+    stroke: "#4CAF50"
+    stroke-width: 4
+    font-size: 12
+    bold: true
+    animated: true
+  }
+}

@@ -1,0 +1,100 @@
+direction: right
+
+user: {
+  shape: person
+  label: "👤 User"
+  style: {
+    fill: "#E3F2FD"
+    stroke: "#1976D2"
+    stroke-width: 3
+    font-size: 14
+    bold: true
+    shadow: true
+  }
+}
+
+scaffolder: {
+  label: "🏗️ Scaffolder"
+  style: {
+    fill: "#FFECB3"
+    stroke: "#FF6F00"
+    stroke-width: 3
+    font-size: 14
+    bold: true
+    border-radius: 8
+    shadow: true
+  }
+}
+
+github: {
+  shape: cloud
+  label: "🐙 GitHub API"
+  style: {
+    fill: "#ECEFF1"
+    stroke: "#333333"
+    stroke-width: 3
+    font-size: 14
+    bold: true
+    shadow: true
+  }
+}
+
+catalog: {
+  label: "📚 Catalog"
+  style: {
+    fill: "#FFECB3"
+    stroke: "#FF6F00"
+    stroke-width: 3
+    font-size: 14
+    bold: true
+    border-radius: 8
+    shadow: true
+  }
+}
+
+user -> scaffolder: "1️⃣ Create from Template" {
+  style: {
+    stroke: "#1976D2"
+    stroke-width: 4
+    font-size: 12
+    bold: true
+    animated: true
+  }
+}
+
+scaffolder -> github: "2️⃣ Create Repository" {
+  style: {
+    stroke: "#333333"
+    stroke-width: 3
+    font-size: 12
+    bold: true
+  }
+}
+
+github -> scaffolder: "3️⃣ ✅ Repo Created" {
+  style: {
+    stroke: "#4CAF50"
+    stroke-width: 3
+    font-size: 12
+    bold: true
+  }
+}
+
+scaffolder -> catalog: "4️⃣ Register Entity" {
+  style: {
+    stroke: "#FF6F00"
+    stroke-width: 3
+    font-size: 12
+    bold: true
+  }
+}
+
+catalog -> user: "5️⃣ ✅ Entity Available" {
+  style: {
+    stroke: "#4CAF50"
+    stroke-width: 4
+    font-size: 12
+    bold: true
+    animated: true
+  }
+}

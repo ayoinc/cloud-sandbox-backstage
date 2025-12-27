@@ -1,0 +1,430 @@
+# Cloud Sandbox Architecture - Enhanced with Styling
+
+direction: down
+
+# External Users
+users: {
+  shape: person
+  label: "Developers"
+  style: {
+    fill: "#E3F2FD"
+    stroke: "#1976D2"
+    stroke-width: 3
+    font-size: 16
+    bold: true
+  }
+}
+
+# Edge Layer
+edge: {
+  label: "🌐 Edge Layer"
+  style: {
+    fill: "#E3F2FD"
+    stroke: "#1565C0"
+    stroke-width: 2
+    shadow: true
+    border-radius: 8
+    font-size: 16
+    bold: true
+  }
+
+  nginx: {
+    label: "🔄 Nginx\nReverse Proxy"
+    style: {
+      fill: "#FFFFFF"
+      stroke: "#009639"
+      stroke-width: 3
+      font-size: 14
+      bold: true
+      shadow: true
+      border-radius: 8
+    }
+  }
+}
+
+# Application Layer
+app: {
+  label: "💻 Application Layer"
+  style: {
+    fill: "#F3E5F5"
+    stroke: "#7B1FA2"
+    stroke-width: 2
+    shadow: true
+    border-radius: 8
+    font-size: 16
+    bold: true
+  }
+
+  frontend: {
+    label: "⚛️ Frontend\n(React)"
+    style: {
+      fill: "#E1F5FE"
+      stroke: "#61DAFB"
+      stroke-width: 3
+      font-size: 14
+      bold: true
+      shadow: true
+      border-radius: 8
+    }
+  }
+
+  backend: {
+    label: "🟢 Backend\n(Node.js)"
+    style: {
+      fill: "#E8F5E9"
+      stroke: "#68A063"
+      stroke-width: 3
+      font-size: 14
+      bold: true
+      shadow: true
+      border-radius: 8
+    }
+  }
+}
+
+# Plugin Layer
+plugins: {
+  label: "🔌 Backend Plugins"
+  style: {
+    fill: "#FFF3E0"
+    stroke: "#E65100"
+    stroke-width: 2
+    shadow: true
+    border-radius: 8
+    font-size: 16
+    bold: true
+  }
+
+  catalog: {
+    label: "📚 Catalog"
+    style: {
+      fill: "#FFECB3"
+      stroke: "#FF6F00"
+      stroke-width: 2
+      border-radius: 8
+      bold: true
+    }
+  }
+  scaffolder: {
+    label: "🏗️ Scaffolder"
+    style: {
+      fill: "#FFECB3"
+      stroke: "#FF6F00"
+      stroke-width: 2
+      border-radius: 8
+      bold: true
+    }
+  }
+  techdocs: {
+    label: "📖 TechDocs"
+    style: {
+      fill: "#FFECB3"
+      stroke: "#FF6F00"
+      stroke-width: 2
+      border-radius: 8
+      bold: true
+    }
+  }
+  auth: {
+    label: "🔐 Auth"
+    style: {
+      fill: "#FFECB3"
+      stroke: "#FF6F00"
+      stroke-width: 2
+      border-radius: 8
+      bold: true
+    }
+  }
+  permission: {
+    label: "🛡️ Permission"
+    style: {
+      fill: "#FFECB3"
+      stroke: "#FF6F00"
+      stroke-width: 2
+      border-radius: 8
+      bold: true
+    }
+  }
+  search: {
+    label: "🔍 Search"
+    style: {
+      fill: "#FFECB3"
+      stroke: "#FF6F00"
+      stroke-width: 2
+      border-radius: 8
+      bold: true
+    }
+  }
+
+  custom: {
+    label: "⚙️ Custom Plugins"
+    style: {
+      fill: "#FFE082"
+      stroke: "#F57C00"
+      stroke-width: 2
+      border-radius: 8
+      font-size: 14
+      bold: true
+    }
+
+    branding: {
+      label: "🎨 Branding\nSettings"
+      style: {
+        fill: "#FFECB3"
+        stroke: "#EF6C00"
+        stroke-width: 2
+        border-radius: 6
+        bold: true
+      }
+    }
+    ownership: {
+      label: "👥 Ownership\nManagement"
+      style: {
+        fill: "#FFECB3"
+        stroke: "#EF6C00"
+        stroke-width: 2
+        border-radius: 6
+        bold: true
+      }
+    }
+    github_sync: {
+      label: "🔄 GitHub\nTeam Sync"
+      style: {
+        fill: "#FFECB3"
+        stroke: "#EF6C00"
+        stroke-width: 2
+        border-radius: 6
+        bold: true
+      }
+    }
+  }
+}
+
+# Data Layer
+data: {
+  label: "💾 Data Layer"
+  style: {
+    fill: "#E8F5E9"
+    stroke: "#2E7D32"
+    stroke-width: 2
+    shadow: true
+    border-radius: 8
+    font-size: 16
+    bold: true
+  }
+
+  postgres: {
+    shape: cylinder
+    label: "🐘 PostgreSQL"
+    style: {
+      fill: "#E3F2FD"
+      stroke: "#336791"
+      stroke-width: 3
+      font-size: 14
+      bold: true
+      shadow: true
+    }
+  }
+
+  redis: {
+    shape: cylinder
+    label: "⚡ Redis Cache"
+    style: {
+      fill: "#FFEBEE"
+      stroke: "#DC382D"
+      stroke-width: 3
+      font-size: 14
+      bold: true
+      shadow: true
+    }
+  }
+
+  minio: {
+    shape: cylinder
+    label: "🗄️ MinIO\n(S3 Storage)"
+    style: {
+      fill: "#FCE4EC"
+      stroke: "#C72C48"
+      stroke-width: 3
+      font-size: 14
+      bold: true
+      shadow: true
+    }
+  }
+}
+
+# External Services
+external: {
+  label: "☁️ External Services"
+  style: {
+    fill: "#FCE4EC"
+    stroke: "#C2185B"
+    stroke-width: 2
+    shadow: true
+    border-radius: 8
+    font-size: 16
+    bold: true
+  }
+
+  github: {
+    shape: cloud
+    label: "🐙 GitHub API"
+    style: {
+      fill: "#ECEFF1"
+      stroke: "#333333"
+      stroke-width: 3
+      font-size: 14
+      bold: true
+      shadow: true
+    }
+  }
+
+  k8s: {
+    shape: cloud
+    label: "☸️ Kubernetes\nClusters"
+    style: {
+      fill: "#E3F2FD"
+      stroke: "#326CE5"
+      stroke-width: 3
+      font-size: 14
+      bold: true
+      shadow: true
+    }
+  }
+}
+
+# Connections with styled arrows
+users -> edge.nginx: "🔒 HTTPS" {
+  style: {
+    stroke: "#1976D2"
+    stroke-width: 3
+    font-size: 12
+    bold: true
+  }
+}
+edge.nginx -> app.frontend: "Static Assets" {
+  style: {
+    stroke: "#61DAFB"
+    stroke-width: 2
+  }
+}
+edge.nginx -> app.backend: "API Requests" {
+  style: {
+    stroke: "#68A063"
+    stroke-width: 2
+  }
+}
+edge.nginx -> data.minio: "/assets/*" {
+  style: {
+    stroke: "#C72C48"
+    stroke-width: 2
+  }
+}
+
+app.frontend -> app.backend: "REST API" {
+  style: {
+    stroke: "#7B1FA2"
+    stroke-width: 3
+    font-size: 12
+    bold: true
+  }
+}
+
+app.backend -> plugins.catalog {
+  style.stroke: "#FF6F00"
+  style.stroke-width: 2
+}
+app.backend -> plugins.scaffolder {
+  style.stroke: "#FF6F00"
+  style.stroke-width: 2
+}
+app.backend -> plugins.techdocs {
+  style.stroke: "#FF6F00"
+  style.stroke-width: 2
+}
+app.backend -> plugins.auth {
+  style.stroke: "#FF6F00"
+  style.stroke-width: 2
+}
+app.backend -> plugins.permission {
+  style.stroke: "#FF6F00"
+  style.stroke-width: 2
+}
+app.backend -> plugins.search {
+  style.stroke: "#FF6F00"
+  style.stroke-width: 2
+}
+app.backend -> plugins.custom.branding {
+  style.stroke: "#EF6C00"
+  style.stroke-width: 2
+}
+app.backend -> plugins.custom.ownership {
+  style.stroke: "#EF6C00"
+  style.stroke-width: 2
+}
+app.backend -> plugins.custom.github_sync {
+  style.stroke: "#EF6C00"
+  style.stroke-width: 2
+}
+
+plugins.catalog -> data.postgres {
+  style.stroke: "#336791"
+  style.stroke-width: 2
+}
+plugins.auth -> data.postgres {
+  style.stroke: "#336791"
+  style.stroke-width: 2
+}
+plugins.search -> data.postgres {
+  style.stroke: "#336791"
+  style.stroke-width: 2
+}
+plugins.custom.branding -> data.postgres {
+  style.stroke: "#336791"
+  style.stroke-width: 2
+}
+plugins.custom.branding -> data.minio {
+  style.stroke: "#C72C48"
+  style.stroke-width: 2
+}
+plugins.custom.ownership -> data.postgres {
+  style.stroke: "#336791"
+  style.stroke-width: 2
+}
+plugins.techdocs -> data.minio {
+  style.stroke: "#C72C48"
+  style.stroke-width: 2
+}
+
+app.backend -> data.redis: "Cache" {
+  style: {
+    stroke: "#DC382D"
+    stroke-width: 2
+    font-size: 12
+  }
+}
+
+plugins.catalog -> external.github: "Org Sync" {
+  style: {
+    stroke: "#333333"
+    stroke-width: 2
+  }
+}
+plugins.scaffolder -> external.github: "Repo Creation" {
+  style: {
+    stroke: "#333333"
+    stroke-width: 2
+  }
+}
+plugins.custom.github_sync -> external.github: "Team Sync" {
+  style: {
+    stroke: "#333333"
+    stroke-width: 2
+  }
+}
+app.backend -> external.k8s: "Cluster Info" {
+  style: {
+    stroke: "#326CE5"
+    stroke-width: 2
+  }
+}

@@ -1,0 +1,146 @@
+direction: down
+
+nginx: {
+  label: "🔄 Nginx Reverse Proxy"
+  style: {
+    fill: "#FFFFFF"
+    stroke: "#009639"
+    stroke-width: 4
+    font-size: 18
+    bold: true
+    shadow: true
+    border-radius: 8
+  }
+}
+
+frontend: {
+  label: "⚛️ Frontend (React)\n📍 Port: 3000"
+  style: {
+    fill: "#E1F5FE"
+    stroke: "#61DAFB"
+    stroke-width: 4
+    font-size: 16
+    bold: true
+    shadow: true
+    border-radius: 8
+  }
+}
+
+backend: {
+  label: "🟢 Backend API (Node.js)\n📍 Port: 7007"
+  style: {
+    fill: "#E8F5E9"
+    stroke: "#68A063"
+    stroke-width: 4
+    font-size: 16
+    bold: true
+    shadow: true
+    border-radius: 8
+  }
+}
+
+postgres: {
+  shape: cylinder
+  label: "🐘 PostgreSQL\n📍 Port: 5432"
+  style: {
+    fill: "#E3F2FD"
+    stroke: "#336791"
+    stroke-width: 4
+    font-size: 16
+    bold: true
+    shadow: true
+  }
+}
+
+redis: {
+  shape: cylinder
+  label: "⚡ Redis Cache\n📍 Port: 6379"
+  style: {
+    fill: "#FFEBEE"
+    stroke: "#DC382D"
+    stroke-width: 4
+    font-size: 16
+    bold: true
+    shadow: true
+  }
+}
+
+minio: {
+  shape: cylinder
+  label: "🗄️ MinIO Storage\n📍 Port: 9000/9001"
+  style: {
+    fill: "#FCE4EC"
+    stroke: "#C72C48"
+    stroke-width: 4
+    font-size: 16
+    bold: true
+    shadow: true
+  }
+}
+
+github: {
+  shape: cloud
+  label: "🐙 GitHub API"
+  style: {
+    fill: "#ECEFF1"
+    stroke: "#333333"
+    stroke-width: 4
+    font-size: 16
+    bold: true
+    shadow: true
+  }
+}
+
+nginx -> frontend: "Routes /" {
+  style: {
+    stroke: "#61DAFB"
+    stroke-width: 4
+    font-size: 13
+    bold: true
+  }
+}
+
+nginx -> backend: "Routes /api" {
+  style: {
+    stroke: "#68A063"
+    stroke-width: 4
+    font-size: 13
+    bold: true
+  }
+}
+
+backend -> postgres: "Queries" {
+  style: {
+    stroke: "#336791"
+    stroke-width: 4
+    font-size: 13
+    bold: true
+  }
+}
+
+backend -> redis: "Cache" {
+  style: {
+    stroke: "#DC382D"
+    stroke-width: 4
+    font-size: 13
+    bold: true
+  }
+}
+
+backend -> minio: "Assets" {
+  style: {
+    stroke: "#C72C48"
+    stroke-width: 4
+    font-size: 13
+    bold: true
+  }
+}
+
+backend -> github: "API" {
+  style: {
+    stroke: "#333333"
+    stroke-width: 4
+    font-size: 13
+    bold: true
+  }
+}

@@ -8,136 +8,7 @@ Cloud Sandbox is a customized Backstage instance designed to serve as a central 
 
 ## Architecture Diagram
 
-```d2
-# Cloud Sandbox Architecture
-
-direction: down
-
-# External Users
-users: {
-  shape: person
-  label: "Developers"
-}
-
-# Edge Layer
-edge: {
-  label: "Edge Layer"
-  style.fill: "#e3f2fd"
-
-  nginx: {
-    shape: hexagon
-    label: "Nginx\nReverse Proxy"
-  }
-}
-
-# Application Layer
-app: {
-  label: "Application Layer"
-  style.fill: "#f3e5f5"
-
-  frontend: {
-    shape: rectangle
-    label: "Frontend\n(React)"
-  }
-
-  backend: {
-    shape: rectangle
-    label: "Backend\n(Node.js)"
-  }
-}
-
-# Plugin Layer
-plugins: {
-  label: "Backend Plugins"
-  style.fill: "#fff3e0"
-
-  catalog: "Catalog"
-  scaffolder: "Scaffolder"
-  techdocs: "TechDocs"
-  auth: "Auth"
-  permission: "Permission"
-  search: "Search"
-
-  custom: {
-    label: "Custom Plugins"
-    style.fill: "#ffecb3"
-
-    branding: "Branding\nSettings"
-    ownership: "Ownership\nManagement"
-    github_sync: "GitHub\nTeam Sync"
-  }
-}
-
-# Data Layer
-data: {
-  label: "Data Layer"
-  style.fill: "#e8f5e9"
-
-  postgres: {
-    shape: cylinder
-    label: "PostgreSQL"
-  }
-
-  redis: {
-    shape: cylinder
-    label: "Redis Cache"
-  }
-
-  minio: {
-    shape: cylinder
-    label: "MinIO\n(S3 Storage)"
-  }
-}
-
-# External Services
-external: {
-  label: "External Services"
-  style.fill: "#fce4ec"
-
-  github: {
-    shape: cloud
-    label: "GitHub API"
-  }
-
-  k8s: {
-    shape: cloud
-    label: "Kubernetes\nClusters"
-  }
-}
-
-# Connections
-users -> edge.nginx: "HTTPS"
-edge.nginx -> app.frontend: "Static Assets"
-edge.nginx -> app.backend: "API Requests"
-edge.nginx -> data.minio: "/assets/*"
-
-app.frontend -> app.backend: "REST API"
-
-app.backend -> plugins.catalog
-app.backend -> plugins.scaffolder
-app.backend -> plugins.techdocs
-app.backend -> plugins.auth
-app.backend -> plugins.permission
-app.backend -> plugins.search
-app.backend -> plugins.custom.branding
-app.backend -> plugins.custom.ownership
-app.backend -> plugins.custom.github_sync
-
-plugins.catalog -> data.postgres
-plugins.auth -> data.postgres
-plugins.search -> data.postgres
-plugins.custom.branding -> data.postgres
-plugins.custom.branding -> data.minio
-plugins.custom.ownership -> data.postgres
-plugins.techdocs -> data.minio
-
-app.backend -> data.redis: "Cache"
-
-plugins.catalog -> external.github: "Org Sync"
-plugins.scaffolder -> external.github: "Repo Creation"
-plugins.custom.github_sync -> external.github: "Team Sync"
-app.backend -> external.k8s: "Cluster Info"
-```
+![Cloud Sandbox Architecture](docs/diagrams/architecture-overview.png)
 
 ## Component Descriptions
 
@@ -227,86 +98,21 @@ app.backend -> external.k8s: "Cluster Info"
 
 ### Authentication Flow
 
-```d2
-direction: right
-
-user: User
-frontend: Frontend
-backend: Backend
-github: GitHub OAuth
-db: PostgreSQL
-
-user -> frontend: "Click Login"
-frontend -> backend: "Initiate OAuth"
-backend -> github: "Redirect to GitHub"
-github -> backend: "OAuth Callback"
-backend -> db: "Store Session"
-backend -> frontend: "Set Cookie"
-frontend -> user: "Logged In"
-```
+![Authentication Flow](docs/diagrams/authentication-flow.png)
 
 ### Catalog Sync Flow
 
-```d2
-direction: right
-
-github_org: GitHub Org
-provider: Entity Provider
-processor: Entity Processor
-db: PostgreSQL
-cache: Redis
-
-github_org -> provider: "Fetch Teams/Users"
-provider -> processor: "Raw Entities"
-processor -> db: "Store Entities"
-db -> cache: "Invalidate Cache"
-```
+![Catalog Sync Flow](docs/diagrams/catalog-sync-flow.png)
 
 ### Scaffolding Flow
 
-```d2
-direction: right
-
-user: User
-scaffolder: Scaffolder
-github: GitHub API
-catalog: Catalog
-
-user -> scaffolder: "Create from Template"
-scaffolder -> github: "Create Repository"
-github -> scaffolder: "Repo Created"
-scaffolder -> catalog: "Register Entity"
-catalog -> user: "Entity Available"
-```
+![Scaffolding Flow](docs/diagrams/scaffolding-flow.png)
 
 ## Security Architecture
 
 ### Authentication
 
-```d2
-direction: down
-
-request: Incoming Request
-
-auth_check: {
-  label: "Auth Check"
-
-  cookie: "Session Cookie?"
-  token: "API Token?"
-  guest: "Guest Allowed?"
-}
-
-allow: "Allow Request"
-deny: "Deny Request"
-
-request -> auth_check.cookie
-auth_check.cookie -> allow: "Valid"
-auth_check.cookie -> auth_check.token: "Invalid/Missing"
-auth_check.token -> allow: "Valid"
-auth_check.token -> auth_check.guest: "Invalid/Missing"
-auth_check.guest -> allow: "Yes"
-auth_check.guest -> deny: "No"
-```
+![Security Authentication Check](docs/diagrams/security-auth-check.png)
 
 ### Authorization
 
@@ -323,31 +129,7 @@ Role-based access control with group membership:
 
 ### Docker Compose (Development)
 
-```d2
-direction: right
-
-compose: Docker Compose
-
-backstage: {
-  label: "Backstage Container"
-  frontend: "Frontend"
-  backend: "Backend"
-}
-
-services: {
-  label: "Services"
-  postgres: "PostgreSQL"
-  redis: "Redis"
-  minio: "MinIO"
-}
-
-compose -> backstage
-compose -> services
-
-backstage -> services.postgres
-backstage -> services.redis
-backstage -> services.minio
-```
+![Docker Compose Deployment](docs/diagrams/deployment-docker.png)
 
 ### Production Deployment
 
