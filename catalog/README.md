@@ -25,42 +25,46 @@ catalog/
 ## Entity Types
 
 ### Domains (6 total)
+
 Business domains that group related systems:
 
-| Domain | Description |
-|--------|-------------|
+| Domain           | Description                       |
+| ---------------- | --------------------------------- |
 | `cloud-platform` | Cloud infrastructure and services |
-| `data-analytics` | Data processing and analytics |
-| `devops` | CI/CD and automation |
-| `observability` | Monitoring and logging |
-| `security` | Security and compliance |
-| `applications` | Application services |
+| `data-analytics` | Data processing and analytics     |
+| `devops`         | CI/CD and automation              |
+| `observability`  | Monitoring and logging            |
+| `security`       | Security and compliance           |
+| `applications`   | Application services              |
 
 ### Systems (12 total)
+
 Systems that group related components:
 
-| System | Domain | Components |
-|--------|--------|------------|
-| `cloud-services-platform` | cloud-platform | AWS, Azure, GCP services |
-| `data-platform` | data-analytics | Kafka, Spark, Airflow, databases |
-| `awx-automation-platform` | devops | AWX core, operator, Helm chart |
-| `ci-cd-platform` | devops | CI/CD pipelines, artifact repository |
-| `infrastructure-as-code-platform` | devops | Terraform, CloudFormation, Pulumi |
-| `observability-platform` | observability | Prometheus, ELK, Jaeger |
-| `security-compliance-platform` | security | Security scanning, SonarQube |
-| `testing-automation-platform` | devops | Testing frameworks |
-| `kubernetes-operators` | cloud-platform | Kubernetes operators |
-| `sample-applications` | applications | Sample apps |
+| System                            | Domain         | Components                           |
+| --------------------------------- | -------------- | ------------------------------------ |
+| `cloud-services-platform`         | cloud-platform | AWS, Azure, GCP services             |
+| `data-platform`                   | data-analytics | Kafka, Spark, Airflow, databases     |
+| `awx-automation-platform`         | devops         | AWX core, operator, Helm chart       |
+| `ci-cd-platform`                  | devops         | CI/CD pipelines, artifact repository |
+| `infrastructure-as-code-platform` | devops         | Terraform, CloudFormation, Pulumi    |
+| `observability-platform`          | observability  | Prometheus, ELK, Jaeger              |
+| `security-compliance-platform`    | security       | Security scanning, SonarQube         |
+| `testing-automation-platform`     | devops         | Testing frameworks                   |
+| `kubernetes-operators`            | cloud-platform | Kubernetes operators                 |
+| `sample-applications`             | applications   | Sample apps                          |
 
 ### Components (40 total)
 
 #### By Category
 
 **Ansible Automation**
+
 - `ansible-docker-host` - Docker host configuration role
 - `ansible-webserver` - Web server configuration role
 
 **Data Platform**
+
 - `apache-airflow` - Workflow orchestration
 - `apache-kafka` - Event streaming platform
 - `apache-spark` - Data processing engine
@@ -73,17 +77,20 @@ Systems that group related components:
 - `zookeeper-ensemble` - Distributed coordination
 
 **AWX Automation Platform**
+
 - `awx-core` - AWX application core
 - `awx-helm-chart` - Kubernetes Helm chart
 - `awx-operator` - Kubernetes operator
 
 **Cloud Services**
+
 - `aws-services` - AWS service integrations
 - `azure-services` - Azure service integrations
 - `gcp-services` - GCP service integrations
 - `multi-cloud-management` - Multi-cloud orchestration
 
 **CI/CD and DevOps**
+
 - `artifact-repository` - Binary artifact storage
 - `ci-cd-pipelines` - Pipeline definitions
 - `docker-images` - Container image library
@@ -91,11 +98,13 @@ Systems that group related components:
 - `packer` - Machine image builder
 
 **Infrastructure as Code**
+
 - `cloudformation-templates` - AWS CloudFormation
 - `pulumi-projects` - Pulumi IaC projects
 - `terraform-modules` - Terraform module library
 
 **Observability**
+
 - `datadog-integration` - Datadog monitoring
 - `elk-stack` - Elasticsearch, Logstash, Kibana
 - `jaeger-tracing` - Distributed tracing
@@ -105,10 +114,12 @@ Systems that group related components:
 - `splunk-enterprise` - Log management
 
 **Sample Applications**
+
 - `sample-nodejs-api` - Example Node.js API
 - `sample-react-frontend` - Example React app
 
 **Security and Testing**
+
 - `performance-testing` - Load testing tools
 - `security-scanning-suite` - Security scanners
 - `sonarqube` - Code quality analysis
@@ -118,32 +129,32 @@ Systems that group related components:
 
 All APIs are defined in `apis-and-resources.yaml` with full OpenAPI/AsyncAPI specifications:
 
-| API | Type | System |
-|-----|------|--------|
-| `aws-api` | OpenAPI | cloud-services-platform |
-| `azure-api` | OpenAPI | cloud-services-platform |
-| `gcp-api` | OpenAPI | cloud-services-platform |
-| `postgresql-api` | OpenAPI | data-platform |
-| `mongodb-api` | OpenAPI | data-platform |
-| `redis-api` | OpenAPI | data-platform |
-| `kafka-api` | AsyncAPI | data-platform |
-| `rabbitmq-api` | AsyncAPI | data-platform |
-| `prometheus-api` | OpenAPI | observability-platform |
-| `grafana-api` | OpenAPI | observability-platform |
-| ... and more |
+| API              | Type     | System                  |
+| ---------------- | -------- | ----------------------- |
+| `aws-api`        | OpenAPI  | cloud-services-platform |
+| `azure-api`      | OpenAPI  | cloud-services-platform |
+| `gcp-api`        | OpenAPI  | cloud-services-platform |
+| `postgresql-api` | OpenAPI  | data-platform           |
+| `mongodb-api`    | OpenAPI  | data-platform           |
+| `redis-api`      | OpenAPI  | data-platform           |
+| `kafka-api`      | AsyncAPI | data-platform           |
+| `rabbitmq-api`   | AsyncAPI | data-platform           |
+| `prometheus-api` | OpenAPI  | observability-platform  |
+| `grafana-api`    | OpenAPI  | observability-platform  |
+| ... and more     |
 
 ### Resources (15 total)
 
 Infrastructure resources defined in `apis-and-resources.yaml`:
 
-| Resource | Type | System |
-|----------|------|--------|
-| `postgresql-database` | database | data-platform |
-| `mongodb-database` | database | data-platform |
-| `redis-cache` | cache | data-platform |
-| `kafka-cluster` | message-queue | data-platform |
-| `elasticsearch-cluster` | search | observability-platform |
-| ... and more |
+| Resource                | Type          | System                 |
+| ----------------------- | ------------- | ---------------------- |
+| `postgresql-database`   | database      | data-platform          |
+| `mongodb-database`      | database      | data-platform          |
+| `redis-cache`           | cache         | data-platform          |
+| `kafka-cluster`         | message-queue | data-platform          |
+| `elasticsearch-cluster` | search        | observability-platform |
+| ... and more            |
 
 ## Component Documentation
 
@@ -195,16 +206,16 @@ yarn backstage-cli catalog validate catalog/
 
 Groups are defined in `users.yaml`:
 
-| Group | Description |
-|-------|-------------|
+| Group           | Description          |
+| --------------- | -------------------- |
 | `platform-team` | Platform engineering |
-| `cloud-team` | Cloud infrastructure |
-| `data-team` | Data engineering |
-| `devops-team` | DevOps and CI/CD |
-| `sre-team` | Site reliability |
-| `security-team` | Security |
-| `quality-team` | QA and testing |
-| `awx-team` | AWX automation |
+| `cloud-team`    | Cloud infrastructure |
+| `data-team`     | Data engineering     |
+| `devops-team`   | DevOps and CI/CD     |
+| `sre-team`      | Site reliability     |
+| `security-team` | Security             |
+| `quality-team`  | QA and testing       |
+| `awx-team`      | AWX automation       |
 
 ## Contributing
 
