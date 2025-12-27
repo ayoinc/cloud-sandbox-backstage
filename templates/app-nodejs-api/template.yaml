@@ -102,7 +102,6 @@ spec:
       name: Publish to GitHub
       action: publish:github
       input:
-        allowedHosts: ['github.com']
         repoUrl: ${{ parameters.repoUrl }}
         description: 'Node.js API: ${{ parameters.name }}'
         repoVisibility: private

@@ -1,0 +1,27 @@
+# Kubernetes Microservice Test Configuration
+# Uses kubeconform for Kubernetes manifest validation
+# https://github.com/yannh/kubeconform
+
+# Install kubeconform:
+# go install github.com/yannh/kubeconform/cmd/kubeconform@latest
+# or: brew install kubeconform
+
+# Run tests:
+# kubeconform -strict -summary k8s/
+
+# Configuration for kubeconform
+kubernetes_version: "1.28.0"
+strict: true
+ignore_missing_schemas: false
+output: json
+
+# Files to validate
+files:
+  - k8s/deployment.yaml
+  - k8s/service.yaml
+  - k8s/scaling-and-networking.yaml
+
+# Schema locations (use default Kubernetes schemas)
+schema_locations:
+  - default
+  - "https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json"

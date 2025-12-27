@@ -108,7 +108,6 @@ spec:
       name: Publish to GitHub
       action: publish:github
       input:
-        allowedHosts: ['github.com']
         repoUrl: ${{ parameters.repoUrl }}
         description: 'GCP VPC Network: ${{ parameters.name }}'
         repoVisibility: private

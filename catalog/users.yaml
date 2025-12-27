@@ -197,3 +197,94 @@ spec:
   profile:
     displayName: AWX Team
   children: []
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: architecture
+  description: Architecture team responsible for system design and technical standards
+  annotations:
+    # github.com/team-slug: your-org/architecture
+spec:
+  type: team
+  profile:
+    displayName: Architecture Team
+  children: []
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: data-engineering
+  description: Data engineering team for data pipelines, ETL, and analytics
+  annotations:
+    # github.com/team-slug: your-org/data-engineering
+spec:
+  type: team
+  profile:
+    displayName: Data Engineering Team
+  children: []
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: documentation
+  description: Documentation team responsible for technical writing and docs
+  annotations:
+    # github.com/team-slug: your-org/documentation
+spec:
+  type: team
+  profile:
+    displayName: Documentation Team
+  children: []
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: qa-team
+  description: Quality assurance team for testing and automation
+  annotations:
+    # github.com/team-slug: your-org/qa-team
+spec:
+  type: team
+  profile:
+    displayName: QA Team
+  children: []
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: software-backend
+  description: Backend development team for APIs and services
+  annotations:
+    # github.com/team-slug: your-org/software-backend
+spec:
+  type: team
+  profile:
+    displayName: Software Backend Team
+  children: []
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: software-frontend
+  description: Frontend development team for web applications and UI
+  annotations:
+    # github.com/team-slug: your-org/software-frontend
+spec:
+  type: team
+  profile:
+    displayName: Software Frontend Team
+  children: []
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: sre
+  description: Site Reliability Engineering team (alias)
+  annotations:
+    # github.com/team-slug: your-org/sre
+spec:
+  type: team
+  profile:
+    displayName: SRE
+  children: []

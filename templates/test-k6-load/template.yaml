@@ -109,7 +109,6 @@ spec:
       name: Publish to GitHub
       action: publish:github
       input:
-        allowedHosts: ['github.com']
         repoUrl: ${{ parameters.repoUrl }}
         description: 'k6 Load Testing: ${{ parameters.name }}'
         repoVisibility: private

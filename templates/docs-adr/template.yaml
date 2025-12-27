@@ -98,7 +98,6 @@ spec:
       name: Publish to GitHub
       action: publish:github
       input:
-        allowedHosts: ['github.com']
         repoUrl: ${{ parameters.repoUrl }}
         description: 'ADR: ${{ parameters.name }}'
         repoVisibility: private

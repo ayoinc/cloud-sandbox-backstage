@@ -1,0 +1,28 @@
+# Dockerfile Test Configuration
+# This file contains tests for validating the Docker container
+
+# Test using hadolint for Dockerfile linting
+# Run: hadolint Dockerfile
+
+# Test using container-structure-test
+# Install: https://github.com/GoogleContainerTools/container-structure-test
+
+schemaVersion: "2.0.0"
+
+# Metadata tests
+metadataTest:
+  workdir: "/app"
+  exposedPorts: ["${{ values.port }}"]
+
+# File existence tests
+fileExistenceTests:
+  - name: "Application directory exists"
+    path: "/app"
+    shouldExist: true
+    permissions: ""
+
+# Command tests - verify the container starts correctly
+commandTests:
+  - name: "Check working directory"
+    command: "pwd"
+    expectedOutput: ["/app"]

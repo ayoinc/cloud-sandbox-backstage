@@ -101,7 +101,6 @@ spec:
       name: Publish to GitHub
       action: publish:github
       input:
-        allowedHosts: ['github.com']
         repoUrl: ${{ parameters.repoUrl }}
         description: 'Documentation: ${{ parameters.name }}'
         repoVisibility: private
