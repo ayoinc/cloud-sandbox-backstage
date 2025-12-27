@@ -113,7 +113,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [test, dag-validation]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    environment: ${{ values.environment }}
+    environment: production
     steps:
       - uses: actions/checkout@v4
 

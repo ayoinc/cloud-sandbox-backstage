@@ -1,3 +1,4 @@
+{% raw %}
 # {{ ansible_managed }}
 # Upstream configuration for {{ item.name }}
 
@@ -12,3 +13,4 @@ upstream {{ item.name }} {
     keepalive {{ item.keepalive }};
 {% endif %}
 }
+{% endraw %}

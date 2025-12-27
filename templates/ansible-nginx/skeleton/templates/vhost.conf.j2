@@ -1,3 +1,4 @@
+{% raw %}
 # {{ ansible_managed }}
 # Virtual host configuration for {{ item.server_name }}
 
@@ -54,3 +55,4 @@ server {
 {{ item.extra_parameters | indent(4) }}
 {% endif %}
 }
+{% endraw %}

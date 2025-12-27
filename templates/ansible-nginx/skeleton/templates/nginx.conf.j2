@@ -1,3 +1,4 @@
+{% raw %}
 # {{ ansible_managed }}
 # Nginx configuration file
 
@@ -63,3 +64,4 @@ http {
 }
 
 {{ nginx_extra_conf_options if nginx_extra_conf_options else '' }}
+{% endraw %}
