@@ -1,0 +1,62 @@
+# Production Environment Configuration
+# Full HA, DR, maximum security
+
+environment_name: 'prod'
+description: 'Production environment with full HA and DR'
+
+# Resource Sizing
+sizing:
+  vm_size: 'Standard_D4s_v3' # 4 vCPU, 16GB RAM
+  disk_type: 'Premium_LRS'
+  database_tier: 'Premium'
+  cache_tier: 'Premium'
+  aks_node_count: 3
+  aks_node_size: 'Standard_D4s_v3'
+
+# High Availability & DR
+high_availability:
+  enabled: true
+  availability_zones: ['1', '2', '3']
+  geo_redundancy: true
+
+disaster_recovery:
+  enabled: true
+  recovery_point_objective: '15_minutes'
+  recovery_time_objective: '1_hour'
+  paired_region: 'westus2'
+
+# Cost Optimization
+cost_optimization:
+  level: 'conservative'
+  auto_shutdown: false
+  spot_instances: false
+  reserved_capacity: true
+  savings_plans: true
+
+# Monitoring
+monitoring:
+  level: 'advanced'
+  metrics_retention_days: 90
+  log_retention_days: 90
+  alerts_enabled: true
+  pagerduty_integration: true
+  dashboard_enabled: true
+
+# Security
+security:
+  network_security: 'maximum'
+  encryption_required: true
+  encryption_at_rest: true
+  encryption_in_transit: true
+  mfa_required: true
+  private_endpoints: true
+  firewall_enabled: true
+  ddos_protection: true
+
+# Networking
+networking:
+  public_access: false
+  vpn_required: true
+  bastion_host: true
+  private_link: true
+  ddos_protection: true

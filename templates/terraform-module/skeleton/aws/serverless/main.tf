@@ -4,7 +4,7 @@
 
 # Lambda Function IAM Role
 resource "aws_iam_role" "lambda" {
-  name = "${var.project}-${var.environment}-lambda-role"
+  name = "${var.project_name}-${var.environment}-lambda-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -50,7 +50,7 @@ resource "aws_iam_role_policy" "lambda_secrets" {
         Action = [
           "secretsmanager:GetSecretValue"
         ]
-        Resource = "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:${var.project}/${var.environment}/*"
+        Resource = "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:${var.project_name}/${var.environment}/*"
       },
       {
         Effect = "Allow"
@@ -67,7 +67,7 @@ resource "aws_iam_role_policy" "lambda_secrets" {
 resource "aws_security_group" "lambda" {
   count = var.vpc_id != null ? 1 : 0
 
-  name_prefix = "${var.project}-${var.environment}-lambda-"
+  name_prefix = "${var.project_name}-${var.environment}-lambda-"
   description = "Security group for Lambda functions"
   vpc_id      = var.vpc_id
 
@@ -79,7 +79,7 @@ resource "aws_security_group" "lambda" {
   }
 
   tags = merge(var.tags, {
-    Name = "${var.project}-${var.environment}-lambda-sg"
+    Name = "${var.project_name}-${var.environment}-lambda-sg"
   })
 
   lifecycle {
@@ -89,7 +89,7 @@ resource "aws_security_group" "lambda" {
 
 # Lambda Function
 resource "aws_lambda_function" "main" {
-  function_name = "${var.project}-${var.environment}-function"
+  function_name = "${var.project_name}-${var.environment}-function"
   role          = aws_iam_role.lambda.arn
   handler       = var.handler
   runtime       = var.runtime
@@ -108,7 +108,7 @@ resource "aws_lambda_function" "main" {
   environment {
     variables = merge(var.environment_variables, {
       ENVIRONMENT = var.environment
-      PROJECT     = var.project
+      PROJECT     = var.project_name
     })
   }
 
@@ -133,7 +133,7 @@ resource "aws_lambda_function" "main" {
 
 # Lambda CloudWatch Log Group
 resource "aws_cloudwatch_log_group" "lambda" {
-  name              = "/aws/lambda/${var.project}-${var.environment}-function"
+  name              = "/aws/lambda/${var.project_name}-${var.environment}-function"
   retention_in_days = var.log_retention_days
   kms_key_id        = var.kms_key_arn
 
@@ -163,7 +163,7 @@ resource "aws_lambda_provisioned_concurrency_config" "main" {
 resource "aws_apigatewayv2_api" "main" {
   count = var.enable_api_gateway ? 1 : 0
 
-  name          = "${var.project}-${var.environment}-api"
+  name          = "${var.project_name}-${var.environment}-api"
   protocol_type = "HTTP"
 
   cors_configuration {
@@ -211,7 +211,7 @@ resource "aws_apigatewayv2_stage" "main" {
 resource "aws_cloudwatch_log_group" "api_gateway" {
   count = var.enable_api_gateway ? 1 : 0
 
-  name              = "/aws/apigateway/${var.project}-${var.environment}"
+  name              = "/aws/apigateway/${var.project_name}-${var.environment}"
   retention_in_days = var.log_retention_days
   kms_key_id        = var.kms_key_arn
 
@@ -254,7 +254,7 @@ resource "aws_lambda_permission" "api_gateway" {
 resource "aws_cloudwatch_event_rule" "schedule" {
   count = var.schedule_expression != null ? 1 : 0
 
-  name                = "${var.project}-${var.environment}-schedule"
+  name                = "${var.project_name}-${var.environment}-schedule"
   description         = "Scheduled trigger for Lambda function"
   schedule_expression = var.schedule_expression
 
@@ -287,7 +287,7 @@ resource "aws_lambda_permission" "eventbridge" {
 resource "aws_sqs_queue" "main" {
   count = var.enable_sqs ? 1 : 0
 
-  name                       = "${var.project}-${var.environment}-queue"
+  name                       = "${var.project_name}-${var.environment}-queue"
   delay_seconds              = 0
   max_message_size           = 262144
   message_retention_seconds  = 345600
@@ -307,7 +307,7 @@ resource "aws_sqs_queue" "main" {
 resource "aws_sqs_queue" "dlq" {
   count = var.enable_sqs && var.enable_dlq ? 1 : 0
 
-  name                      = "${var.project}-${var.environment}-dlq"
+  name                      = "${var.project_name}-${var.environment}-dlq"
   message_retention_seconds = 1209600 # 14 days
   kms_master_key_id         = var.kms_key_arn
 

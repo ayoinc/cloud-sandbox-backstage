@@ -53,21 +53,36 @@ terraform {
   }
 }
 
-# Local values for common configurations
-locals {
-  name_prefix = "${{ values.name }}"
+# Shared modules for naming and tagging
+module "naming" {
+  source = "./modules/shared/naming"
   
-  common_tags = {
-    Project               = "${{ values.name }}"
-    Environment          = var.environment
-    Owner                = "${{ values.owner }}"
-    Infrastructure-Type  = "${{ values.infrastructure_type }}"
-    Terraform           = "true"
-    Created-By          = "backstage-devops-platform"
+  project       = "${{ values.name }}"
+  environment   = var.environment
+  component     = "infrastructure"
+  provider_type = var.cloud_provider == "azure" ? "azure" : var.cloud_provider == "aws" ? "aws" : var.cloud_provider == "gcp" ? "gcp" : "generic"
+}
+
+module "tagging" {
+  source = "./modules/shared/tagging"
+  
+  project     = "${{ values.name }}"
+  environment = var.environment
+  component   = "infrastructure"
+  managed_by  = "${{ values.owner }}"
+  extra_tags  = {
+    Infrastructure-Type = "${{ values.infrastructure_type }}"
     {% if values.compliance_framework !== 'none' %}
-    Compliance          = "${{ values.compliance_framework }}"
+    Compliance = "${{ values.compliance_framework }}"
     {% endif %}
   }
+}
+
+# Local values for common configurations
+locals {
+  name_prefix = module.naming.base_name
+  
+  common_tags = module.tagging.tags
 
   {% for env in values.environments %}
   {{ env }}_config = {

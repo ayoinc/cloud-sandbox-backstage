@@ -1,0 +1,197 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: grpc-service-go
+  title: gRPC Service (Go)
+  description: Create a production-ready gRPC service in Go with streaming, authentication, and monitoring
+  tags:
+    - grpc
+    - go
+    - golang
+    - microservices
+    - production-ready
+    - streaming
+spec:
+  owner: platform-team
+  type: service
+
+  parameters:
+    - title: Service Information
+      required:
+        - serviceName
+        - description
+      properties:
+        serviceName:
+          title: Service Name
+          type: string
+          description: Name of the gRPC service (e.g., user-service)
+          pattern: '^[a-z0-9\-]+$'
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Description of the gRPC service
+        serviceVersion:
+          title: Service Version
+          type: string
+          description: Service version (semver)
+          default: '1.0.0'
+
+    - title: Protocol & RPC
+      properties:
+        enableUnary:
+          title: Enable Unary RPC
+          type: boolean
+          description: Enable simple request-response RPCs
+          default: true
+        enableServerStreaming:
+          title: Enable Server Streaming
+          type: boolean
+          description: Enable server-side streaming
+          default: true
+        enableClientStreaming:
+          title: Enable Client Streaming
+          type: boolean
+          description: Enable client-side streaming
+          default: true
+        enableBidirectional:
+          title: Enable Bidirectional Streaming
+          type: boolean
+          description: Enable bidirectional streaming
+          default: true
+
+    - title: Authentication & Security
+      properties:
+        enableAuth:
+          title: Enable Authentication
+          type: boolean
+          description: Enable TLS/SSL authentication
+          default: true
+        enableMTLS:
+          title: Enable mTLS
+          type: boolean
+          description: Enable mutual TLS
+          default: true
+        enableInterceptors:
+          title: Enable Interceptors
+          type: boolean
+          description: Enable gRPC interceptors (logging, auth, metrics)
+          default: true
+
+    - title: Service Mesh
+      properties:
+        enableServiceMesh:
+          title: Enable Service Mesh
+          type: boolean
+          description: Enable Istio/Linkerd integration
+          default: false
+        serviceMeshType:
+          title: Service Mesh
+          type: string
+          description: Service mesh type
+          default: none
+          enum:
+            - none
+            - istio
+            - linkerd
+
+    - title: Monitoring & Observability
+      properties:
+        enableMetrics:
+          title: Enable Metrics
+          type: boolean
+          description: Enable Prometheus metrics
+          default: true
+        enableTracing:
+          title: Enable Tracing
+          type: boolean
+          description: Enable distributed tracing (OpenTelemetry)
+          default: true
+        enableHealthChecks:
+          title: Enable Health Checks
+          type: boolean
+          description: Enable gRPC health checks
+          default: true
+
+  steps:
+    - id: fetch-infra
+      name: Fetch Infrastructure
+      action: fetch:template
+      input:
+        url: ./skeleton/infra
+        targetPath: ./infra
+        values:
+          serviceName: ${{ parameters.serviceName }}
+          description: ${{ parameters.description }}
+          serviceVersion: ${{ parameters.serviceVersion }}
+          enableUnary: ${{ parameters.enableUnary }}
+          enableServerStreaming: ${{ parameters.enableServerStreaming }}
+          enableClientStreaming: ${{ parameters.enableClientStreaming }}
+          enableBidirectional: ${{ parameters.enableBidirectional }}
+          enableAuth: ${{ parameters.enableAuth }}
+          enableMTLS: ${{ parameters.enableMTLS }}
+          enableInterceptors: ${{ parameters.enableInterceptors }}
+          enableServiceMesh: ${{ parameters.enableServiceMesh }}
+          serviceMeshType: ${{ parameters.serviceMeshType }}
+          enableMetrics: ${{ parameters.enableMetrics }}
+          enableTracing: ${{ parameters.enableTracing }}
+          enableHealthChecks: ${{ parameters.enableHealthChecks }}
+
+    - id: fetch-proto
+      name: Fetch Protocol Buffer Definition
+      action: fetch:template
+      input:
+        url: ./skeleton/proto
+        targetPath: ./proto
+        values:
+          serviceName: ${{ parameters.serviceName }}
+          enableUnary: ${{ parameters.enableUnary }}
+          enableServerStreaming: ${{ parameters.enableServerStreaming }}
+          enableClientStreaming: ${{ parameters.enableClientStreaming }}
+          enableBidirectional: ${{ parameters.enableBidirectional }}
+
+    - id: fetch-src
+      name: Fetch Go Source Code
+      action: fetch:template
+      input:
+        url: ./skeleton/src
+        targetPath: ./src
+        values:
+          serviceName: ${{ parameters.serviceName }}
+          enableAuth: ${{ parameters.enableAuth }}
+          enableInterceptors: ${{ parameters.enableInterceptors }}
+
+    - id: fetch-tests
+      name: Fetch Test Suite
+      action: fetch:template
+      input:
+        url: ./skeleton/tests
+        targetPath: ./tests
+
+    - id: publish
+      name: Publish to Repository
+      action: publish:github
+      input:
+        description: ${{ parameters.description }}
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: main
+        gitCommitMessage: 'feat: initial commit - gRPC Go Service'
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}
+      - title: gRPC Health
+        icon: dashboard
+      - title: Metrics Dashboard
+        icon: bar-chart

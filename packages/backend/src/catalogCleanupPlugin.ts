@@ -509,6 +509,31 @@ export default createBackendPlugin({
                 }
               }
 
+              // Check 4: Check if managed-by-location points to a failed location
+              // This catches components whose parent location is inaccessible
+              if (!isOrphaned) {
+                const managedByLocation =
+                  entity.metadata.annotations?.['backstage.io/managed-by-location'];
+                if (managedByLocation) {
+                  // Extract repo from the location URL
+                  const repoMatch = managedByLocation.match(
+                    /github\.com\/([^/]+)\/([^/]+)/,
+                  );
+                  if (repoMatch && octokit) {
+                    const [, owner, repo] = repoMatch;
+                    // Clean up repo name (remove /tree/main etc)
+                    const cleanRepo = repo.split('/')[0];
+                    const exists = await checkRepoExists(owner, cleanRepo);
+                    if (!exists) {
+                      isOrphaned = true;
+                      repoDeleted = true;
+                      reason = `Source location repo deleted: ${owner}/${cleanRepo}`;
+                      stats.reposMissing++;
+                    }
+                  }
+                }
+              }
+
               if (isOrphaned) {
                 stats.orphaned++;
                 const existing = failedEntities.get(entityRef);
@@ -806,9 +831,9 @@ export default createBackendPlugin({
 
         await scheduler.scheduleTask({
           id: 'catalog-cleanup-smart-sync',
-          frequency: { minutes: 5 },
-          timeout: { minutes: 5 },
-          initialDelay: { minutes: 1 },
+          frequency: { minutes: 1 },
+          timeout: { minutes: 3 },
+          initialDelay: { seconds: 30 },
           fn: runCleanup,
         });
 

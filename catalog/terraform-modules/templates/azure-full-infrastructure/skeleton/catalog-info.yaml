@@ -1,0 +1,22 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.projectName }}-infrastructure
+  description: ${{ values.description }}
+  annotations:
+    github.com/project-slug: ${{ values.repoUrl | projectSlug }}
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - terraform
+    - azure
+    - infrastructure
+    - ${{ values.environment }}
+  links:
+    - url: https://portal.azure.com
+      title: Azure Portal
+      icon: cloud
+spec:
+  type: infrastructure
+  lifecycle: ${{ values.environment }}
+  owner: group:${{ values.businessUnit }}
+  system: cloud-infrastructure

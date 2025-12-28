@@ -4,8 +4,18 @@
 # These tests validate the infrastructure configuration and ensure
 # compliance with multi-cloud, security, and operational best practices.
 #
+# Uses mock_provider for testing without credentials
 # Run with: terraform test
 # =============================================================================
+
+# Mock providers for testing without credentials
+mock_provider "aws" {}
+mock_provider "azurerm" {}
+mock_provider "google" {}
+mock_provider "kubernetes" {}
+mock_provider "helm" {}
+mock_provider "random" {}
+mock_provider "tls" {}
 
 # -----------------------------------------------------------------------------
 # Test Variables - Base Configuration

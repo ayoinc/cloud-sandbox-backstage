@@ -4,17 +4,17 @@
 
 # DB Subnet Group
 resource "aws_db_subnet_group" "main" {
-  name       = "${var.project}-${var.environment}-db-subnet-group"
+  name       = "${var.project_name}-${var.environment}-db-subnet-group"
   subnet_ids = var.subnet_ids
 
   tags = merge(var.tags, {
-    Name = "${var.project}-${var.environment}-db-subnet-group"
+    Name = "${var.project_name}-${var.environment}-db-subnet-group"
   })
 }
 
 # Security Group for RDS
 resource "aws_security_group" "rds" {
-  name_prefix = "${var.project}-${var.environment}-rds-"
+  name_prefix = "${var.project_name}-${var.environment}-rds-"
   description = "Security group for RDS"
   vpc_id      = var.vpc_id
 
@@ -34,7 +34,7 @@ resource "aws_security_group" "rds" {
   }
 
   tags = merge(var.tags, {
-    Name = "${var.project}-${var.environment}-rds-sg"
+    Name = "${var.project_name}-${var.environment}-rds-sg"
   })
 
   lifecycle {
@@ -45,7 +45,7 @@ resource "aws_security_group" "rds" {
 # DB Parameter Group
 resource "aws_db_parameter_group" "main" {
   family = local.parameter_group_family
-  name   = "${var.project}-${var.environment}-db-params"
+  name   = "${var.project_name}-${var.environment}-db-params"
 
   dynamic "parameter" {
     for_each = var.db_parameters
@@ -71,7 +71,7 @@ resource "random_password" "db_password" {
 
 # Store password in Secrets Manager
 resource "aws_secretsmanager_secret" "db_credentials" {
-  name                    = "${var.project}/${var.environment}/db-credentials"
+  name                    = "${var.project_name}/${var.environment}/db-credentials"
   recovery_window_in_days = var.environment == "prod" ? 30 : 0
   kms_key_id              = var.kms_key_arn
 
@@ -92,7 +92,7 @@ resource "aws_secretsmanager_secret_version" "db_credentials" {
 
 # RDS Instance
 resource "aws_db_instance" "main" {
-  identifier = "${var.project}-${var.environment}-db"
+  identifier = "${var.project_name}-${var.environment}-db"
 
   # Engine configuration
   engine         = var.engine
@@ -140,13 +140,13 @@ resource "aws_db_instance" "main" {
   # Deletion protection
   deletion_protection       = var.deletion_protection
   skip_final_snapshot       = var.environment != "prod"
-  final_snapshot_identifier = var.environment == "prod" ? "${var.project}-${var.environment}-final-snapshot" : null
+  final_snapshot_identifier = var.environment == "prod" ? "${var.project_name}-${var.environment}-final-snapshot" : null
 
   # Auto minor version upgrade
   auto_minor_version_upgrade = var.auto_minor_version_upgrade
 
   tags = merge(var.tags, {
-    Name = "${var.project}-${var.environment}-db"
+    Name = "${var.project_name}-${var.environment}-db"
   })
 
   lifecycle {
@@ -158,7 +158,7 @@ resource "aws_db_instance" "main" {
 resource "aws_iam_role" "rds_monitoring" {
   count = var.enhanced_monitoring_interval > 0 ? 1 : 0
 
-  name = "${var.project}-${var.environment}-rds-monitoring-role"
+  name = "${var.project_name}-${var.environment}-rds-monitoring-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -188,7 +188,7 @@ resource "aws_iam_role_policy_attachment" "rds_monitoring" {
 resource "aws_elasticache_subnet_group" "main" {
   count = var.enable_elasticache ? 1 : 0
 
-  name       = "${var.project}-${var.environment}-cache-subnet-group"
+  name       = "${var.project_name}-${var.environment}-cache-subnet-group"
   subnet_ids = var.subnet_ids
 
   tags = var.tags
@@ -197,7 +197,7 @@ resource "aws_elasticache_subnet_group" "main" {
 resource "aws_security_group" "elasticache" {
   count = var.enable_elasticache ? 1 : 0
 
-  name_prefix = "${var.project}-${var.environment}-cache-"
+  name_prefix = "${var.project_name}-${var.environment}-cache-"
   description = "Security group for ElastiCache"
   vpc_id      = var.vpc_id
 
@@ -217,7 +217,7 @@ resource "aws_security_group" "elasticache" {
   }
 
   tags = merge(var.tags, {
-    Name = "${var.project}-${var.environment}-cache-sg"
+    Name = "${var.project_name}-${var.environment}-cache-sg"
   })
 
   lifecycle {
@@ -228,8 +228,8 @@ resource "aws_security_group" "elasticache" {
 resource "aws_elasticache_replication_group" "main" {
   count = var.enable_elasticache ? 1 : 0
 
-  replication_group_id = "${var.project}-${var.environment}-cache"
-  description          = "Redis cluster for ${var.project} ${var.environment}"
+  replication_group_id = "${var.project_name}-${var.environment}-cache"
+  description          = "Redis cluster for ${var.project_name} ${var.environment}"
 
   node_type            = var.cache_node_type
   num_cache_clusters   = var.cache_num_nodes
@@ -264,7 +264,7 @@ resource "random_password" "redis_auth" {
 resource "aws_secretsmanager_secret" "redis_credentials" {
   count = var.enable_elasticache ? 1 : 0
 
-  name                    = "${var.project}/${var.environment}/redis-credentials"
+  name                    = "${var.project_name}/${var.environment}/redis-credentials"
   recovery_window_in_days = var.environment == "prod" ? 30 : 0
   kms_key_id              = var.kms_key_arn
 

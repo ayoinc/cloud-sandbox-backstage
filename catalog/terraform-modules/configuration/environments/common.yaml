@@ -1,0 +1,144 @@
+# Environment Agnostic Configuration
+# Base settings that apply to all environments
+
+# Application Configuration
+app_name: 'platform-terraform-modules'
+app_version: '1.0.0'
+description: 'Centralized Terraform modules for cloud infrastructure'
+
+# Provider Configuration
+providers:
+  azure:
+    enabled: true
+    default_region: 'eastus'
+    min_api_version: '2023-01-01'
+  aws:
+    enabled: true
+    default_region: 'us-east-1'
+    min_provider_version: '5.0.0'
+  gcp:
+    enabled: true
+    default_region: 'us-central1'
+    min_provider_version: '5.0.0'
+
+# Module Configuration
+modules:
+  # Shared modules always enabled
+  shared:
+    naming:
+      enabled: true
+      required: true
+    tagging:
+      enabled: true
+      required: true
+    validation:
+      enabled: true
+      required: true
+
+  # Azure modules
+  azure:
+    networking: { enabled: false, required: false }
+    compute: { enabled: false, required: false }
+    containers: { enabled: false, required: false }
+    storage: { enabled: false, required: false }
+    database: { enabled: false, required: false }
+    security: { enabled: false, required: false }
+    identity: { enabled: false, required: false }
+    monitoring: { enabled: false, required: false }
+    integration: { enabled: false, required: false }
+    ai_ml: { enabled: false, required: false }
+    governance: { enabled: false, required: false }
+
+  # AWS modules
+  aws:
+    networking: { enabled: false, required: false }
+    compute: { enabled: false, required: false }
+    containers: { enabled: false, required: false }
+    storage: { enabled: false, required: false }
+    database: { enabled: false, required: false }
+    security: { enabled: false, required: false }
+    monitoring: { enabled: false, required: false }
+    integration: { enabled: false, required: false }
+    ai_ml: { enabled: false, required: false }
+    devops: { enabled: false, required: false }
+    governance: { enabled: false, required: false }
+
+  # GCP modules
+  gcp:
+    networking: { enabled: false, required: false }
+    compute: { enabled: false, required: false }
+    containers: { enabled: false, required: false }
+    storage: { enabled: false, required: false }
+    database: { enabled: false, required: false }
+    security: { enabled: false, required: false }
+    monitoring: { enabled: false, required: false }
+    integration: { enabled: false, required: false }
+    ai_ml: { enabled: false, required: false }
+    devops: { enabled: false, required: false }
+    governance: { enabled: false, required: false }
+
+# Testing Configuration
+testing:
+  enabled: true
+  terraform_version: '>= 1.6.0'
+  run_tests: true
+  coverage_threshold: 80
+  tools:
+    - terraform_validate
+    - terraform_fmt
+    - tflint
+    - checkov
+    - tfsec
+    - infracost
+
+# Security Configuration
+security:
+  enabled: true
+  scan_on_build: true
+  required_checks:
+    - no_hardcoded_secrets
+    - no_public_access
+    - encryption_at_rest
+    - encryption_in_transit
+  compliance_frameworks:
+    - gdpr
+    - hipaa
+    - pci_dss
+
+# Cost Management
+cost_management:
+  enabled: true
+  budget_alerts: true
+  cost_threshold: 1000 # dollars per month
+  auto_shutdown:
+    enabled: true
+    schedule: '0 19 * * 1-5' # Weekdays at 7 PM
+    exclude_environments: ['prod']
+
+# Environments (wildcard and specific)
+environments:
+  '*': # Applies to all environments
+    monitoring_level: 'standard'
+    backup_enabled: true
+    high_availability: false
+    disaster_recovery: false
+    auto_scaling: true
+
+  dev:
+    monitoring_level: 'basic'
+    backup_retention_days: 7
+    cost_optimization: 'aggressive'
+    auto_shutdown: true
+
+  stg:
+    monitoring_level: 'standard'
+    backup_retention_days: 30
+    cost_optimization: 'moderate'
+    auto_shutdown: false
+
+  prod:
+    monitoring_level: 'advanced'
+    backup_retention_days: 90
+    cost_optimization: 'conservative'
+    high_availability: true
+    disaster_recovery: true

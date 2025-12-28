@@ -4,7 +4,7 @@
 
 # EKS Cluster IAM Role
 resource "aws_iam_role" "cluster" {
-  name = "${var.project}-${var.environment}-eks-cluster-role"
+  name = "${var.project_name}-${var.environment}-eks-cluster-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -32,7 +32,7 @@ resource "aws_iam_role_policy_attachment" "cluster_vpc_controller" {
 
 # EKS Cluster Security Group
 resource "aws_security_group" "cluster" {
-  name_prefix = "${var.project}-${var.environment}-eks-cluster-"
+  name_prefix = "${var.project_name}-${var.environment}-eks-cluster-"
   description = "EKS cluster security group"
   vpc_id      = var.vpc_id
 
@@ -44,7 +44,7 @@ resource "aws_security_group" "cluster" {
   }
 
   tags = merge(var.tags, {
-    Name = "${var.project}-${var.environment}-eks-cluster-sg"
+    Name = "${var.project_name}-${var.environment}-eks-cluster-sg"
   })
 
   lifecycle {
@@ -54,7 +54,7 @@ resource "aws_security_group" "cluster" {
 
 # EKS Cluster
 resource "aws_eks_cluster" "main" {
-  name     = "${var.project}-${var.environment}"
+  name     = "${var.project_name}-${var.environment}"
   role_arn = aws_iam_role.cluster.arn
   version  = var.cluster_version
 
@@ -85,7 +85,7 @@ resource "aws_eks_cluster" "main" {
 
 # EKS Node Group IAM Role
 resource "aws_iam_role" "node" {
-  name = "${var.project}-${var.environment}-eks-node-role"
+  name = "${var.project_name}-${var.environment}-eks-node-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -124,7 +124,7 @@ resource "aws_iam_role_policy_attachment" "node_ssm_policy" {
 # EKS Node Group
 resource "aws_eks_node_group" "main" {
   cluster_name    = aws_eks_cluster.main.name
-  node_group_name = "${var.project}-${var.environment}-nodes"
+  node_group_name = "${var.project_name}-${var.environment}-nodes"
   node_role_arn   = aws_iam_role.node.arn
   subnet_ids      = var.subnet_ids
 
@@ -221,7 +221,7 @@ resource "aws_eks_addon" "ebs_csi_driver" {
 resource "aws_iam_role" "ebs_csi" {
   count = var.enable_ebs_csi_driver ? 1 : 0
 
-  name = "${var.project}-${var.environment}-ebs-csi-role"
+  name = "${var.project_name}-${var.environment}-ebs-csi-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -265,7 +265,7 @@ resource "aws_iam_openid_connect_provider" "eks" {
 
 # CloudWatch Log Group for EKS
 resource "aws_cloudwatch_log_group" "eks" {
-  name              = "/aws/eks/${var.project}-${var.environment}/cluster"
+  name              = "/aws/eks/${var.project_name}-${var.environment}/cluster"
   retention_in_days = var.log_retention_days
   kms_key_id        = var.kms_key_arn
 

@@ -1,0 +1,238 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: azure-full-infrastructure
+  title: Azure Full Infrastructure Stack
+  description: Creates a complete Azure infrastructure stack with all resource categories (networking, compute, storage, database, security, etc.) with enable/disable flags for each module
+  tags:
+    - terraform
+    - azure
+    - infrastructure
+    - full-stack
+    - enterprise
+spec:
+  owner: platform-team
+  type: infrastructure
+
+  parameters:
+    - title: Project Configuration
+      required:
+        - projectName
+        - environment
+        - businessUnit
+        - description
+      properties:
+        projectName:
+          title: Project Name
+          type: string
+          description: Project name for resource naming (e.g., acme-corp)
+          pattern: '^[a-z0-9-]+$'
+          ui:autofocus: true
+        environment:
+          title: Environment
+          type: string
+          description: Deployment environment
+          enum:
+            - dev
+            - stg
+            - prod
+          enumNames:
+            - Development
+            - Staging
+            - Production
+        businessUnit:
+          title: Business Unit
+          type: string
+          enum:
+            - engineering
+            - platform
+            - data
+            - security
+            - finance
+            - marketing
+          enumNames:
+            - Engineering
+            - Platform Engineering
+            - Data & Analytics
+            - Security & Compliance
+            - Finance
+            - Marketing
+        description:
+          title: Description
+          type: string
+          description: What this infrastructure stack does
+
+    - title: Region Configuration
+      required:
+        - primaryRegion
+      properties:
+        primaryRegion:
+          title: Primary Region
+          type: string
+          description: Primary Azure region
+          enum:
+            - eastus
+            - eastus2
+            - westus
+            - westus2
+            - centralus
+            - northeurope
+            - westeurope
+            - francecentral
+            - uksouth
+            - japaneast
+            - australiaeast
+            - southeastasia
+          default: eastus
+        secondaryRegion:
+          title: Secondary Region
+          type: string
+          description: Secondary region for DR
+          enum:
+            - eastus
+            - eastus2
+            - westus
+            - westus2
+            - centralus
+            - northeurope
+            - westeurope
+            - francecentral
+            - uksouth
+            - japaneast
+            - australiaeast
+            - southeastasia
+          default: westus2
+
+    - title: Enable Resource Modules
+      description: Select which resource modules to include in your infrastructure stack
+      properties:
+        enableNetworking:
+          title: '🌐 Networking Module'
+          type: boolean
+          default: true
+          description: Virtual Network, Subnets, NSG, Load Balancers, Firewall, VPN Gateway
+        enableCompute:
+          title: '💻 Compute Module'
+          type: boolean
+          default: false
+          description: Virtual Machines, VMSS, App Service, Container Instances
+        enableContainers:
+          title: '🐳 Containers Module'
+          type: boolean
+          default: false
+          description: AKS Cluster, Container Registry, Container Apps
+        enableStorage:
+          title: '📦 Storage Module'
+          type: boolean
+          default: true
+          description: Storage Accounts, Data Lake, File Shares, Managed Disks
+        enableDatabase:
+          title: '🗄️ Database Module'
+          type: boolean
+          default: false
+          description: SQL Database, PostgreSQL, MySQL, Cosmos DB, Redis Cache
+        enableSecurity:
+          title: '🔒 Security Module'
+          type: boolean
+          default: true
+          description: Key Vault, Managed Identities, Azure Security Center
+        enableIdentity:
+          title: '🆔 Identity Module'
+          type: boolean
+          default: false
+          description: Azure AD Groups, RBAC Role Assignments, Conditional Access
+        enableMonitoring:
+          title: '📊 Monitoring Module'
+          type: boolean
+          default: true
+          description: Log Analytics, Application Insights, Alerts, Dashboards
+        enableIntegration:
+          title: '🔗 Integration Module'
+          type: boolean
+          default: false
+          description: Service Bus, Event Grid, Event Hubs, Logic Apps
+        enableGovernance:
+          title: '📋 Governance Module'
+          type: boolean
+          default: false
+          description: Policy Definitions, Cost Management, Blueprints
+
+    - title: Advanced Configuration
+      properties:
+        enableDR:
+          title: Enable Disaster Recovery
+          type: boolean
+          default: false
+          description: Cross-region replication and failover
+        enableHighAvailability:
+          title: Enable High Availability
+          type: boolean
+          default: true
+          description: Zone-redundant and geo-redundant configurations
+        enableAutoShutdown:
+          title: Enable Auto-Shutdown
+          type: boolean
+          default: '{{ parameters.environment == "dev" }}'
+          description: Auto-shutdown for dev/test environments (saves cost)
+        autoShutdownSchedule:
+          title: Auto-Shutdown Schedule
+          type: string
+          default: '0 19 * * 1-5'
+          description: Cron schedule (minute hour day month weekday)
+          ui:help: '0 19 * * 1-5 = weekdays at 7 PM'
+
+  steps:
+    - id: fetch-base
+      name: Fetch Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        templateFileExtension: '.j2'
+        targetPath: ./
+        values:
+          projectName: '{{ parameters.projectName }}'
+          environment: '{{ parameters.environment }}'
+          businessUnit: '{{ parameters.businessUnit }}'
+          description: '{{ parameters.description }}'
+          primaryRegion: '{{ parameters.primaryRegion }}'
+          secondaryRegion: '{{ parameters.secondaryRegion }}'
+          enableNetworking: '{{ parameters.enableNetworking }}'
+          enableCompute: '{{ parameters.enableCompute }}'
+          enableContainers: '{{ parameters.enableContainers }}'
+          enableStorage: '{{ parameters.enableStorage }}'
+          enableDatabase: '{{ parameters.enableDatabase }}'
+          enableSecurity: '{{ parameters.enableSecurity }}'
+          enableIdentity: '{{ parameters.enableIdentity }}'
+          enableMonitoring: '{{ parameters.enableMonitoring }}'
+          enableIntegration: '{{ parameters.enableIntegration }}'
+          enableGovernance: '{{ parameters.enableGovernance }}'
+          enableDR: '{{ parameters.enableDR }}'
+          enableHighAvailability: '{{ parameters.enableHighAvailability }}'
+          enableAutoShutdown: '{{ parameters.enableAutoShutdown }}'
+          autoShutdownSchedule: '{{ parameters.autoShutdownSchedule }}'
+
+    - id: publish
+      name: Publish to Git
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        description: '{{ parameters.description }}'
+        repoUrl: '{{ parameters.repoUrl }}'
+        defaultBranch: main
+        protectDefaultBranch: false
+        gitCommitMessage: 'feat: initial commit - Azure full infrastructure stack'
+
+    - id: register
+      name: Register Component
+      action: catalog:register
+      input:
+        repoContentsUrl: '{{ steps.publish.output.repoContentsUrl }}'
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: '{{ steps.publish.output.remoteUrl }}'
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: '{{ steps.register.output.entityRef }}'

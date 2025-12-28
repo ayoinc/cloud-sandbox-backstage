@@ -12,7 +12,7 @@ data "azurerm_platform_image" "ubuntu" {
 
 # User Assigned Managed Identity for VMSS
 resource "azurerm_user_assigned_identity" "vmss" {
-  name                = "${var.project}-${var.environment}-vmss-identity"
+  name                = "${var.project_name}-${var.environment}-vmss-identity"
   resource_group_name = var.resource_group_name
   location            = var.location
 
@@ -31,7 +31,7 @@ data "azurerm_subscription" "current" {}
 
 # Network Security Group for Virtual Machines
 resource "azurerm_network_security_group" "vmss" {
-  name                = "${var.project}-${var.environment}-vmss-nsg"
+  name                = "${var.project_name}-${var.environment}-vmss-nsg"
   resource_group_name = var.resource_group_name
   location            = var.location
 
@@ -96,7 +96,7 @@ resource "azurerm_network_security_group" "vmss" {
 
 # Linux Virtual Machine Scale Set
 resource "azurerm_linux_virtual_machine_scale_set" "main" {
-  name                = "${var.project}-${var.environment}-vmss"
+  name                = "${var.project_name}-${var.environment}-vmss"
   resource_group_name = var.resource_group_name
   location            = var.location
   sku                 = var.vm_size
@@ -123,7 +123,7 @@ resource "azurerm_linux_virtual_machine_scale_set" "main" {
   }
 
   network_interface {
-    name                      = "${var.project}-${var.environment}-vmss-nic"
+    name                      = "${var.project_name}-${var.environment}-vmss-nic"
     primary                   = true
     network_security_group_id = azurerm_network_security_group.vmss.id
 
@@ -135,7 +135,7 @@ resource "azurerm_linux_virtual_machine_scale_set" "main" {
       dynamic "public_ip_address" {
         for_each = var.enable_public_ip ? [1] : []
         content {
-          name = "${var.project}-${var.environment}-vmss-pip"
+          name = "${var.project_name}-${var.environment}-vmss-pip"
         }
       }
     }
@@ -147,7 +147,7 @@ resource "azurerm_linux_virtual_machine_scale_set" "main" {
   }
 
   custom_data = base64encode(templatefile("${path.module}/templates/cloud-init.yaml", {
-    project     = var.project
+    project     = var.project_name
     environment = var.environment
   }))
 
@@ -203,7 +203,7 @@ resource "azurerm_linux_virtual_machine_scale_set" "main" {
   }
 
   tags = merge(var.tags, {
-    Name = "${var.project}-${var.environment}-vmss"
+    Name = "${var.project_name}-${var.environment}-vmss"
   })
 
   lifecycle {
@@ -213,7 +213,7 @@ resource "azurerm_linux_virtual_machine_scale_set" "main" {
 
 # Autoscale Settings for VMSS
 resource "azurerm_monitor_autoscale_setting" "vmss" {
-  name                = "${var.project}-${var.environment}-vmss-autoscale"
+  name                = "${var.project_name}-${var.environment}-vmss-autoscale"
   resource_group_name = var.resource_group_name
   location            = var.location
   target_resource_id  = azurerm_linux_virtual_machine_scale_set.main.id

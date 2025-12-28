@@ -7,7 +7,7 @@ data "azurerm_subscription" "current" {}
 
 # User Assigned Managed Identity for AKS
 resource "azurerm_user_assigned_identity" "aks" {
-  name                = "${var.project}-${var.environment}-aks-identity"
+  name                = "${var.project_name}-${var.environment}-aks-identity"
   resource_group_name = var.resource_group_name
   location            = var.location
 
@@ -31,10 +31,10 @@ resource "azurerm_role_assignment" "aks_acr_pull" {
 
 # Azure Kubernetes Service Cluster
 resource "azurerm_kubernetes_cluster" "main" {
-  name                = "${var.project}-${var.environment}-aks"
+  name                = "${var.project_name}-${var.environment}-aks"
   resource_group_name = var.resource_group_name
   location            = var.location
-  dns_prefix          = "${var.project}-${var.environment}"
+  dns_prefix          = "${var.project_name}-${var.environment}"
 
   kubernetes_version        = var.kubernetes_version
   automatic_upgrade_channel = var.automatic_upgrade_channel
@@ -155,7 +155,7 @@ resource "azurerm_kubernetes_cluster" "main" {
   }
 
   tags = merge(var.tags, {
-    Name = "${var.project}-${var.environment}-aks"
+    Name = "${var.project_name}-${var.environment}-aks"
   })
 
   lifecycle {

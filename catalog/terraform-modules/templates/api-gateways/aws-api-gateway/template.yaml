@@ -1,0 +1,248 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: aws-api-gateway
+  title: AWS API Gateway with Lambda Backend
+  description: Create a production-ready API Gateway with Lambda functions, authentication, rate limiting, and monitoring
+  tags:
+    - api-gateway
+    - aws
+    - lambda
+    - serverless
+    - production-ready
+spec:
+  owner: platform-team
+  type: api
+
+  parameters:
+    - title: API Information
+      required:
+        - apiName
+        - description
+      properties:
+        apiName:
+          title: API Name
+          type: string
+          description: Name of the API (e.g., user-service-api)
+          pattern: '^[a-z0-9\-]+$'
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Description of the API
+        apiVersion:
+          title: API Version
+          type: string
+          description: API version (semver)
+          default: '1.0.0'
+
+    - title: Authentication & Security
+      properties:
+        enableAuth:
+          title: Enable Authentication
+          type: boolean
+          description: Enable JWT/API Key authentication
+          default: true
+        authType:
+          title: Authentication Type
+          type: string
+          description: Authentication mechanism
+          default: jwt
+          enum:
+            - jwt
+            - apikey
+            - cognito
+            - none
+          enumNames:
+            - JWT Tokens
+            - API Keys
+            - AWS Cognito
+            - No Authentication
+        enableWAF:
+          title: Enable WAF
+          type: boolean
+          description: Enable Web Application Firewall
+          default: true
+        rateLimiting:
+          title: Rate Limiting
+          type: boolean
+          description: Enable rate limiting
+          default: true
+        requestsPerSecond:
+          title: Requests Per Second
+          type: number
+          description: Max requests per second per client
+          default: 100
+
+    - title: Lambda Configuration
+      properties:
+        runtime:
+          title: Lambda Runtime
+          type: string
+          description: Lambda runtime environment
+          default: nodejs18.x
+          enum:
+            - nodejs18.x
+            - nodejs16.x
+            - python3.11
+            - python3.10
+            - java17
+            - java11
+            - dotnet6
+        memorySize:
+          title: Lambda Memory (MB)
+          type: number
+          description: Lambda memory allocation
+          default: 512
+          enum:
+            - 128
+            - 256
+            - 512
+            - 1024
+            - 2048
+        timeout:
+          title: Lambda Timeout (seconds)
+          type: number
+          description: Lambda execution timeout
+          default: 30
+          enum:
+            - 3
+            - 10
+            - 30
+            - 60
+            - 300
+
+    - title: API Endpoints
+      properties:
+        enableCRUD:
+          title: Enable CRUD Endpoints
+          type: boolean
+          description: Auto-generate CRUD endpoints
+          default: true
+        endpoints:
+          title: Custom Endpoints
+          type: array
+          description: Additional custom endpoints
+          items:
+            type: object
+            properties:
+              path:
+                title: Path
+                type: string
+                description: Endpoint path (e.g., /users)
+              method:
+                title: HTTP Method
+                type: string
+                enum:
+                  - GET
+                  - POST
+                  - PUT
+                  - DELETE
+              description:
+                title: Description
+                type: string
+
+    - title: Monitoring & Logging
+      properties:
+        enableMonitoring:
+          title: Enable CloudWatch Monitoring
+          type: boolean
+          description: Enable detailed monitoring
+          default: true
+        enableXRay:
+          title: Enable X-Ray Tracing
+          type: boolean
+          description: Enable AWS X-Ray distributed tracing
+          default: true
+        logRetention:
+          title: Log Retention (days)
+          type: number
+          description: CloudWatch Logs retention period
+          default: 30
+          enum:
+            - 7
+            - 30
+            - 90
+            - 365
+
+    - title: CI/CD
+      properties:
+        enableCICD:
+          title: Enable CI/CD Pipeline
+          type: boolean
+          description: Include GitHub Actions workflow
+          default: true
+
+  steps:
+    - id: fetch-infra
+      name: Fetch Infrastructure
+      action: fetch:template
+      input:
+        url: ./skeleton/infra
+        targetPath: ./infra
+        values:
+          apiName: ${{ parameters.apiName }}
+          description: ${{ parameters.description }}
+          apiVersion: ${{ parameters.apiVersion }}
+          enableAuth: ${{ parameters.enableAuth }}
+          authType: ${{ parameters.authType }}
+          enableWAF: ${{ parameters.enableWAF }}
+          rateLimiting: ${{ parameters.rateLimiting }}
+          requestsPerSecond: ${{ parameters.requestsPerSecond }}
+          runtime: ${{ parameters.runtime }}
+          memorySize: ${{ parameters.memorySize }}
+          timeout: ${{ parameters.timeout }}
+          enableCRUD: ${{ parameters.enableCRUD }}
+          endpoints: ${{ parameters.endpoints }}
+          enableMonitoring: ${{ parameters.enableMonitoring }}
+          enableXRay: ${{ parameters.enableXRay }}
+          logRetention: ${{ parameters.logRetention }}
+
+    - id: fetch-src
+      name: Fetch Lambda Source Code
+      action: fetch:template
+      input:
+        url: ./skeleton/src
+        targetPath: ./src
+        values:
+          apiName: ${{ parameters.apiName }}
+          runtime: ${{ parameters.runtime }}
+          enableAuth: ${{ parameters.enableAuth }}
+          authType: ${{ parameters.authType }}
+          enableCRUD: ${{ parameters.enableCRUD }}
+          endpoints: ${{ parameters.endpoints }}
+
+    - id: fetch-tests
+      name: Fetch Test Suite
+      action: fetch:template
+      input:
+        url: ./skeleton/tests
+        targetPath: ./tests
+
+    - id: publish
+      name: Publish to Repository
+      action: publish:github
+      input:
+        description: ${{ parameters.description }}
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: main
+        gitCommitMessage: 'feat: initial commit - API Gateway with Lambda'
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}
+      - title: API Gateway URL
+        icon: docs
+      - title: API Documentation
+        icon: docs

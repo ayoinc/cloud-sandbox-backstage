@@ -1,0 +1,30 @@
+name: ADR Validation
+
+on:
+  push:
+    branches: [main]
+    paths: ['docs/adrs/**']
+  pull_request:
+    paths: ['docs/adrs/**']
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Validate ADR Format
+        run: |
+          for file in docs/adrs/*.md; do
+            if [ -f "$file" ]; then
+              echo "Checking $file"
+              grep -q "## Status" "$file" || echo "Missing Status section in $file"
+              grep -q "## Context" "$file" || echo "Missing Context section in $file"
+              grep -q "## Decision" "$file" || echo "Missing Decision section in $file"
+            fi
+          done
+
+      - name: Build Docs
+        run: |
+          pip install mkdocs mkdocs-material
+          mkdocs build --strict

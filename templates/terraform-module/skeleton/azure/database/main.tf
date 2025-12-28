@@ -22,14 +22,14 @@ terraform {
 # -----------------------------------------------------------------------------
 
 locals {
-  name_prefix = "${var.project}-${var.environment}"
+  name_prefix = "${var.project_name}-${var.environment}"
 
   postgresql_server_name = "${local.name_prefix}-psql"
   private_endpoint_name  = "${local.name_prefix}-psql-pe"
   redis_name             = "${local.name_prefix}-redis"
 
   # Private DNS zone name for PostgreSQL Flexible Server
-  postgresql_private_dns_zone_name = "${var.project}${var.environment}.postgres.database.azure.com"
+  postgresql_private_dns_zone_name = "${var.project_name}${var.environment}.postgres.database.azure.com"
 }
 
 # -----------------------------------------------------------------------------

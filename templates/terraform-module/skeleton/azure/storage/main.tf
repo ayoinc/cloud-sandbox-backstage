@@ -12,7 +12,7 @@ resource "random_id" "storage" {
 # -----------------------------------------------------------------------------
 
 resource "azurerm_storage_account" "main" {
-  name                     = lower(replace("${var.project}${var.environment}${random_id.storage.hex}", "-", ""))
+  name                     = lower(replace("${var.project_name}${var.environment}${random_id.storage.hex}", "-", ""))
   resource_group_name      = var.resource_group_name
   location                 = var.location
   account_tier             = var.account_tier
@@ -47,9 +47,9 @@ resource "azurerm_storage_account" "main" {
   }
 
   tags = merge(var.tags, {
-    Name        = "${var.project}-${var.environment}-storage"
+    Name        = "${var.project_name}-${var.environment}-storage"
     Environment = var.environment
-    Project     = var.project
+    Project     = var.project_name
   })
 }
 
@@ -123,7 +123,7 @@ resource "azurerm_storage_management_policy" "main" {
 resource "azurerm_storage_share" "main" {
   count = var.enable_file_share ? 1 : 0
 
-  name                 = "${var.project}-${var.environment}-share"
+  name                 = "${var.project_name}-${var.environment}-share"
   storage_account_name = azurerm_storage_account.main.name
   quota                = var.file_share_quota_gb
   access_tier          = var.file_share_access_tier
@@ -138,7 +138,7 @@ resource "azurerm_storage_share" "main" {
 resource "azurerm_monitor_diagnostic_setting" "storage" {
   count = var.log_analytics_workspace_id != null ? 1 : 0
 
-  name                       = "${var.project}-${var.environment}-storage-diag"
+  name                       = "${var.project_name}-${var.environment}-storage-diag"
   target_resource_id         = "${azurerm_storage_account.main.id}/blobServices/default"
   log_analytics_workspace_id = var.log_analytics_workspace_id
 

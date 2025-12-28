@@ -1,0 +1,207 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: gcp-cloud-endpoints
+  title: GCP Cloud Endpoints
+  description: Create a Cloud Endpoints API with OpenAPI spec, authentication, monitoring, and developer portal
+  tags:
+    - cloud-endpoints
+    - gcp
+    - api-gateway
+    - grpc
+    - production-ready
+spec:
+  owner: platform-team
+  type: api
+
+  parameters:
+    - title: API Information
+      required:
+        - apiName
+        - description
+      properties:
+        apiName:
+          title: API Name
+          type: string
+          description: Name of the API service (e.g., product-api)
+          pattern: '^[a-z0-9\-]+$'
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Description of the API
+        projectId:
+          title: GCP Project ID
+          type: string
+          description: GCP project ID
+
+    - title: API Protocol
+      properties:
+        protocol:
+          title: Protocol
+          type: string
+          description: API protocol
+          default: rest
+          enum:
+            - rest
+            - grpc
+            - grpc-rest
+          enumNames:
+            - REST/HTTP
+            - gRPC
+            - gRPC with REST Transcoding
+        openApiSpec:
+          title: OpenAPI Specification
+          type: string
+          description: Path to OpenAPI spec file (for REST)
+          default: './openapi.yaml'
+        grpcSpec:
+          title: gRPC Service Definition
+          type: string
+          description: Path to .proto file (for gRPC)
+          default: './service.proto'
+
+    - title: Backend Configuration
+      required:
+        - backendType
+      properties:
+        backendType:
+          title: Backend Type
+          type: string
+          description: Type of backend service
+          default: cloud-run
+          enum:
+            - cloud-run
+            - compute-engine
+            - gke
+            - serverless
+          enumNames:
+            - Cloud Run
+            - Compute Engine
+            - Google Kubernetes Engine
+            - Cloud Functions
+        backendUrl:
+          title: Backend Service URL
+          type: string
+          description: URL of the backend service
+
+    - title: Authentication & Security
+      properties:
+        enableAuth:
+          title: Enable Authentication
+          type: boolean
+          description: Enable authentication
+          default: true
+        authType:
+          title: Authentication Type
+          type: string
+          description: Authentication mechanism
+          default: jwt
+          enum:
+            - jwt
+            - apikey
+            - firebase
+            - oauth2
+        enableCORS:
+          title: Enable CORS
+          type: boolean
+          description: Enable CORS for cross-origin requests
+          default: true
+
+    - title: Monitoring & Logging
+      properties:
+        enableMonitoring:
+          title: Enable Monitoring
+          type: boolean
+          description: Enable Cloud Monitoring
+          default: true
+        enableLogging:
+          title: Enable Cloud Logging
+          type: boolean
+          description: Enable request/response logging
+          default: true
+        logLevel:
+          title: Log Level
+          type: string
+          description: Logging level
+          default: INFO
+          enum:
+            - DEBUG
+            - INFO
+            - WARNING
+            - ERROR
+
+    - title: Quotas & Rate Limiting
+      properties:
+        enableQuotas:
+          title: Enable Quotas
+          type: boolean
+          description: Enable API quotas
+          default: true
+        quotaLimit:
+          title: Quota Limit
+          type: number
+          description: Requests per minute
+          default: 1000
+
+    - title: Developer Portal
+      properties:
+        enablePortal:
+          title: Enable Developer Portal
+          type: boolean
+          description: Enable API developer portal
+          default: true
+
+  steps:
+    - id: fetch-infra
+      name: Fetch Infrastructure
+      action: fetch:template
+      input:
+        url: ./skeleton/infra
+        targetPath: ./infra
+        values:
+          apiName: ${{ parameters.apiName }}
+          description: ${{ parameters.description }}
+          projectId: ${{ parameters.projectId }}
+          protocol: ${{ parameters.protocol }}
+          openApiSpec: ${{ parameters.openApiSpec }}
+          grpcSpec: ${{ parameters.grpcSpec }}
+          backendType: ${{ parameters.backendType }}
+          backendUrl: ${{ parameters.backendUrl }}
+          enableAuth: ${{ parameters.enableAuth }}
+          authType: ${{ parameters.authType }}
+          enableCORS: ${{ parameters.enableCORS }}
+          enableMonitoring: ${{ parameters.enableMonitoring }}
+          enableLogging: ${{ parameters.enableLogging }}
+          logLevel: ${{ parameters.logLevel }}
+          enableQuotas: ${{ parameters.enableQuotas }}
+          quotaLimit: ${{ parameters.quotaLimit }}
+          enablePortal: ${{ parameters.enablePortal }}
+
+    - id: publish
+      name: Publish to Repository
+      action: publish:github
+      input:
+        description: ${{ parameters.description }}
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: main
+        gitCommitMessage: 'feat: initial commit - GCP Cloud Endpoints'
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}
+      - title: API Dashboard
+        icon: dashboard
+      - title: Metrics Dashboard
+        icon: bar-chart

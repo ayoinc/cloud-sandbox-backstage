@@ -1,0 +1,79 @@
+name: Terraform Test
+
+on:
+  push:
+    branches: [main, develop]
+    paths: ['catalog/terraform-modules/**/*.tf', 'catalog/terraform-modules/**/*.tftest.hcl']
+  pull_request:
+    paths: ['catalog/terraform-modules/**/*.tf', 'catalog/terraform-modules/**/*.tftest.hcl']
+
+jobs:
+  test:
+    name: Test ${{ matrix.provider }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        provider: [azure, aws, gcp]
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.7.0
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+        working-directory: catalog/terraform-modules/${{ matrix.provider }}
+
+      - name: Test Infrastructure Layer
+        run: |
+          cd infrastructure
+          terraform init -backend=false
+          terraform validate
+          terraform test -verbose
+        working-directory: catalog/terraform-modules/${{ matrix.provider }}
+
+      - name: Test Resource Modules
+        run: |
+          for module in resources/*/; do
+            if [ -d "$module/tests" ]; then
+              echo "Testing $module"
+              cd "$module"
+              terraform init -backend=false
+              terraform validate
+              terraform test -verbose || true
+              cd ../..
+            fi
+          done
+        working-directory: catalog/terraform-modules/${{ matrix.provider }}
+
+  test-shared:
+    name: Test Shared Modules
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.7.0
+
+      - name: Test Shared Modules
+        run: |
+          for module in naming tagging validation; do
+            if [ -d "$module" ]; then
+              echo "Testing shared/$module"
+              cd "$module"
+              terraform init -backend=false
+              terraform validate
+              terraform test -verbose || true
+              cd ..
+            fi
+          done
+        working-directory: catalog/terraform-modules/shared

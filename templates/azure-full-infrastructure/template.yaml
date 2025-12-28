@@ -1,0 +1,226 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: azure-full-infrastructure
+  title: Azure Full Infrastructure
+  description: Complete Azure infrastructure with all resource types - enable/disable what you need
+  tags:
+    - recommended
+    - terraform
+    - azure
+    - infrastructure
+    - enterprise
+spec:
+  owner: platform-team
+  type: infrastructure
+
+  parameters:
+    - title: Project Information
+      required: [name, owner, module_registry]
+      properties:
+        name:
+          title: Project Name
+          type: string
+          pattern: '^[a-z0-9-]+$'
+        owner:
+          title: Owner
+          type: string
+          ui:field: OwnerPicker
+        module_registry:
+          title: Module Registry (GitHub org/user)
+          type: string
+          default: your-org
+          description: GitHub org containing terraform-modules repo
+
+    - title: Repository
+      required: [repoUrl]
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts: [github.com]
+
+    - title: Networking
+      properties:
+        enable_networking:
+          title: Enable Networking
+          type: boolean
+          default: true
+        enable_bastion:
+          title: Enable Bastion Host
+          type: boolean
+          default: false
+        enable_firewall:
+          title: Enable Azure Firewall
+          type: boolean
+          default: false
+        enable_vpn:
+          title: Enable VPN Gateway
+          type: boolean
+          default: false
+        enable_front_door:
+          title: Enable Front Door
+          type: boolean
+          default: false
+
+    - title: Compute
+      properties:
+        enable_vms:
+          title: Enable Virtual Machines
+          type: boolean
+          default: false
+        enable_vmss:
+          title: Enable VM Scale Sets
+          type: boolean
+          default: false
+        enable_app_service:
+          title: Enable App Service
+          type: boolean
+          default: false
+        enable_functions:
+          title: Enable Azure Functions
+          type: boolean
+          default: false
+        enable_container_apps:
+          title: Enable Container Apps
+          type: boolean
+          default: false
+
+    - title: Containers
+      properties:
+        enable_aks:
+          title: Enable AKS
+          type: boolean
+          default: false
+        enable_acr:
+          title: Enable Container Registry
+          type: boolean
+          default: false
+
+    - title: Storage
+      properties:
+        enable_storage:
+          title: Enable Storage Account
+          type: boolean
+          default: true
+        enable_data_lake:
+          title: Enable Data Lake
+          type: boolean
+          default: false
+
+    - title: Database
+      properties:
+        enable_sql:
+          title: Enable Azure SQL
+          type: boolean
+          default: false
+        enable_cosmos:
+          title: Enable Cosmos DB
+          type: boolean
+          default: false
+        enable_postgresql:
+          title: Enable PostgreSQL
+          type: boolean
+          default: false
+        enable_redis:
+          title: Enable Redis Cache
+          type: boolean
+          default: false
+
+    - title: Security
+      properties:
+        enable_keyvault:
+          title: Enable Key Vault
+          type: boolean
+          default: true
+        enable_managed_identity:
+          title: Enable Managed Identity
+          type: boolean
+          default: true
+
+    - title: Monitoring
+      properties:
+        enable_log_analytics:
+          title: Enable Log Analytics
+          type: boolean
+          default: true
+        enable_app_insights:
+          title: Enable Application Insights
+          type: boolean
+          default: false
+
+    - title: Integration
+      properties:
+        enable_service_bus:
+          title: Enable Service Bus
+          type: boolean
+          default: false
+        enable_event_grid:
+          title: Enable Event Grid
+          type: boolean
+          default: false
+        enable_api_management:
+          title: Enable API Management
+          type: boolean
+          default: false
+
+  steps:
+    - id: fetch
+      name: Fetch Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        templateFileExtension: '.j2'
+        values:
+          name: ${{ parameters.name }}
+          owner: ${{ parameters.owner }}
+          module_registry: ${{ parameters.module_registry }}
+          enable_networking: ${{ parameters.enable_networking }}
+          enable_bastion: ${{ parameters.enable_bastion }}
+          enable_firewall: ${{ parameters.enable_firewall }}
+          enable_vpn: ${{ parameters.enable_vpn }}
+          enable_front_door: ${{ parameters.enable_front_door }}
+          enable_vms: ${{ parameters.enable_vms }}
+          enable_vmss: ${{ parameters.enable_vmss }}
+          enable_app_service: ${{ parameters.enable_app_service }}
+          enable_functions: ${{ parameters.enable_functions }}
+          enable_container_apps: ${{ parameters.enable_container_apps }}
+          enable_aks: ${{ parameters.enable_aks }}
+          enable_acr: ${{ parameters.enable_acr }}
+          enable_storage: ${{ parameters.enable_storage }}
+          enable_data_lake: ${{ parameters.enable_data_lake }}
+          enable_sql: ${{ parameters.enable_sql }}
+          enable_cosmos: ${{ parameters.enable_cosmos }}
+          enable_postgresql: ${{ parameters.enable_postgresql }}
+          enable_redis: ${{ parameters.enable_redis }}
+          enable_keyvault: ${{ parameters.enable_keyvault }}
+          enable_managed_identity: ${{ parameters.enable_managed_identity }}
+          enable_log_analytics: ${{ parameters.enable_log_analytics }}
+          enable_app_insights: ${{ parameters.enable_app_insights }}
+          enable_service_bus: ${{ parameters.enable_service_bus }}
+          enable_event_grid: ${{ parameters.enable_event_grid }}
+          enable_api_management: ${{ parameters.enable_api_management }}
+
+    - id: publish
+      name: Publish
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: Azure infrastructure for ${{ parameters.name }}
+
+    - id: register
+      name: Register
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: /catalog-info.yaml
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}

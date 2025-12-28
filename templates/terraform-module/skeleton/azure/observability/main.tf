@@ -3,11 +3,11 @@
 # -----------------------------------------------------------------------------
 
 locals {
-  name_prefix = "${var.project}-${var.environment}"
+  name_prefix = "${var.project_name}-${var.environment}"
   common_tags = merge(var.tags, {
-    Name        = "${var.project}-${var.environment}-observability"
+    Name        = "${var.project_name}-${var.environment}-observability"
     Environment = var.environment
-    Project     = var.project
+    Project     = var.project_name
   })
 }
 
@@ -80,7 +80,7 @@ resource "azurerm_application_insights" "main" {
 resource "azurerm_monitor_action_group" "main" {
   name                = "${local.name_prefix}-action-group"
   resource_group_name = var.resource_group_name
-  short_name          = substr(replace("${var.project}${var.environment}", "-", ""), 0, 12)
+  short_name          = substr(replace("${var.project_name}${var.environment}", "-", ""), 0, 12)
 
   dynamic "email_receiver" {
     for_each = var.alert_email != null ? [var.alert_email] : []
@@ -293,7 +293,7 @@ resource "azurerm_portal_dashboard" "main" {
     location                   = var.location
     log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
     application_insights_id    = var.enable_application_insights ? azurerm_application_insights.main[0].id : ""
-    project                    = var.project
+    project                    = var.project_name
     environment                = var.environment
   })
 

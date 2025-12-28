@@ -152,6 +152,7 @@ spec:
       action: fetch:template
       input:
         url: ./skeleton
+        templateFileExtension: '.j2'
         values:
           name: ${{ parameters.name }}
           description: ${{ parameters.description }}

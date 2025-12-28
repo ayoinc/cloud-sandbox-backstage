@@ -1,0 +1,217 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: graphql-api-apollo
+  title: GraphQL API (Apollo Server)
+  description: Create a production-ready GraphQL API using Apollo Server with authentication, subscriptions, and monitoring
+  tags:
+    - graphql
+    - apollo
+    - api
+    - nodejs
+    - production-ready
+    - subscriptions
+spec:
+  owner: platform-team
+  type: api
+
+  parameters:
+    - title: API Information
+      required:
+        - apiName
+        - description
+      properties:
+        apiName:
+          title: API Name
+          type: string
+          description: Name of the GraphQL API (e.g., product-catalog-api)
+          pattern: '^[a-z0-9\-]+$'
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Description of the GraphQL API
+        apiVersion:
+          title: API Version
+          type: string
+          description: API version (semver)
+          default: '1.0.0'
+
+    - title: Database & Data
+      properties:
+        databaseType:
+          title: Database Type
+          type: string
+          description: Primary database
+          default: postgresql
+          enum:
+            - postgresql
+            - mongodb
+            - mysql
+            - sqlite
+        enableCache:
+          title: Enable Redis Cache
+          type: boolean
+          description: Include Redis for query caching
+          default: true
+
+    - title: GraphQL Features
+      properties:
+        enableSubscriptions:
+          title: Enable Subscriptions
+          type: boolean
+          description: Enable real-time subscriptions with WebSockets
+          default: true
+        enableFederation:
+          title: Enable Apollo Federation
+          type: boolean
+          description: Enable Apollo Federation for microservices
+          default: false
+        enableFileUpload:
+          title: Enable File Upload
+          type: boolean
+          description: Enable GraphQL file uploads
+          default: true
+        queryComplexity:
+          title: Query Complexity Limit
+          type: number
+          description: Maximum query complexity score
+          default: 1000
+
+    - title: Authentication & Authorization
+      properties:
+        enableAuth:
+          title: Enable Authentication
+          type: boolean
+          description: Enable JWT authentication
+          default: true
+        authProvider:
+          title: Auth Provider
+          type: string
+          description: Authentication provider
+          default: jwt
+          enum:
+            - jwt
+            - oauth2
+        enableRBAC:
+          title: Enable RBAC
+          type: boolean
+          description: Enable role-based access control
+          default: true
+        enableABAC:
+          title: Enable ABAC
+          type: boolean
+          description: Enable attribute-based access control
+          default: false
+
+    - title: Monitoring & Tracing
+      properties:
+        enableMonitoring:
+          title: Enable Monitoring
+          type: boolean
+          description: Enable GraphQL query monitoring
+          default: true
+        enableTracing:
+          title: Enable Tracing
+          type: boolean
+          description: Enable distributed tracing (OpenTelemetry)
+          default: true
+        enableMetrics:
+          title: Enable Metrics
+          type: boolean
+          description: Enable GraphQL metrics collection
+          default: true
+
+    - title: Development Tools
+      properties:
+        enablePlayground:
+          title: Enable GraphQL Playground
+          type: boolean
+          description: Include GraphQL Playground for testing
+          default: true
+        enableCodegen:
+          title: Enable Code Generation
+          type: boolean
+          description: Include GraphQL code generator
+          default: true
+        enableSchemaRegistry:
+          title: Enable Schema Registry
+          type: boolean
+          description: Enable Apollo Schema Registry
+          default: true
+
+  steps:
+    - id: fetch-infra
+      name: Fetch Infrastructure
+      action: fetch:template
+      input:
+        url: ./skeleton/infra
+        targetPath: ./infra
+        values:
+          apiName: ${{ parameters.apiName }}
+          description: ${{ parameters.description }}
+          apiVersion: ${{ parameters.apiVersion }}
+          databaseType: ${{ parameters.databaseType }}
+          enableCache: ${{ parameters.enableCache }}
+          enableSubscriptions: ${{ parameters.enableSubscriptions }}
+          enableFederation: ${{ parameters.enableFederation }}
+          enableFileUpload: ${{ parameters.enableFileUpload }}
+          queryComplexity: ${{ parameters.queryComplexity }}
+          enableAuth: ${{ parameters.enableAuth }}
+          authProvider: ${{ parameters.authProvider }}
+          enableRBAC: ${{ parameters.enableRBAC }}
+          enableABAC: ${{ parameters.enableABAC }}
+          enableMonitoring: ${{ parameters.enableMonitoring }}
+          enableTracing: ${{ parameters.enableTracing }}
+          enableMetrics: ${{ parameters.enableMetrics }}
+          enablePlayground: ${{ parameters.enablePlayground }}
+          enableCodegen: ${{ parameters.enableCodegen }}
+          enableSchemaRegistry: ${{ parameters.enableSchemaRegistry }}
+
+    - id: fetch-src
+      name: Fetch Source Code
+      action: fetch:template
+      input:
+        url: ./skeleton/src
+        targetPath: ./src
+        values:
+          apiName: ${{ parameters.apiName }}
+          databaseType: ${{ parameters.databaseType }}
+          enableSubscriptions: ${{ parameters.enableSubscriptions }}
+          enableFederation: ${{ parameters.enableFederation }}
+          enableAuth: ${{ parameters.enableAuth }}
+
+    - id: fetch-tests
+      name: Fetch Test Suite
+      action: fetch:template
+      input:
+        url: ./skeleton/tests
+        targetPath: ./tests
+
+    - id: publish
+      name: Publish to Repository
+      action: publish:github
+      input:
+        description: ${{ parameters.description }}
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: main
+        gitCommitMessage: 'feat: initial commit - GraphQL API'
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}
+      - title: GraphQL Playground
+        icon: graphql
+      - title: API Documentation
+        icon: docs

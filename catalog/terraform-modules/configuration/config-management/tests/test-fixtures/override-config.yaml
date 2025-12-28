@@ -1,0 +1,4 @@
+# Override config - should take precedence
+app_name: 'override-app'
+version: '2.0.0'
+specific_setting: 'override-value'

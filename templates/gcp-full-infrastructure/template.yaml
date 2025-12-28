@@ -1,0 +1,373 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: gcp-full-infrastructure
+  title: GCP Full Infrastructure Stack
+  description:
+    Complete GCP infrastructure stack with all resource categories - networking, compute, containers, storage, databases, security, monitoring, and more.
+    Creates production-ready infrastructure with proper naming conventions, environment isolation, and comprehensive testing.
+  tags:
+    - gcp
+    - terraform
+    - infrastructure
+    - cloud
+    - iac
+    - platform
+spec:
+  owner: platform-team
+  type: infrastructure
+
+  parameters:
+    - title: Project Information
+      required:
+        - projectName
+        - componentName
+        - gcpProjectId
+      properties:
+        projectName:
+          title: Project Name
+          type: string
+          description: Project name for resource naming (use hyphens, lowercase only)
+          pattern: '^[a-z0-9-]+$'
+          ui:help: 'Example: solar-app, data-platform, marketing-site'
+        componentName:
+          title: Component Name
+          type: string
+          description: Unique name for this infrastructure component
+          ui:autofocus: true
+        gcpProjectId:
+          title: GCP Project ID
+          type: string
+          description: GCP project ID where resources will be deployed
+          ui:help: 'Your GCP project ID (e.g., my-gcp-project-12345)'
+        description:
+          title: Description
+          type: string
+          description: Brief description of this infrastructure component
+
+    - title: Environment & Location
+      required:
+        - environment
+        - region
+      properties:
+        environment:
+          title: Environment
+          type: string
+          description: Deployment environment
+          enum: [dev, staging, prod, dr]
+          default: dev
+          ui:widget: select
+        region:
+          title: GCP Region
+          type: string
+          description: Primary GCP region for deployment
+          default: us-central1
+          enum:
+            - us-central1
+            - us-east1
+            - us-east4
+            - us-west1
+            - us-west2
+            - us-west3
+            - us-west4
+            - northamerica-northeast1
+            - northamerica-northeast2
+            - europe-west1
+            - europe-west2
+            - europe-west3
+            - europe-west4
+            - europe-west6
+            - asia-east1
+            - asia-east2
+            - asia-northeast1
+            - asia-northeast2
+            - asia-northeast3
+            - asia-southeast1
+            - asia-south1
+            - australia-southeast1
+
+    - title: Network Architecture
+      required:
+        - network_cidr
+      properties:
+        network_cidr:
+          title: VPC Network CIDR Block
+          type: string
+          description: CIDR notation for the VPC network (e.g., 10.0.0.0/16)
+          default: 10.0.0.0/16
+        subnet_configurations:
+          title: Subnet Configuration
+          type: array
+          description: Define subnets for the VPC
+          items:
+            type: object
+            required: [name, cidr, region]
+            properties:
+              name:
+                type: string
+                title: Subnet Name
+              cidr:
+                type: string
+                title: CIDR Block
+              region:
+                type: string
+                title: Subnet Region
+          default:
+            - name: public-us-central1
+              cidr: 10.0.1.0/24
+              region: us-central1
+            - name: public-us-east1
+              cidr: 10.0.2.0/24
+              region: us-east1
+            - name: private-us-central1
+              cidr: 10.0.10.0/24
+              region: us-central1
+            - name: private-us-east1
+              cidr: 10.0.11.0/24
+              region: us-east1
+
+    - title: Resource Categories Selection
+      description: Enable/disable specific resource categories
+      properties:
+        enable_networking:
+          title: Enable Networking Resources
+          type: boolean
+          description: VPC networks, subnets, firewall rules, load balancers, Cloud CDN, Cloud Interconnect
+          default: true
+        enable_compute:
+          title: Enable Compute Resources
+          type: boolean
+          description: Compute Engine instances, managed instance groups, GPUs, TPUs
+          default: true
+        enable_containers:
+          title: Enable Container Resources
+          type: boolean
+          description: GKE clusters, Artifact Registry, Cloud Run, Cloud Build
+          default: true
+        enable_storage:
+          title: Enable Storage Resources
+          type: boolean
+          description: Cloud Storage buckets, Filestore, Persistent Disks, Cloud Storage for Firebase
+          default: true
+        enable_database:
+          title: Enable Database Resources
+          type: boolean
+          description: Cloud SQL (PostgreSQL, MySQL, SQL Server), Cloud Spanner, Firestore, Bigtable, Memorystore
+          default: true
+        enable_security:
+          title: Enable Security Resources
+          type: boolean
+          description: Secret Manager, Key Management Service, IAM service accounts, IAP, VPC Service Controls
+          default: true
+        enable_monitoring:
+          title: Enable Monitoring Resources
+          type: boolean
+          description: Cloud Monitoring, Cloud Logging, Error Reporting, Trace, Debugger
+          default: true
+        enable_analytics:
+          title: Enable Analytics Resources
+          type: boolean
+          description: BigQuery, Dataflow, Dataproc, Pub/Sub, Datastream, Data Fusion
+          default: false
+        enable_ai_ml:
+          title: Enable AI/ML Resources
+          type: boolean
+          description: Vertex AI, AI Platform, AutoML, Vision AI, Natural Language, Speech-to-Text
+          default: false
+        enable_serverless:
+          title: Enable Serverless Resources
+          type: boolean
+          description: Cloud Functions, Cloud Run, App Engine
+          default: false
+
+    - title: Compute Configuration
+      properties:
+        machine_type:
+          title: Machine Type
+          type: string
+          description: Machine type for Compute Engine instances (e.g., e2-medium for dev, n2-standard-2 for production)
+          default: e2-medium
+        boot_disk_size:
+          title: Boot Disk Size (GB)
+          type: number
+          description: Size of boot disk for Compute Engine instances
+          default: 50
+          minimum: 10
+          maximum: 65536
+        boot_disk_type:
+          title: Boot Disk Type
+          type: string
+          description: Disk type for boot disk
+          enum: [pd-standard, pd-balanced, pd-ssd, pd-extreme]
+          default: pd-balanced
+
+    - title: GKE Configuration
+      properties:
+        gke_version:
+          title: GKE Kubernetes Version
+          type: string
+          description: Kubernetes version for GKE cluster
+          default: '1.28'
+        gke_node_machine_type:
+          title: GKE Node Machine Type
+          type: string
+          description: Machine type for GKE worker nodes
+          default: e2-medium
+        gke_node_locations:
+          title: GKE Node Locations
+          type: array
+          description: Zones for GKE node pools
+          items:
+            type: string
+          default:
+            - us-central1-a
+            - us-central1-b
+            - us-central1-c
+        gke_initial_node_count:
+          title: Initial Node Count
+          type: number
+          description: Initial number of nodes per zone
+          default: 1
+          minimum: 1
+        gke_min_node_count:
+          title: Minimum Node Count
+          type: number
+          description: Minimum number of nodes for autoscaling per zone
+          default: 1
+          minimum: 1
+        gke_max_node_count:
+          title: Maximum Node Count
+          type: number
+          description: Maximum number of nodes for autoscaling per zone
+          default: 10
+          minimum: 1
+          maximum: 100
+
+    - title: Storage Configuration
+      properties:
+        storage_class:
+          title: Cloud Storage Class
+          type: string
+          description: Default storage class for Cloud Storage buckets
+          enum: [STANDARD, NEARLINE, COLDLINE, ARCHIVE]
+          default: STANDARD
+        enable_versioning:
+          title: Enable Versioning
+          type: boolean
+          description: Enable versioning for Cloud Storage buckets
+          default: true
+        enable_filestore:
+          title: Enable Filestore
+          type: boolean
+          description: Create Filestore NFS file system
+          default: false
+
+    - title: Database Configuration
+      properties:
+        cloudsql_database_version:
+          title: Cloud SQL Database Version
+          type: string
+          description: Database version for Cloud SQL (PostgreSQL recommended)
+          default: POSTGRES_15
+        cloudsql_tier:
+          title: Cloud SQL Machine Tier
+          type: string
+          description: Machine tier for Cloud SQL instance
+          default: db-custom-1-3840
+        cloudsql_disk_size:
+          title: Cloud SQL Disk Size (GB)
+          type: number
+          description: Disk size for Cloud SQL instance
+          default: 100
+          minimum: 10
+        cloudsql_backup_retention:
+          title: Cloud SQL Backup Retention Days
+          type: number
+          description: Number of backup retention days (1-365)
+          default: 7
+          minimum: 1
+          maximum: 365
+        enable_firestore:
+          title: Enable Firestore
+          type: boolean
+          description: Create Firestore database for document storage
+          default: false
+        enable_redis:
+          title: Enable Memorystore Redis
+          type: boolean
+          description: Create Memorystore Redis instance for caching
+          default: false
+
+    - title: Advanced Settings
+      properties:
+        tags:
+          title: Additional Tags
+          type: object
+          description: Additional tags to apply to all resources
+          additionalProperties:
+            type: string
+          default:
+            managedBy: backstage
+            terraform: 'true'
+
+  steps:
+    - id: template
+      name: Generate GCP Infrastructure Code
+      action: fetch:template
+      input:
+        url: ./template
+        targetPath: ./iac
+        values:
+          projectName: ${{ parameters.projectName }}
+          componentName: ${{ parameters.componentName }}
+          gcpProjectId: ${{ parameters.gcpProjectId }}
+          description: ${{ parameters.description }}
+          environment: ${{ parameters.environment }}
+          region: ${{ parameters.region }}
+          network_cidr: ${{ parameters.network_cidr }}
+          subnet_configurations: ${{ parameters.subnet_configurations }}
+          enable_networking: ${{ parameters.enable_networking }}
+          enable_compute: ${{ parameters.enable_compute }}
+          enable_containers: ${{ parameters.enable_containers }}
+          enable_storage: ${{ parameters.enable_storage }}
+          enable_database: ${{ parameters.enable_database }}
+          enable_security: ${{ parameters.enable_security }}
+          enable_monitoring: ${{ parameters.enable_monitoring }}
+          enable_analytics: ${{ parameters.enable_analytics }}
+          enable_ai_ml: ${{ parameters.enable_ai_ml }}
+          enable_serverless: ${{ parameters.enable_serverless }}
+          machine_type: ${{ parameters.machine_type }}
+          boot_disk_size: ${{ parameters.boot_disk_size }}
+          boot_disk_type: ${{ parameters.boot_disk_type }}
+          gke_version: ${{ parameters.gke_version }}
+          gke_node_machine_type: ${{ parameters.gke_node_machine_type }}
+          gke_node_locations: ${{ parameters.gke_node_locations }}
+          gke_initial_node_count: ${{ parameters.gke_initial_node_count }}
+          gke_min_node_count: ${{ parameters.gke_min_node_count }}
+          gke_max_node_count: ${{ parameters.gke_max_node_count }}
+          storage_class: ${{ parameters.storage_class }}
+          enable_versioning: ${{ parameters.enable_versioning }}
+          enable_filestore: ${{ parameters.enable_filestore }}
+          cloudsql_database_version: ${{ parameters.cloudsql_database_version }}
+          cloudsql_tier: ${{ parameters.cloudsql_tier }}
+          cloudsql_disk_size: ${{ parameters.cloudsql_disk_size }}
+          cloudsql_backup_retention: ${{ parameters.cloudsql_backup_retention }}
+          enable_firestore: ${{ parameters.enable_firestore }}
+          enable_redis: ${{ parameters.enable_redis }}
+          tags: ${{ parameters.tags }}
+
+    - id: publish
+      name: Publish to Git
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        description: 'GCP Full Infrastructure Stack for ${{ parameters.componentName }}'
+        repoUrl: 'github.com?repo=${{ parameters.componentName }}-gcp-infra&owner=${{ parameters.owner }}'
+        defaultBranch: main
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open in Google Cloud Console
+        url: https://console.cloud.google.com/project/${{ parameters.gcpProjectId }}

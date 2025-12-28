@@ -6,6 +6,11 @@
 # Project and Environment
 # -----------------------------------------------------------------------------
 
+variable "project_name" {
+  description = "Project name for resource naming"
+  type        = string
+}
+
 variable "project_id" {
   description = "GCP project ID"
   type        = string

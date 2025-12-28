@@ -1,0 +1,189 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: azure-api-management
+  title: Azure API Management Service
+  description: Create a comprehensive API Management instance with policies, authentication, rate limiting, and developer portal
+  tags:
+    - api-management
+    - azure
+    - apim
+    - enterprise
+    - production-ready
+spec:
+  owner: platform-team
+  type: api
+
+  parameters:
+    - title: API Management Instance
+      required:
+        - serviceName
+        - description
+      properties:
+        serviceName:
+          title: Service Name
+          type: string
+          description: Name of the API Management service (e.g., corp-api-mgmt)
+          pattern: '^[a-z0-9\-]+$'
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Description of the API Management service
+        sku:
+          title: Pricing Tier
+          type: string
+          description: APIM pricing tier
+          default: Standard
+          enum:
+            - Developer
+            - Basic
+            - Standard
+            - Premium
+        location:
+          title: Location
+          type: string
+          description: Azure region for deployment
+          default: eastus
+
+    - title: Authentication & Security
+      properties:
+        enableAzureAD:
+          title: Enable Azure AD Authentication
+          type: boolean
+          description: Enable Azure AD for developer authentication
+          default: true
+        enableJWT:
+          title: Enable JWT Validation
+          type: boolean
+          description: Enable JWT token validation
+          default: true
+        rateLimiting:
+          title: Rate Limiting Policy
+          type: boolean
+          description: Apply global rate limiting
+          default: true
+        callsPerMinute:
+          title: Calls Per Minute
+          type: number
+          description: Maximum calls per minute per subscription
+          default: 1000
+
+    - title: Developer Portal
+      properties:
+        enablePortal:
+          title: Enable Developer Portal
+          type: boolean
+          description: Enable developer portal
+          default: true
+        enablePortalAuth:
+          title: Enable Portal Authentication
+          type: boolean
+          description: Require authentication for developer portal
+          default: true
+
+    - title: Monitoring & Analytics
+      properties:
+        enableApplicationInsights:
+          title: Enable Application Insights
+          type: boolean
+          description: Enable Application Insights integration
+          default: true
+        enableLogAnalytics:
+          title: Enable Log Analytics
+          type: boolean
+          description: Enable Log Analytics for detailed logs
+          default: true
+        logRetention:
+          title: Log Retention (days)
+          type: number
+          description: Log retention period
+          default: 90
+
+    - title: APIs & Backends
+      properties:
+        apis:
+          title: APIs to Import
+          type: array
+          description: APIs to import and manage
+          items:
+            type: object
+            properties:
+              name:
+                title: API Name
+                type: string
+              backend_url:
+                title: Backend URL
+                type: string
+              description:
+                title: Description
+                type: string
+              open_api_spec:
+                title: OpenAPI Spec URL
+                type: string
+
+    - title: Policies
+      properties:
+        enableCORS:
+          title: Enable CORS Policy
+          type: boolean
+          description: Enable CORS for cross-origin requests
+          default: true
+        enableCaching:
+          title: Enable Response Caching
+          type: boolean
+          description: Enable response caching
+          default: true
+
+  steps:
+    - id: fetch-infra
+      name: Fetch Infrastructure
+      action: fetch:template
+      input:
+        url: ./skeleton/infra
+        targetPath: ./infra
+        values:
+          serviceName: ${{ parameters.serviceName }}
+          description: ${{ parameters.description }}
+          sku: ${{ parameters.sku }}
+          location: ${{ parameters.location }}
+          enableAzureAD: ${{ parameters.enableAzureAD }}
+          enableJWT: ${{ parameters.enableJWT }}
+          rateLimiting: ${{ parameters.rateLimiting }}
+          callsPerMinute: ${{ parameters.callsPerMinute }}
+          enablePortal: ${{ parameters.enablePortal }}
+          enablePortalAuth: ${{ parameters.enablePortalAuth }}
+          enableApplicationInsights: ${{ parameters.enableApplicationInsights }}
+          enableLogAnalytics: ${{ parameters.enableLogAnalytics }}
+          logRetention: ${{ parameters.logRetention }}
+          apis: ${{ parameters.apis }}
+          enableCORS: ${{ parameters.enableCORS }}
+          enableCaching: ${{ parameters.enableCaching }}
+
+    - id: publish
+      name: Publish to Repository
+      action: publish:github
+      input:
+        description: ${{ parameters.description }}
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: main
+        gitCommitMessage: 'feat: initial commit - Azure API Management'
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}
+      - title: Developer Portal
+        icon: docs
+      - title: API Gateway URL
+        icon: dashboard

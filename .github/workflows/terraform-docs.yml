@@ -1,0 +1,41 @@
+name: Terraform Docs
+
+on:
+  push:
+    branches: [main]
+    paths: ['catalog/terraform-modules/**/*.tf']
+  workflow_dispatch:
+
+jobs:
+  docs:
+    name: Generate Documentation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Setup terraform-docs
+        uses: jaxxstorm/action-install-gh-release@v1
+        with:
+          repo: terraform-docs/terraform-docs
+          tag: v0.17.0
+
+      - name: Generate Docs
+        run: |
+          # Generate docs for each module
+          find . -name "main.tf" -exec dirname {} \; | sort -u | while read dir; do
+            if [ -f "$dir/variables.tf" ]; then
+              echo "Generating docs for $dir"
+              terraform-docs markdown table "$dir" > "$dir/README.md" 2>/dev/null || true
+            fi
+          done
+        working-directory: catalog/terraform-modules
+
+      - name: Commit Changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "docs: auto-generate terraform documentation"
+          file_pattern: "catalog/terraform-modules/**/README.md"

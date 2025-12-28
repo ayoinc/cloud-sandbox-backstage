@@ -2,6 +2,12 @@
 # Terraform Unit Tests
 # ==============================================================================
 # These tests validate the module configuration without creating resources
+# Uses mock_provider for testing without credentials
+
+# Mock providers for testing without credentials
+mock_provider "aws" {}
+mock_provider "azurerm" {}
+mock_provider "google" {}
 
 # Test: Variables have valid defaults
 run "validate_variables" {

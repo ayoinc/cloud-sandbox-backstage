@@ -4,11 +4,11 @@
 
 # S3 Bucket
 resource "aws_s3_bucket" "main" {
-  bucket        = "${var.project}-${var.environment}-${var.bucket_suffix}-${random_id.bucket.hex}"
+  bucket        = "${var.project_name}-${var.environment}-${var.bucket_suffix}-${random_id.bucket.hex}"
   force_destroy = var.force_destroy
 
   tags = merge(var.tags, {
-    Name = "${var.project}-${var.environment}-bucket"
+    Name = "${var.project_name}-${var.environment}-bucket"
   })
 }
 
@@ -102,7 +102,7 @@ resource "aws_s3_bucket_logging" "main" {
   bucket = aws_s3_bucket.main.id
 
   target_bucket = var.access_logging_bucket
-  target_prefix = "${var.project}-${var.environment}/"
+  target_prefix = "${var.project_name}-${var.environment}/"
 }
 
 # CORS Configuration
@@ -129,7 +129,7 @@ resource "aws_s3_bucket_cors_configuration" "main" {
 resource "aws_efs_file_system" "main" {
   count = var.enable_efs ? 1 : 0
 
-  creation_token   = "${var.project}-${var.environment}-efs"
+  creation_token   = "${var.project_name}-${var.environment}-efs"
   encrypted        = true
   kms_key_id       = var.kms_key_arn
   performance_mode = var.efs_performance_mode
@@ -143,7 +143,7 @@ resource "aws_efs_file_system" "main" {
   }
 
   tags = merge(var.tags, {
-    Name = "${var.project}-${var.environment}-efs"
+    Name = "${var.project_name}-${var.environment}-efs"
   })
 }
 
@@ -158,7 +158,7 @@ resource "aws_efs_mount_target" "main" {
 resource "aws_security_group" "efs" {
   count = var.enable_efs ? 1 : 0
 
-  name_prefix = "${var.project}-${var.environment}-efs-"
+  name_prefix = "${var.project_name}-${var.environment}-efs-"
   description = "Security group for EFS"
   vpc_id      = var.vpc_id
 
@@ -178,7 +178,7 @@ resource "aws_security_group" "efs" {
   }
 
   tags = merge(var.tags, {
-    Name = "${var.project}-${var.environment}-efs-sg"
+    Name = "${var.project_name}-${var.environment}-efs-sg"
   })
 
   lifecycle {
@@ -207,7 +207,7 @@ resource "aws_efs_access_point" "main" {
   }
 
   tags = merge(var.tags, {
-    Name = "${var.project}-${var.environment}-efs-ap"
+    Name = "${var.project_name}-${var.environment}-efs-ap"
   })
 }
 

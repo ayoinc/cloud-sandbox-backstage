@@ -1,0 +1,29 @@
+name: Runbook Validation
+
+on:
+  push:
+    branches: [main]
+    paths: ['docs/runbooks/**']
+  pull_request:
+    paths: ['docs/runbooks/**']
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Validate Runbook Format
+        run: |
+          for file in docs/runbooks/*.md; do
+            if [ -f "$file" ]; then
+              echo "Checking $file"
+              grep -q "## Procedure" "$file" || echo "Missing Procedure section in $file"
+              grep -q "## Rollback" "$file" || echo "Missing Rollback section in $file"
+            fi
+          done
+
+      - name: Build Docs
+        run: |
+          pip install mkdocs mkdocs-material
+          mkdocs build --strict

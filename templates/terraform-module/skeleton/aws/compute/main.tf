@@ -20,7 +20,7 @@ data "aws_ami" "amazon_linux" {
 
 # Security Group for Compute Instances
 resource "aws_security_group" "compute" {
-  name_prefix = "${var.project}-${var.environment}-compute-"
+  name_prefix = "${var.project_name}-${var.environment}-compute-"
   description = "Security group for compute instances"
   vpc_id      = var.vpc_id
 
@@ -61,7 +61,7 @@ resource "aws_security_group" "compute" {
   }
 
   tags = merge(var.tags, {
-    Name = "${var.project}-${var.environment}-compute-sg"
+    Name = "${var.project_name}-${var.environment}-compute-sg"
   })
 
   lifecycle {
@@ -71,7 +71,7 @@ resource "aws_security_group" "compute" {
 
 # IAM Role for EC2 Instances
 resource "aws_iam_role" "compute" {
-  name = "${var.project}-${var.environment}-compute-role"
+  name = "${var.project_name}-${var.environment}-compute-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -101,7 +101,7 @@ resource "aws_iam_role_policy_attachment" "cloudwatch" {
 
 # Instance Profile
 resource "aws_iam_instance_profile" "compute" {
-  name = "${var.project}-${var.environment}-compute-profile"
+  name = "${var.project_name}-${var.environment}-compute-profile"
   role = aws_iam_role.compute.name
 
   tags = var.tags
@@ -109,7 +109,7 @@ resource "aws_iam_instance_profile" "compute" {
 
 # Launch Template
 resource "aws_launch_template" "main" {
-  name_prefix   = "${var.project}-${var.environment}-"
+  name_prefix   = "${var.project_name}-${var.environment}-"
   image_id      = var.ami_id != "" ? var.ami_id : data.aws_ami.amazon_linux.id
   instance_type = var.instance_type
 
@@ -120,7 +120,7 @@ resource "aws_launch_template" "main" {
   }
 
   user_data = base64encode(templatefile("${path.module}/templates/user_data.sh", {
-    project     = var.project
+    project     = var.project_name
     environment = var.environment
   }))
 
@@ -148,14 +148,14 @@ resource "aws_launch_template" "main" {
   tag_specifications {
     resource_type = "instance"
     tags = merge(var.tags, {
-      Name = "${var.project}-${var.environment}-instance"
+      Name = "${var.project_name}-${var.environment}-instance"
     })
   }
 
   tag_specifications {
     resource_type = "volume"
     tags = merge(var.tags, {
-      Name = "${var.project}-${var.environment}-volume"
+      Name = "${var.project_name}-${var.environment}-volume"
     })
   }
 
@@ -168,7 +168,7 @@ resource "aws_launch_template" "main" {
 
 # Auto Scaling Group
 resource "aws_autoscaling_group" "main" {
-  name                = "${var.project}-${var.environment}-asg"
+  name                = "${var.project_name}-${var.environment}-asg"
   vpc_zone_identifier = var.subnet_ids
   target_group_arns   = var.target_group_arns
   health_check_type   = var.health_check_type
@@ -193,7 +193,7 @@ resource "aws_autoscaling_group" "main" {
 
   dynamic "tag" {
     for_each = merge(var.tags, {
-      Name = "${var.project}-${var.environment}-asg"
+      Name = "${var.project_name}-${var.environment}-asg"
     })
     content {
       key                 = tag.key
@@ -210,7 +210,7 @@ resource "aws_autoscaling_group" "main" {
 
 # Auto Scaling Policies
 resource "aws_autoscaling_policy" "scale_up" {
-  name                   = "${var.project}-${var.environment}-scale-up"
+  name                   = "${var.project_name}-${var.environment}-scale-up"
   scaling_adjustment     = 1
   adjustment_type        = "ChangeInCapacity"
   cooldown               = 300
@@ -218,7 +218,7 @@ resource "aws_autoscaling_policy" "scale_up" {
 }
 
 resource "aws_autoscaling_policy" "scale_down" {
-  name                   = "${var.project}-${var.environment}-scale-down"
+  name                   = "${var.project_name}-${var.environment}-scale-down"
   scaling_adjustment     = -1
   adjustment_type        = "ChangeInCapacity"
   cooldown               = 300
@@ -227,7 +227,7 @@ resource "aws_autoscaling_policy" "scale_down" {
 
 # CloudWatch Alarms for Auto Scaling
 resource "aws_cloudwatch_metric_alarm" "high_cpu" {
-  alarm_name          = "${var.project}-${var.environment}-high-cpu"
+  alarm_name          = "${var.project_name}-${var.environment}-high-cpu"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 2
   metric_name         = "CPUUtilization"
@@ -246,7 +246,7 @@ resource "aws_cloudwatch_metric_alarm" "high_cpu" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "low_cpu" {
-  alarm_name          = "${var.project}-${var.environment}-low-cpu"
+  alarm_name          = "${var.project_name}-${var.environment}-low-cpu"
   comparison_operator = "LessThanThreshold"
   evaluation_periods  = 2
   metric_name         = "CPUUtilization"

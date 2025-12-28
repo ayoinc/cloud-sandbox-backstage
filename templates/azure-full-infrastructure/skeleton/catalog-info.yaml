@@ -1,0 +1,15 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: ${{ values.name }}
+  description: Azure infrastructure for ${{ values.name }}
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - terraform
+    - azure
+    - infrastructure
+spec:
+  type: infrastructure
+  owner: ${{ values.owner }}
+  lifecycle: production

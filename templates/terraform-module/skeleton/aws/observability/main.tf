@@ -4,7 +4,7 @@
 
 # CloudWatch Log Group
 resource "aws_cloudwatch_log_group" "main" {
-  name              = "/${var.project}/${var.environment}/application"
+  name              = "/${var.project_name}/${var.environment}/application"
   retention_in_days = var.log_retention_days
   kms_key_id        = var.kms_key_arn
 
@@ -13,7 +13,7 @@ resource "aws_cloudwatch_log_group" "main" {
 
 # Additional Log Groups
 resource "aws_cloudwatch_log_group" "system" {
-  name              = "/${var.project}/${var.environment}/system"
+  name              = "/${var.project_name}/${var.environment}/system"
   retention_in_days = var.log_retention_days
   kms_key_id        = var.kms_key_arn
 
@@ -21,7 +21,7 @@ resource "aws_cloudwatch_log_group" "system" {
 }
 
 resource "aws_cloudwatch_log_group" "security" {
-  name              = "/${var.project}/${var.environment}/security"
+  name              = "/${var.project_name}/${var.environment}/security"
   retention_in_days = var.security_log_retention_days
   kms_key_id        = var.kms_key_arn
 
@@ -35,7 +35,7 @@ resource "aws_cloudwatch_log_group" "security" {
 resource "aws_cloudwatch_dashboard" "main" {
   count = var.enable_dashboard ? 1 : 0
 
-  dashboard_name = "${var.project}-${var.environment}"
+  dashboard_name = "${var.project_name}-${var.environment}"
 
   dashboard_body = jsonencode({
     widgets = [
@@ -46,7 +46,7 @@ resource "aws_cloudwatch_dashboard" "main" {
         width  = 24
         height = 1
         properties = {
-          markdown = "# ${var.project} - ${var.environment} Dashboard"
+          markdown = "# ${var.project_name} - ${var.environment} Dashboard"
         }
       },
       {
@@ -57,7 +57,7 @@ resource "aws_cloudwatch_dashboard" "main" {
         height = 6
         properties = {
           metrics = [
-            ["AWS/EC2", "CPUUtilization", "AutoScalingGroupName", "${var.project}-${var.environment}-asg", { stat = "Average" }]
+            ["AWS/EC2", "CPUUtilization", "AutoScalingGroupName", "${var.project_name}-${var.environment}-asg", { stat = "Average" }]
           ]
           period = 300
           region = data.aws_region.current.name
@@ -73,8 +73,8 @@ resource "aws_cloudwatch_dashboard" "main" {
         height = 6
         properties = {
           metrics = [
-            ["AWS/EC2", "NetworkIn", "AutoScalingGroupName", "${var.project}-${var.environment}-asg", { stat = "Average" }],
-            ["AWS/EC2", "NetworkOut", "AutoScalingGroupName", "${var.project}-${var.environment}-asg", { stat = "Average" }]
+            ["AWS/EC2", "NetworkIn", "AutoScalingGroupName", "${var.project_name}-${var.environment}-asg", { stat = "Average" }],
+            ["AWS/EC2", "NetworkOut", "AutoScalingGroupName", "${var.project_name}-${var.environment}-asg", { stat = "Average" }]
           ]
           period = 300
           region = data.aws_region.current.name
@@ -90,7 +90,7 @@ resource "aws_cloudwatch_dashboard" "main" {
         height = 6
         properties = {
           metrics = [
-            ["AWS/RDS", "CPUUtilization", "DBInstanceIdentifier", "${var.project}-${var.environment}-db", { stat = "Average" }]
+            ["AWS/RDS", "CPUUtilization", "DBInstanceIdentifier", "${var.project_name}-${var.environment}-db", { stat = "Average" }]
           ]
           period = 300
           region = data.aws_region.current.name
@@ -106,7 +106,7 @@ resource "aws_cloudwatch_dashboard" "main" {
         height = 6
         properties = {
           metrics = [
-            ["AWS/RDS", "DatabaseConnections", "DBInstanceIdentifier", "${var.project}-${var.environment}-db", { stat = "Average" }]
+            ["AWS/RDS", "DatabaseConnections", "DBInstanceIdentifier", "${var.project_name}-${var.environment}-db", { stat = "Average" }]
           ]
           period = 300
           region = data.aws_region.current.name
@@ -121,7 +121,7 @@ resource "aws_cloudwatch_dashboard" "main" {
         width  = 24
         height = 6
         properties = {
-          query  = "SOURCE '/${var.project}/${var.environment}/application' | fields @timestamp, @message | sort @timestamp desc | limit 100"
+          query  = "SOURCE '/${var.project_name}/${var.environment}/application' | fields @timestamp, @message | sort @timestamp desc | limit 100"
           region = data.aws_region.current.name
           title  = "Application Logs"
         }
@@ -138,7 +138,7 @@ resource "aws_cloudwatch_dashboard" "main" {
 resource "aws_sns_topic" "alarms" {
   count = var.enable_alarms ? 1 : 0
 
-  name              = "${var.project}-${var.environment}-alarms"
+  name              = "${var.project_name}-${var.environment}-alarms"
   kms_master_key_id = var.kms_key_arn
 
   tags = var.tags
@@ -156,7 +156,7 @@ resource "aws_sns_topic_subscription" "email" {
 resource "aws_cloudwatch_metric_alarm" "high_cpu" {
   count = var.enable_alarms ? 1 : 0
 
-  alarm_name          = "${var.project}-${var.environment}-high-cpu"
+  alarm_name          = "${var.project_name}-${var.environment}-high-cpu"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 2
   metric_name         = "CPUUtilization"
@@ -169,7 +169,7 @@ resource "aws_cloudwatch_metric_alarm" "high_cpu" {
   ok_actions          = [aws_sns_topic.alarms[0].arn]
 
   dimensions = {
-    AutoScalingGroupName = "${var.project}-${var.environment}-asg"
+    AutoScalingGroupName = "${var.project_name}-${var.environment}-asg"
   }
 
   tags = var.tags
@@ -179,11 +179,11 @@ resource "aws_cloudwatch_metric_alarm" "high_cpu" {
 resource "aws_cloudwatch_metric_alarm" "high_memory" {
   count = var.enable_alarms ? 1 : 0
 
-  alarm_name          = "${var.project}-${var.environment}-high-memory"
+  alarm_name          = "${var.project_name}-${var.environment}-high-memory"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 2
   metric_name         = "mem_used_percent"
-  namespace           = "${var.project}/${var.environment}"
+  namespace           = "${var.project_name}/${var.environment}"
   period              = 300
   statistic           = "Average"
   threshold           = var.memory_alarm_threshold
@@ -198,7 +198,7 @@ resource "aws_cloudwatch_metric_alarm" "high_memory" {
 resource "aws_cloudwatch_metric_alarm" "rds_high_cpu" {
   count = var.enable_alarms ? 1 : 0
 
-  alarm_name          = "${var.project}-${var.environment}-rds-high-cpu"
+  alarm_name          = "${var.project_name}-${var.environment}-rds-high-cpu"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 2
   metric_name         = "CPUUtilization"
@@ -211,7 +211,7 @@ resource "aws_cloudwatch_metric_alarm" "rds_high_cpu" {
   ok_actions          = [aws_sns_topic.alarms[0].arn]
 
   dimensions = {
-    DBInstanceIdentifier = "${var.project}-${var.environment}-db"
+    DBInstanceIdentifier = "${var.project_name}-${var.environment}-db"
   }
 
   tags = var.tags
@@ -221,7 +221,7 @@ resource "aws_cloudwatch_metric_alarm" "rds_high_cpu" {
 resource "aws_cloudwatch_metric_alarm" "rds_low_storage" {
   count = var.enable_alarms ? 1 : 0
 
-  alarm_name          = "${var.project}-${var.environment}-rds-low-storage"
+  alarm_name          = "${var.project_name}-${var.environment}-rds-low-storage"
   comparison_operator = "LessThanThreshold"
   evaluation_periods  = 1
   metric_name         = "FreeStorageSpace"
@@ -234,7 +234,7 @@ resource "aws_cloudwatch_metric_alarm" "rds_low_storage" {
   ok_actions          = [aws_sns_topic.alarms[0].arn]
 
   dimensions = {
-    DBInstanceIdentifier = "${var.project}-${var.environment}-db"
+    DBInstanceIdentifier = "${var.project_name}-${var.environment}-db"
   }
 
   tags = var.tags
@@ -244,11 +244,11 @@ resource "aws_cloudwatch_metric_alarm" "rds_low_storage" {
 resource "aws_cloudwatch_metric_alarm" "error_logs" {
   count = var.enable_alarms ? 1 : 0
 
-  alarm_name          = "${var.project}-${var.environment}-error-logs"
+  alarm_name          = "${var.project_name}-${var.environment}-error-logs"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 1
   metric_name         = "ErrorCount"
-  namespace           = "${var.project}/${var.environment}"
+  namespace           = "${var.project_name}/${var.environment}"
   period              = 300
   statistic           = "Sum"
   threshold           = var.error_log_threshold
@@ -263,25 +263,25 @@ resource "aws_cloudwatch_metric_alarm" "error_logs" {
 # -----------------------------------------------------------------------------
 
 resource "aws_cloudwatch_log_metric_filter" "errors" {
-  name           = "${var.project}-${var.environment}-errors"
+  name           = "${var.project_name}-${var.environment}-errors"
   pattern        = "?ERROR ?Error ?error ?FATAL ?Fatal ?fatal"
   log_group_name = aws_cloudwatch_log_group.main.name
 
   metric_transformation {
     name      = "ErrorCount"
-    namespace = "${var.project}/${var.environment}"
+    namespace = "${var.project_name}/${var.environment}"
     value     = "1"
   }
 }
 
 resource "aws_cloudwatch_log_metric_filter" "warnings" {
-  name           = "${var.project}-${var.environment}-warnings"
+  name           = "${var.project_name}-${var.environment}-warnings"
   pattern        = "?WARN ?Warning ?warning"
   log_group_name = aws_cloudwatch_log_group.main.name
 
   metric_transformation {
     name      = "WarningCount"
-    namespace = "${var.project}/${var.environment}"
+    namespace = "${var.project_name}/${var.environment}"
     value     = "1"
   }
 }
@@ -293,7 +293,7 @@ resource "aws_cloudwatch_log_metric_filter" "warnings" {
 resource "aws_xray_sampling_rule" "main" {
   count = var.enable_xray ? 1 : 0
 
-  rule_name      = "${var.project}-${var.environment}"
+  rule_name      = "${var.project_name}-${var.environment}"
   priority       = 1000
   version        = 1
   reservoir_size = 5
@@ -302,7 +302,7 @@ resource "aws_xray_sampling_rule" "main" {
   host           = "*"
   http_method    = "*"
   service_type   = "*"
-  service_name   = "${var.project}-${var.environment}"
+  service_name   = "${var.project_name}-${var.environment}"
   resource_arn   = "*"
 
   tags = var.tags

@@ -1,0 +1,63 @@
+name: Terraform Security
+
+on:
+  push:
+    branches: [main]
+    paths: ['catalog/terraform-modules/**/*.tf']
+  pull_request:
+    paths: ['catalog/terraform-modules/**/*.tf']
+  schedule:
+    - cron: '0 6 * * 1'  # Weekly Monday 6am
+
+jobs:
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Checkov Scan
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: catalog/terraform-modules
+          framework: terraform
+          output_format: sarif
+          output_file_path: checkov-results.sarif
+          soft_fail: true
+
+      - name: Upload Checkov Results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: checkov-results.sarif
+
+      - name: TFSec Scan
+        uses: aquasecurity/tfsec-action@v1.0.0
+        with:
+          working_directory: catalog/terraform-modules
+          soft_fail: true
+          format: sarif
+          sarif_file: tfsec-results.sarif
+
+      - name: Upload TFSec Results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: tfsec-results.sarif
+
+      - name: Trivy IaC Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          scan-ref: 'catalog/terraform-modules'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy Results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif

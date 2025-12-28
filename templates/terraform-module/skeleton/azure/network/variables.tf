@@ -2,12 +2,12 @@
 # Azure Network Module - Variables
 # -----------------------------------------------------------------------------
 
-variable "project" {
+variable "project_name" {
   description = "Project name used in resource naming"
   type        = string
 
   validation {
-    condition     = can(regex("^[a-z0-9-]+$", var.project))
+    condition     = can(regex("^[a-z0-9-]+$", var.project_name))
     error_message = "Project name must contain only lowercase letters, numbers, and hyphens."
   }
 }

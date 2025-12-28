@@ -6,6 +6,11 @@
 # General Configuration
 # =============================================================================
 
+variable "project_name" {
+  description = "Project name for resource naming"
+  type        = string
+}
+
 variable "project_id" {
   description = "The GCP project ID where resources will be created"
   type        = string

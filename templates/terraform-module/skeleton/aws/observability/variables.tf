@@ -2,7 +2,7 @@
 # AWS Observability Module - Variables
 # -----------------------------------------------------------------------------
 
-variable "project" {
+variable "project_name" {
   description = "Project name"
   type        = string
 }

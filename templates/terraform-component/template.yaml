@@ -1,0 +1,786 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: terraform-component
+  title: Terraform Infrastructure Component
+  description: Creates a fully modularized Terraform infrastructure component with environment isolation, proper naming conventions, and comprehensive testing
+  tags:
+    - terraform
+    - infrastructure
+    - cloud
+    - iac
+    - platform
+spec:
+  owner: platform-team
+  type: infrastructure
+
+  parameters:
+    - title: Component Classification
+      required:
+        - componentType
+        - componentName
+        - description
+      properties:
+        componentType:
+          title: Component Type
+          type: string
+          description: Platform components are shared infrastructure (networking, security). App components are application-specific resources.
+          enum:
+            - platform
+            - application
+          enumNames:
+            - Platform (Shared Infrastructure)
+            - Application (App-Specific)
+        componentName:
+          title: Component Name
+          type: string
+          description: Unique name for this component (e.g., azure-core-networking, ecommerce-app-resources)
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: What this infrastructure component manages
+        businessUnit:
+          title: Business Unit
+          type: string
+          description: Business unit or department owning this component
+          default: engineering
+          enum:
+            - engineering
+            - platform
+            - data
+            - security
+            - finance
+            - marketing
+          enumNames:
+            - Engineering
+            - Platform Engineering
+            - Data & Analytics
+            - Security
+            - Finance
+            - Marketing
+
+    - title: Cloud Provider & Environment
+      required:
+        - provider
+        - environment
+        - region
+      properties:
+        provider:
+          title: Cloud Provider
+          type: string
+          description: Select the cloud provider for this infrastructure
+          enum:
+            - aws
+            - azure
+            - gcp
+          enumNames:
+            - Amazon Web Services
+            - Microsoft Azure
+            - Google Cloud Platform
+        environment:
+          title: Deployment Environment
+          type: string
+          description: Select target environment (creates isolated workspaces)
+          enum:
+            - development
+            - staging
+            - production
+          enumNames:
+            - Development (dev)
+            - Staging (stg)
+            - Production (prod)
+        region:
+          title: Primary Region
+          type: string
+          description: Primary deployment region (follows provider naming standards)
+          ui:field: SelectWithAdditional
+          options:
+            # AWS Regions (Standard AWS naming)
+            - label: US East (N. Virginia) - us-east-1
+              value: us-east-1
+            - label: US West (Oregon) - us-west-2
+              value: us-west-2
+            - label: Europe (Ireland) - eu-west-1
+              value: eu-west-1
+            # Azure Regions (Standard Azure naming)
+            - label: East US (Virginia) - eastus
+              value: eastus
+            - label: West US 2 (Washington) - westus2
+              value: westus2
+            - label: North Europe (Ireland) - northeurope
+              value: northeurope
+            # GCP Regions (Standard GCP naming)
+            - label: Iowa, USA - us-central1
+              value: us-central1
+            - label: South Carolina, USA - us-east1
+              value: us-east1
+            - label: Belgium - europe-west1
+              value: europe-west1
+        secondaryRegion:
+          title: Secondary Region (Optional)
+          type: string
+          description: Secondary region for DR/failover (cross-region replication)
+          ui:field: SelectWithAdditional
+          options:
+            # Same options as region but optional
+
+    - title: Project & Cost Allocation
+      required:
+        - projectName
+        - costCenter
+      properties:
+        projectName:
+          title: Project Name
+          type: string
+          description: Project name used for resource naming (company-standard format)
+          pattern: '^[a-z0-9-]+$'
+          ui:help: 'Use hyphens, lowercase only. Example: acme-corp-billing'
+        costCenter:
+          title: Cost Center
+          type: string
+          description: Cost center for financial tracking
+          enum:
+            - platform-engineering
+            - application-development
+            - data-platform
+            - security-compliance
+            - network-infrastructure
+          enumNames:
+            - Platform Engineering
+            - Application Development
+            - Data Platform
+            - Security & Compliance
+            - Network Infrastructure
+        applicationId:
+          title: Application ID (For App Components)
+          type: string
+          description: Unique application identifier from service catalog
+          ui:help: 'Required for application components. Format: app-####'
+          pattern: '^app-\d{4}$'
+
+    - title: Resource Configuration
+      properties:
+        createResourceGroup:
+          title: Create Resource Container
+          type: boolean
+          description: Create resource group (Azure), project (GCP), or default VPC resources (AWS)
+          default: true
+        resources:
+          title: Select Resources by Category
+          description: Choose resources to create (organized by capability)
+          type: object
+          properties:
+            # Storage Category
+            storage:
+              title: 📦 Storage
+              type: object
+              properties:
+                storageAccounts:
+                  title: Storage Accounts / Object Storage
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      # AWS Storage
+                      - aws-s3-bucket
+                      - aws-s3-bucket-encrypted
+                      - aws-s3-bucket-versioning
+                      - aws-ebs-volumes
+                      - aws-efs-file-system
+                      - aws-fsx-file-system
+                      - aws-backup-vault
+                      # Azure Storage
+                      - azure-storage-account
+                      - azure-storage-container
+                      - azure-disk-storage
+                      - azure-file-storage
+                      - azure-blob-storage
+                      - azure-backup-vault
+                      - azure-recovery-services
+                      # GCP Storage
+                      - gcp-cloud-storage
+                      - gcp-cloud-storage-bucket
+                      - gcp-persistent-disk
+                      - gcp-filestore
+                      - gcp-backup-service
+                      # Common
+                      - common-file-storage
+                  uniqueItems: true
+                  ui:options:
+                    vertical: true
+
+                databases:
+                  title: Databases (SQL & NoSQL)
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      # AWS Databases
+                      - aws-rds-mysql
+                      - aws-rds-postgresql
+                      - aws-rds-sqlserver
+                      - aws-rds-oracle
+                      - aws-dynamodb
+                      - aws-dynamodb-table
+                      - aws-elasticache-redis
+                      - aws-elasticache-memcached
+                      - aws-neptune
+                      - aws-documentdb
+                      - aws-timestream
+                      - aws-keyspaces
+                      # Azure Databases
+                      - azure-sql-database
+                      - azure-sql-server
+                      - azure-postgresql
+                      - azure-mysql
+                      - azure-mariadb
+                      - azure-cosmos-db
+                      - azure-cosmos-db-sql
+                      - azure-cosmos-db-mongodb
+                      - azure-cache-redis
+                      - azure-synapse
+                      # GCP Databases
+                      - gcp-cloud-sql-mysql
+                      - gcp-cloud-sql-postgresql
+                      - gcp-cloud-sql-sqlserver
+                      - gcp-firestore
+                      - gcp-bigtable
+                      - gcp-spanner
+                      - gcp-memorystore-redis
+                      # Common patterns
+                      - common-sql-database
+                      - common-nosql-database
+                  uniqueItems: true
+                  ui:options:
+                    vertical: true
+
+            # Compute Category
+            compute:
+              title: 💻 Compute
+              type: object
+              properties:
+                virtualMachines:
+                  title: Virtual Machines
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - aws-ec2-instance
+                      - aws-ec2-auto-scaling
+                      - azure-virtual-machine
+                      - azure-virtual-machine-scale-set
+                      - gcp-compute-instance
+                      - gcp-instance-group
+                      - common-vm-cluster
+                  uniqueItems: true
+                  ui:options:
+                    vertical: true
+
+                containers:
+                  title: Containers & Orchestration
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      # AWS
+                      - aws-eks-cluster
+                      - aws-ecs-cluster
+                      - aws-ecr-registry
+                      - aws-fargate-profile
+                      # Azure
+                      - azure-aks-cluster
+                      - azure-container-instances
+                      - azure-container-registry
+                      - azure-app-service
+                      - azure-function-app
+                      # GCP
+                      - gcp-gke-cluster
+                      - gcp-cloud-run-service
+                      - gcp-cloud-run-job
+                      - gcp-artifact-registry
+                      - gcp-cloud-functions
+                      # Common
+                      - common-container-platform
+                  uniqueItems: true
+                  ui:options:
+                    vertical: true
+
+                serverless:
+                  title: Serverless
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - aws-lambda-functions
+                      - aws-lambda-with-layers
+                      - aws-lambda-dynamodb
+                      - aws-step-functions
+                      - azure-functions
+                      - azure-logic-apps
+                      - gcp-cloud-functions
+                      - gcp-cloud-run-functions
+                      - common-serverless-api
+                  uniqueItems: true
+                  ui:options:
+                    vertical: true
+
+            # Networking Category
+            networking:
+              title: 🌐 Networking
+              type: object
+              properties:
+                virtualNetwork:
+                  title: Virtual Networks & Subnets
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - aws-vpc
+                      - aws-vpc-subnets
+                      - aws-vpc-endpoints
+                      - azure-virtual-network
+                      - azure-subnets
+                      - azure-private-link
+                      - gcp-vpc
+                      - gcp-subnets
+                      - common-multi-tier-network
+                  uniqueItems: true
+                  ui:options:
+                    vertical: true
+
+                loadBalancers:
+                  title: Load Balancers
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - aws-alb
+                      - aws-nlb
+                      - aws-gateway-lb
+                      - azure-load-balancer
+                      - azure-application-gateway
+                      - azure-traffic-manager
+                      - gcp-load-balancer
+                      - gcp-cloud-armor
+                      - common-public-lb
+                  uniqueItems: true
+                  ui:options:
+                    vertical: true
+
+                security:
+                  title: Network Security
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - aws-security-groups
+                      - aws-nacls
+                      - aws-waf
+                      - azure-nsg
+                      - azure-firewall
+                      - azure-ddos-protection
+                      - gcp-firewall-rules
+                      - gcp-cloud-armor-waf
+                      - common-network-security
+                  uniqueItems: true
+                  ui:options:
+                    vertical: true
+
+                connectivity:
+                  title: Hybrid Connectivity
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - aws-vpn-gateway
+                      - aws-direct-connect
+                      - azure-vpn-gateway
+                      - azure-expressroute
+                      - gcp-cloud-vpn
+                      - gcp-interconnect
+                      - common-hub-spoke-network
+                      - common-transit-gateway
+                  uniqueItems: true
+                  ui:options:
+                    vertical: true
+
+            # Security Category
+            security:
+              title: 🔒 Security & Identity
+              type: object
+              properties:
+                identity:
+                  title: Identity & Access
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - aws-iam-roles
+                      - aws-iam-policies
+                      - aws-sso
+                      - aws-directory-service
+                      - azure-ad
+                      - azure-rbac
+                      - azure-managed-identities
+                      - azure-key-vault
+                      - gcp-iam-service-accounts
+                      - gcp-iam-roles
+                      - gcp-identity-platform
+                      - common-identity-management
+                  uniqueItems: true
+                  ui:options:
+                    vertical: true
+
+                secrets:
+                  title: Secrets Management
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - aws-secrets-manager
+                      - aws-parameter-store
+                      - azure-key-vault
+                      - azure-app-configuration
+                      - gcp-secret-manager
+                      - common-secret-management
+                  uniqueItems: true
+                  ui:options:
+                    vertical: true
+
+                compliance:
+                  title: Compliance & Governance
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - aws-config
+                      - aws-guardduty
+                      - aws-security-hub
+                      - azure-security-center
+                      - azure-policy
+                      - azure-blueprints
+                      - gcp-security-command-center
+                      - gcp-asset-inventory
+                      - common-compliance-framework
+                  uniqueItems: true
+                  ui:options:
+                    vertical: true
+
+            # Analytics Category
+            analytics:
+              title: 📊 Data & Analytics
+              type: object
+              properties:
+                dataWarehouses:
+                  title: Data Warehouses
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - aws-redshift
+                      - aws-redshift-serverless
+                      - azure-synapse
+                      - azure-databricks
+                      - gcp-bigquery
+                      - gcp-dataproc
+                      - common-data-warehouse
+                  uniqueItems: true
+                  ui:options:
+                    vertical: true
+
+                dataIntegration:
+                  title: Data Integration & ETL
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - aws-glue
+                      - aws-data-pipeline
+                      - azure-data-factory
+                      - azure-synapse-pipelines
+                      - gcp-dataflow
+                      - gcp-cloud-composer
+                      - common-etl-pipeline
+                  uniqueItems: true
+                  ui:options:
+                    vertical: true
+
+                streaming:
+                  title: Streaming & Events
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - aws-kinesis
+                      - aws-msk
+                      - aws-eventbridge
+                      - azure-event-hubs
+                      - azure-event-grid
+                      - azure-stream-analytics
+                      - gcp-pubsub
+                      - gcp-datastream
+                      - common-event-streaming
+                  uniqueItems: true
+                  ui:options:
+                    vertical: true
+
+                analyticsEngines:
+                  title: Analytics Engines
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - aws-athena
+                      - aws-emr
+                      - azure-hdinsight
+                      - azure-analysis-services
+                      - gcp-dataplex
+                      - common-analytics-cluster
+                  uniqueItems: true
+                  ui:options:
+                    vertical: true
+
+            # AI/ML Category
+            aiMl:
+              title: 🤖 AI & Machine Learning
+              type: object
+              properties:
+                mlPlatforms:
+                  title: ML Platforms
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - aws-sagemaker
+                      - aws-sagemaker-studio
+                      - azure-machine-learning
+                      - gcp-vertex-ai
+                      - common-ml-workspace
+                  uniqueItems: true
+                  ui:options:
+                    vertical: true
+
+                aiServices:
+                  title: Pre-built AI Services
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - aws-comprehend
+                      - aws-rekognition
+                      - aws-translate
+                      - aws-polly
+                      - azure-cognitive-services
+                      - azure-bot-service
+                      - gcp-vision-ai
+                      - gcp-natural-language
+                      - gcp-speech-to-text
+                      - common-ai-apis
+                  uniqueItems: true
+                  ui:options:
+                    vertical: true
+
+            # Management Category
+            management:
+              title: ⚙️ Management & Monitoring
+              type: object
+              properties:
+                logging:
+                  title: Logging & Monitoring
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - aws-cloudwatch
+                      - aws-xray
+                      - aws-prometheus
+                      - azure-monitor
+                      - azure-log-analytics
+                      - azure-application-insights
+                      - gcp-cloud-monitoring
+                      - gcp-cloud-logging
+                      - gcp-trace
+                      - common-logging-stack
+                  uniqueItems: true
+                  ui:options:
+                    vertical: true
+
+                notifications:
+                  title: Notifications & Alerting
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - aws-sns
+                      - aws-ses
+                      - azure-service-bus
+                      - azure-event-grid
+                      - gcp-cloud-pubsub
+                      - gcp-cloud-tasks
+                      - common-notification-hub
+                  uniqueItems: true
+                  ui:options:
+                    vertical: true
+
+                automation:
+                  title: Automation & DevOps
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - aws-systems-manager
+                      - aws-codepipeline
+                      - azure-devops
+                      - azure-automation
+                      - gcp-cloud-build
+                      - gcp-cloud-source-repos
+                      - common-deployment-pipeline
+                  uniqueItems: true
+                  ui:options:
+                    vertical: true
+
+          ui:order:
+            - storage
+            - compute
+            - networking
+            - security
+            - analytics
+            - aiMl
+            - management
+
+        namingConvention:
+          title: Naming Convention Standard
+          type: string
+          description: Choose naming convention standard
+          default: enterprise
+          enum:
+            - enterprise
+            - team
+            - project
+          enumNames:
+            - Enterprise Standard (company-proj-env-type-###)
+            - Team Standard (team-proj-type-env-###)
+            - Project Standard (proj-type-env-###)
+
+        autoShutdown:
+          title: Auto-Shutdown Schedule (Dev/Staging Only)
+          type: string
+          description: Cron schedule for automatic shutdown
+          default: '0 19 * * 1-5'
+          ui:help: 'Cron format (minute hour day month weekday)'
+
+    - title: Environment Isolation
+      properties:
+        separateWorkspaces:
+          title: Use Separate Terraform Workspaces
+          type: boolean
+          description: Create isolated Terraform workspaces per environment (recommended)
+          default: true
+        backendType:
+          title: Terraform Backend
+          type: string
+          description: State storage backend configuration
+          default: remote
+          enum:
+            - remote
+            - s3
+            - azure
+            - gcs
+          enumNames:
+            - Terraform Cloud/Enterprise (Remote)
+            - AWS S3 Backend
+            - Azure Storage Backend
+            - GCP Cloud Storage Backend
+        stateFileStructure:
+          title: State File Organization
+          type: string
+          description: How state files are organized in the backend
+          default: hierarchical
+          enum:
+            - flat
+            - hierarchical
+          enumNames:
+            - Flat (env:component-name)
+            - Hierarchical (platform/app/env/component-name)
+        enableStateLocking:
+          title: Enable State Locking
+          type: boolean
+          description: Prevent concurrent Terraform runs (highly recommended)
+          default: true
+
+  steps:
+    - id: fetch-base
+      name: Fetch Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        targetPath: terraform/{{ parameters.componentType }}/{{ parameters.provider }}/{{ parameters.environment }}/{{ parameters.componentName }}
+        values:
+          name: '{{ parameters.componentName }}'
+          description: '{{ parameters.description }}'
+          componentType: '{{ parameters.componentType }}'
+          provider: '{{ parameters.provider }}'
+          projectName: '{{ parameters.projectName }}'
+          businessUnit: '{{ parameters.businessUnit }}'
+          applicationId: '{{ parameters.applicationId }}'
+          environment: '{{ parameters.environment }}'
+          shortEnv: '{{ "dev" if parameters.environment == "development" else "stg" if parameters.environment == "staging" else "prod" }}'
+          region: '{{ parameters.region }}'
+          secondaryRegion: '{{ parameters.secondaryRegion }}'
+          costCenter: '{{ parameters.costCenter }}'
+          defaultRegion: '{{ parameters.region }}'
+          createResourceGroup: '{{ parameters.createResourceGroup }}'
+          createNetworking: '{{ parameters.createNetworking }}'
+          resources: '{{ parameters.resources }}'
+          namingConvention: '{{ parameters.namingConvention }}'
+          namingPrefix: '{{ parameters.projectName }}'
+          namingSuffix: '{{ "dev" if parameters.environment == "development" else "stg" if parameters.environment == "staging" else "prod" }}'
+          autoShutdown: '{{ parameters.autoShutdown }}'
+          separateWorkspaces: '{{ parameters.separateWorkspaces }}'
+          backendType: '{{ parameters.backendType }}'
+          stateFileStructure: '{{ parameters.stateFileStructure }}'
+          enableStateLocking: '{{ parameters.enableStateLocking }}'
+
+    - id: create-resources
+      name: Create Resource Modules
+      if: '{{ parameters.resources | length > 0 }}'
+      action: fetch:template
+      input:
+        url: ../terraform-{{ parameters.provider }}-resources/skeleton
+        targetPath: terraform/{{ parameters.componentType }}/{{ parameters.provider }}/{{ parameters.environment }}/{{ parameters.componentName }}/resources
+        values:
+          provider: '{{ parameters.provider }}'
+          resources: '{{ parameters.resources }}'
+          namingConvention: '{{ parameters.namingConvention }}'
+          environment: '{{ parameters.environment }}'
+
+    - id: publish
+      name: Publish to Git
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        description: '{{ parameters.description }}'
+        repoUrl: '{{ parameters.repoUrl }}'
+        defaultBranch: main
+        protectDefaultBranch: false
+        gitCommitMessage: 'feat: initial commit - {{ parameters.componentType }} {{ parameters.provider }} infrastructure'
+        sourcePath: 'terraform/{{ parameters.componentType }}/{{ parameters.provider }}/{{ parameters.environment }}/{{ parameters.componentName }}'
+
+    - id: register
+      name: Register Component
+      action: catalog:register
+      input:
+        repoContentsUrl: '{{ steps.publish.output.repoContentsUrl }}'
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: '{{ steps.publish.output.remoteUrl }}'
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: '{{ steps.register.output.entityRef }}'
+
+---
+

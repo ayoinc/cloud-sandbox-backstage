@@ -1,0 +1,27 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: example-component
+  description: Example terraform infrastructure component
+  labels:
+    cloud.provider: azure
+    environment: dev
+    terraform.version: "1.6.6"
+  tags:
+    - terraform
+    - infrastructure
+    - azure
+    - dev
+  annotations:
+    github.com/project-slug: example/project
+    backstage.io/techdocs-ref: dir:.
+    terraform.io/provider: azure
+    terraform.io/environment: dev
+    terraform.io/region: eastus
+spec:
+  type: infrastructure
+  lifecycle: experimental
+  owner: platform-team
+  system: cloud-infrastructure
+  dependsOn:
+    - component:default/terraform-modules-azure

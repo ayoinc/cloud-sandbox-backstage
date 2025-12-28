@@ -9,7 +9,7 @@ resource "aws_vpc" "main" {
   enable_dns_support   = true
 
   tags = merge(var.tags, {
-    Name = "${var.project}-${var.environment}-vpc"
+    Name = "${var.project_name}-${var.environment}-vpc"
   })
 }
 
@@ -18,7 +18,7 @@ resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
 
   tags = merge(var.tags, {
-    Name = "${var.project}-${var.environment}-igw"
+    Name = "${var.project_name}-${var.environment}-igw"
   })
 }
 
@@ -32,7 +32,7 @@ resource "aws_subnet" "public" {
   map_public_ip_on_launch = true
 
   tags = merge(var.tags, {
-    Name                     = "${var.project}-${var.environment}-public-${count.index + 1}"
+    Name                     = "${var.project_name}-${var.environment}-public-${count.index + 1}"
     Type                     = "public"
     "kubernetes.io/role/elb" = "1"
   })
@@ -47,7 +47,7 @@ resource "aws_subnet" "private" {
   availability_zone = data.aws_availability_zones.available.names[count.index]
 
   tags = merge(var.tags, {
-    Name                              = "${var.project}-${var.environment}-private-${count.index + 1}"
+    Name                              = "${var.project_name}-${var.environment}-private-${count.index + 1}"
     Type                              = "private"
     "kubernetes.io/role/internal-elb" = "1"
   })
@@ -62,7 +62,7 @@ resource "aws_subnet" "database" {
   availability_zone = data.aws_availability_zones.available.names[count.index]
 
   tags = merge(var.tags, {
-    Name = "${var.project}-${var.environment}-database-${count.index + 1}"
+    Name = "${var.project_name}-${var.environment}-database-${count.index + 1}"
     Type = "database"
   })
 }
@@ -73,7 +73,7 @@ resource "aws_eip" "nat" {
   domain = "vpc"
 
   tags = merge(var.tags, {
-    Name = "${var.project}-${var.environment}-nat-eip-${count.index + 1}"
+    Name = "${var.project_name}-${var.environment}-nat-eip-${count.index + 1}"
   })
 
   depends_on = [aws_internet_gateway.main]
@@ -87,7 +87,7 @@ resource "aws_nat_gateway" "main" {
   subnet_id     = aws_subnet.public[count.index].id
 
   tags = merge(var.tags, {
-    Name = "${var.project}-${var.environment}-nat-${count.index + 1}"
+    Name = "${var.project_name}-${var.environment}-nat-${count.index + 1}"
   })
 
   depends_on = [aws_internet_gateway.main]
@@ -103,7 +103,7 @@ resource "aws_route_table" "public" {
   }
 
   tags = merge(var.tags, {
-    Name = "${var.project}-${var.environment}-public-rt"
+    Name = "${var.project_name}-${var.environment}-public-rt"
   })
 }
 
@@ -121,7 +121,7 @@ resource "aws_route_table" "private" {
   }
 
   tags = merge(var.tags, {
-    Name = "${var.project}-${var.environment}-private-rt-${count.index + 1}"
+    Name = "${var.project_name}-${var.environment}-private-rt-${count.index + 1}"
   })
 }
 
@@ -159,14 +159,14 @@ resource "aws_flow_log" "main" {
   vpc_id          = aws_vpc.main.id
 
   tags = merge(var.tags, {
-    Name = "${var.project}-${var.environment}-flow-logs"
+    Name = "${var.project_name}-${var.environment}-flow-logs"
   })
 }
 
 resource "aws_cloudwatch_log_group" "flow_logs" {
   count = var.enable_flow_logs ? 1 : 0
 
-  name              = "/aws/vpc/${var.project}-${var.environment}/flow-logs"
+  name              = "/aws/vpc/${var.project_name}-${var.environment}/flow-logs"
   retention_in_days = var.flow_logs_retention_days
 
   tags = var.tags
@@ -175,7 +175,7 @@ resource "aws_cloudwatch_log_group" "flow_logs" {
 resource "aws_iam_role" "flow_logs" {
   count = var.enable_flow_logs ? 1 : 0
 
-  name = "${var.project}-${var.environment}-flow-logs-role"
+  name = "${var.project_name}-${var.environment}-flow-logs-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -194,7 +194,7 @@ resource "aws_iam_role" "flow_logs" {
 resource "aws_iam_role_policy" "flow_logs" {
   count = var.enable_flow_logs ? 1 : 0
 
-  name = "${var.project}-${var.environment}-flow-logs-policy"
+  name = "${var.project_name}-${var.environment}-flow-logs-policy"
   role = aws_iam_role.flow_logs[0].id
 
   policy = jsonencode({

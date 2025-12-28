@@ -20,10 +20,10 @@ resource "random_id" "security" {
 # -----------------------------------------------------------------------------
 
 locals {
-  key_vault_name = lower(replace("kv-${var.project}-${var.environment}-${random_id.security.hex}", "-", ""))
+  key_vault_name = lower(replace("kv-${var.project_name}-${var.environment}-${random_id.security.hex}", "-", ""))
   common_tags = merge(var.tags, {
     Environment = var.environment
-    Project     = var.project
+    Project     = var.project_name
     ManagedBy   = "terraform"
   })
 }
@@ -33,7 +33,7 @@ locals {
 # -----------------------------------------------------------------------------
 
 resource "azurerm_user_assigned_identity" "main" {
-  name                = "${var.project}-${var.environment}-identity"
+  name                = "${var.project_name}-${var.environment}-identity"
   resource_group_name = var.resource_group_name
   location            = var.location
 
@@ -45,7 +45,7 @@ resource "azurerm_user_assigned_identity" "main" {
 # -----------------------------------------------------------------------------
 
 resource "azurerm_log_analytics_workspace" "security" {
-  name                = "${var.project}-${var.environment}-security-logs"
+  name                = "${var.project_name}-${var.environment}-security-logs"
   resource_group_name = var.resource_group_name
   location            = var.location
   sku                 = var.log_analytics_sku
@@ -155,7 +155,7 @@ resource "azurerm_key_vault" "main" {
 # -----------------------------------------------------------------------------
 
 resource "azurerm_key_vault_key" "encryption" {
-  name         = "${var.project}-${var.environment}-encryption-key"
+  name         = "${var.project_name}-${var.environment}-encryption-key"
   key_vault_id = azurerm_key_vault.main.id
   key_type     = var.encryption_key_type
   key_size     = var.encryption_key_size
@@ -219,7 +219,7 @@ resource "azurerm_role_assignment" "terraform_key_vault_admin" {
 # -----------------------------------------------------------------------------
 
 resource "azurerm_monitor_diagnostic_setting" "key_vault" {
-  name                       = "${var.project}-${var.environment}-kv-diag"
+  name                       = "${var.project_name}-${var.environment}-kv-diag"
   target_resource_id         = azurerm_key_vault.main.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.security.id
 
@@ -269,7 +269,7 @@ resource "azurerm_security_center_subscription_pricing" "defender_arm" {
 resource "azurerm_application_insights" "main" {
   count = var.enable_application_insights ? 1 : 0
 
-  name                = "${var.project}-${var.environment}-appinsights"
+  name                = "${var.project_name}-${var.environment}-appinsights"
   resource_group_name = var.resource_group_name
   location            = var.location
   application_type    = var.application_insights_type

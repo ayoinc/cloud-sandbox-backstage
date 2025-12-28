@@ -1,16 +1,38 @@
 site_name: Terraform Modules
-site_description: Reusable Terraform modules for infrastructure provisioning
-docs_dir: docs
-plugins:
-  - techdocs-core
-  - d2:
-      theme: 4
+site_description: Centralized Terraform modules for Azure, AWS, and GCP
 
 nav:
   - Home: index.md
-  - Getting Started: getting-started.md
-  - Modules:
-      - AWS VPC: modules/aws-vpc.md
-      - Azure VNet: modules/azure-vnet.md
-      - GCP VPC: modules/gcp-vpc.md
-  - Best Practices: best-practices.md
+  - Getting Started: README.md
+  - Shared Modules:
+      - Overview: shared/index.md
+      - Naming: shared/naming.md
+      - Tagging: shared/tagging.md
+      - Validation: shared/validation.md
+  - Azure Modules:
+      - Overview: azure/index.md
+      - Resource Group: azure/resource-group.md
+      - Virtual Network: azure/networking.md
+      - AKS: azure/kubernetes.md
+      - Storage Account: azure/storage.md
+      - Key Vault: azure/security.md
+      - SQL Database: azure/database.md
+      - Log Analytics: azure/monitoring.md
+  - AWS Modules:
+      - Overview: aws/index.md
+      - VPC: aws/vpc.md
+      - EKS: aws/eks.md
+      - S3: aws/s3.md
+      - RDS: aws/rds.md
+  - GCP Modules:
+      - Overview: gcp/index.md
+      - VPC: gcp/vpc.md
+      - GKE: gcp/gke.md
+      - Cloud Storage: gcp/cloud-storage.md
+      - Cloud SQL: gcp/cloud-sql.md
+  - Infrastructure Templates:
+      - Overview: templates/index.md
+      - Azure Full Infrastructure: templates/azure-full-infrastructure.md
+
+plugins:
+  - techdocs-core

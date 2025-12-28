@@ -13,7 +13,7 @@ data "azurerm_client_config" "current" {}
 # -----------------------------------------------------------------------------
 
 resource "azurerm_user_assigned_identity" "function" {
-  name                = "${var.project}-${var.environment}-func-identity"
+  name                = "${var.project_name}-${var.environment}-func-identity"
   resource_group_name = var.resource_group_name
   location            = var.location
 
@@ -32,7 +32,7 @@ resource "azurerm_role_assignment" "function_reader" {
 # -----------------------------------------------------------------------------
 
 resource "azurerm_storage_account" "function" {
-  name                     = replace("${var.project}${var.environment}func", "-", "")
+  name                     = replace("${var.project_name}${var.environment}func", "-", "")
   resource_group_name      = var.resource_group_name
   location                 = var.location
   account_tier             = "Standard"
@@ -81,7 +81,7 @@ resource "azurerm_storage_container" "deployments" {
 resource "azurerm_application_insights" "function" {
   count = var.application_insights_connection_string == null ? 1 : 0
 
-  name                = "${var.project}-${var.environment}-func-insights"
+  name                = "${var.project_name}-${var.environment}-func-insights"
   resource_group_name = var.resource_group_name
   location            = var.location
   application_type    = "web"
@@ -100,7 +100,7 @@ locals {
 # -----------------------------------------------------------------------------
 
 resource "azurerm_service_plan" "function" {
-  name                = "${var.project}-${var.environment}-func-plan"
+  name                = "${var.project_name}-${var.environment}-func-plan"
   resource_group_name = var.resource_group_name
   location            = var.location
   os_type             = "Linux"
@@ -117,7 +117,7 @@ resource "azurerm_service_plan" "function" {
 # -----------------------------------------------------------------------------
 
 resource "azurerm_linux_function_app" "main" {
-  name                = "${var.project}-${var.environment}-func"
+  name                = "${var.project_name}-${var.environment}-func"
   resource_group_name = var.resource_group_name
   location            = var.location
 
@@ -178,7 +178,7 @@ resource "azurerm_linux_function_app" "main" {
       "WEBSITE_RUN_FROM_PACKAGE"       = "1"
       "APPINSIGHTS_INSTRUMENTATIONKEY" = local.application_insights_key
       "ENVIRONMENT"                    = var.environment
-      "PROJECT"                        = var.project
+      "PROJECT"                        = var.project_name
     },
     var.enable_service_bus ? {
       "ServiceBusConnection" = azurerm_servicebus_namespace.main[0].default_primary_connection_string
@@ -202,7 +202,7 @@ resource "azurerm_linux_function_app" "main" {
 resource "azurerm_api_management" "main" {
   count = var.enable_api_management ? 1 : 0
 
-  name                = "${var.project}-${var.environment}-apim"
+  name                = "${var.project_name}-${var.environment}-apim"
   resource_group_name = var.resource_group_name
   location            = var.location
   publisher_name      = var.apim_publisher_name
@@ -231,11 +231,11 @@ resource "azurerm_api_management" "main" {
 resource "azurerm_api_management_api" "function" {
   count = var.enable_api_management ? 1 : 0
 
-  name                  = "${var.project}-${var.environment}-api"
+  name                  = "${var.project_name}-${var.environment}-api"
   resource_group_name   = var.resource_group_name
   api_management_name   = azurerm_api_management.main[0].name
   revision              = "1"
-  display_name          = "${var.project} ${var.environment} API"
+  display_name          = "${var.project_name} ${var.environment} API"
   path                  = var.apim_api_path
   protocols             = ["https"]
   subscription_required = var.apim_subscription_required
@@ -247,7 +247,7 @@ resource "azurerm_api_management_api" "function" {
 resource "azurerm_api_management_backend" "function" {
   count = var.enable_api_management ? 1 : 0
 
-  name                = "${var.project}-${var.environment}-func-backend"
+  name                = "${var.project_name}-${var.environment}-func-backend"
   resource_group_name = var.resource_group_name
   api_management_name = azurerm_api_management.main[0].name
   protocol            = "http"
@@ -267,7 +267,7 @@ resource "azurerm_api_management_backend" "function" {
 resource "azurerm_servicebus_namespace" "main" {
   count = var.enable_service_bus ? 1 : 0
 
-  name                = "${var.project}-${var.environment}-sbns"
+  name                = "${var.project_name}-${var.environment}-sbns"
   resource_group_name = var.resource_group_name
   location            = var.location
   sku                 = var.service_bus_sku
@@ -285,7 +285,7 @@ resource "azurerm_servicebus_namespace" "main" {
 resource "azurerm_servicebus_queue" "main" {
   count = var.enable_service_bus ? 1 : 0
 
-  name         = "${var.project}-${var.environment}-queue"
+  name         = "${var.project_name}-${var.environment}-queue"
   namespace_id = azurerm_servicebus_namespace.main[0].id
 
   # Queue settings
@@ -318,7 +318,7 @@ resource "azurerm_role_assignment" "function_servicebus" {
 resource "azurerm_eventgrid_topic" "main" {
   count = var.enable_event_grid ? 1 : 0
 
-  name                = "${var.project}-${var.environment}-egt"
+  name                = "${var.project_name}-${var.environment}-egt"
   resource_group_name = var.resource_group_name
   location            = var.location
 
@@ -340,7 +340,7 @@ resource "azurerm_eventgrid_topic" "main" {
 resource "azurerm_eventgrid_event_subscription" "function" {
   count = var.enable_event_grid ? 1 : 0
 
-  name  = "${var.project}-${var.environment}-func-sub"
+  name  = "${var.project_name}-${var.environment}-func-sub"
   scope = azurerm_eventgrid_topic.main[0].id
 
   azure_function_endpoint {

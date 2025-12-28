@@ -2,24 +2,82 @@ apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: terraform-modules
-  title: Terraform Modules
-  description: Reusable Terraform modules for infrastructure provisioning
+  title: Terraform Modules Library
+  description: |
+    Centralized library of reusable Terraform modules for Azure, AWS, and GCP.
+    Includes shared modules for naming, tagging, and validation.
   annotations:
     backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: containercode/terraform-modules
   tags:
     - terraform
-    - infrastructure-as-code
-    - aws
+    - iac
     - azure
+    - aws
     - gcp
+    - modules
   links:
     - url: https://registry.terraform.io
       title: Terraform Registry
-      icon: catalog
+      icon: dashboard
 spec:
   type: library
   lifecycle: production
   owner: platform-team
-  system: infrastructure-as-code-platform
-  providesApis:
-    - terraform-modules-api
+  system: cloud-infrastructure
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: terraform-shared-modules
+  title: Shared Terraform Modules
+  description: Cross-provider shared modules for naming, tagging, and validation
+  tags:
+    - terraform
+    - shared
+spec:
+  type: module-library
+  owner: platform-team
+  system: cloud-infrastructure
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: terraform-azure-modules
+  title: Azure Terraform Modules
+  description: Azure-specific Terraform modules (VNet, AKS, Storage, Key Vault, SQL, etc.)
+  tags:
+    - terraform
+    - azure
+spec:
+  type: module-library
+  owner: platform-team
+  system: cloud-infrastructure
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: terraform-aws-modules
+  title: AWS Terraform Modules
+  description: AWS-specific Terraform modules (VPC, EKS, S3, RDS, etc.)
+  tags:
+    - terraform
+    - aws
+spec:
+  type: module-library
+  owner: platform-team
+  system: cloud-infrastructure
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: terraform-gcp-modules
+  title: GCP Terraform Modules
+  description: GCP-specific Terraform modules (VPC, GKE, Cloud Storage, Cloud SQL, etc.)
+  tags:
+    - terraform
+    - gcp
+spec:
+  type: module-library
+  owner: platform-team
+  system: cloud-infrastructure

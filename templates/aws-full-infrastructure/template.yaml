@@ -1,0 +1,361 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: aws-full-infrastructure
+  title: AWS Full Infrastructure Stack
+  description:
+    Complete AWS infrastructure stack with all resource categories - networking, compute, containers, storage, databases, security, monitoring, and more.
+    Creates production-ready infrastructure with proper naming conventions, environment isolation, and comprehensive testing.
+  tags:
+    - aws
+    - terraform
+    - infrastructure
+    - cloud
+    - iac
+    - platform
+spec:
+  owner: platform-team
+  type: infrastructure
+
+  parameters:
+    - title: Project Information
+      required:
+        - projectName
+        - componentName
+      properties:
+        projectName:
+          title: Project Name
+          type: string
+          description: Project name for resource naming (use hyphens, lowercase only)
+          pattern: '^[a-z0-9-]+$'
+          ui:help: 'Example: solar-app, data-platform, marketing-site'
+        componentName:
+          title: Component Name
+          type: string
+          description: Unique name for this infrastructure component
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Brief description of this infrastructure component
+
+    - title: Environment & Location
+      required:
+        - environment
+        - region
+      properties:
+        environment:
+          title: Environment
+          type: string
+          description: Deployment environment
+          enum: [dev, staging, prod, dr]
+          default: dev
+          ui:widget: select
+        region:
+          title: AWS Region
+          type: string
+          description: Primary AWS region for deployment
+          default: us-west-2
+          enum:
+            - us-east-1
+            - us-east-2
+            - us-west-1
+            - us-west-2
+            - ca-central-1
+            - eu-west-1
+            - eu-west-2
+            - eu-west-3
+            - eu-central-1
+            - ap-southeast-1
+            - ap-southeast-2
+            - ap-northeast-1
+            - ap-south-1
+
+    - title: Network Architecture
+      required:
+        - vpc_cidr
+      properties:
+        vpc_cidr:
+          title: VPC CIDR Block
+          type: string
+          description: CIDR notation for the VPC (e.g., 10.0.0.0/16)
+          default: 10.0.0.0/16
+        enable_nat_gateway:
+          title: Enable NAT Gateway
+          type: boolean
+          description: Create NAT Gateway for internet access from private subnets
+          default: true
+        enable_vpn_gateway:
+          title: Enable VPN Gateway
+          type: boolean
+          description: Create VPN Gateway for hybrid connectivity
+          default: false
+        enable_transit_gateway:
+          title: Enable Transit Gateway
+          type: boolean
+          description: Create Transit Gateway for multi-VPC connectivity
+          default: false
+        subnet_configurations:
+          title: Subnet Configuration
+          type: array
+          description: Define subnets for the VPC
+          items:
+            type: object
+            required: [name, cidr, type]
+            properties:
+              name:
+                type: string
+                title: Subnet Name
+              cidr:
+                type: string
+                title: CIDR Block
+              type:
+                type: string
+                title: Subnet Type
+                enum: [public, private, isolated]
+          default:
+            - name: public-a
+              cidr: 10.0.1.0/24
+              type: public
+            - name: public-b
+              cidr: 10.0.2.0/24
+              type: public
+            - name: private-a
+              cidr: 10.0.10.0/24
+              type: private
+            - name: private-b
+              cidr: 10.0.11.0/24
+              type: private
+            - name: data-a
+              cidr: 10.0.20.0/24
+              type: private
+            - name: data-b
+              cidr: 10.0.21.0/24
+              type: private
+
+    - title: Resource Categories Selection
+      description: Enable/disable specific resource categories
+      properties:
+        enable_networking:
+          title: Enable Networking Resources
+          type: boolean
+          description: VPC, subnets, route tables, internet/NAT gateways, load balancers, VPN, Transit Gateway
+          default: true
+        enable_compute:
+          title: Enable Compute Resources
+          type: boolean
+          description: EC2 instances, auto scaling groups, launch templates, AMIs
+          default: true
+        enable_containers:
+          title: Enable Container Resources
+          type: boolean
+          description: EKS clusters, ECS clusters, ECR registries, Fargate profiles
+          default: true
+        enable_storage:
+          title: Enable Storage Resources
+          type: boolean
+          description: S3 buckets, EBS volumes, EFS file systems, FSx, S3 Glacier
+          default: true
+        enable_database:
+          title: Enable Database Resources
+          type: boolean
+          description: RDS (MySQL, PostgreSQL, SQL Server, Oracle), DynamoDB, ElastiCache, DocumentDB
+          default: true
+        enable_security:
+          title: Enable Security Resources
+          type: boolean
+          description: IAM roles/policies, KMS keys, Secrets Manager, GuardDuty, Security Hub
+          default: true
+        enable_monitoring:
+          title: Enable Monitoring Resources
+          type: boolean
+          description: CloudWatch logs/metrics/alarms, X-Ray, Prometheus, dashboards
+          default: true
+        enable_analytics:
+          title: Enable Analytics Resources
+          type: boolean
+          description: EMR, Glue, Kinesis, Athena, MSK, Redshift
+          default: false
+        enable_integration:
+          title: Enable Integration Resources
+          type: boolean
+          description: EventBridge, Step Functions, SQS, SNS, API Gateway, AppSync
+          default: false
+        enable_ai_ml:
+          title: Enable AI/ML Resources
+          type: boolean
+          description: SageMaker, Comprehend, Rekognition, Translate, Polly, Bedrock
+          default: false
+
+    - title: Compute Configuration
+      properties:
+        instance_type:
+          title: EC2 Instance Type
+          type: string
+          description: Instance type for EC2 instances (e.g., t3.medium for dev, m5.large for production)
+          default: t3.medium
+        ebs_volume_size:
+          title: EBS Volume Size (GB)
+          type: number
+          description: Size of EBS volume for EC2 instances
+          default: 50
+          minimum: 10
+          maximum: 16000
+
+    - title: Kubernetes Configuration
+      properties:
+        eks_version:
+          title: EKS Kubernetes Version
+          type: string
+          description: Kubernetes version for EKS cluster
+          default: '1.28'
+        eks_node_group_instance_types:
+          title: EKS Node Instance Types
+          type: array
+          description: Instance types for EKS worker nodes
+          items:
+            type: string
+          default:
+            - t3.medium
+        eks_desired_nodes:
+          title: Desired Node Count
+          type: number
+          description: Desired number of worker nodes
+          default: 3
+          minimum: 1
+          maximum: 100
+        eks_min_nodes:
+          title: Minimum Node Count
+          type: number
+          description: Minimum number of nodes for autoscaling
+          default: 1
+          minimum: 0
+        eks_max_nodes:
+          title: Maximum Node Count
+          type: number
+          description: Maximum number of nodes for autoscaling
+          default: 10
+          minimum: 1
+          maximum: 100
+
+    - title: Storage Configuration
+      properties:
+        s3_bucket_encryption:
+          title: S3 Bucket Encryption
+          type: boolean
+          description: Enable server-side encryption for S3 buckets
+          default: true
+        s3_versioning:
+          title: S3 Versioning
+          type: boolean
+          description: Enable versioning for S3 buckets
+          default: true
+        enable_efs:
+          title: Enable EFS
+          type: boolean
+          description: Create EFS file system for shared storage
+          default: false
+
+    - title: Database Configuration
+      properties:
+        rds_instance_class:
+          title: RDS Instance Class
+          type: string
+          description: Instance class for RDS database
+          default: db.t3.micro
+        rds_allocated_storage:
+          title: RDS Allocated Storage (GB)
+          type: number
+          description: Storage allocated for RDS database
+          default: 20
+          minimum: 20
+        rds_backup_retention:
+          title: RDS Backup Retention Days
+          type: number
+          description: Number of days to retain automated backups (0-35, 0 = disabled)
+          default: 7
+          minimum: 0
+          maximum: 35
+        enable_dynamodb:
+          title: Enable DynamoDB
+          type: boolean
+          description: Create DynamoDB tables for NoSQL workloads
+          default: false
+        enable_elasticache:
+          title: Enable ElastiCache
+          type: boolean
+          description: Create ElastiCache Redis cluster for caching
+          default: false
+
+    - title: Advanced Settings
+      properties:
+        tags:
+          title: Additional Tags
+          type: object
+          description: Additional tags to apply to all resources
+          additionalProperties:
+            type: string
+          default:
+            managedBy: backstage
+            terraform: 'true'
+
+  steps:
+    - id: template
+      name: Generate AWS Infrastructure Code
+      action: fetch:template
+      input:
+        url: ./template
+        targetPath: ./iac
+        values:
+          projectName: ${{ parameters.projectName }}
+          componentName: ${{ parameters.componentName }}
+          description: ${{ parameters.description }}
+          environment: ${{ parameters.environment }}
+          region: ${{ parameters.region }}
+          vpc_cidr: ${{ parameters.vpc_cidr }}
+          enable_nat_gateway: ${{ parameters.enable_nat_gateway }}
+          enable_vpn_gateway: ${{ parameters.enable_vpn_gateway }}
+          enable_transit_gateway: ${{ parameters.enable_transit_gateway }}
+          subnet_configurations: ${{ parameters.subnet_configurations }}
+          enable_networking: ${{ parameters.enable_networking }}
+          enable_compute: ${{ parameters.enable_compute }}
+          enable_containers: ${{ parameters.enable_containers }}
+          enable_storage: ${{ parameters.enable_storage }}
+          enable_database: ${{ parameters.enable_database }}
+          enable_security: ${{ parameters.enable_security }}
+          enable_monitoring: ${{ parameters.enable_monitoring }}
+          enable_analytics: ${{ parameters.enable_analytics }}
+          enable_integration: ${{ parameters.enable_integration }}
+          enable_ai_ml: ${{ parameters.enable_ai_ml }}
+          instance_type: ${{ parameters.instance_type }}
+          ebs_volume_size: ${{ parameters.ebs_volume_size }}
+          eks_version: ${{ parameters.eks_version }}
+          eks_node_group_instance_types: ${{ parameters.eks_node_group_instance_types }}
+          eks_desired_nodes: ${{ parameters.eks_desired_nodes }}
+          eks_min_nodes: ${{ parameters.eks_min_nodes }}
+          eks_max_nodes: ${{ parameters.eks_max_nodes }}
+          s3_bucket_encryption: ${{ parameters.s3_bucket_encryption }}
+          s3_versioning: ${{ parameters.s3_versioning }}
+          enable_efs: ${{ parameters.enable_efs }}
+          rds_instance_class: ${{ parameters.rds_instance_class }}
+          rds_allocated_storage: ${{ parameters.rds_allocated_storage }}
+          rds_backup_retention: ${{ parameters.rds_backup_retention }}
+          enable_dynamodb: ${{ parameters.enable_dynamodb }}
+          enable_elasticache: ${{ parameters.enable_elasticache }}
+          tags: ${{ parameters.tags }}
+
+    - id: publish
+      name: Publish to Git
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        description: 'AWS Full Infrastructure Stack for ${{ parameters.componentName }}'
+        repoUrl: 'github.com?repo=${{ parameters.componentName }}-aws-infra&owner=${{ parameters.owner }}'
+        defaultBranch: main
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open in AWS Console
+        url: https://console.aws.amazon.com

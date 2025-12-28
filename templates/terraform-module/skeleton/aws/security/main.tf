@@ -4,7 +4,7 @@
 
 # KMS Key for encryption
 resource "aws_kms_key" "main" {
-  description             = "KMS key for ${var.project} ${var.environment}"
+  description             = "KMS key for ${var.project_name} ${var.environment}"
   deletion_window_in_days = var.environment == "prod" ? 30 : 7
   enable_key_rotation     = true
   multi_region            = var.kms_multi_region
@@ -45,12 +45,12 @@ resource "aws_kms_key" "main" {
   })
 
   tags = merge(var.tags, {
-    Name = "${var.project}-${var.environment}-kms"
+    Name = "${var.project_name}-${var.environment}-kms"
   })
 }
 
 resource "aws_kms_alias" "main" {
-  name          = "alias/${var.project}-${var.environment}"
+  name          = "alias/${var.project_name}-${var.environment}"
   target_key_id = aws_kms_key.main.key_id
 }
 
@@ -60,7 +60,7 @@ resource "aws_kms_alias" "main" {
 
 # Application Role
 resource "aws_iam_role" "application" {
-  name = "${var.project}-${var.environment}-app-role"
+  name = "${var.project_name}-${var.environment}-app-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -92,7 +92,7 @@ resource "aws_iam_role_policy" "secrets_access" {
           "secretsmanager:GetSecretValue",
           "secretsmanager:DescribeSecret"
         ]
-        Resource = "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:${var.project}/${var.environment}/*"
+        Resource = "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:${var.project_name}/${var.environment}/*"
       },
       {
         Effect = "Allow"
@@ -123,8 +123,8 @@ resource "aws_iam_role_policy" "s3_access" {
           "s3:ListBucket"
         ]
         Resource = [
-          "arn:aws:s3:::${var.project}-${var.environment}-*",
-          "arn:aws:s3:::${var.project}-${var.environment}-*/*"
+          "arn:aws:s3:::${var.project_name}-${var.environment}-*",
+          "arn:aws:s3:::${var.project_name}-${var.environment}-*/*"
         ]
       }
     ]
@@ -148,7 +148,7 @@ resource "aws_iam_role_policy" "cloudwatch_logs" {
           "logs:DescribeLogGroups",
           "logs:DescribeLogStreams"
         ]
-        Resource = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/${var.project}/${var.environment}/*"
+        Resource = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/${var.project_name}/${var.environment}/*"
       }
     ]
   })
@@ -159,7 +159,7 @@ resource "aws_iam_role_policy" "cloudwatch_logs" {
 # -----------------------------------------------------------------------------
 
 resource "aws_secretsmanager_secret" "app_secrets" {
-  name                    = "${var.project}/${var.environment}/app-secrets"
+  name                    = "${var.project_name}/${var.environment}/app-secrets"
   recovery_window_in_days = var.environment == "prod" ? 30 : 0
   kms_key_id              = aws_kms_key.main.arn
 
@@ -197,7 +197,7 @@ resource "random_password" "app_secret" {
 resource "aws_security_group" "bastion" {
   count = var.enable_bastion_sg ? 1 : 0
 
-  name_prefix = "${var.project}-${var.environment}-bastion-"
+  name_prefix = "${var.project_name}-${var.environment}-bastion-"
   description = "Security group for bastion host"
   vpc_id      = var.vpc_id
 
@@ -217,7 +217,7 @@ resource "aws_security_group" "bastion" {
   }
 
   tags = merge(var.tags, {
-    Name = "${var.project}-${var.environment}-bastion-sg"
+    Name = "${var.project_name}-${var.environment}-bastion-sg"
   })
 
   lifecycle {
@@ -232,8 +232,8 @@ resource "aws_security_group" "bastion" {
 resource "aws_wafv2_web_acl" "main" {
   count = var.enable_waf ? 1 : 0
 
-  name        = "${var.project}-${var.environment}-waf"
-  description = "WAF rules for ${var.project} ${var.environment}"
+  name        = "${var.project_name}-${var.environment}-waf"
+  description = "WAF rules for ${var.project_name} ${var.environment}"
   scope       = "REGIONAL"
 
   default_action {
@@ -334,7 +334,7 @@ resource "aws_wafv2_web_acl" "main" {
 
   visibility_config {
     cloudwatch_metrics_enabled = true
-    metric_name                = "${var.project}-${var.environment}-waf"
+    metric_name                = "${var.project_name}-${var.environment}-waf"
     sampled_requests_enabled   = true
   }
 
