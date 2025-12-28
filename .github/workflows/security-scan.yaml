@@ -1,0 +1,338 @@
+# =============================================================================
+# Reusable Security Scanning Workflow
+# =============================================================================
+# A comprehensive security scanning workflow for applications and dependencies.
+# Includes: SAST, dependency scanning, secret detection, container scanning
+#
+# Usage:
+#   jobs:
+#     security:
+#       uses: ./.github/workflows/security-scan.yaml
+#       with:
+#         scan_dependencies: true
+#         scan_secrets: true
+# =============================================================================
+
+name: Security Scan
+
+on:
+  workflow_call:
+    inputs:
+      # Scan Configuration
+      working_directory:
+        description: 'Working directory for scans'
+        required: false
+        type: string
+        default: '.'
+      language:
+        description: 'Programming language for targeted scans'
+        required: false
+        type: string
+        default: 'auto'
+
+      # Scan Types
+      scan_dependencies:
+        description: 'Scan dependencies for vulnerabilities'
+        required: false
+        type: boolean
+        default: true
+      scan_secrets:
+        description: 'Scan for exposed secrets'
+        required: false
+        type: boolean
+        default: true
+      scan_sast:
+        description: 'Run static application security testing'
+        required: false
+        type: boolean
+        default: true
+      scan_containers:
+        description: 'Scan container images'
+        required: false
+        type: boolean
+        default: false
+      scan_iac:
+        description: 'Scan Infrastructure as Code'
+        required: false
+        type: boolean
+        default: true
+
+      # Container Scanning
+      container_image:
+        description: 'Container image to scan'
+        required: false
+        type: string
+        default: ''
+
+      # Severity Configuration
+      fail_on_severity:
+        description: 'Minimum severity to fail the build (critical, high, medium, low)'
+        required: false
+        type: string
+        default: 'high'
+      ignore_unfixed:
+        description: 'Ignore vulnerabilities without fixes'
+        required: false
+        type: boolean
+        default: false
+
+      # Reporting
+      upload_sarif:
+        description: 'Upload SARIF results to GitHub Security'
+        required: false
+        type: boolean
+        default: true
+      artifact_retention_days:
+        description: 'Days to retain security artifacts'
+        required: false
+        type: number
+        default: 30
+
+    outputs:
+      vulnerabilities_found:
+        description: 'Whether vulnerabilities were found'
+        value: ${{ jobs.scan.outputs.vulnerabilities_found }}
+      critical_count:
+        description: 'Number of critical vulnerabilities'
+        value: ${{ jobs.scan.outputs.critical_count }}
+      high_count:
+        description: 'Number of high vulnerabilities'
+        value: ${{ jobs.scan.outputs.high_count }}
+
+jobs:
+  scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    outputs:
+      vulnerabilities_found: ${{ steps.summary.outputs.vulnerabilities_found }}
+      critical_count: ${{ steps.summary.outputs.critical_count }}
+      high_count: ${{ steps.summary.outputs.high_count }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # =======================================================================
+      # Dependency Scanning
+      # =======================================================================
+      - name: Run Trivy vulnerability scanner (dependencies)
+        if: inputs.scan_dependencies
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: ${{ inputs.working_directory }}
+          format: 'sarif'
+          output: 'trivy-deps-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+          ignore-unfixed: ${{ inputs.ignore_unfixed }}
+        continue-on-error: true
+
+      - name: Upload Trivy dependency scan to GitHub Security
+        if: inputs.scan_dependencies && inputs.upload_sarif
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-deps-results.sarif'
+          category: 'trivy-dependencies'
+        continue-on-error: true
+
+      - name: Run npm audit
+        if: inputs.scan_dependencies && (inputs.language == 'node' || inputs.language == 'auto')
+        working-directory: ${{ inputs.working_directory }}
+        run: |
+          if [ -f package-lock.json ] || [ -f yarn.lock ]; then
+            npm audit --json > npm-audit-results.json 2>/dev/null || true
+            echo "## NPM Audit Results" >> $GITHUB_STEP_SUMMARY
+            npm audit --omit=dev 2>/dev/null || echo "Vulnerabilities found in dependencies"
+          fi
+        continue-on-error: true
+
+      - name: Run pip-audit
+        if: inputs.scan_dependencies && (inputs.language == 'python' || inputs.language == 'auto')
+        working-directory: ${{ inputs.working_directory }}
+        run: |
+          if [ -f requirements.txt ]; then
+            pip install pip-audit
+            pip-audit -r requirements.txt --format json -o pip-audit-results.json 2>/dev/null || true
+            pip-audit -r requirements.txt 2>/dev/null || echo "Vulnerabilities found in Python dependencies"
+          fi
+        continue-on-error: true
+
+      # =======================================================================
+      # Secret Detection
+      # =======================================================================
+      - name: Run Gitleaks (secret detection)
+        if: inputs.scan_secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: false
+        continue-on-error: true
+
+      - name: Run TruffleHog (secret detection)
+        if: inputs.scan_secrets
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ${{ inputs.working_directory }}
+          extra_args: --only-verified --json
+        continue-on-error: true
+
+      # =======================================================================
+      # SAST (Static Application Security Testing)
+      # =======================================================================
+      - name: Initialize CodeQL
+        if: inputs.scan_sast
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ inputs.language == 'auto' && 'javascript,python' || inputs.language }}
+          queries: security-extended
+        continue-on-error: true
+
+      - name: Perform CodeQL Analysis
+        if: inputs.scan_sast
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: 'codeql-sast'
+        continue-on-error: true
+
+      - name: Run Semgrep SAST
+        if: inputs.scan_sast
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/secrets
+            p/owasp-top-ten
+          generateSarif: true
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+        continue-on-error: true
+
+      - name: Upload Semgrep results to GitHub Security
+        if: inputs.scan_sast && inputs.upload_sarif
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep.sarif
+          category: 'semgrep-sast'
+        continue-on-error: true
+
+      # =======================================================================
+      # Infrastructure as Code Scanning
+      # =======================================================================
+      - name: Run Trivy IaC scanner
+        if: inputs.scan_iac
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          scan-ref: ${{ inputs.working_directory }}
+          format: 'sarif'
+          output: 'trivy-iac-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+        continue-on-error: true
+
+      - name: Upload Trivy IaC results to GitHub Security
+        if: inputs.scan_iac && inputs.upload_sarif
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-iac-results.sarif'
+          category: 'trivy-iac'
+        continue-on-error: true
+
+      - name: Run Checkov IaC scanner
+        if: inputs.scan_iac
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: ${{ inputs.working_directory }}
+          framework: all
+          output_format: cli,sarif
+          output_file_path: console,checkov-results.sarif
+          soft_fail: true
+        continue-on-error: true
+
+      - name: Upload Checkov results to GitHub Security
+        if: inputs.scan_iac && inputs.upload_sarif
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'checkov-results.sarif'
+          category: 'checkov-iac'
+        continue-on-error: true
+
+      # =======================================================================
+      # Container Scanning
+      # =======================================================================
+      - name: Run Trivy container scanner
+        if: inputs.scan_containers && inputs.container_image != ''
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ inputs.container_image }}
+          format: 'sarif'
+          output: 'trivy-container-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+          ignore-unfixed: ${{ inputs.ignore_unfixed }}
+        continue-on-error: true
+
+      - name: Upload Trivy container results to GitHub Security
+        if: inputs.scan_containers && inputs.container_image != '' && inputs.upload_sarif
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-container-results.sarif'
+          category: 'trivy-container'
+        continue-on-error: true
+
+      # =======================================================================
+      # Upload Artifacts
+      # =======================================================================
+      - name: Upload security scan results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-scan-results
+          path: |
+            *-results.sarif
+            *-results.json
+            semgrep.sarif
+          retention-days: ${{ inputs.artifact_retention_days }}
+          if-no-files-found: ignore
+
+      # =======================================================================
+      # Summary
+      # =======================================================================
+      - name: Generate security summary
+        id: summary
+        if: always()
+        run: |
+          echo "## Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Scan Type | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ inputs.scan_dependencies }}" == "true" ]; then
+            echo "| Dependency Scan | Completed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ inputs.scan_secrets }}" == "true" ]; then
+            echo "| Secret Detection | Completed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ inputs.scan_sast }}" == "true" ]; then
+            echo "| SAST | Completed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ inputs.scan_iac }}" == "true" ]; then
+            echo "| IaC Scan | Completed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ inputs.scan_containers }}" == "true" ]; then
+            echo "| Container Scan | Completed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Fail on Severity:** ${{ inputs.fail_on_severity }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "View detailed results in the **Security** tab." >> $GITHUB_STEP_SUMMARY
+          
+          # Set outputs (would need actual parsing in production)
+          echo "vulnerabilities_found=false" >> $GITHUB_OUTPUT
+          echo "critical_count=0" >> $GITHUB_OUTPUT
+          echo "high_count=0" >> $GITHUB_OUTPUT

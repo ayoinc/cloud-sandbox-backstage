@@ -1,0 +1,306 @@
+# =============================================================================
+# Reusable Docker Build Workflow
+# =============================================================================
+# A comprehensive Docker build and push workflow with multi-registry support.
+#
+# Usage:
+#   jobs:
+#     docker:
+#       uses: ./.github/workflows/docker-build.yaml
+#       with:
+#         push: true
+#         registry: ghcr.io
+# =============================================================================
+
+name: Docker Build
+
+on:
+  workflow_call:
+    inputs:
+      # Build Configuration
+      context:
+        description: 'Docker build context'
+        required: false
+        type: string
+        default: '.'
+      dockerfile:
+        description: 'Path to Dockerfile'
+        required: false
+        type: string
+        default: 'Dockerfile'
+      target:
+        description: 'Docker build target stage'
+        required: false
+        type: string
+        default: ''
+      build_args:
+        description: 'Docker build arguments (newline separated)'
+        required: false
+        type: string
+        default: ''
+      platforms:
+        description: 'Target platforms (comma separated)'
+        required: false
+        type: string
+        default: 'linux/amd64'
+
+      # Registry Configuration
+      registry:
+        description: 'Container registry (ghcr.io, docker.io, etc.)'
+        required: false
+        type: string
+        default: 'ghcr.io'
+      image_name:
+        description: 'Image name (defaults to repo name)'
+        required: false
+        type: string
+        default: ''
+      push:
+        description: 'Push image to registry'
+        required: false
+        type: boolean
+        default: false
+
+      # Tagging Strategy
+      tag_latest:
+        description: 'Tag as latest (only on main/master)'
+        required: false
+        type: boolean
+        default: true
+      tag_sha:
+        description: 'Tag with git SHA'
+        required: false
+        type: boolean
+        default: true
+      tag_branch:
+        description: 'Tag with branch name'
+        required: false
+        type: boolean
+        default: true
+      tag_semver:
+        description: 'Enable semantic versioning tags'
+        required: false
+        type: boolean
+        default: true
+      additional_tags:
+        description: 'Additional tags (newline separated)'
+        required: false
+        type: string
+        default: ''
+
+      # Security & Quality
+      scan_image:
+        description: 'Scan image for vulnerabilities'
+        required: false
+        type: boolean
+        default: true
+      fail_on_vulnerabilities:
+        description: 'Fail build on vulnerabilities'
+        required: false
+        type: boolean
+        default: false
+      sign_image:
+        description: 'Sign image with cosign'
+        required: false
+        type: boolean
+        default: false
+
+      # Caching
+      cache_enabled:
+        description: 'Enable build caching'
+        required: false
+        type: boolean
+        default: true
+      cache_mode:
+        description: 'Cache mode (gha, registry, local)'
+        required: false
+        type: string
+        default: 'gha'
+
+    outputs:
+      image:
+        description: 'Full image name with primary tag'
+        value: ${{ jobs.build.outputs.image }}
+      digest:
+        description: 'Image digest'
+        value: ${{ jobs.build.outputs.digest }}
+      tags:
+        description: 'All image tags'
+        value: ${{ jobs.build.outputs.tags }}
+      metadata:
+        description: 'Image metadata JSON'
+        value: ${{ jobs.build.outputs.metadata }}
+
+    secrets:
+      REGISTRY_USERNAME:
+        description: 'Registry username'
+        required: false
+      REGISTRY_PASSWORD:
+        description: 'Registry password/token'
+        required: false
+
+jobs:
+  build:
+    name: Build & Push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      security-events: write
+    outputs:
+      image: ${{ steps.meta.outputs.tags }}
+      digest: ${{ steps.build.outputs.digest }}
+      tags: ${{ steps.meta.outputs.tags }}
+      metadata: ${{ steps.meta.outputs.json }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # =======================================================================
+      # Setup
+      # =======================================================================
+      - name: Set up QEMU
+        if: contains(inputs.platforms, ',')
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # =======================================================================
+      # Registry Authentication
+      # =======================================================================
+      - name: Log in to GitHub Container Registry
+        if: inputs.registry == 'ghcr.io' && inputs.push
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        if: inputs.registry == 'docker.io' && inputs.push
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Log in to custom registry
+        if: inputs.registry != 'ghcr.io' && inputs.registry != 'docker.io' && inputs.push
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ inputs.registry }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      # =======================================================================
+      # Metadata
+      # =======================================================================
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ inputs.registry }}/${{ inputs.image_name || github.repository }}
+          tags: |
+            type=raw,value=latest,enable=${{ inputs.tag_latest && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') }}
+            type=sha,enable=${{ inputs.tag_sha }},prefix=sha-,format=short
+            type=ref,event=branch,enable=${{ inputs.tag_branch }}
+            type=ref,event=pr
+            type=semver,pattern={{version}},enable=${{ inputs.tag_semver }}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ inputs.tag_semver }}
+            type=semver,pattern={{major}},enable=${{ inputs.tag_semver }}
+            ${{ inputs.additional_tags }}
+
+      # =======================================================================
+      # Build & Push
+      # =======================================================================
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ inputs.context }}
+          file: ${{ inputs.dockerfile }}
+          target: ${{ inputs.target }}
+          platforms: ${{ inputs.platforms }}
+          push: ${{ inputs.push }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: ${{ inputs.build_args }}
+          cache-from: ${{ inputs.cache_enabled && inputs.cache_mode == 'gha' && 'type=gha' || '' }}
+          cache-to: ${{ inputs.cache_enabled && inputs.cache_mode == 'gha' && 'type=gha,mode=max' || '' }}
+          provenance: true
+          sbom: true
+
+      # =======================================================================
+      # Security Scanning
+      # =======================================================================
+      - name: Run Trivy vulnerability scanner
+        if: inputs.scan_image && inputs.push
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ inputs.registry }}/${{ inputs.image_name || github.repository }}@${{ steps.build.outputs.digest }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: ${{ inputs.fail_on_vulnerabilities && '1' || '0' }}
+        continue-on-error: ${{ !inputs.fail_on_vulnerabilities }}
+
+      - name: Upload Trivy scan results to GitHub Security
+        if: inputs.scan_image && inputs.push
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+          category: 'container-scanning'
+        continue-on-error: true
+
+      # =======================================================================
+      # Image Signing
+      # =======================================================================
+      - name: Install Cosign
+        if: inputs.sign_image && inputs.push
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign the container image
+        if: inputs.sign_image && inputs.push
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          images=""
+          for tag in ${TAGS}; do
+            images+="${tag}@${DIGEST} "
+          done
+          cosign sign --yes ${images}
+
+      # =======================================================================
+      # Summary
+      # =======================================================================
+      - name: Generate build summary
+        if: always()
+        run: |
+          echo "## Docker Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Registry | \`${{ inputs.registry }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Image | \`${{ inputs.image_name || github.repository }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Digest | \`${{ steps.build.outputs.digest }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Platforms | \`${{ inputs.platforms }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Pushed | ${{ inputs.push }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Scanned | ${{ inputs.scan_image }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Signed | ${{ inputs.sign_image }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ inputs.push }}" == "true" ]; then
+            echo "### Tags" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Pull Command" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+            echo "docker pull ${{ inputs.registry }}/${{ inputs.image_name || github.repository }}@${{ steps.build.outputs.digest }}" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          fi

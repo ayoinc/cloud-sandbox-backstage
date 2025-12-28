@@ -1,0 +1,535 @@
+# =============================================================================
+# Reusable Deploy Workflow
+# =============================================================================
+# A flexible deployment workflow supporting multiple targets.
+# Can be skipped if deployment target is not configured.
+#
+# Supports: Kubernetes, AWS ECS, Azure Container Apps, Cloud Run, SSH, etc.
+#
+# Usage:
+#   jobs:
+#     deploy:
+#       uses: ./.github/workflows/deploy.yaml
+#       with:
+#         environment: staging
+#         deploy_target: kubernetes
+# =============================================================================
+
+name: Deploy
+
+on:
+  workflow_call:
+    inputs:
+      # Deployment Configuration
+      environment:
+        description: 'Deployment environment (dev, staging, production)'
+        required: true
+        type: string
+      deploy_target:
+        description: 'Deployment target (kubernetes, ecs, azure-container-apps, cloud-run, ssh, skip)'
+        required: false
+        type: string
+        default: 'skip'
+      
+      # Image Configuration
+      image:
+        description: 'Container image to deploy'
+        required: false
+        type: string
+        default: ''
+      image_tag:
+        description: 'Image tag to deploy'
+        required: false
+        type: string
+        default: ''
+
+      # Kubernetes Configuration
+      k8s_namespace:
+        description: 'Kubernetes namespace'
+        required: false
+        type: string
+        default: 'default'
+      k8s_manifests_path:
+        description: 'Path to Kubernetes manifests'
+        required: false
+        type: string
+        default: 'k8s/'
+      helm_chart_path:
+        description: 'Path to Helm chart'
+        required: false
+        type: string
+        default: ''
+      helm_release_name:
+        description: 'Helm release name'
+        required: false
+        type: string
+        default: ''
+      helm_values_file:
+        description: 'Helm values file'
+        required: false
+        type: string
+        default: ''
+
+      # AWS ECS Configuration
+      ecs_cluster:
+        description: 'ECS cluster name'
+        required: false
+        type: string
+        default: ''
+      ecs_service:
+        description: 'ECS service name'
+        required: false
+        type: string
+        default: ''
+      ecs_task_definition:
+        description: 'Path to ECS task definition'
+        required: false
+        type: string
+        default: ''
+      aws_region:
+        description: 'AWS region'
+        required: false
+        type: string
+        default: 'us-east-1'
+
+      # Azure Configuration
+      azure_resource_group:
+        description: 'Azure resource group'
+        required: false
+        type: string
+        default: ''
+      azure_container_app:
+        description: 'Azure Container App name'
+        required: false
+        type: string
+        default: ''
+
+      # GCP Cloud Run Configuration
+      gcp_project:
+        description: 'GCP project ID'
+        required: false
+        type: string
+        default: ''
+      gcp_region:
+        description: 'GCP region'
+        required: false
+        type: string
+        default: 'us-central1'
+      cloud_run_service:
+        description: 'Cloud Run service name'
+        required: false
+        type: string
+        default: ''
+
+      # SSH Deployment Configuration
+      ssh_host:
+        description: 'SSH host for deployment'
+        required: false
+        type: string
+        default: ''
+      ssh_user:
+        description: 'SSH user'
+        required: false
+        type: string
+        default: ''
+      ssh_deploy_path:
+        description: 'Remote deployment path'
+        required: false
+        type: string
+        default: '/opt/app'
+
+      # Deployment Options
+      wait_for_rollout:
+        description: 'Wait for deployment to complete'
+        required: false
+        type: boolean
+        default: true
+      rollout_timeout:
+        description: 'Rollout timeout in seconds'
+        required: false
+        type: number
+        default: 600
+      dry_run:
+        description: 'Perform a dry run without deploying'
+        required: false
+        type: boolean
+        default: false
+
+      # Notifications
+      notify_slack:
+        description: 'Send Slack notification'
+        required: false
+        type: boolean
+        default: false
+      notify_teams:
+        description: 'Send Teams notification'
+        required: false
+        type: boolean
+        default: false
+
+    outputs:
+      deployment_url:
+        description: 'URL of the deployed application'
+        value: ${{ jobs.deploy.outputs.url }}
+      deployment_status:
+        description: 'Deployment status'
+        value: ${{ jobs.deploy.outputs.status }}
+
+    secrets:
+      KUBECONFIG:
+        description: 'Kubernetes config for cluster access'
+        required: false
+      AWS_ACCESS_KEY_ID:
+        description: 'AWS access key ID'
+        required: false
+      AWS_SECRET_ACCESS_KEY:
+        description: 'AWS secret access key'
+        required: false
+      AWS_ROLE_ARN:
+        description: 'AWS IAM role ARN for OIDC'
+        required: false
+      AZURE_CREDENTIALS:
+        description: 'Azure service principal credentials'
+        required: false
+      GCP_CREDENTIALS:
+        description: 'GCP service account key'
+        required: false
+      SSH_PRIVATE_KEY:
+        description: 'SSH private key for deployment'
+        required: false
+      SLACK_WEBHOOK_URL:
+        description: 'Slack webhook URL'
+        required: false
+      TEAMS_WEBHOOK_URL:
+        description: 'Teams webhook URL'
+        required: false
+
+jobs:
+  # ===========================================================================
+  # Skip Check - Determine if deployment should be skipped
+  # ===========================================================================
+  check:
+    name: Check Deployment Config
+    runs-on: ubuntu-latest
+    outputs:
+      should_deploy: ${{ steps.check.outputs.should_deploy }}
+      target: ${{ steps.check.outputs.target }}
+    steps:
+      - name: Check deployment configuration
+        id: check
+        run: |
+          target="${{ inputs.deploy_target }}"
+          should_deploy="true"
+          
+          if [ "$target" == "skip" ] || [ -z "$target" ]; then
+            echo "Deployment target is 'skip' or not configured. Skipping deployment."
+            should_deploy="false"
+          fi
+          
+          echo "should_deploy=$should_deploy" >> $GITHUB_OUTPUT
+          echo "target=$target" >> $GITHUB_OUTPUT
+          
+          echo "## Deployment Check" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Setting | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Target | \`$target\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Environment | \`${{ inputs.environment }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Will Deploy | $should_deploy |" >> $GITHUB_STEP_SUMMARY
+
+  # ===========================================================================
+  # Deploy Job
+  # ===========================================================================
+  deploy:
+    name: Deploy to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    needs: check
+    if: needs.check.outputs.should_deploy == 'true'
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ steps.deploy.outputs.url }}
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
+      status: ${{ steps.deploy.outputs.status }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # =======================================================================
+      # Kubernetes Deployment
+      # =======================================================================
+      - name: Setup kubectl
+        if: inputs.deploy_target == 'kubernetes'
+        uses: azure/setup-kubectl@v3
+
+      - name: Setup Helm
+        if: inputs.deploy_target == 'kubernetes' && inputs.helm_chart_path != ''
+        uses: azure/setup-helm@v3
+
+      - name: Configure Kubernetes
+        if: inputs.deploy_target == 'kubernetes'
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Deploy to Kubernetes (kubectl)
+        if: inputs.deploy_target == 'kubernetes' && inputs.helm_chart_path == ''
+        id: k8s-deploy
+        run: |
+          dry_run_flag="${{ inputs.dry_run && '--dry-run=client' || '' }}"
+          
+          # Replace image tag in manifests
+          if [ -n "${{ inputs.image }}" ] && [ -n "${{ inputs.image_tag }}" ]; then
+            find ${{ inputs.k8s_manifests_path }} -type f -name "*.yaml" -exec \
+              sed -i "s|image:.*|image: ${{ inputs.image }}:${{ inputs.image_tag }}|g" {} \;
+          fi
+          
+          kubectl apply -f ${{ inputs.k8s_manifests_path }} \
+            -n ${{ inputs.k8s_namespace }} \
+            $dry_run_flag
+          
+          if [ "${{ inputs.wait_for_rollout }}" == "true" ] && [ -z "$dry_run_flag" ]; then
+            kubectl rollout status deployment -n ${{ inputs.k8s_namespace }} \
+              --timeout=${{ inputs.rollout_timeout }}s
+          fi
+          
+          echo "status=success" >> $GITHUB_OUTPUT
+
+      - name: Deploy to Kubernetes (Helm)
+        if: inputs.deploy_target == 'kubernetes' && inputs.helm_chart_path != ''
+        id: helm-deploy
+        run: |
+          dry_run_flag="${{ inputs.dry_run && '--dry-run' || '' }}"
+          values_flag="${{ inputs.helm_values_file != '' && format('-f {0}', inputs.helm_values_file) || '' }}"
+          
+          helm upgrade --install ${{ inputs.helm_release_name }} ${{ inputs.helm_chart_path }} \
+            -n ${{ inputs.k8s_namespace }} \
+            --set image.repository=${{ inputs.image }} \
+            --set image.tag=${{ inputs.image_tag }} \
+            --wait=${{ inputs.wait_for_rollout }} \
+            --timeout=${{ inputs.rollout_timeout }}s \
+            $values_flag \
+            $dry_run_flag
+          
+          echo "status=success" >> $GITHUB_OUTPUT
+
+      # =======================================================================
+      # AWS ECS Deployment
+      # =======================================================================
+      - name: Configure AWS credentials
+        if: inputs.deploy_target == 'ecs'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ inputs.aws_region }}
+
+      - name: Deploy to ECS
+        if: inputs.deploy_target == 'ecs'
+        id: ecs-deploy
+        run: |
+          if [ "${{ inputs.dry_run }}" == "true" ]; then
+            echo "Dry run mode - skipping actual deployment"
+            echo "status=dry-run" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Update task definition with new image
+          TASK_DEF=$(aws ecs describe-task-definition \
+            --task-definition ${{ inputs.ecs_task_definition }} \
+            --query taskDefinition)
+          
+          NEW_TASK_DEF=$(echo $TASK_DEF | jq \
+            --arg IMAGE "${{ inputs.image }}:${{ inputs.image_tag }}" \
+            '.containerDefinitions[0].image = $IMAGE | del(.taskDefinitionArn) | del(.revision) | del(.status) | del(.requiresAttributes) | del(.compatibilities) | del(.registeredAt) | del(.registeredBy)')
+          
+          # Register new task definition
+          NEW_TASK_ARN=$(aws ecs register-task-definition \
+            --cli-input-json "$NEW_TASK_DEF" \
+            --query taskDefinition.taskDefinitionArn \
+            --output text)
+          
+          # Update service
+          aws ecs update-service \
+            --cluster ${{ inputs.ecs_cluster }} \
+            --service ${{ inputs.ecs_service }} \
+            --task-definition $NEW_TASK_ARN
+          
+          if [ "${{ inputs.wait_for_rollout }}" == "true" ]; then
+            aws ecs wait services-stable \
+              --cluster ${{ inputs.ecs_cluster }} \
+              --services ${{ inputs.ecs_service }}
+          fi
+          
+          echo "status=success" >> $GITHUB_OUTPUT
+
+      # =======================================================================
+      # Azure Container Apps Deployment
+      # =======================================================================
+      - name: Azure Login
+        if: inputs.deploy_target == 'azure-container-apps'
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure Container Apps
+        if: inputs.deploy_target == 'azure-container-apps'
+        id: azure-deploy
+        run: |
+          if [ "${{ inputs.dry_run }}" == "true" ]; then
+            echo "Dry run mode - skipping actual deployment"
+            echo "status=dry-run" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          az containerapp update \
+            --name ${{ inputs.azure_container_app }} \
+            --resource-group ${{ inputs.azure_resource_group }} \
+            --image ${{ inputs.image }}:${{ inputs.image_tag }}
+          
+          # Get the URL
+          url=$(az containerapp show \
+            --name ${{ inputs.azure_container_app }} \
+            --resource-group ${{ inputs.azure_resource_group }} \
+            --query properties.configuration.ingress.fqdn \
+            --output tsv)
+          
+          echo "url=https://$url" >> $GITHUB_OUTPUT
+          echo "status=success" >> $GITHUB_OUTPUT
+
+      # =======================================================================
+      # GCP Cloud Run Deployment
+      # =======================================================================
+      - name: Authenticate to GCP
+        if: inputs.deploy_target == 'cloud-run'
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+
+      - name: Deploy to Cloud Run
+        if: inputs.deploy_target == 'cloud-run'
+        id: cloudrun-deploy
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ inputs.cloud_run_service }}
+          region: ${{ inputs.gcp_region }}
+          image: ${{ inputs.image }}:${{ inputs.image_tag }}
+          flags: '--allow-unauthenticated'
+
+      # =======================================================================
+      # SSH Deployment
+      # =======================================================================
+      - name: Deploy via SSH
+        if: inputs.deploy_target == 'ssh'
+        id: ssh-deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ inputs.ssh_host }}
+          username: ${{ inputs.ssh_user }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd ${{ inputs.ssh_deploy_path }}
+            docker pull ${{ inputs.image }}:${{ inputs.image_tag }}
+            docker-compose up -d
+            docker system prune -f
+
+      # =======================================================================
+      # Deployment Summary
+      # =======================================================================
+      - name: Set deployment outputs
+        id: deploy
+        if: always()
+        run: |
+          # Collect URL from various deployment methods
+          url="${{ steps.azure-deploy.outputs.url || steps.cloudrun-deploy.outputs.url || '' }}"
+          status="${{ steps.k8s-deploy.outputs.status || steps.helm-deploy.outputs.status || steps.ecs-deploy.outputs.status || steps.azure-deploy.outputs.status || steps.cloudrun-deploy.outcome || 'unknown' }}"
+          
+          echo "url=$url" >> $GITHUB_OUTPUT
+          echo "status=$status" >> $GITHUB_OUTPUT
+
+      - name: Generate deployment summary
+        if: always()
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Environment | \`${{ inputs.environment }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Target | \`${{ inputs.deploy_target }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Image | \`${{ inputs.image }}:${{ inputs.image_tag }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Status | ${{ steps.deploy.outputs.status }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Dry Run | ${{ inputs.dry_run }} |" >> $GITHUB_STEP_SUMMARY
+          if [ -n "${{ steps.deploy.outputs.url }}" ]; then
+            echo "| URL | ${{ steps.deploy.outputs.url }} |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # ===========================================================================
+  # Skip Job - When deployment is skipped
+  # ===========================================================================
+  skip:
+    name: Deployment Skipped
+    runs-on: ubuntu-latest
+    needs: check
+    if: needs.check.outputs.should_deploy == 'false'
+    steps:
+      - name: Skip notification
+        run: |
+          echo "## Deployment Skipped" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Deployment was skipped because:" >> $GITHUB_STEP_SUMMARY
+          echo "- Deploy target is set to 'skip' or not configured" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "To enable deployment, set the \`deploy_target\` input to one of:" >> $GITHUB_STEP_SUMMARY
+          echo "- \`kubernetes\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`ecs\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`azure-container-apps\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`cloud-run\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`ssh\`" >> $GITHUB_STEP_SUMMARY
+
+  # ===========================================================================
+  # Notifications
+  # ===========================================================================
+  notify:
+    name: Send Notifications
+    runs-on: ubuntu-latest
+    needs: [check, deploy]
+    if: always() && needs.check.outputs.should_deploy == 'true' && (inputs.notify_slack || inputs.notify_teams)
+    steps:
+      - name: Send Slack notification
+        if: inputs.notify_slack
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "Deployment to ${{ inputs.environment }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Deployment to ${{ inputs.environment }}*\n• Status: ${{ needs.deploy.result }}\n• Image: `${{ inputs.image }}:${{ inputs.image_tag }}`\n• Target: ${{ inputs.deploy_target }}"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        continue-on-error: true
+
+      - name: Send Teams notification
+        if: inputs.notify_teams
+        run: |
+          curl -H "Content-Type: application/json" -d '{
+            "@type": "MessageCard",
+            "summary": "Deployment to ${{ inputs.environment }}",
+            "sections": [{
+              "activityTitle": "Deployment to ${{ inputs.environment }}",
+              "facts": [
+                { "name": "Status", "value": "${{ needs.deploy.result }}" },
+                { "name": "Image", "value": "${{ inputs.image }}:${{ inputs.image_tag }}" },
+                { "name": "Target", "value": "${{ inputs.deploy_target }}" }
+              ]
+            }]
+          }' ${{ secrets.TEAMS_WEBHOOK_URL }}
+        continue-on-error: true

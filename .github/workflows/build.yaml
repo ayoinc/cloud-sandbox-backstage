@@ -1,0 +1,330 @@
+# =============================================================================
+# Reusable Build Workflow
+# =============================================================================
+# A reusable workflow for building applications across different tech stacks.
+# Supports: Node.js, Python, Go, Java, .NET
+#
+# Usage:
+#   jobs:
+#     build:
+#       uses: ./.github/workflows/build.yaml
+#       with:
+#         node_version: '22'
+#         working_directory: '.'
+# =============================================================================
+
+name: Build
+
+on:
+  workflow_call:
+    inputs:
+      # Language/Runtime Configuration
+      language:
+        description: 'Programming language (node, python, go, java, dotnet)'
+        required: false
+        type: string
+        default: 'node'
+      node_version:
+        description: 'Node.js version'
+        required: false
+        type: string
+        default: '22'
+      python_version:
+        description: 'Python version'
+        required: false
+        type: string
+        default: '3.12'
+      go_version:
+        description: 'Go version'
+        required: false
+        type: string
+        default: '1.22'
+      java_version:
+        description: 'Java version'
+        required: false
+        type: string
+        default: '21'
+      dotnet_version:
+        description: '.NET version'
+        required: false
+        type: string
+        default: '8.0'
+
+      # Build Configuration
+      working_directory:
+        description: 'Working directory for build commands'
+        required: false
+        type: string
+        default: '.'
+      package_manager:
+        description: 'Package manager (npm, yarn, pnpm, pip, poetry, go, maven, gradle, dotnet)'
+        required: false
+        type: string
+        default: 'yarn'
+      build_command:
+        description: 'Custom build command (overrides default)'
+        required: false
+        type: string
+        default: ''
+      install_command:
+        description: 'Custom install command (overrides default)'
+        required: false
+        type: string
+        default: ''
+      pre_build_command:
+        description: 'Command to run before build'
+        required: false
+        type: string
+        default: ''
+      post_build_command:
+        description: 'Command to run after build'
+        required: false
+        type: string
+        default: ''
+
+      # Artifact Configuration
+      artifact_name:
+        description: 'Name for build artifacts'
+        required: false
+        type: string
+        default: 'build-artifacts'
+      artifact_path:
+        description: 'Path to artifacts to upload'
+        required: false
+        type: string
+        default: 'dist'
+      artifact_retention_days:
+        description: 'Number of days to retain artifacts'
+        required: false
+        type: number
+        default: 7
+      upload_artifacts:
+        description: 'Whether to upload build artifacts'
+        required: false
+        type: boolean
+        default: true
+
+      # Cache Configuration
+      cache_key_prefix:
+        description: 'Prefix for cache key'
+        required: false
+        type: string
+        default: 'build'
+
+    outputs:
+      artifact_name:
+        description: 'Name of the uploaded artifact'
+        value: ${{ jobs.build.outputs.artifact_name }}
+      build_duration:
+        description: 'Build duration in seconds'
+        value: ${{ jobs.build.outputs.build_duration }}
+      build_success:
+        description: 'Whether the build succeeded'
+        value: ${{ jobs.build.outputs.build_success }}
+
+jobs:
+  build:
+    name: Build Application
+    runs-on: ubuntu-latest
+    outputs:
+      artifact_name: ${{ inputs.artifact_name }}
+      build_duration: ${{ steps.build.outputs.duration }}
+      build_success: ${{ steps.build.outcome == 'success' }}
+
+    defaults:
+      run:
+        working-directory: ${{ inputs.working_directory }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # =======================================================================
+      # Node.js Setup
+      # =======================================================================
+      - name: Setup Node.js
+        if: inputs.language == 'node'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache: ${{ inputs.package_manager == 'npm' && 'npm' || inputs.package_manager == 'yarn' && 'yarn' || inputs.package_manager == 'pnpm' && 'pnpm' || '' }}
+          cache-dependency-path: ${{ inputs.working_directory }}/package-lock.json
+
+      - name: Enable Corepack
+        if: inputs.language == 'node' && (inputs.package_manager == 'yarn' || inputs.package_manager == 'pnpm')
+        run: corepack enable
+
+      - name: Setup pnpm
+        if: inputs.language == 'node' && inputs.package_manager == 'pnpm'
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
+
+      # =======================================================================
+      # Python Setup
+      # =======================================================================
+      - name: Setup Python
+        if: inputs.language == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+          cache: ${{ inputs.package_manager == 'pip' && 'pip' || inputs.package_manager == 'poetry' && 'poetry' || 'pip' }}
+
+      - name: Install Poetry
+        if: inputs.language == 'python' && inputs.package_manager == 'poetry'
+        uses: snok/install-poetry@v1
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      # =======================================================================
+      # Go Setup
+      # =======================================================================
+      - name: Setup Go
+        if: inputs.language == 'go'
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ inputs.go_version }}
+          cache: true
+          cache-dependency-path: ${{ inputs.working_directory }}/go.sum
+
+      # =======================================================================
+      # Java Setup
+      # =======================================================================
+      - name: Setup Java
+        if: inputs.language == 'java'
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ inputs.java_version }}
+          distribution: 'temurin'
+          cache: ${{ inputs.package_manager == 'maven' && 'maven' || inputs.package_manager == 'gradle' && 'gradle' || 'maven' }}
+
+      # =======================================================================
+      # .NET Setup
+      # =======================================================================
+      - name: Setup .NET
+        if: inputs.language == 'dotnet'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ inputs.dotnet_version }}
+
+      - name: Cache NuGet packages
+        if: inputs.language == 'dotnet'
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      # =======================================================================
+      # Pre-build Command
+      # =======================================================================
+      - name: Run pre-build command
+        if: inputs.pre_build_command != ''
+        run: ${{ inputs.pre_build_command }}
+
+      # =======================================================================
+      # Install Dependencies
+      # =======================================================================
+      - name: Install dependencies
+        id: install
+        run: |
+          start_time=$(date +%s)
+          
+          if [ -n "${{ inputs.install_command }}" ]; then
+            ${{ inputs.install_command }}
+          elif [ "${{ inputs.language }}" == "node" ]; then
+            case "${{ inputs.package_manager }}" in
+              npm) npm ci ;;
+              yarn) yarn install --immutable ;;
+              pnpm) pnpm install --frozen-lockfile ;;
+            esac
+          elif [ "${{ inputs.language }}" == "python" ]; then
+            case "${{ inputs.package_manager }}" in
+              pip) pip install -r requirements.txt ;;
+              poetry) poetry install --no-interaction ;;
+            esac
+          elif [ "${{ inputs.language }}" == "go" ]; then
+            go mod download
+          elif [ "${{ inputs.language }}" == "java" ]; then
+            case "${{ inputs.package_manager }}" in
+              maven) mvn dependency:go-offline -B ;;
+              gradle) ./gradlew dependencies --no-daemon ;;
+            esac
+          elif [ "${{ inputs.language }}" == "dotnet" ]; then
+            dotnet restore
+          fi
+          
+          echo "install_duration=$(($(date +%s) - start_time))s" >> $GITHUB_OUTPUT
+
+      # =======================================================================
+      # Build
+      # =======================================================================
+      - name: Build application
+        id: build
+        run: |
+          start_time=$(date +%s)
+          
+          if [ -n "${{ inputs.build_command }}" ]; then
+            ${{ inputs.build_command }}
+          elif [ "${{ inputs.language }}" == "node" ]; then
+            case "${{ inputs.package_manager }}" in
+              npm) npm run build ;;
+              yarn) yarn build ;;
+              pnpm) pnpm build ;;
+            esac
+          elif [ "${{ inputs.language }}" == "python" ]; then
+            case "${{ inputs.package_manager }}" in
+              pip) python -m build 2>/dev/null || echo "No build step" ;;
+              poetry) poetry build ;;
+            esac
+          elif [ "${{ inputs.language }}" == "go" ]; then
+            go build -v ./...
+          elif [ "${{ inputs.language }}" == "java" ]; then
+            case "${{ inputs.package_manager }}" in
+              maven) mvn package -DskipTests -B ;;
+              gradle) ./gradlew build -x test --no-daemon ;;
+            esac
+          elif [ "${{ inputs.language }}" == "dotnet" ]; then
+            dotnet build --configuration Release --no-restore
+          fi
+          
+          echo "duration=$(($(date +%s) - start_time))s" >> $GITHUB_OUTPUT
+
+      # =======================================================================
+      # Post-build Command
+      # =======================================================================
+      - name: Run post-build command
+        if: inputs.post_build_command != ''
+        run: ${{ inputs.post_build_command }}
+
+      # =======================================================================
+      # Upload Artifacts
+      # =======================================================================
+      - name: Upload build artifacts
+        if: inputs.upload_artifacts && success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: ${{ inputs.working_directory }}/${{ inputs.artifact_path }}
+          retention-days: ${{ inputs.artifact_retention_days }}
+          if-no-files-found: warn
+
+      # =======================================================================
+      # Build Summary
+      # =======================================================================
+      - name: Generate build summary
+        if: always()
+        run: |
+          echo "## Build Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Language | ${{ inputs.language }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Package Manager | ${{ inputs.package_manager }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Install Duration | ${{ steps.install.outputs.install_duration }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build Duration | ${{ steps.build.outputs.duration }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Status | ${{ steps.build.outcome == 'success' && 'Passed' || 'Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY

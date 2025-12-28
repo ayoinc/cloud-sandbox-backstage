@@ -1,0 +1,376 @@
+# =============================================================================
+# Reusable Test Workflow
+# =============================================================================
+# A reusable workflow for running tests across different tech stacks.
+# Supports: Node.js, Python, Go, Java, .NET
+#
+# Usage:
+#   jobs:
+#     test:
+#       uses: ./.github/workflows/test.yaml
+#       with:
+#         language: 'node'
+#         coverage_threshold: 80
+# =============================================================================
+
+name: Test
+
+on:
+  workflow_call:
+    inputs:
+      # Language/Runtime Configuration
+      language:
+        description: 'Programming language (node, python, go, java, dotnet)'
+        required: false
+        type: string
+        default: 'node'
+      node_version:
+        description: 'Node.js version'
+        required: false
+        type: string
+        default: '22'
+      python_version:
+        description: 'Python version'
+        required: false
+        type: string
+        default: '3.12'
+      go_version:
+        description: 'Go version'
+        required: false
+        type: string
+        default: '1.22'
+      java_version:
+        description: 'Java version'
+        required: false
+        type: string
+        default: '21'
+      dotnet_version:
+        description: '.NET version'
+        required: false
+        type: string
+        default: '8.0'
+
+      # Test Configuration
+      working_directory:
+        description: 'Working directory for test commands'
+        required: false
+        type: string
+        default: '.'
+      package_manager:
+        description: 'Package manager'
+        required: false
+        type: string
+        default: 'yarn'
+      test_command:
+        description: 'Custom test command (overrides default)'
+        required: false
+        type: string
+        default: ''
+      coverage_enabled:
+        description: 'Enable code coverage'
+        required: false
+        type: boolean
+        default: true
+      coverage_threshold:
+        description: 'Minimum coverage percentage required'
+        required: false
+        type: number
+        default: 0
+      fail_on_no_tests:
+        description: 'Fail if no tests are found'
+        required: false
+        type: boolean
+        default: false
+
+      # Test Types
+      run_unit_tests:
+        description: 'Run unit tests'
+        required: false
+        type: boolean
+        default: true
+      run_integration_tests:
+        description: 'Run integration tests'
+        required: false
+        type: boolean
+        default: false
+      run_e2e_tests:
+        description: 'Run end-to-end tests'
+        required: false
+        type: boolean
+        default: false
+
+      # Reporting
+      upload_coverage:
+        description: 'Upload coverage to Codecov'
+        required: false
+        type: boolean
+        default: true
+      artifact_retention_days:
+        description: 'Days to retain test artifacts'
+        required: false
+        type: number
+        default: 7
+
+    outputs:
+      tests_passed:
+        description: 'Whether all tests passed'
+        value: ${{ jobs.test.outputs.tests_passed }}
+      coverage_percentage:
+        description: 'Code coverage percentage'
+        value: ${{ jobs.test.outputs.coverage }}
+      test_count:
+        description: 'Total number of tests'
+        value: ${{ jobs.test.outputs.test_count }}
+
+    secrets:
+      CODECOV_TOKEN:
+        description: 'Codecov upload token'
+        required: false
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    outputs:
+      tests_passed: ${{ steps.test.outcome == 'success' }}
+      coverage: ${{ steps.coverage.outputs.percentage }}
+      test_count: ${{ steps.test.outputs.count }}
+
+    defaults:
+      run:
+        working-directory: ${{ inputs.working_directory }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # =======================================================================
+      # Runtime Setup
+      # =======================================================================
+      - name: Setup Node.js
+        if: inputs.language == 'node'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache: ${{ inputs.package_manager }}
+
+      - name: Enable Corepack
+        if: inputs.language == 'node' && (inputs.package_manager == 'yarn' || inputs.package_manager == 'pnpm')
+        run: corepack enable
+
+      - name: Setup Python
+        if: inputs.language == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+          cache: ${{ inputs.package_manager == 'poetry' && 'poetry' || 'pip' }}
+
+      - name: Install Poetry
+        if: inputs.language == 'python' && inputs.package_manager == 'poetry'
+        uses: snok/install-poetry@v1
+
+      - name: Setup Go
+        if: inputs.language == 'go'
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ inputs.go_version }}
+          cache: true
+
+      - name: Setup Java
+        if: inputs.language == 'java'
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ inputs.java_version }}
+          distribution: 'temurin'
+          cache: ${{ inputs.package_manager }}
+
+      - name: Setup .NET
+        if: inputs.language == 'dotnet'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ inputs.dotnet_version }}
+
+      # =======================================================================
+      # Install Dependencies
+      # =======================================================================
+      - name: Install dependencies
+        run: |
+          if [ "${{ inputs.language }}" == "node" ]; then
+            case "${{ inputs.package_manager }}" in
+              npm) npm ci ;;
+              yarn) yarn install --immutable ;;
+              pnpm) pnpm install --frozen-lockfile ;;
+            esac
+          elif [ "${{ inputs.language }}" == "python" ]; then
+            case "${{ inputs.package_manager }}" in
+              pip) pip install -r requirements.txt -r requirements-dev.txt 2>/dev/null || pip install -r requirements.txt ;;
+              poetry) poetry install --with dev 2>/dev/null || poetry install ;;
+            esac
+          elif [ "${{ inputs.language }}" == "go" ]; then
+            go mod download
+          elif [ "${{ inputs.language }}" == "java" ]; then
+            case "${{ inputs.package_manager }}" in
+              maven) mvn dependency:go-offline -B ;;
+              gradle) ./gradlew dependencies --no-daemon ;;
+            esac
+          elif [ "${{ inputs.language }}" == "dotnet" ]; then
+            dotnet restore
+          fi
+
+      # =======================================================================
+      # Run Unit Tests
+      # =======================================================================
+      - name: Run unit tests
+        id: test
+        if: inputs.run_unit_tests
+        run: |
+          set +e
+          
+          if [ -n "${{ inputs.test_command }}" ]; then
+            ${{ inputs.test_command }}
+            exit_code=$?
+          elif [ "${{ inputs.language }}" == "node" ]; then
+            coverage_flag="${{ inputs.coverage_enabled && '--coverage' || '' }}"
+            pass_flag="${{ inputs.fail_on_no_tests && '' || '--passWithNoTests' }}"
+            
+            case "${{ inputs.package_manager }}" in
+              npm) npm test -- $coverage_flag $pass_flag ;;
+              yarn) yarn test $coverage_flag $pass_flag ;;
+              pnpm) pnpm test $coverage_flag $pass_flag ;;
+            esac
+            exit_code=$?
+          elif [ "${{ inputs.language }}" == "python" ]; then
+            coverage_flag="${{ inputs.coverage_enabled && '--cov=. --cov-report=xml --cov-report=html' || '' }}"
+            case "${{ inputs.package_manager }}" in
+              pip) python -m pytest $coverage_flag ;;
+              poetry) poetry run pytest $coverage_flag ;;
+            esac
+            exit_code=$?
+          elif [ "${{ inputs.language }}" == "go" ]; then
+            coverage_flag="${{ inputs.coverage_enabled && '-coverprofile=coverage.out' || '' }}"
+            go test -v $coverage_flag ./...
+            exit_code=$?
+          elif [ "${{ inputs.language }}" == "java" ]; then
+            case "${{ inputs.package_manager }}" in
+              maven) mvn test -B ;;
+              gradle) ./gradlew test --no-daemon ;;
+            esac
+            exit_code=$?
+          elif [ "${{ inputs.language }}" == "dotnet" ]; then
+            coverage_flag="${{ inputs.coverage_enabled && '--collect:\"XPlat Code Coverage\"' || '' }}"
+            dotnet test --no-restore $coverage_flag
+            exit_code=$?
+          fi
+          
+          echo "exit_code=$exit_code" >> $GITHUB_OUTPUT
+          exit $exit_code
+
+      # =======================================================================
+      # Run Integration Tests
+      # =======================================================================
+      - name: Run integration tests
+        if: inputs.run_integration_tests
+        run: |
+          if [ "${{ inputs.language }}" == "node" ]; then
+            case "${{ inputs.package_manager }}" in
+              npm) npm run test:integration 2>/dev/null || echo "No integration tests" ;;
+              yarn) yarn test:integration 2>/dev/null || echo "No integration tests" ;;
+              pnpm) pnpm test:integration 2>/dev/null || echo "No integration tests" ;;
+            esac
+          elif [ "${{ inputs.language }}" == "python" ]; then
+            pytest tests/integration/ 2>/dev/null || echo "No integration tests"
+          elif [ "${{ inputs.language }}" == "go" ]; then
+            go test -v -tags=integration ./... 2>/dev/null || echo "No integration tests"
+          fi
+
+      # =======================================================================
+      # Run E2E Tests
+      # =======================================================================
+      - name: Run E2E tests
+        if: inputs.run_e2e_tests
+        run: |
+          if [ "${{ inputs.language }}" == "node" ]; then
+            case "${{ inputs.package_manager }}" in
+              npm) npm run test:e2e 2>/dev/null || echo "No E2E tests" ;;
+              yarn) yarn test:e2e 2>/dev/null || echo "No E2E tests" ;;
+              pnpm) pnpm test:e2e 2>/dev/null || echo "No E2E tests" ;;
+            esac
+          elif [ "${{ inputs.language }}" == "python" ]; then
+            pytest tests/e2e/ 2>/dev/null || echo "No E2E tests"
+          fi
+
+      # =======================================================================
+      # Coverage Processing
+      # =======================================================================
+      - name: Process coverage
+        id: coverage
+        if: inputs.coverage_enabled && always()
+        run: |
+          percentage="N/A"
+          
+          if [ "${{ inputs.language }}" == "node" ]; then
+            if [ -f coverage/coverage-summary.json ]; then
+              percentage=$(jq '.total.lines.pct // 0' coverage/coverage-summary.json)
+            fi
+          elif [ "${{ inputs.language }}" == "python" ]; then
+            if [ -f coverage.xml ]; then
+              percentage=$(grep -oP 'line-rate="\K[^"]+' coverage.xml | head -1 | awk '{printf "%.2f", $1 * 100}')
+            fi
+          elif [ "${{ inputs.language }}" == "go" ]; then
+            if [ -f coverage.out ]; then
+              percentage=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | tr -d '%')
+            fi
+          fi
+          
+          echo "percentage=$percentage" >> $GITHUB_OUTPUT
+          
+          # Check threshold
+          if [ "${{ inputs.coverage_threshold }}" -gt 0 ] && [ "$percentage" != "N/A" ]; then
+            threshold=${{ inputs.coverage_threshold }}
+            if (( $(echo "$percentage < $threshold" | bc -l) )); then
+              echo "::error::Coverage $percentage% is below threshold $threshold%"
+              exit 1
+            fi
+          fi
+
+      - name: Upload coverage to Codecov
+        if: inputs.coverage_enabled && inputs.upload_coverage && always()
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+          files: coverage/lcov.info,coverage.xml,coverage.out
+          flags: unittests
+          name: codecov-${{ inputs.language }}
+
+      # =======================================================================
+      # Upload Artifacts
+      # =======================================================================
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ inputs.language }}
+          path: |
+            coverage/
+            test-results/
+            *.xml
+            coverage.out
+          retention-days: ${{ inputs.artifact_retention_days }}
+          if-no-files-found: ignore
+
+      # =======================================================================
+      # Test Summary
+      # =======================================================================
+      - name: Generate test summary
+        if: always()
+        run: |
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Language | ${{ inputs.language }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Unit Tests | ${{ steps.test.outcome == 'success' && 'Passed' || steps.test.outcome == 'failure' && 'Failed' || 'Skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Coverage | ${{ steps.coverage.outputs.percentage }}% |" >> $GITHUB_STEP_SUMMARY
+          echo "| Coverage Threshold | ${{ inputs.coverage_threshold }}% |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY

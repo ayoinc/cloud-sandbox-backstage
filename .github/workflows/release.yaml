@@ -1,0 +1,512 @@
+# =============================================================================
+# Reusable Release Workflow
+# =============================================================================
+# Automates the release process with semantic versioning, changelog generation,
+# and artifact publishing.
+#
+# Usage:
+#   jobs:
+#     release:
+#       uses: ./.github/workflows/release.yaml
+#       with:
+#         release_type: minor
+# =============================================================================
+
+name: Release
+
+on:
+  workflow_call:
+    inputs:
+      # Release Configuration
+      release_type:
+        description: 'Release type (major, minor, patch, auto)'
+        required: false
+        type: string
+        default: 'auto'
+      prerelease:
+        description: 'Mark as prerelease'
+        required: false
+        type: boolean
+        default: false
+      prerelease_suffix:
+        description: 'Prerelease suffix (alpha, beta, rc)'
+        required: false
+        type: string
+        default: 'beta'
+      draft:
+        description: 'Create as draft release'
+        required: false
+        type: boolean
+        default: false
+
+      # Changelog
+      generate_changelog:
+        description: 'Auto-generate changelog'
+        required: false
+        type: boolean
+        default: true
+      changelog_file:
+        description: 'Changelog file path'
+        required: false
+        type: string
+        default: 'CHANGELOG.md'
+
+      # Versioning
+      version_file:
+        description: 'File containing version (package.json, version.txt, etc.)'
+        required: false
+        type: string
+        default: 'package.json'
+      tag_prefix:
+        description: 'Tag prefix (e.g., v)'
+        required: false
+        type: string
+        default: 'v'
+
+      # Build Artifacts
+      build_artifacts:
+        description: 'Build artifacts before release'
+        required: false
+        type: boolean
+        default: true
+      artifact_path:
+        description: 'Path to artifacts to upload'
+        required: false
+        type: string
+        default: 'dist/'
+      artifact_name:
+        description: 'Name pattern for release artifacts'
+        required: false
+        type: string
+        default: ''
+
+      # Docker
+      publish_docker:
+        description: 'Publish Docker image with release tag'
+        required: false
+        type: boolean
+        default: false
+      docker_registry:
+        description: 'Docker registry'
+        required: false
+        type: string
+        default: 'ghcr.io'
+      docker_image:
+        description: 'Docker image name'
+        required: false
+        type: string
+        default: ''
+
+      # npm
+      publish_npm:
+        description: 'Publish to npm registry'
+        required: false
+        type: boolean
+        default: false
+      npm_registry:
+        description: 'npm registry URL'
+        required: false
+        type: string
+        default: 'https://registry.npmjs.org'
+
+      # Notifications
+      notify_slack:
+        description: 'Send Slack notification'
+        required: false
+        type: boolean
+        default: false
+
+    outputs:
+      version:
+        description: 'Released version'
+        value: ${{ jobs.release.outputs.version }}
+      tag:
+        description: 'Git tag'
+        value: ${{ jobs.release.outputs.tag }}
+      release_url:
+        description: 'GitHub release URL'
+        value: ${{ jobs.release.outputs.release_url }}
+      changelog:
+        description: 'Generated changelog'
+        value: ${{ jobs.release.outputs.changelog }}
+
+    secrets:
+      NPM_TOKEN:
+        description: 'npm authentication token'
+        required: false
+      SLACK_WEBHOOK_URL:
+        description: 'Slack webhook URL'
+        required: false
+
+jobs:
+  # ===========================================================================
+  # Prepare Release
+  # ===========================================================================
+  prepare:
+    name: Prepare Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      changelog: ${{ steps.changelog.outputs.changelog }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Get current version
+        id: current
+        run: |
+          if [ "${{ inputs.version_file }}" == "package.json" ] && [ -f package.json ]; then
+            current=$(jq -r '.version' package.json)
+          elif [ -f "${{ inputs.version_file }}" ]; then
+            current=$(cat "${{ inputs.version_file }}" | tr -d '\n')
+          else
+            # Get from latest tag
+            current=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^${{ inputs.tag_prefix }}//' || echo "0.0.0")
+          fi
+          echo "version=$current" >> $GITHUB_OUTPUT
+          echo "Current version: $current"
+
+      - name: Determine next version
+        id: version
+        run: |
+          current="${{ steps.current.outputs.version }}"
+          release_type="${{ inputs.release_type }}"
+          
+          # Parse semantic version
+          IFS='.' read -r major minor patch <<< "${current%-*}"
+          major=${major:-0}
+          minor=${minor:-0}
+          patch=${patch:-0}
+          
+          # Auto-detect release type from commits
+          if [ "$release_type" == "auto" ]; then
+            commits=$(git log $(git describe --tags --abbrev=0 2>/dev/null || echo "")..HEAD --pretty=format:"%s" 2>/dev/null || git log --pretty=format:"%s")
+            
+            if echo "$commits" | grep -qiE "^(BREAKING|!:)"; then
+              release_type="major"
+            elif echo "$commits" | grep -qiE "^feat"; then
+              release_type="minor"
+            else
+              release_type="patch"
+            fi
+            echo "Auto-detected release type: $release_type"
+          fi
+          
+          # Bump version
+          case "$release_type" in
+            major)
+              major=$((major + 1))
+              minor=0
+              patch=0
+              ;;
+            minor)
+              minor=$((minor + 1))
+              patch=0
+              ;;
+            patch)
+              patch=$((patch + 1))
+              ;;
+          esac
+          
+          version="${major}.${minor}.${patch}"
+          
+          # Add prerelease suffix
+          if [ "${{ inputs.prerelease }}" == "true" ]; then
+            # Get prerelease number
+            existing=$(git tag -l "${{ inputs.tag_prefix }}${version}-${{ inputs.prerelease_suffix }}.*" | wc -l)
+            prerelease_num=$((existing + 1))
+            version="${version}-${{ inputs.prerelease_suffix }}.${prerelease_num}"
+          fi
+          
+          tag="${{ inputs.tag_prefix }}${version}"
+          
+          echo "version=$version" >> $GITHUB_OUTPUT
+          echo "tag=$tag" >> $GITHUB_OUTPUT
+          echo "release_type=$release_type" >> $GITHUB_OUTPUT
+          
+          echo "Next version: $version"
+          echo "Tag: $tag"
+
+      - name: Generate changelog
+        id: changelog
+        if: inputs.generate_changelog
+        run: |
+          # Get commits since last tag
+          last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          
+          if [ -n "$last_tag" ]; then
+            commits=$(git log ${last_tag}..HEAD --pretty=format:"- %s (%h)" --no-merges)
+          else
+            commits=$(git log --pretty=format:"- %s (%h)" --no-merges -20)
+          fi
+          
+          # Categorize commits
+          features=$(echo "$commits" | grep -iE "^- feat" || echo "")
+          fixes=$(echo "$commits" | grep -iE "^- fix" || echo "")
+          breaking=$(echo "$commits" | grep -iE "^- (BREAKING|!:)" || echo "")
+          other=$(echo "$commits" | grep -viE "^- (feat|fix|BREAKING|!:)" || echo "")
+          
+          # Build changelog
+          changelog="## What's Changed in ${{ steps.version.outputs.version }}\n\n"
+          
+          if [ -n "$breaking" ]; then
+            changelog+="### Breaking Changes\n$breaking\n\n"
+          fi
+          if [ -n "$features" ]; then
+            changelog+="### Features\n$features\n\n"
+          fi
+          if [ -n "$fixes" ]; then
+            changelog+="### Bug Fixes\n$fixes\n\n"
+          fi
+          if [ -n "$other" ]; then
+            changelog+="### Other Changes\n$other\n\n"
+          fi
+          
+          changelog+="**Full Changelog**: https://github.com/${{ github.repository }}/compare/${last_tag}...${{ steps.version.outputs.tag }}"
+          
+          # Save changelog (escape for multiline output)
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$changelog" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Update version in files
+        run: |
+          version="${{ steps.version.outputs.version }}"
+          
+          # Update package.json if exists
+          if [ -f package.json ]; then
+            jq ".version = \"$version\"" package.json > package.json.tmp && mv package.json.tmp package.json
+          fi
+          
+          # Update version file if different
+          if [ "${{ inputs.version_file }}" != "package.json" ] && [ -f "${{ inputs.version_file }}" ]; then
+            echo "$version" > "${{ inputs.version_file }}"
+          fi
+
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git add -A
+          git diff --staged --quiet || git commit -m "chore: bump version to ${{ steps.version.outputs.version }}"
+          git push
+
+  # ===========================================================================
+  # Build Artifacts
+  # ===========================================================================
+  build:
+    name: Build Artifacts
+    runs-on: ubuntu-latest
+    needs: prepare
+    if: inputs.build_artifacts
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'yarn'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build
+        run: yarn build
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts
+          path: ${{ inputs.artifact_path }}
+          retention-days: 1
+
+  # ===========================================================================
+  # Create Release
+  # ===========================================================================
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: [prepare, build]
+    if: always() && needs.prepare.result == 'success' && (needs.build.result == 'success' || needs.build.result == 'skipped')
+    outputs:
+      version: ${{ needs.prepare.outputs.version }}
+      tag: ${{ needs.prepare.outputs.tag }}
+      release_url: ${{ steps.release.outputs.url }}
+      changelog: ${{ needs.prepare.outputs.changelog }}
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+
+      - name: Download artifacts
+        if: inputs.build_artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-artifacts
+          path: release-artifacts/
+
+      - name: Create GitHub Release
+        id: release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          name: Release ${{ needs.prepare.outputs.version }}
+          body: ${{ needs.prepare.outputs.changelog }}
+          draft: ${{ inputs.draft }}
+          prerelease: ${{ inputs.prerelease }}
+          files: |
+            release-artifacts/**/*
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate release summary
+        run: |
+          echo "## Release Created" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | \`${{ needs.prepare.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Tag | \`${{ needs.prepare.outputs.tag }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Prerelease | ${{ inputs.prerelease }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Draft | ${{ inputs.draft }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "[View Release](${{ steps.release.outputs.url }})" >> $GITHUB_STEP_SUMMARY
+
+  # ===========================================================================
+  # Publish Docker
+  # ===========================================================================
+  publish-docker:
+    name: Publish Docker Image
+    runs-on: ubuntu-latest
+    needs: [prepare, release]
+    if: inputs.publish_docker && needs.release.result == 'success'
+    permissions:
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ inputs.docker_registry }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ inputs.docker_registry }}/${{ inputs.docker_image || github.repository }}:${{ needs.prepare.outputs.version }}
+            ${{ inputs.docker_registry }}/${{ inputs.docker_image || github.repository }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ===========================================================================
+  # Publish npm
+  # ===========================================================================
+  publish-npm:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    needs: [prepare, release]
+    if: inputs.publish_npm && needs.release.result == 'success'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: ${{ inputs.npm_registry }}
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build
+        run: yarn build
+
+      - name: Publish to npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # ===========================================================================
+  # Notifications
+  # ===========================================================================
+  notify:
+    name: Send Notifications
+    runs-on: ubuntu-latest
+    needs: [prepare, release]
+    if: always() && inputs.notify_slack && needs.release.result == 'success'
+    steps:
+      - name: Send Slack notification
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "New Release: ${{ needs.prepare.outputs.version }}",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "New Release Published"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    { "type": "mrkdwn", "text": "*Version:*\n${{ needs.prepare.outputs.version }}" },
+                    { "type": "mrkdwn", "text": "*Repository:*\n${{ github.repository }}" }
+                  ]
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": { "type": "plain_text", "text": "View Release" },
+                      "url": "${{ needs.release.outputs.release_url }}"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        continue-on-error: true
