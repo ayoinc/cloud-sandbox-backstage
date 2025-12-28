@@ -4,12 +4,12 @@ Enterprise-grade Google Cloud infrastructure modules following GCP best practice
 
 ## Available Modules
 
-| Module | Description | Key Features |
-|--------|-------------|--------------|
-| [VPC](vpc.md) | Virtual Private Cloud | Subnets, Cloud NAT, Firewall rules |
-| [GKE](gke.md) | Google Kubernetes Engine | Node pools, Workload Identity, Private cluster |
-| [Cloud Storage](cloud-storage.md) | Object Storage | Versioning, Lifecycle, Encryption |
-| [Cloud SQL](cloud-sql.md) | Managed Database | HA, Point-in-time recovery, Query Insights |
+| Module                            | Description              | Key Features                                   |
+| --------------------------------- | ------------------------ | ---------------------------------------------- |
+| [VPC](vpc.md)                     | Virtual Private Cloud    | Subnets, Cloud NAT, Firewall rules             |
+| [GKE](gke.md)                     | Google Kubernetes Engine | Node pools, Workload Identity, Private cluster |
+| [Cloud Storage](cloud-storage.md) | Object Storage           | Versioning, Lifecycle, Encryption              |
+| [Cloud SQL](cloud-sql.md)         | Managed Database         | HA, Point-in-time recovery, Query Insights     |
 
 ## Architecture Patterns
 
@@ -61,18 +61,21 @@ terraform {
 ## Security Best Practices
 
 ### Identity & Access
+
 - Workload Identity for GKE pods
 - Service accounts with least-privilege
 - IAM Conditions for fine-grained access
 - No service account keys
 
 ### Network Security
+
 - Private Google Access enabled
 - Cloud NAT for outbound traffic
 - VPC Service Controls (optional)
 - IAP for administrative access
 
 ### Data Protection
+
 - Customer-managed encryption keys (CMEK)
 - VPC-native networking
 - Private services access
@@ -106,6 +109,7 @@ labels = {
 ## Cost Optimization
 
 ### Development Environments
+
 ```hcl
 # Use preemptible/spot VMs
 preemptible = true
@@ -120,6 +124,7 @@ availability_type = "ZONAL"
 ```
 
 ### Production Environments
+
 ```hcl
 # Standard VMs
 preemptible = false

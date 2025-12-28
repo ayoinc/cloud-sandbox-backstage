@@ -163,24 +163,24 @@ module "app_data" {
 
 ## Variables
 
-| Name | Description | Type | Default | Required |
-|------|-------------|------|---------|----------|
-| `project_id` | GCP Project ID | `string` | - | Yes |
-| `name` | Bucket name prefix | `string` | - | Yes |
-| `environment` | Environment (dev, staging, prod) | `string` | - | Yes |
-| `location` | Bucket location | `string` | `"US"` | No |
-| `storage_class` | Storage class | `string` | `"STANDARD"` | No |
-| `force_destroy` | Allow deletion with objects | `bool` | `false` | No |
-| `versioning_enabled` | Enable versioning | `bool` | `true` | No |
-| `uniform_bucket_level_access` | Uniform access control | `bool` | `true` | No |
-| `public_access_prevention` | Public access prevention | `string` | `"enforced"` | No |
-| `encryption_key` | CMEK key name | `string` | `null` | No |
-| `lifecycle_rules` | Lifecycle rules | `list(object)` | `[]` | No |
-| `cors` | CORS configuration | `list(object)` | `[]` | No |
-| `logging_bucket` | Access logs bucket | `string` | `null` | No |
-| `retention_policy_days` | Retention period in days | `number` | `0` | No |
-| `iam_bindings` | IAM bindings | `map(object)` | `{}` | No |
-| `labels` | Labels to apply | `map(string)` | `{}` | No |
+| Name                          | Description                      | Type           | Default      | Required |
+| ----------------------------- | -------------------------------- | -------------- | ------------ | -------- |
+| `project_id`                  | GCP Project ID                   | `string`       | -            | Yes      |
+| `name`                        | Bucket name prefix               | `string`       | -            | Yes      |
+| `environment`                 | Environment (dev, staging, prod) | `string`       | -            | Yes      |
+| `location`                    | Bucket location                  | `string`       | `"US"`       | No       |
+| `storage_class`               | Storage class                    | `string`       | `"STANDARD"` | No       |
+| `force_destroy`               | Allow deletion with objects      | `bool`         | `false`      | No       |
+| `versioning_enabled`          | Enable versioning                | `bool`         | `true`       | No       |
+| `uniform_bucket_level_access` | Uniform access control           | `bool`         | `true`       | No       |
+| `public_access_prevention`    | Public access prevention         | `string`       | `"enforced"` | No       |
+| `encryption_key`              | CMEK key name                    | `string`       | `null`       | No       |
+| `lifecycle_rules`             | Lifecycle rules                  | `list(object)` | `[]`         | No       |
+| `cors`                        | CORS configuration               | `list(object)` | `[]`         | No       |
+| `logging_bucket`              | Access logs bucket               | `string`       | `null`       | No       |
+| `retention_policy_days`       | Retention period in days         | `number`       | `0`          | No       |
+| `iam_bindings`                | IAM bindings                     | `map(object)`  | `{}`         | No       |
+| `labels`                      | Labels to apply                  | `map(string)`  | `{}`         | No       |
 
 ### Lifecycle Rule Configuration
 
@@ -214,21 +214,21 @@ cors = [{
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| `bucket_id` | Bucket ID |
-| `bucket_name` | Bucket name |
-| `bucket_url` | Bucket URL (gs://...) |
-| `bucket_self_link` | Bucket self link |
+| Name               | Description           |
+| ------------------ | --------------------- |
+| `bucket_id`        | Bucket ID             |
+| `bucket_name`      | Bucket name           |
+| `bucket_url`       | Bucket URL (gs://...) |
+| `bucket_self_link` | Bucket self link      |
 
 ## Storage Classes
 
-| Class | Use Case | Min Storage | Retrieval Cost |
-|-------|----------|-------------|----------------|
-| STANDARD | Frequently accessed | None | None |
-| NEARLINE | Monthly access | 30 days | Per GB |
-| COLDLINE | Quarterly access | 90 days | Per GB |
-| ARCHIVE | Annual access | 365 days | Per GB |
+| Class    | Use Case            | Min Storage | Retrieval Cost |
+| -------- | ------------------- | ----------- | -------------- |
+| STANDARD | Frequently accessed | None        | None           |
+| NEARLINE | Monthly access      | 30 days     | Per GB         |
+| COLDLINE | Quarterly access    | 90 days     | Per GB         |
+| ARCHIVE  | Annual access       | 365 days    | Per GB         |
 
 ## Security Features
 
@@ -294,14 +294,15 @@ lifecycle_rules = [{
 
 ## Cost Considerations
 
-| Component | Cost Factor |
-|-----------|-------------|
-| Storage | Per GB/month by class |
-| Operations | Per 10,000 operations |
-| Network | Egress charges |
-| Retrieval | Per GB for NEARLINE/COLDLINE/ARCHIVE |
+| Component  | Cost Factor                          |
+| ---------- | ------------------------------------ |
+| Storage    | Per GB/month by class                |
+| Operations | Per 10,000 operations                |
+| Network    | Egress charges                       |
+| Retrieval  | Per GB for NEARLINE/COLDLINE/ARCHIVE |
 
 **Tips:**
+
 - Use regional buckets when data locality matters
 - Use multi-regional for global access patterns
 - Implement lifecycle policies from day one

@@ -4,11 +4,11 @@ Enterprise-grade AWS infrastructure modules following AWS Well-Architected Frame
 
 ## Available Modules
 
-| Module | Description | Key Features |
-|--------|-------------|--------------|
-| [VPC](vpc.md) | Virtual Private Cloud | Multi-AZ subnets, NAT Gateway, VPC endpoints |
-| [EKS](eks.md) | Elastic Kubernetes Service | Managed node groups, IRSA, add-ons |
-| [S3](s3.md) | Simple Storage Service | Encryption, versioning, lifecycle |
+| Module        | Description                 | Key Features                                    |
+| ------------- | --------------------------- | ----------------------------------------------- |
+| [VPC](vpc.md) | Virtual Private Cloud       | Multi-AZ subnets, NAT Gateway, VPC endpoints    |
+| [EKS](eks.md) | Elastic Kubernetes Service  | Managed node groups, IRSA, add-ons              |
+| [S3](s3.md)   | Simple Storage Service      | Encryption, versioning, lifecycle               |
 | [RDS](rds.md) | Relational Database Service | Multi-AZ, Performance Insights, Secrets Manager |
 
 ## Architecture Patterns
@@ -51,17 +51,20 @@ terraform {
 ## Security Best Practices
 
 ### Encryption
+
 - All storage encrypted at rest (S3, RDS, EBS)
 - KMS customer-managed keys supported
 - SSL/TLS enforced for data in transit
 
 ### Network Security
+
 - Private subnets for workloads
 - Security groups with least-privilege access
 - VPC endpoints for AWS service access
 - VPC Flow Logs enabled by default
 
 ### Identity & Access
+
 - IAM Roles for Service Accounts (IRSA) for EKS
 - Secrets Manager for database credentials
 - No hardcoded credentials
@@ -69,6 +72,7 @@ terraform {
 ## Cost Optimization
 
 ### Development Environments
+
 ```hcl
 # Use single NAT Gateway
 single_nat_gateway = true
@@ -81,6 +85,7 @@ multi_az = false
 ```
 
 ### Production Environments
+
 ```hcl
 # Multi-AZ NAT Gateways
 single_nat_gateway = false

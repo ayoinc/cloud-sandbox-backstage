@@ -225,7 +225,7 @@ jobs:
         if: inputs.run_unit_tests
         run: |
           set +e
-          
+
           if [ -n "${{ inputs.test_command }}" ]; then
             ${{ inputs.test_command }}
             exit_code=$?
@@ -261,7 +261,7 @@ jobs:
             dotnet test --no-restore $coverage_flag
             exit_code=$?
           fi
-          
+
           echo "exit_code=$exit_code" >> $GITHUB_OUTPUT
           exit $exit_code
 
@@ -307,7 +307,7 @@ jobs:
         if: inputs.coverage_enabled && always()
         run: |
           percentage="N/A"
-          
+
           if [ "${{ inputs.language }}" == "node" ]; then
             if [ -f coverage/coverage-summary.json ]; then
               percentage=$(jq '.total.lines.pct // 0' coverage/coverage-summary.json)
@@ -321,9 +321,9 @@ jobs:
               percentage=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | tr -d '%')
             fi
           fi
-          
+
           echo "percentage=$percentage" >> $GITHUB_OUTPUT
-          
+
           # Check threshold
           if [ "${{ inputs.coverage_threshold }}" -gt 0 ] && [ "$percentage" != "N/A" ]; then
             threshold=${{ inputs.coverage_threshold }}

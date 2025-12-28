@@ -152,27 +152,27 @@ module "cloud_sql" {
 
 ## Variables
 
-| Name | Description | Type | Default | Required |
-|------|-------------|------|---------|----------|
-| `project_id` | GCP Project ID | `string` | - | Yes |
-| `name` | Instance name prefix | `string` | - | Yes |
-| `environment` | Environment (dev, staging, prod) | `string` | - | Yes |
-| `region` | GCP region | `string` | `"us-central1"` | No |
-| `database_version` | Database version | `string` | `"POSTGRES_15"` | No |
-| `tier` | Machine type tier | `string` | `"db-f1-micro"` | No |
-| `disk_size` | Disk size in GB | `number` | `10` | No |
-| `disk_type` | Disk type | `string` | `"PD_SSD"` | No |
-| `disk_autoresize` | Enable autoresize | `bool` | `true` | No |
-| `availability_type` | HA type (REGIONAL/ZONAL) | `string` | `"REGIONAL"` | No |
-| `network` | VPC network for private IP | `string` | `null` | No |
-| `enable_public_ip` | Assign public IP | `bool` | `false` | No |
-| `require_ssl` | Require SSL connections | `bool` | `true` | No |
-| `backup_enabled` | Enable backups | `bool` | `true` | No |
-| `point_in_time_recovery_enabled` | Enable PITR | `bool` | `true` | No |
-| `deletion_protection` | Enable deletion protection | `bool` | `true` | No |
-| `databases` | Databases to create | `list(object)` | `[]` | No |
-| `users` | Users to create | `list(object)` | `[]` | No |
-| `labels` | Labels to apply | `map(string)` | `{}` | No |
+| Name                             | Description                      | Type           | Default         | Required |
+| -------------------------------- | -------------------------------- | -------------- | --------------- | -------- |
+| `project_id`                     | GCP Project ID                   | `string`       | -               | Yes      |
+| `name`                           | Instance name prefix             | `string`       | -               | Yes      |
+| `environment`                    | Environment (dev, staging, prod) | `string`       | -               | Yes      |
+| `region`                         | GCP region                       | `string`       | `"us-central1"` | No       |
+| `database_version`               | Database version                 | `string`       | `"POSTGRES_15"` | No       |
+| `tier`                           | Machine type tier                | `string`       | `"db-f1-micro"` | No       |
+| `disk_size`                      | Disk size in GB                  | `number`       | `10`            | No       |
+| `disk_type`                      | Disk type                        | `string`       | `"PD_SSD"`      | No       |
+| `disk_autoresize`                | Enable autoresize                | `bool`         | `true`          | No       |
+| `availability_type`              | HA type (REGIONAL/ZONAL)         | `string`       | `"REGIONAL"`    | No       |
+| `network`                        | VPC network for private IP       | `string`       | `null`          | No       |
+| `enable_public_ip`               | Assign public IP                 | `bool`         | `false`         | No       |
+| `require_ssl`                    | Require SSL connections          | `bool`         | `true`          | No       |
+| `backup_enabled`                 | Enable backups                   | `bool`         | `true`          | No       |
+| `point_in_time_recovery_enabled` | Enable PITR                      | `bool`         | `true`          | No       |
+| `deletion_protection`            | Enable deletion protection       | `bool`         | `true`          | No       |
+| `databases`                      | Databases to create              | `list(object)` | `[]`            | No       |
+| `users`                          | Users to create                  | `list(object)` | `[]`            | No       |
+| `labels`                         | Labels to apply                  | `map(string)`  | `{}`            | No       |
 
 ### Database Configuration
 
@@ -200,15 +200,15 @@ users = [
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| `instance_name` | Instance name |
+| Name                       | Description                         |
+| -------------------------- | ----------------------------------- |
+| `instance_name`            | Instance name                       |
 | `instance_connection_name` | Connection name for Cloud SQL Proxy |
-| `instance_self_link` | Instance self link |
-| `private_ip_address` | Private IP address |
-| `public_ip_address` | Public IP address |
-| `database_names` | Created database names |
-| `user_names` | Created user names |
+| `instance_self_link`       | Instance self link                  |
+| `private_ip_address`       | Private IP address                  |
+| `public_ip_address`        | Public IP address                   |
+| `database_names`           | Created database names              |
+| `user_names`               | Created user names                  |
 
 ## Architecture
 
@@ -251,12 +251,12 @@ metadata:
 spec:
   serviceAccountName: app-sa
   containers:
-  - name: app
-    env:
-    - name: DB_HOST
-      value: "10.x.x.x"  # Private IP
-    - name: DB_NAME
-      value: "myapp"
+    - name: app
+      env:
+        - name: DB_HOST
+          value: '10.x.x.x' # Private IP
+        - name: DB_NAME
+          value: 'myapp'
 ```
 
 ### Using Cloud SQL Proxy
@@ -299,35 +299,39 @@ authorized_networks = [
 ## Supported Versions
 
 ### PostgreSQL
+
 - POSTGRES_15, POSTGRES_14, POSTGRES_13, POSTGRES_12
 
 ### MySQL
+
 - MYSQL_8_0, MYSQL_5_7
 
 ### SQL Server
+
 - SQLSERVER_2019_STANDARD, SQLSERVER_2017_STANDARD
 
 ## Machine Types
 
-| Tier | vCPUs | Memory | Use Case |
-|------|-------|--------|----------|
-| db-f1-micro | Shared | 0.6 GB | Development |
-| db-g1-small | Shared | 1.7 GB | Small workloads |
-| db-custom-N-M | N | M MB | Production |
+| Tier          | vCPUs  | Memory | Use Case        |
+| ------------- | ------ | ------ | --------------- |
+| db-f1-micro   | Shared | 0.6 GB | Development     |
+| db-g1-small   | Shared | 1.7 GB | Small workloads |
+| db-custom-N-M | N      | M MB   | Production      |
 
 Custom format: `db-custom-{vCPU}-{memory_MB}`
 
 ## Cost Considerations
 
-| Component | Cost Factor |
-|-----------|-------------|
-| Instance | Per vCPU/hour + per GB RAM/hour |
-| Storage | Per GB/month (SSD vs HDD) |
-| HA | 2x instance cost |
-| Backups | Storage costs |
-| Network | Egress charges |
+| Component | Cost Factor                     |
+| --------- | ------------------------------- |
+| Instance  | Per vCPU/hour + per GB RAM/hour |
+| Storage   | Per GB/month (SSD vs HDD)       |
+| HA        | 2x instance cost                |
+| Backups   | Storage costs                   |
+| Network   | Egress charges                  |
 
 **Tips:**
+
 - Use shared-core (f1-micro, g1-small) for development
 - Custom machine types for right-sizing production
 - Consider ZONAL for non-critical workloads

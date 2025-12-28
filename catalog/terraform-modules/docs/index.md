@@ -83,22 +83,24 @@ module "vpc" {
 
 All modules follow these standards:
 
-| Standard | Description |
-|----------|-------------|
-| **Terraform >= 1.5** | Required Terraform version |
-| **Provider Versions** | Azure >= 3.70, AWS >= 5.0, GCP >= 5.0 |
-| **Native Testing** | Uses `terraform test` with `.tftest.hcl` |
-| **Naming** | Follows Azure CAF, AWS Well-Architected, GCP best practices |
-| **Tagging** | Environment isolation, compliance, cost management |
+| Standard              | Description                                                 |
+| --------------------- | ----------------------------------------------------------- |
+| **Terraform >= 1.5**  | Required Terraform version                                  |
+| **Provider Versions** | Azure >= 3.70, AWS >= 5.0, GCP >= 5.0                       |
+| **Native Testing**    | Uses `terraform test` with `.tftest.hcl`                    |
+| **Naming**            | Follows Azure CAF, AWS Well-Architected, GCP best practices |
+| **Tagging**           | Environment isolation, compliance, cost management          |
 
 ## Available Modules
 
 ### Shared
+
 - [Naming](shared/naming.md) - Industry-standard resource naming
 - [Tagging](shared/tagging.md) - Standardized tags/labels
 - [Validation](shared/validation.md) - Input validation framework
 
 ### Azure
+
 - [Virtual Network](azure/networking.md) - VNet, subnets, NSGs
 - [AKS](azure/kubernetes.md) - Kubernetes cluster
 - [Storage Account](azure/storage.md) - Blob, File, Queue, Table
@@ -107,12 +109,14 @@ All modules follow these standards:
 - [Log Analytics](azure/monitoring.md) - Monitoring workspace
 
 ### AWS
+
 - [VPC](aws/networking.md) - VPC, subnets, NAT Gateway
 - [EKS](aws/kubernetes.md) - Kubernetes cluster
 - [S3](aws/storage.md) - Object storage
 - [RDS](aws/database.md) - Relational database
 
 ### GCP
+
 - [VPC](gcp/networking.md) - VPC, subnets, Cloud NAT
 - [GKE](gcp/kubernetes.md) - Kubernetes cluster
 - [Cloud Storage](gcp/storage.md) - Object storage

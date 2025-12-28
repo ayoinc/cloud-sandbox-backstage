@@ -14,9 +14,9 @@ module "vnet" {
   location            = "eastus"
   project             = "myapp"
   environment         = "prod"
-  
+
   vnet_address_space = ["10.0.0.0/16"]
-  
+
   subnets = {
     default = {
       address_prefixes = ["10.0.1.0/24"]
@@ -41,25 +41,25 @@ module "vnet" {
 
 ### Variables
 
-| Variable | Type | Default | Description |
-|----------|------|---------|-------------|
-| `resource_group_name` | string | required | Resource group name |
-| `location` | string | required | Azure region |
-| `project` | string | required | Project name |
-| `environment` | string | required | Environment |
-| `vnet_address_space` | list(string) | ["10.0.0.0/16"] | VNet CIDR |
-| `dns_servers` | list(string) | [] | Custom DNS servers |
-| `subnets` | map(object) | {} | Subnet configurations |
-| `enable_ddos_protection` | bool | false | Enable DDoS protection |
+| Variable                 | Type         | Default         | Description            |
+| ------------------------ | ------------ | --------------- | ---------------------- |
+| `resource_group_name`    | string       | required        | Resource group name    |
+| `location`               | string       | required        | Azure region           |
+| `project`                | string       | required        | Project name           |
+| `environment`            | string       | required        | Environment            |
+| `vnet_address_space`     | list(string) | ["10.0.0.0/16"] | VNet CIDR              |
+| `dns_servers`            | list(string) | []              | Custom DNS servers     |
+| `subnets`                | map(object)  | {}              | Subnet configurations  |
+| `enable_ddos_protection` | bool         | false           | Enable DDoS protection |
 
 ### Outputs
 
-| Output | Description |
-|--------|-------------|
-| `vnet_id` | Virtual Network ID |
-| `vnet_name` | Virtual Network name |
+| Output       | Description                |
+| ------------ | -------------------------- |
+| `vnet_id`    | Virtual Network ID         |
+| `vnet_name`  | Virtual Network name       |
 | `subnet_ids` | Map of subnet names to IDs |
-| `nsg_ids` | Map of NSG names to IDs |
+| `nsg_ids`    | Map of NSG names to IDs    |
 
 ### Subnet Delegation
 
@@ -77,7 +77,7 @@ subnets = {
       }
     }
   }
-  
+
   containerinstance = {
     address_prefixes = ["10.0.11.0/24"]
     delegation = {

@@ -3,9 +3,17 @@ name: Terraform Test
 on:
   push:
     branches: [main, develop]
-    paths: ['catalog/terraform-modules/**/*.tf', 'catalog/terraform-modules/**/*.tftest.hcl']
+    paths:
+      [
+        'catalog/terraform-modules/**/*.tf',
+        'catalog/terraform-modules/**/*.tftest.hcl',
+      ]
   pull_request:
-    paths: ['catalog/terraform-modules/**/*.tf', 'catalog/terraform-modules/**/*.tftest.hcl']
+    paths:
+      [
+        'catalog/terraform-modules/**/*.tf',
+        'catalog/terraform-modules/**/*.tftest.hcl',
+      ]
 
 jobs:
   test:
@@ -15,7 +23,7 @@ jobs:
       fail-fast: false
       matrix:
         provider: [azure, aws, gcp]
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -54,7 +62,7 @@ jobs:
   test-shared:
     name: Test Shared Modules
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4

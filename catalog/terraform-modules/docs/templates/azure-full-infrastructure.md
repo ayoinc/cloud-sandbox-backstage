@@ -8,18 +8,18 @@ This template provides a comprehensive Azure infrastructure foundation with 10+ 
 
 ## Included Modules
 
-| Module | Description | Default |
-|--------|-------------|---------|
-| **Networking** | VNet, Subnets, NSGs, Load Balancers, Firewall, VPN Gateway | Enabled |
-| **Compute** | VMs, VMSS, App Service, Container Instances | Disabled |
-| **Containers** | AKS Cluster, Container Registry, Container Apps | Disabled |
-| **Storage** | Storage Accounts, Data Lake, File Shares | Enabled |
-| **Database** | SQL Database, PostgreSQL, MySQL, Cosmos DB, Redis | Disabled |
-| **Security** | Key Vault, Managed Identities | Enabled |
-| **Identity** | Azure AD Groups, RBAC Assignments | Disabled |
-| **Monitoring** | Log Analytics, Application Insights, Alerts | Enabled |
-| **Integration** | Service Bus, Event Grid, Event Hubs, Logic Apps | Disabled |
-| **Governance** | Policy Definitions, Cost Management | Disabled |
+| Module          | Description                                                | Default  |
+| --------------- | ---------------------------------------------------------- | -------- |
+| **Networking**  | VNet, Subnets, NSGs, Load Balancers, Firewall, VPN Gateway | Enabled  |
+| **Compute**     | VMs, VMSS, App Service, Container Instances                | Disabled |
+| **Containers**  | AKS Cluster, Container Registry, Container Apps            | Disabled |
+| **Storage**     | Storage Accounts, Data Lake, File Shares                   | Enabled  |
+| **Database**    | SQL Database, PostgreSQL, MySQL, Cosmos DB, Redis          | Disabled |
+| **Security**    | Key Vault, Managed Identities                              | Enabled  |
+| **Identity**    | Azure AD Groups, RBAC Assignments                          | Disabled |
+| **Monitoring**  | Log Analytics, Application Insights, Alerts                | Enabled  |
+| **Integration** | Service Bus, Event Grid, Event Hubs, Logic Apps            | Disabled |
+| **Governance**  | Policy Definitions, Cost Management                        | Disabled |
 
 ## Quick Start
 
@@ -40,7 +40,7 @@ Description: Production infrastructure for MyApp
 
 ```yaml
 Primary Region: eastus
-Secondary Region: westus2  # For DR
+Secondary Region: westus2 # For DR
 ```
 
 ### 4. Enable Modules
@@ -343,9 +343,9 @@ Edit `terraform.tfvars` or environment-specific files.
 ## Cost Estimation
 
 | Environment | Estimated Monthly Cost |
-|-------------|----------------------|
-| Development | $200-400 |
-| Staging | $500-800 |
-| Production | $1,500-3,000+ |
+| ----------- | ---------------------- |
+| Development | $200-400               |
+| Staging     | $500-800               |
+| Production  | $1,500-3,000+          |
 
-*Costs vary based on usage, regions, and enabled modules.*
+_Costs vary based on usage, regions, and enabled modules._

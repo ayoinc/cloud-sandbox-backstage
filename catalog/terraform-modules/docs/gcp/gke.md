@@ -142,25 +142,25 @@ module "gke" {
 
 ## Variables
 
-| Name | Description | Type | Default | Required |
-|------|-------------|------|---------|----------|
-| `project_id` | GCP Project ID | `string` | - | Yes |
-| `name` | Name prefix for resources | `string` | - | Yes |
-| `environment` | Environment (dev, staging, prod) | `string` | - | Yes |
-| `region` | GCP region | `string` | `"us-central1"` | No |
-| `zones` | Zones (empty for regional) | `list(string)` | `[]` | No |
-| `network` | VPC network name | `string` | - | Yes |
-| `subnetwork` | Subnetwork name | `string` | - | Yes |
-| `pods_range_name` | Secondary range for pods | `string` | `null` | No |
-| `services_range_name` | Secondary range for services | `string` | `null` | No |
-| `release_channel` | Release channel (RAPID, REGULAR, STABLE) | `string` | `"REGULAR"` | No |
-| `enable_private_nodes` | Enable private nodes | `bool` | `true` | No |
-| `enable_private_endpoint` | Enable private endpoint | `bool` | `false` | No |
-| `master_ipv4_cidr_block` | Master CIDR block | `string` | `"172.16.0.0/28"` | No |
-| `enable_workload_identity` | Enable Workload Identity | `bool` | `true` | No |
-| `enable_network_policy` | Enable network policy | `bool` | `true` | No |
-| `node_pools` | Node pool configurations | `map(object)` | See below | No |
-| `labels` | Labels to apply | `map(string)` | `{}` | No |
+| Name                       | Description                              | Type           | Default           | Required |
+| -------------------------- | ---------------------------------------- | -------------- | ----------------- | -------- |
+| `project_id`               | GCP Project ID                           | `string`       | -                 | Yes      |
+| `name`                     | Name prefix for resources                | `string`       | -                 | Yes      |
+| `environment`              | Environment (dev, staging, prod)         | `string`       | -                 | Yes      |
+| `region`                   | GCP region                               | `string`       | `"us-central1"`   | No       |
+| `zones`                    | Zones (empty for regional)               | `list(string)` | `[]`              | No       |
+| `network`                  | VPC network name                         | `string`       | -                 | Yes      |
+| `subnetwork`               | Subnetwork name                          | `string`       | -                 | Yes      |
+| `pods_range_name`          | Secondary range for pods                 | `string`       | `null`            | No       |
+| `services_range_name`      | Secondary range for services             | `string`       | `null`            | No       |
+| `release_channel`          | Release channel (RAPID, REGULAR, STABLE) | `string`       | `"REGULAR"`       | No       |
+| `enable_private_nodes`     | Enable private nodes                     | `bool`         | `true`            | No       |
+| `enable_private_endpoint`  | Enable private endpoint                  | `bool`         | `false`           | No       |
+| `master_ipv4_cidr_block`   | Master CIDR block                        | `string`       | `"172.16.0.0/28"` | No       |
+| `enable_workload_identity` | Enable Workload Identity                 | `bool`         | `true`            | No       |
+| `enable_network_policy`    | Enable network policy                    | `bool`         | `true`            | No       |
+| `node_pools`               | Node pool configurations                 | `map(object)`  | See below         | No       |
+| `labels`                   | Labels to apply                          | `map(string)`  | `{}`              | No       |
 
 ### Node Pool Configuration
 
@@ -188,15 +188,15 @@ node_pools = {
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| `cluster_id` | GKE cluster ID |
-| `cluster_name` | GKE cluster name |
-| `cluster_endpoint` | GKE cluster endpoint (sensitive) |
+| Name                     | Description                        |
+| ------------------------ | ---------------------------------- |
+| `cluster_id`             | GKE cluster ID                     |
+| `cluster_name`           | GKE cluster name                   |
+| `cluster_endpoint`       | GKE cluster endpoint (sensitive)   |
 | `cluster_ca_certificate` | Cluster CA certificate (sensitive) |
-| `cluster_location` | Cluster location |
-| `cluster_master_version` | Kubernetes version |
-| `node_pools` | List of node pool names |
+| `cluster_location`       | Cluster location                   |
+| `cluster_master_version` | Kubernetes version                 |
+| `node_pools`             | List of node pool names            |
 
 ## Architecture
 
@@ -266,8 +266,8 @@ metadata:
 spec:
   podSelector: {}
   policyTypes:
-  - Ingress
-  - Egress
+    - Ingress
+    - Egress
 ```
 
 ### Shielded Nodes
@@ -284,13 +284,13 @@ Enforce container image signing policies.
 
 ### Default Add-ons (Enabled)
 
-| Add-on | Purpose |
-|--------|---------|
-| HTTP Load Balancing | Ingress controller |
-| Horizontal Pod Autoscaler | Pod autoscaling |
-| GCE Persistent Disk CSI | Persistent volumes |
-| GCS Fuse CSI | Cloud Storage mounting |
-| Managed Prometheus | Metrics collection |
+| Add-on                    | Purpose                |
+| ------------------------- | ---------------------- |
+| HTTP Load Balancing       | Ingress controller     |
+| Horizontal Pod Autoscaler | Pod autoscaling        |
+| GCE Persistent Disk CSI   | Persistent volumes     |
+| GCS Fuse CSI              | Cloud Storage mounting |
+| Managed Prometheus        | Metrics collection     |
 
 ## Connecting to Cluster
 
@@ -306,14 +306,15 @@ kubectl get nodes
 
 ## Cost Considerations
 
-| Component | Cost Factor |
-|-----------|-------------|
+| Component     | Cost Factor                             |
+| ------------- | --------------------------------------- |
 | Control Plane | Free (Standard), ~$73/month (Autopilot) |
-| Node Pools | GCE instance pricing |
-| Network | Egress charges |
-| Cloud NAT | Per VM + data processing |
+| Node Pools    | GCE instance pricing                    |
+| Network       | Egress charges                          |
+| Cloud NAT     | Per VM + data processing                |
 
 **Tips:**
+
 - Use Spot VMs for fault-tolerant workloads (60-91% discount)
 - Use E2 machine types for cost-effective general workloads
 - Consider regional clusters for production (3x control plane)

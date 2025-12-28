@@ -7,13 +7,13 @@ on:
   pull_request:
     paths: ['catalog/terraform-modules/**/*.tf']
   schedule:
-    - cron: '0 6 * * 1'  # Weekly Monday 6am
+    - cron: '0 6 * * 1' # Weekly Monday 6am
 
 jobs:
   security:
     name: Security Scan
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4

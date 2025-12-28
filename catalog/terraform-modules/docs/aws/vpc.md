@@ -72,37 +72,37 @@ module "vpc" {
 
 ## Variables
 
-| Name | Description | Type | Default | Required |
-|------|-------------|------|---------|----------|
-| `name` | Name prefix for resources | `string` | - | Yes |
-| `environment` | Environment (dev, staging, prod) | `string` | - | Yes |
-| `vpc_cidr` | CIDR block for VPC | `string` | `"10.0.0.0/16"` | No |
-| `availability_zones` | List of availability zones | `list(string)` | Auto-detected | No |
-| `public_subnet_cidrs` | CIDR blocks for public subnets | `list(string)` | `["10.0.1.0/24", ...]` | No |
-| `private_subnet_cidrs` | CIDR blocks for private subnets | `list(string)` | `["10.0.11.0/24", ...]` | No |
-| `database_subnet_cidrs` | CIDR blocks for database subnets | `list(string)` | `["10.0.21.0/24", ...]` | No |
-| `enable_nat_gateway` | Enable NAT Gateway | `bool` | `true` | No |
-| `single_nat_gateway` | Use single NAT Gateway | `bool` | `false` | No |
-| `enable_vpn_gateway` | Enable VPN Gateway | `bool` | `false` | No |
-| `enable_flow_logs` | Enable VPC Flow Logs | `bool` | `true` | No |
-| `flow_logs_retention_days` | Flow logs retention in days | `number` | `30` | No |
-| `enable_dns_hostnames` | Enable DNS hostnames | `bool` | `true` | No |
-| `enable_dns_support` | Enable DNS support | `bool` | `true` | No |
-| `tags` | Tags to apply to resources | `map(string)` | `{}` | No |
+| Name                       | Description                      | Type           | Default                 | Required |
+| -------------------------- | -------------------------------- | -------------- | ----------------------- | -------- |
+| `name`                     | Name prefix for resources        | `string`       | -                       | Yes      |
+| `environment`              | Environment (dev, staging, prod) | `string`       | -                       | Yes      |
+| `vpc_cidr`                 | CIDR block for VPC               | `string`       | `"10.0.0.0/16"`         | No       |
+| `availability_zones`       | List of availability zones       | `list(string)` | Auto-detected           | No       |
+| `public_subnet_cidrs`      | CIDR blocks for public subnets   | `list(string)` | `["10.0.1.0/24", ...]`  | No       |
+| `private_subnet_cidrs`     | CIDR blocks for private subnets  | `list(string)` | `["10.0.11.0/24", ...]` | No       |
+| `database_subnet_cidrs`    | CIDR blocks for database subnets | `list(string)` | `["10.0.21.0/24", ...]` | No       |
+| `enable_nat_gateway`       | Enable NAT Gateway               | `bool`         | `true`                  | No       |
+| `single_nat_gateway`       | Use single NAT Gateway           | `bool`         | `false`                 | No       |
+| `enable_vpn_gateway`       | Enable VPN Gateway               | `bool`         | `false`                 | No       |
+| `enable_flow_logs`         | Enable VPC Flow Logs             | `bool`         | `true`                  | No       |
+| `flow_logs_retention_days` | Flow logs retention in days      | `number`       | `30`                    | No       |
+| `enable_dns_hostnames`     | Enable DNS hostnames             | `bool`         | `true`                  | No       |
+| `enable_dns_support`       | Enable DNS support               | `bool`         | `true`                  | No       |
+| `tags`                     | Tags to apply to resources       | `map(string)`  | `{}`                    | No       |
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| `vpc_id` | VPC ID |
-| `vpc_cidr` | VPC CIDR block |
-| `public_subnet_ids` | List of public subnet IDs |
-| `private_subnet_ids` | List of private subnet IDs |
-| `database_subnet_ids` | List of database subnet IDs |
-| `database_subnet_group_name` | Database subnet group name |
-| `nat_gateway_ids` | List of NAT Gateway IDs |
-| `internet_gateway_id` | Internet Gateway ID |
-| `availability_zones` | List of availability zones used |
+| Name                         | Description                     |
+| ---------------------------- | ------------------------------- |
+| `vpc_id`                     | VPC ID                          |
+| `vpc_cidr`                   | VPC CIDR block                  |
+| `public_subnet_ids`          | List of public subnet IDs       |
+| `private_subnet_ids`         | List of private subnet IDs      |
+| `database_subnet_ids`        | List of database subnet IDs     |
+| `database_subnet_group_name` | Database subnet group name      |
+| `nat_gateway_ids`            | List of NAT Gateway IDs         |
+| `internet_gateway_id`        | Internet Gateway ID             |
+| `availability_zones`         | List of availability zones used |
 
 ## Architecture
 
@@ -142,17 +142,20 @@ module "vpc" {
 ## Security Features
 
 ### VPC Flow Logs
+
 - Captures all traffic metadata
 - Stored in CloudWatch Logs
 - Configurable retention period
 - Useful for security analysis and troubleshooting
 
 ### VPC Endpoints
+
 - Gateway endpoints for S3 and DynamoDB
 - Traffic stays within AWS network
 - No NAT Gateway charges for AWS services
 
 ### Subnet Isolation
+
 - Database subnets have no internet access
 - Private subnets access internet via NAT
 - Public subnets for load balancers only
@@ -171,13 +174,14 @@ Subnets are automatically tagged for Kubernetes:
 
 ## Cost Considerations
 
-| Component | Cost Factor |
-|-----------|-------------|
-| NAT Gateway | ~$0.045/hour + data processing |
-| VPC Endpoints | Gateway endpoints are free |
-| Flow Logs | CloudWatch Logs ingestion costs |
+| Component     | Cost Factor                     |
+| ------------- | ------------------------------- |
+| NAT Gateway   | ~$0.045/hour + data processing  |
+| VPC Endpoints | Gateway endpoints are free      |
+| Flow Logs     | CloudWatch Logs ingestion costs |
 
 **Tips:**
+
 - Use `single_nat_gateway = true` for non-production
 - VPC endpoints reduce NAT Gateway data costs
 - Disable flow logs in development

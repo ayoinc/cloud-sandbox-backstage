@@ -513,7 +513,9 @@ export default createBackendPlugin({
               // This catches components whose parent location is inaccessible
               if (!isOrphaned) {
                 const managedByLocation =
-                  entity.metadata.annotations?.['backstage.io/managed-by-location'];
+                  entity.metadata.annotations?.[
+                    'backstage.io/managed-by-location'
+                  ];
                 if (managedByLocation) {
                   // Extract repo from the location URL
                   const repoMatch = managedByLocation.match(

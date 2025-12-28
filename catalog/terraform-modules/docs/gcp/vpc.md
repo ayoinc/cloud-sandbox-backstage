@@ -113,19 +113,19 @@ module "vpc" {
 
 ## Variables
 
-| Name | Description | Type | Default | Required |
-|------|-------------|------|---------|----------|
-| `project_id` | GCP Project ID | `string` | - | Yes |
-| `name` | Name prefix for resources | `string` | - | Yes |
-| `environment` | Environment (dev, staging, prod) | `string` | - | Yes |
-| `region` | GCP region | `string` | `"us-central1"` | No |
-| `routing_mode` | Routing mode (GLOBAL or REGIONAL) | `string` | `"GLOBAL"` | No |
-| `auto_create_subnetworks` | Auto-create subnetworks | `bool` | `false` | No |
-| `subnets` | Subnet configurations | `map(object)` | See below | No |
-| `enable_nat` | Enable Cloud NAT | `bool` | `true` | No |
-| `nat_ip_allocate_option` | NAT IP allocation | `string` | `"AUTO_ONLY"` | No |
-| `firewall_rules` | Custom firewall rules | `map(object)` | `{}` | No |
-| `labels` | Labels to apply | `map(string)` | `{}` | No |
+| Name                      | Description                       | Type          | Default         | Required |
+| ------------------------- | --------------------------------- | ------------- | --------------- | -------- |
+| `project_id`              | GCP Project ID                    | `string`      | -               | Yes      |
+| `name`                    | Name prefix for resources         | `string`      | -               | Yes      |
+| `environment`             | Environment (dev, staging, prod)  | `string`      | -               | Yes      |
+| `region`                  | GCP region                        | `string`      | `"us-central1"` | No       |
+| `routing_mode`            | Routing mode (GLOBAL or REGIONAL) | `string`      | `"GLOBAL"`      | No       |
+| `auto_create_subnetworks` | Auto-create subnetworks           | `bool`        | `false`         | No       |
+| `subnets`                 | Subnet configurations             | `map(object)` | See below       | No       |
+| `enable_nat`              | Enable Cloud NAT                  | `bool`        | `true`          | No       |
+| `nat_ip_allocate_option`  | NAT IP allocation                 | `string`      | `"AUTO_ONLY"`   | No       |
+| `firewall_rules`          | Custom firewall rules             | `map(object)` | `{}`            | No       |
+| `labels`                  | Labels to apply                   | `map(string)` | `{}`            | No       |
 
 ### Subnet Configuration
 
@@ -152,16 +152,16 @@ subnets = {
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| `network_id` | VPC network ID |
-| `network_name` | VPC network name |
-| `network_self_link` | VPC network self link |
-| `subnet_ids` | Map of subnet names to IDs |
+| Name                | Description                       |
+| ------------------- | --------------------------------- |
+| `network_id`        | VPC network ID                    |
+| `network_name`      | VPC network name                  |
+| `network_self_link` | VPC network self link             |
+| `subnet_ids`        | Map of subnet names to IDs        |
 | `subnet_self_links` | Map of subnet names to self links |
-| `subnet_regions` | Map of subnet names to regions |
-| `router_id` | Cloud Router ID |
-| `nat_id` | Cloud NAT ID |
+| `subnet_regions`    | Map of subnet names to regions    |
+| `router_id`         | Cloud Router ID                   |
+| `nat_id`            | Cloud NAT ID                      |
 
 ## Architecture
 
@@ -243,14 +243,15 @@ subnets = {
 
 ## Cost Considerations
 
-| Component | Cost Factor |
-|-----------|-------------|
-| VPC Network | Free |
-| Cloud NAT | Per VM + per GB processed |
-| Cloud Router | Per hour |
-| Flow Logs | Log ingestion costs |
+| Component    | Cost Factor               |
+| ------------ | ------------------------- |
+| VPC Network  | Free                      |
+| Cloud NAT    | Per VM + per GB processed |
+| Cloud Router | Per hour                  |
+| Flow Logs    | Log ingestion costs       |
 
 **Tips:**
+
 - Cloud NAT charges per VM using it
 - VPC Flow Logs can generate significant log volume
 - Use REGIONAL routing for simpler setups

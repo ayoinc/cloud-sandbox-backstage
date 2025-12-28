@@ -310,7 +310,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Scan Type | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
-          
+
           if [ "${{ inputs.scan_dependencies }}" == "true" ]; then
             echo "| Dependency Scan | Completed |" >> $GITHUB_STEP_SUMMARY
           fi
@@ -326,12 +326,12 @@ jobs:
           if [ "${{ inputs.scan_containers }}" == "true" ]; then
             echo "| Container Scan | Completed |" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Fail on Severity:** ${{ inputs.fail_on_severity }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "View detailed results in the **Security** tab." >> $GITHUB_STEP_SUMMARY
-          
+
           # Set outputs (would need actual parsing in production)
           echo "vulnerabilities_found=false" >> $GITHUB_OUTPUT
           echo "critical_count=0" >> $GITHUB_OUTPUT

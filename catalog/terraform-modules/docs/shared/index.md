@@ -4,11 +4,11 @@ The shared modules provide cross-provider functionality that works with Azure, A
 
 ## Available Modules
 
-| Module | Description |
-|--------|-------------|
-| [Naming](naming.md) | Industry-standard resource naming conventions |
-| [Tagging](tagging.md) | Standardized tagging and labeling |
-| [Validation](validation.md) | Input validation framework |
+| Module                      | Description                                   |
+| --------------------------- | --------------------------------------------- |
+| [Naming](naming.md)         | Industry-standard resource naming conventions |
+| [Tagging](tagging.md)       | Standardized tagging and labeling             |
+| [Validation](validation.md) | Input validation framework                    |
 
 ## Architecture
 
@@ -37,7 +37,7 @@ All provider-specific modules should use these shared modules:
 # In your Azure/AWS/GCP module
 module "naming" {
   source = "../../../shared/naming"
-  
+
   provider      = "azure"  # or "aws", "gcp"
   project       = var.project
   environment   = var.environment
@@ -47,7 +47,7 @@ module "naming" {
 
 module "tags" {
   source = "../../../shared/tagging"
-  
+
   project     = var.project
   environment = var.environment
   owner       = var.owner

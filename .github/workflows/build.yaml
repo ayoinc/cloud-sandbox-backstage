@@ -231,7 +231,7 @@ jobs:
         id: install
         run: |
           start_time=$(date +%s)
-          
+
           if [ -n "${{ inputs.install_command }}" ]; then
             ${{ inputs.install_command }}
           elif [ "${{ inputs.language }}" == "node" ]; then
@@ -255,7 +255,7 @@ jobs:
           elif [ "${{ inputs.language }}" == "dotnet" ]; then
             dotnet restore
           fi
-          
+
           echo "install_duration=$(($(date +%s) - start_time))s" >> $GITHUB_OUTPUT
 
       # =======================================================================
@@ -265,7 +265,7 @@ jobs:
         id: build
         run: |
           start_time=$(date +%s)
-          
+
           if [ -n "${{ inputs.build_command }}" ]; then
             ${{ inputs.build_command }}
           elif [ "${{ inputs.language }}" == "node" ]; then
@@ -289,7 +289,7 @@ jobs:
           elif [ "${{ inputs.language }}" == "dotnet" ]; then
             dotnet build --configuration Release --no-restore
           fi
-          
+
           echo "duration=$(($(date +%s) - start_time))s" >> $GITHUB_OUTPUT
 
       # =======================================================================

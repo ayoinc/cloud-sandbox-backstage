@@ -14,16 +14,16 @@ module "monitoring" {
   location            = "eastus"
   project             = "myapp"
   environment         = "prod"
-  
+
   sku               = "PerGB2018"
   retention_in_days = 90
   daily_quota_gb    = -1  # Unlimited
-  
+
   # Built-in Solutions
   enable_container_insights = true
   enable_vm_insights        = true
   enable_security_center    = true
-  
+
   # Additional Solutions
   solutions = [
     {
@@ -32,36 +32,36 @@ module "monitoring" {
       product       = "OMSGallery/AzureActivity"
     }
   ]
-  
+
   tags = module.tags.azure_tags
 }
 ```
 
 ### Variables
 
-| Variable | Type | Default | Description |
-|----------|------|---------|-------------|
-| `sku` | string | "PerGB2018" | Pricing tier |
-| `retention_in_days` | number | 30 | Data retention |
-| `daily_quota_gb` | number | -1 | Daily ingestion limit |
-| `enable_container_insights` | bool | false | Container monitoring |
-| `enable_vm_insights` | bool | false | VM monitoring |
+| Variable                    | Type   | Default     | Description           |
+| --------------------------- | ------ | ----------- | --------------------- |
+| `sku`                       | string | "PerGB2018" | Pricing tier          |
+| `retention_in_days`         | number | 30          | Data retention        |
+| `daily_quota_gb`            | number | -1          | Daily ingestion limit |
+| `enable_container_insights` | bool   | false       | Container monitoring  |
+| `enable_vm_insights`        | bool   | false       | VM monitoring         |
 
 ### Outputs
 
-| Output | Description |
-|--------|-------------|
-| `workspace_id` | Workspace resource ID |
+| Output                  | Description            |
+| ----------------------- | ---------------------- |
+| `workspace_id`          | Workspace resource ID  |
 | `workspace_customer_id` | Customer ID for agents |
-| `primary_shared_key` | Shared key (sensitive) |
+| `primary_shared_key`    | Shared key (sensitive) |
 
 ### Environment-Specific Retention
 
 | Environment | Retention |
-|-------------|-----------|
-| Dev | 30 days |
-| Staging | 60 days |
-| Prod | 90 days |
+| ----------- | --------- |
+| Dev         | 30 days   |
+| Staging     | 60 days   |
+| Prod        | 90 days   |
 
 ### Integrating with Other Resources
 
@@ -82,7 +82,7 @@ resource "azurerm_monitor_diagnostic_setting" "keyvault" {
   enabled_log {
     category = "AuditEvent"
   }
-  
+
   metric {
     category = "AllMetrics"
   }
@@ -107,7 +107,7 @@ resource "azurerm_monitor_metric_alert" "cpu" {
   name                = "alert-high-cpu"
   resource_group_name = azurerm_resource_group.main.name
   scopes              = [module.aks.cluster_id]
-  
+
   criteria {
     metric_namespace = "Microsoft.ContainerService/managedClusters"
     metric_name      = "node_cpu_usage_percentage"
@@ -115,7 +115,7 @@ resource "azurerm_monitor_metric_alert" "cpu" {
     operator         = "GreaterThan"
     threshold        = 80
   }
-  
+
   action {
     action_group_id = azurerm_monitor_action_group.critical.id
   }

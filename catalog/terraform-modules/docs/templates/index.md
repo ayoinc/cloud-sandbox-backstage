@@ -4,11 +4,11 @@ Full-stack infrastructure templates that combine multiple resource modules with 
 
 ## Available Templates
 
-| Template | Cloud | Description |
-|----------|-------|-------------|
+| Template                                                  | Cloud | Description                                     |
+| --------------------------------------------------------- | ----- | ----------------------------------------------- |
 | [Azure Full Infrastructure](azure-full-infrastructure.md) | Azure | Complete Azure stack with 10+ module categories |
-| AWS Full Infrastructure | AWS | Complete AWS stack (Coming Soon) |
-| GCP Full Infrastructure | GCP | Complete GCP stack (Coming Soon) |
+| AWS Full Infrastructure                                   | AWS   | Complete AWS stack (Coming Soon)                |
+| GCP Full Infrastructure                                   | GCP   | Complete GCP stack (Coming Soon)                |
 
 ## Template Strategy
 
@@ -55,28 +55,28 @@ This provides flexibility for both greenfield deployments and incremental additi
 
 ### Core Modules (Usually Enabled)
 
-| Module | Azure | AWS | GCP |
-|--------|-------|-----|-----|
-| Networking | VNet, NSG, Firewall | VPC, Security Groups | VPC, Firewall Rules |
-| Security | Key Vault, Managed Identity | KMS, Secrets Manager | Secret Manager, KMS |
-| Monitoring | Log Analytics, App Insights | CloudWatch | Cloud Monitoring |
+| Module     | Azure                       | AWS                  | GCP                 |
+| ---------- | --------------------------- | -------------------- | ------------------- |
+| Networking | VNet, NSG, Firewall         | VPC, Security Groups | VPC, Firewall Rules |
+| Security   | Key Vault, Managed Identity | KMS, Secrets Manager | Secret Manager, KMS |
+| Monitoring | Log Analytics, App Insights | CloudWatch           | Cloud Monitoring    |
 
 ### Workload Modules (Optional)
 
-| Module | Azure | AWS | GCP |
-|--------|-------|-----|-----|
-| Containers | AKS, ACR | EKS, ECR | GKE, Artifact Registry |
-| Compute | VMs, VMSS, App Service | EC2, Auto Scaling | GCE, Instance Groups |
-| Storage | Storage Account | S3 | Cloud Storage |
-| Database | SQL, PostgreSQL, Cosmos DB | RDS, DynamoDB | Cloud SQL, Spanner |
+| Module     | Azure                      | AWS               | GCP                    |
+| ---------- | -------------------------- | ----------------- | ---------------------- |
+| Containers | AKS, ACR                   | EKS, ECR          | GKE, Artifact Registry |
+| Compute    | VMs, VMSS, App Service     | EC2, Auto Scaling | GCE, Instance Groups   |
+| Storage    | Storage Account            | S3                | Cloud Storage          |
+| Database   | SQL, PostgreSQL, Cosmos DB | RDS, DynamoDB     | Cloud SQL, Spanner     |
 
 ### Advanced Modules (Optional)
 
-| Module | Azure | AWS | GCP |
-|--------|-------|-----|-----|
-| Integration | Service Bus, Event Grid | SNS, SQS, EventBridge | Pub/Sub |
-| Governance | Azure Policy | Service Control Policies | Organization Policy |
-| Identity | Azure AD | IAM Identity Center | Cloud Identity |
+| Module      | Azure                   | AWS                      | GCP                 |
+| ----------- | ----------------------- | ------------------------ | ------------------- |
+| Integration | Service Bus, Event Grid | SNS, SQS, EventBridge    | Pub/Sub             |
+| Governance  | Azure Policy            | Service Control Policies | Organization Policy |
+| Identity    | Azure AD                | IAM Identity Center      | Cloud Identity      |
 
 ## Using Templates in Backstage
 
@@ -121,6 +121,7 @@ Review configuration and create the repository
 Templates include smart defaults per environment:
 
 ### Development
+
 ```hcl
 enable_high_availability = false
 enable_dr               = false
@@ -129,6 +130,7 @@ sku_tier                = "Standard"
 ```
 
 ### Staging
+
 ```hcl
 enable_high_availability = true
 enable_dr               = false
@@ -137,6 +139,7 @@ sku_tier                = "Standard"
 ```
 
 ### Production
+
 ```hcl
 enable_high_availability = true
 enable_dr               = true
@@ -162,7 +165,7 @@ properties:
   enableNetworking:
     title: 'Networking Module'
     type: boolean
-    default: true  # Change default here
+    default: true # Change default here
 ```
 
 ## Best Practices

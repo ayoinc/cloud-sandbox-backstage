@@ -29,7 +29,7 @@ module "resource_group" {
   location    = "eastus"
   project     = "my-project"
   environment = "dev"
-  
+
   tags = {
     CostCenter = "engineering"
     Owner      = "platform-team"
@@ -48,7 +48,7 @@ module "resource_group_prod" {
   project            = "my-project"
   environment        = "prod"
   enable_delete_lock = true
-  
+
   tags = {
     CostCenter = "engineering"
     Owner      = "platform-team"
@@ -59,24 +59,24 @@ module "resource_group_prod" {
 
 ## Variables
 
-| Name | Type | Required | Default | Description |
-|------|------|----------|---------|-------------|
-| `name` | string | yes | - | Name suffix for the resource group |
-| `location` | string | yes | - | Azure region |
-| `project` | string | yes | - | Project name for naming convention |
-| `environment` | string | yes | - | Environment (dev, staging, prod) |
-| `tags` | map(string) | no | `{}` | Tags to apply to the resource group |
-| `enable_delete_lock` | bool | no | `false` | Enable delete lock on the resource group |
-| `managed_by` | string | no | `null` | Resource ID of the managing resource |
+| Name                 | Type        | Required | Default | Description                              |
+| -------------------- | ----------- | -------- | ------- | ---------------------------------------- |
+| `name`               | string      | yes      | -       | Name suffix for the resource group       |
+| `location`           | string      | yes      | -       | Azure region                             |
+| `project`            | string      | yes      | -       | Project name for naming convention       |
+| `environment`        | string      | yes      | -       | Environment (dev, staging, prod)         |
+| `tags`               | map(string) | no       | `{}`    | Tags to apply to the resource group      |
+| `enable_delete_lock` | bool        | no       | `false` | Enable delete lock on the resource group |
+| `managed_by`         | string      | no       | `null`  | Resource ID of the managing resource     |
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| `id` | The ID of the resource group |
-| `name` | The name of the resource group |
-| `location` | The location of the resource group |
-| `tags` | The tags applied to the resource group |
+| Name       | Description                            |
+| ---------- | -------------------------------------- |
+| `id`       | The ID of the resource group           |
+| `name`     | The name of the resource group         |
+| `location` | The location of the resource group     |
+| `tags`     | The tags applied to the resource group |
 
 ## Naming Convention
 
@@ -87,6 +87,7 @@ rg-<name>-<environment>-<location>
 ```
 
 Examples:
+
 - `rg-my-project-dev-eastus`
 - `rg-my-project-prod-westeurope`
 
@@ -114,7 +115,7 @@ module "resource_group" {
 # Then use it in other modules
 module "virtual_network" {
   source = "path/to/azure/resources/network/virtual-network"
-  
+
   resource_group_name = module.resource_group.name
   location            = module.resource_group.location
   # ... rest of configuration

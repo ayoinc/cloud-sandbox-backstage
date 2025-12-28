@@ -30,7 +30,7 @@ on:
         required: false
         type: string
         default: 'skip'
-      
+
       # Image Configuration
       image:
         description: 'Container image to deploy'
@@ -220,15 +220,15 @@ jobs:
         run: |
           target="${{ inputs.deploy_target }}"
           should_deploy="true"
-          
+
           if [ "$target" == "skip" ] || [ -z "$target" ]; then
             echo "Deployment target is 'skip' or not configured. Skipping deployment."
             should_deploy="false"
           fi
-          
+
           echo "should_deploy=$should_deploy" >> $GITHUB_OUTPUT
           echo "target=$target" >> $GITHUB_OUTPUT
-          
+
           echo "## Deployment Check" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Setting | Value |" >> $GITHUB_STEP_SUMMARY
@@ -279,22 +279,22 @@ jobs:
         id: k8s-deploy
         run: |
           dry_run_flag="${{ inputs.dry_run && '--dry-run=client' || '' }}"
-          
+
           # Replace image tag in manifests
           if [ -n "${{ inputs.image }}" ] && [ -n "${{ inputs.image_tag }}" ]; then
             find ${{ inputs.k8s_manifests_path }} -type f -name "*.yaml" -exec \
               sed -i "s|image:.*|image: ${{ inputs.image }}:${{ inputs.image_tag }}|g" {} \;
           fi
-          
+
           kubectl apply -f ${{ inputs.k8s_manifests_path }} \
             -n ${{ inputs.k8s_namespace }} \
             $dry_run_flag
-          
+
           if [ "${{ inputs.wait_for_rollout }}" == "true" ] && [ -z "$dry_run_flag" ]; then
             kubectl rollout status deployment -n ${{ inputs.k8s_namespace }} \
               --timeout=${{ inputs.rollout_timeout }}s
           fi
-          
+
           echo "status=success" >> $GITHUB_OUTPUT
 
       - name: Deploy to Kubernetes (Helm)
@@ -303,7 +303,7 @@ jobs:
         run: |
           dry_run_flag="${{ inputs.dry_run && '--dry-run' || '' }}"
           values_flag="${{ inputs.helm_values_file != '' && format('-f {0}', inputs.helm_values_file) || '' }}"
-          
+
           helm upgrade --install ${{ inputs.helm_release_name }} ${{ inputs.helm_chart_path }} \
             -n ${{ inputs.k8s_namespace }} \
             --set image.repository=${{ inputs.image }} \
@@ -312,7 +312,7 @@ jobs:
             --timeout=${{ inputs.rollout_timeout }}s \
             $values_flag \
             $dry_run_flag
-          
+
           echo "status=success" >> $GITHUB_OUTPUT
 
       # =======================================================================
@@ -334,34 +334,34 @@ jobs:
             echo "status=dry-run" >> $GITHUB_OUTPUT
             exit 0
           fi
-          
+
           # Update task definition with new image
           TASK_DEF=$(aws ecs describe-task-definition \
             --task-definition ${{ inputs.ecs_task_definition }} \
             --query taskDefinition)
-          
+
           NEW_TASK_DEF=$(echo $TASK_DEF | jq \
             --arg IMAGE "${{ inputs.image }}:${{ inputs.image_tag }}" \
             '.containerDefinitions[0].image = $IMAGE | del(.taskDefinitionArn) | del(.revision) | del(.status) | del(.requiresAttributes) | del(.compatibilities) | del(.registeredAt) | del(.registeredBy)')
-          
+
           # Register new task definition
           NEW_TASK_ARN=$(aws ecs register-task-definition \
             --cli-input-json "$NEW_TASK_DEF" \
             --query taskDefinition.taskDefinitionArn \
             --output text)
-          
+
           # Update service
           aws ecs update-service \
             --cluster ${{ inputs.ecs_cluster }} \
             --service ${{ inputs.ecs_service }} \
             --task-definition $NEW_TASK_ARN
-          
+
           if [ "${{ inputs.wait_for_rollout }}" == "true" ]; then
             aws ecs wait services-stable \
               --cluster ${{ inputs.ecs_cluster }} \
               --services ${{ inputs.ecs_service }}
           fi
-          
+
           echo "status=success" >> $GITHUB_OUTPUT
 
       # =======================================================================
@@ -382,19 +382,19 @@ jobs:
             echo "status=dry-run" >> $GITHUB_OUTPUT
             exit 0
           fi
-          
+
           az containerapp update \
             --name ${{ inputs.azure_container_app }} \
             --resource-group ${{ inputs.azure_resource_group }} \
             --image ${{ inputs.image }}:${{ inputs.image_tag }}
-          
+
           # Get the URL
           url=$(az containerapp show \
             --name ${{ inputs.azure_container_app }} \
             --resource-group ${{ inputs.azure_resource_group }} \
             --query properties.configuration.ingress.fqdn \
             --output tsv)
-          
+
           echo "url=https://$url" >> $GITHUB_OUTPUT
           echo "status=success" >> $GITHUB_OUTPUT
 
@@ -444,7 +444,7 @@ jobs:
           # Collect URL from various deployment methods
           url="${{ steps.azure-deploy.outputs.url || steps.cloudrun-deploy.outputs.url || '' }}"
           status="${{ steps.k8s-deploy.outputs.status || steps.helm-deploy.outputs.status || steps.ecs-deploy.outputs.status || steps.azure-deploy.outputs.status || steps.cloudrun-deploy.outcome || 'unknown' }}"
-          
+
           echo "url=$url" >> $GITHUB_OUTPUT
           echo "status=$status" >> $GITHUB_OUTPUT
 

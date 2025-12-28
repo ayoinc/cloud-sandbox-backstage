@@ -59,15 +59,15 @@ module "validation" {
 
 ## Outputs
 
-| Output | Description |
-|--------|-------------|
-| `valid` | Boolean - all validations passed |
-| `errors` | List of error messages |
-| `error_count` | Number of errors |
-| `error_summary` | Human-readable summary |
+| Output               | Description                              |
+| -------------------- | ---------------------------------------- |
+| `valid`              | Boolean - all validations passed         |
+| `errors`             | List of error messages                   |
+| `error_count`        | Number of errors                         |
+| `error_summary`      | Human-readable summary                   |
 | `resolved_optionals` | Optional variables with defaults applied |
-| `validation_report` | Full validation report object |
-| `common_patterns` | Reference patterns for validation |
+| `validation_report`  | Full validation report object            |
+| `common_patterns`    | Reference patterns for validation        |
 
 ## Common Patterns
 
@@ -79,21 +79,21 @@ output "common_patterns" {
     # Naming patterns
     lowercase_alphanumeric     = "^[a-z][a-z0-9]*$"
     lowercase_with_hyphens     = "^[a-z][a-z0-9-]*[a-z0-9]$"
-    
+
     # Azure specific
     azure_storage_account      = "^[a-z0-9]{3,24}$"
     azure_key_vault            = "^[a-zA-Z][a-zA-Z0-9-]{1,22}[a-zA-Z0-9]$"
-    
+
     # AWS specific
     aws_s3_bucket              = "^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$"
-    
+
     # GCP specific
     gcp_project_id             = "^[a-z][a-z0-9-]{4,28}[a-z0-9]$"
-    
+
     # Network patterns
     ipv4_address               = "^(?:(?:25[0-5]|...)$"
     ipv4_cidr                  = "^(?:(?:25[0-5]|...)$"
-    
+
     # Email and URL
     email                      = "^[a-zA-Z0-9._%+-]+@..."
     url                        = "^https?://..."

@@ -10,7 +10,7 @@ jobs:
   docs:
     name: Generate Documentation
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,5 +37,5 @@ jobs:
       - name: Commit Changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "docs: auto-generate terraform documentation"
-          file_pattern: "catalog/terraform-modules/**/README.md"
+          commit_message: 'docs: auto-generate terraform documentation'
+          file_pattern: 'catalog/terraform-modules/**/README.md'

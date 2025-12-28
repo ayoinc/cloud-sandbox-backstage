@@ -29,51 +29,54 @@ module "naming" {
 
 ## Outputs
 
-| Output | Description |
-|--------|-------------|
-| `name` | Standard name with hyphens |
-| `name_no_hyphens` | Name without hyphens (for storage accounts) |
-| `name_no_special` | Alphanumeric only |
-| `unique_name` | Name with unique hash suffix |
-| `prefix` | Resource type prefix used |
-| `environment_short` | Abbreviated environment (d, s, p) |
-| `region_short` | Abbreviated region |
+| Output              | Description                                 |
+| ------------------- | ------------------------------------------- |
+| `name`              | Standard name with hyphens                  |
+| `name_no_hyphens`   | Name without hyphens (for storage accounts) |
+| `name_no_special`   | Alphanumeric only                           |
+| `unique_name`       | Name with unique hash suffix                |
+| `prefix`            | Resource type prefix used                   |
+| `environment_short` | Abbreviated environment (d, s, p)           |
+| `region_short`      | Abbreviated region                          |
 
 ## Resource Type Prefixes
 
 ### Azure
-| Resource | Prefix |
-|----------|--------|
-| virtual_machine | vm |
-| virtual_network | vnet |
-| subnet | snet |
-| storage_account | st |
-| key_vault | kv |
-| kubernetes_cluster | aks |
-| container_registry | acr |
-| sql_server | sql |
-| log_analytics | log |
+
+| Resource           | Prefix |
+| ------------------ | ------ |
+| virtual_machine    | vm     |
+| virtual_network    | vnet   |
+| subnet             | snet   |
+| storage_account    | st     |
+| key_vault          | kv     |
+| kubernetes_cluster | aks    |
+| container_registry | acr    |
+| sql_server         | sql    |
+| log_analytics      | log    |
 
 ### AWS
-| Resource | Prefix |
-|----------|--------|
-| ec2_instance | ec2 |
-| vpc | vpc |
-| subnet | sn |
-| s3_bucket | s3 |
-| eks_cluster | eks |
-| rds_instance | rds |
+
+| Resource        | Prefix |
+| --------------- | ------ |
+| ec2_instance    | ec2    |
+| vpc             | vpc    |
+| subnet          | sn     |
+| s3_bucket       | s3     |
+| eks_cluster     | eks    |
+| rds_instance    | rds    |
 | lambda_function | lambda |
 
 ### GCP
-| Resource | Prefix |
-|----------|--------|
-| compute_instance | vm |
-| vpc | vpc |
-| subnet | sn |
-| cloud_storage | gcs |
-| gke_cluster | gke |
-| cloud_sql | sql |
+
+| Resource         | Prefix |
+| ---------------- | ------ |
+| compute_instance | vm     |
+| vpc              | vpc    |
+| subnet           | sn     |
+| cloud_storage    | gcs    |
+| gke_cluster      | gke    |
+| cloud_sql        | sql    |
 
 ## Examples
 

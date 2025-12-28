@@ -257,46 +257,55 @@ locals {
 output "tags" {
   description = "All tags as a map (provider-agnostic)"
   value       = local.all_tags
+  sensitive   = true
 }
 
 output "azure_tags" {
   description = "Tags formatted for Azure resources"
   value       = local.azure_tags
+  sensitive   = true
 }
 
 output "aws_tags" {
   description = "Tags formatted for AWS resources"
   value       = local.aws_tags
+  sensitive   = true
 }
 
 output "gcp_labels" {
   description = "Labels formatted for GCP resources"
   value       = local.gcp_labels
+  sensitive   = true
 }
 
 output "required_tags" {
   description = "Only the required/mandatory tags"
   value       = local.required_tags
+  sensitive   = true
 }
 
 output "ownership_tags" {
   description = "Only ownership-related tags"
   value       = local.ownership_tags
+  sensitive   = true
 }
 
 output "operational_tags" {
   description = "Only operational tags"
   value       = local.operational_tags
+  sensitive   = true
 }
 
 output "is_production" {
   description = "Whether this is a production environment"
   value       = local.is_production
+  sensitive   = true
 }
 
 output "auto_shutdown_enabled" {
   description = "Whether auto-shutdown is enabled"
   value       = local.enable_auto_shutdown
+  sensitive   = true
 }
 
 output "tag_metadata" {
@@ -312,4 +321,5 @@ output "tag_metadata" {
     compliance          = var.compliance
     total_tags          = length(local.all_tags)
   }
+  sensitive = true
 }

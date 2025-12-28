@@ -134,23 +134,23 @@ module "eks" {
 
 ## Variables
 
-| Name | Description | Type | Default | Required |
-|------|-------------|------|---------|----------|
-| `name` | Name prefix for resources | `string` | - | Yes |
-| `environment` | Environment (dev, staging, prod) | `string` | - | Yes |
-| `vpc_id` | VPC ID | `string` | - | Yes |
-| `subnet_ids` | Subnet IDs for EKS cluster | `list(string)` | - | Yes |
-| `cluster_version` | Kubernetes version | `string` | `"1.29"` | No |
-| `cluster_endpoint_public_access` | Enable public endpoint access | `bool` | `true` | No |
-| `cluster_endpoint_private_access` | Enable private endpoint access | `bool` | `true` | No |
-| `cluster_endpoint_public_access_cidrs` | CIDRs for public endpoint | `list(string)` | `["0.0.0.0/0"]` | No |
-| `node_groups` | Node groups configuration | `map(object)` | See below | No |
-| `cluster_addons` | EKS add-ons configuration | `map(object)` | See below | No |
-| `enable_cluster_autoscaler` | Enable Cluster Autoscaler IAM | `bool` | `true` | No |
-| `enable_aws_load_balancer_controller` | Enable ALB Controller IAM | `bool` | `true` | No |
-| `enable_external_dns` | Enable External DNS IAM | `bool` | `false` | No |
-| `enable_secrets_manager` | Enable Secrets Manager CSI | `bool` | `true` | No |
-| `tags` | Tags to apply to resources | `map(string)` | `{}` | No |
+| Name                                   | Description                      | Type           | Default         | Required |
+| -------------------------------------- | -------------------------------- | -------------- | --------------- | -------- |
+| `name`                                 | Name prefix for resources        | `string`       | -               | Yes      |
+| `environment`                          | Environment (dev, staging, prod) | `string`       | -               | Yes      |
+| `vpc_id`                               | VPC ID                           | `string`       | -               | Yes      |
+| `subnet_ids`                           | Subnet IDs for EKS cluster       | `list(string)` | -               | Yes      |
+| `cluster_version`                      | Kubernetes version               | `string`       | `"1.29"`        | No       |
+| `cluster_endpoint_public_access`       | Enable public endpoint access    | `bool`         | `true`          | No       |
+| `cluster_endpoint_private_access`      | Enable private endpoint access   | `bool`         | `true`          | No       |
+| `cluster_endpoint_public_access_cidrs` | CIDRs for public endpoint        | `list(string)` | `["0.0.0.0/0"]` | No       |
+| `node_groups`                          | Node groups configuration        | `map(object)`  | See below       | No       |
+| `cluster_addons`                       | EKS add-ons configuration        | `map(object)`  | See below       | No       |
+| `enable_cluster_autoscaler`            | Enable Cluster Autoscaler IAM    | `bool`         | `true`          | No       |
+| `enable_aws_load_balancer_controller`  | Enable ALB Controller IAM        | `bool`         | `true`          | No       |
+| `enable_external_dns`                  | Enable External DNS IAM          | `bool`         | `false`         | No       |
+| `enable_secrets_manager`               | Enable Secrets Manager CSI       | `bool`         | `true`          | No       |
+| `tags`                                 | Tags to apply to resources       | `map(string)`  | `{}`            | No       |
 
 ### Node Group Configuration
 
@@ -171,17 +171,17 @@ node_groups = {
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| `cluster_id` | EKS cluster ID |
-| `cluster_name` | EKS cluster name |
-| `cluster_endpoint` | EKS cluster endpoint |
-| `cluster_certificate_authority_data` | Base64 encoded CA data |
-| `cluster_version` | EKS cluster version |
-| `cluster_security_group_id` | Cluster security group ID |
-| `oidc_provider_arn` | OIDC provider ARN for IRSA |
-| `oidc_provider_url` | OIDC provider URL |
-| `node_group_role_arn` | Node group IAM role ARN |
+| Name                                 | Description                |
+| ------------------------------------ | -------------------------- |
+| `cluster_id`                         | EKS cluster ID             |
+| `cluster_name`                       | EKS cluster name           |
+| `cluster_endpoint`                   | EKS cluster endpoint       |
+| `cluster_certificate_authority_data` | Base64 encoded CA data     |
+| `cluster_version`                    | EKS cluster version        |
+| `cluster_security_group_id`          | Cluster security group ID  |
+| `oidc_provider_arn`                  | OIDC provider ARN for IRSA |
+| `oidc_provider_url`                  | OIDC provider URL          |
+| `node_group_role_arn`                | Node group IAM role ARN    |
 
 ## Architecture
 
@@ -218,11 +218,11 @@ node_groups = {
 
 ### Default Add-ons
 
-| Add-on | Purpose |
-|--------|---------|
-| `coredns` | Cluster DNS |
-| `kube-proxy` | Network proxy |
-| `vpc-cni` | AWS VPC networking |
+| Add-on               | Purpose                |
+| -------------------- | ---------------------- |
+| `coredns`            | Cluster DNS            |
+| `kube-proxy`         | Network proxy          |
+| `vpc-cni`            | AWS VPC networking     |
 | `aws-ebs-csi-driver` | EBS persistent volumes |
 
 ### IRSA-Ready Components
@@ -247,7 +247,9 @@ kubectl get nodes
 ## Security Features
 
 ### Control Plane Logging
+
 All log types enabled:
+
 - API server
 - Audit
 - Authenticator
@@ -255,24 +257,27 @@ All log types enabled:
 - Scheduler
 
 ### Node Security
+
 - SSM Session Manager enabled
 - No SSH keys required
 - IMDSv2 recommended
 
 ### Network Security
+
 - Private endpoint for internal access
 - Public endpoint with CIDR restrictions
 - Security groups managed automatically
 
 ## Cost Considerations
 
-| Component | Cost Factor |
-|-----------|-------------|
-| Control Plane | ~$0.10/hour (~$73/month) |
-| Node Groups | EC2 instance pricing |
-| NAT Gateway | Data processing for private nodes |
+| Component     | Cost Factor                       |
+| ------------- | --------------------------------- |
+| Control Plane | ~$0.10/hour (~$73/month)          |
+| Node Groups   | EC2 instance pricing              |
+| NAT Gateway   | Data processing for private nodes |
 
 **Tips:**
+
 - Use Spot instances for non-critical workloads
 - Right-size node groups using metrics
 - Consider Graviton instances for cost savings

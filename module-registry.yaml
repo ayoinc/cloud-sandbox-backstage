@@ -1,5 +1,5 @@
 # Terraform Module Registry Configuration
-# 
+#
 # This file defines where Backstage templates should source their Terraform modules from.
 # All templates reference modules from this central registry instead of bundling code.
 #
@@ -15,105 +15,105 @@ module_registry:
     type: github
     org: your-org
     repo: terraform-modules
-    ref: main  # or specific tag like v1.0.0
+    ref: main # or specific tag like v1.0.0
     base_path: modules
 
   # Fallback to public Terraform Registry for common modules
   public_registry:
     enabled: true
-    
+
 # Module catalog - maps module names to their sources
 modules:
   # ============================================
   # SHARED MODULES (cross-provider)
   # ============================================
   shared/naming:
-    source: "git::https://github.com/your-org/terraform-modules.git//shared/naming?ref=v1.0.0"
-    description: "Naming conventions for all cloud providers"
-    
+    source: 'git::https://github.com/your-org/terraform-modules.git//shared/naming?ref=v1.0.0'
+    description: 'Naming conventions for all cloud providers'
+
   shared/tagging:
-    source: "git::https://github.com/your-org/terraform-modules.git//shared/tagging?ref=v1.0.0"
-    description: "Standard tags/labels for all resources"
+    source: 'git::https://github.com/your-org/terraform-modules.git//shared/tagging?ref=v1.0.0'
+    description: 'Standard tags/labels for all resources'
 
   # ============================================
   # AWS MODULES
   # ============================================
   aws/vpc:
-    source: "git::https://github.com/your-org/terraform-modules.git//aws/vpc?ref=v1.0.0"
+    source: 'git::https://github.com/your-org/terraform-modules.git//aws/vpc?ref=v1.0.0'
     # Alternative: Use public registry
     # source: "terraform-aws-modules/vpc/aws"
     # version: "5.0.0"
-    
+
   aws/eks:
-    source: "git::https://github.com/your-org/terraform-modules.git//aws/eks?ref=v1.0.0"
-    
+    source: 'git::https://github.com/your-org/terraform-modules.git//aws/eks?ref=v1.0.0'
+
   aws/rds:
-    source: "git::https://github.com/your-org/terraform-modules.git//aws/rds?ref=v1.0.0"
-    
+    source: 'git::https://github.com/your-org/terraform-modules.git//aws/rds?ref=v1.0.0'
+
   aws/s3:
-    source: "git::https://github.com/your-org/terraform-modules.git//aws/s3?ref=v1.0.0"
-    
+    source: 'git::https://github.com/your-org/terraform-modules.git//aws/s3?ref=v1.0.0'
+
   aws/lambda:
-    source: "git::https://github.com/your-org/terraform-modules.git//aws/lambda?ref=v1.0.0"
-    
+    source: 'git::https://github.com/your-org/terraform-modules.git//aws/lambda?ref=v1.0.0'
+
   aws/cloudfront:
-    source: "git::https://github.com/your-org/terraform-modules.git//aws/cloudfront?ref=v1.0.0"
-    
+    source: 'git::https://github.com/your-org/terraform-modules.git//aws/cloudfront?ref=v1.0.0'
+
   aws/ecs:
-    source: "git::https://github.com/your-org/terraform-modules.git//aws/ecs?ref=v1.0.0"
-    
+    source: 'git::https://github.com/your-org/terraform-modules.git//aws/ecs?ref=v1.0.0'
+
   aws/api-gateway:
-    source: "git::https://github.com/your-org/terraform-modules.git//aws/api-gateway?ref=v1.0.0"
+    source: 'git::https://github.com/your-org/terraform-modules.git//aws/api-gateway?ref=v1.0.0'
 
   # ============================================
   # AZURE MODULES
   # ============================================
   azure/vnet:
-    source: "git::https://github.com/your-org/terraform-modules.git//azure/vnet?ref=v1.0.0"
-    
+    source: 'git::https://github.com/your-org/terraform-modules.git//azure/vnet?ref=v1.0.0'
+
   azure/aks:
-    source: "git::https://github.com/your-org/terraform-modules.git//azure/aks?ref=v1.0.0"
-    
+    source: 'git::https://github.com/your-org/terraform-modules.git//azure/aks?ref=v1.0.0'
+
   azure/sql:
-    source: "git::https://github.com/your-org/terraform-modules.git//azure/sql?ref=v1.0.0"
-    
+    source: 'git::https://github.com/your-org/terraform-modules.git//azure/sql?ref=v1.0.0'
+
   azure/storage:
-    source: "git::https://github.com/your-org/terraform-modules.git//azure/storage?ref=v1.0.0"
-    
+    source: 'git::https://github.com/your-org/terraform-modules.git//azure/storage?ref=v1.0.0'
+
   azure/functions:
-    source: "git::https://github.com/your-org/terraform-modules.git//azure/functions?ref=v1.0.0"
-    
+    source: 'git::https://github.com/your-org/terraform-modules.git//azure/functions?ref=v1.0.0'
+
   azure/keyvault:
-    source: "git::https://github.com/your-org/terraform-modules.git//azure/keyvault?ref=v1.0.0"
-    
+    source: 'git::https://github.com/your-org/terraform-modules.git//azure/keyvault?ref=v1.0.0'
+
   azure/container-apps:
-    source: "git::https://github.com/your-org/terraform-modules.git//azure/container-apps?ref=v1.0.0"
-    
+    source: 'git::https://github.com/your-org/terraform-modules.git//azure/container-apps?ref=v1.0.0'
+
   azure/app-service:
-    source: "git::https://github.com/your-org/terraform-modules.git//azure/app-service?ref=v1.0.0"
+    source: 'git::https://github.com/your-org/terraform-modules.git//azure/app-service?ref=v1.0.0'
 
   # ============================================
   # GCP MODULES
   # ============================================
   gcp/vpc:
-    source: "git::https://github.com/your-org/terraform-modules.git//gcp/vpc?ref=v1.0.0"
-    
+    source: 'git::https://github.com/your-org/terraform-modules.git//gcp/vpc?ref=v1.0.0'
+
   gcp/gke:
-    source: "git::https://github.com/your-org/terraform-modules.git//gcp/gke?ref=v1.0.0"
-    
+    source: 'git::https://github.com/your-org/terraform-modules.git//gcp/gke?ref=v1.0.0'
+
   gcp/cloud-sql:
-    source: "git::https://github.com/your-org/terraform-modules.git//gcp/cloud-sql?ref=v1.0.0"
-    
+    source: 'git::https://github.com/your-org/terraform-modules.git//gcp/cloud-sql?ref=v1.0.0'
+
   gcp/cloud-storage:
-    source: "git::https://github.com/your-org/terraform-modules.git//gcp/cloud-storage?ref=v1.0.0"
-    
+    source: 'git::https://github.com/your-org/terraform-modules.git//gcp/cloud-storage?ref=v1.0.0'
+
   gcp/cloud-functions:
-    source: "git::https://github.com/your-org/terraform-modules.git//gcp/cloud-functions?ref=v1.0.0"
-    
+    source: 'git::https://github.com/your-org/terraform-modules.git//gcp/cloud-functions?ref=v1.0.0'
+
   gcp/cloud-run:
-    source: "git::https://github.com/your-org/terraform-modules.git//gcp/cloud-run?ref=v1.0.0"
+    source: 'git::https://github.com/your-org/terraform-modules.git//gcp/cloud-run?ref=v1.0.0'
 
 # Version constraints
 versioning:
-  strategy: semver  # semantic versioning
-  pin_major: true   # templates pin to major version (e.g., v1.x.x)
+  strategy: semver # semantic versioning
+  pin_major: true # templates pin to major version (e.g., v1.x.x)

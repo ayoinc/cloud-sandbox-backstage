@@ -126,46 +126,46 @@ module "rds" {
 
 ## Variables
 
-| Name | Description | Type | Default | Required |
-|------|-------------|------|---------|----------|
-| `name` | Name prefix for resources | `string` | - | Yes |
-| `environment` | Environment (dev, staging, prod) | `string` | - | Yes |
-| `vpc_id` | VPC ID | `string` | - | Yes |
-| `subnet_ids` | Subnet IDs for DB subnet group | `list(string)` | - | Yes |
-| `engine` | Database engine | `string` | `"postgres"` | No |
-| `engine_version` | Engine version | `string` | `"15.4"` | No |
-| `instance_class` | Instance class | `string` | `"db.t3.medium"` | No |
-| `allocated_storage` | Storage in GB | `number` | `20` | No |
-| `max_allocated_storage` | Max storage for autoscaling | `number` | `100` | No |
-| `storage_type` | Storage type | `string` | `"gp3"` | No |
-| `storage_encrypted` | Enable encryption | `bool` | `true` | No |
-| `kms_key_id` | KMS key ID | `string` | `null` | No |
-| `database_name` | Database name | `string` | `"app"` | No |
-| `master_username` | Master username | `string` | `"admin"` | No |
-| `manage_master_user_password` | AWS manages password | `bool` | `true` | No |
-| `port` | Database port | `number` | `5432` | No |
-| `multi_az` | Enable Multi-AZ | `bool` | `true` | No |
-| `publicly_accessible` | Public access | `bool` | `false` | No |
-| `backup_retention_period` | Backup retention days | `number` | `7` | No |
-| `deletion_protection` | Enable deletion protection | `bool` | `true` | No |
-| `performance_insights_enabled` | Enable Performance Insights | `bool` | `true` | No |
-| `monitoring_interval` | Enhanced monitoring interval | `number` | `60` | No |
-| `allowed_security_group_ids` | Allowed security groups | `list(string)` | `[]` | No |
-| `allowed_cidr_blocks` | Allowed CIDR blocks | `list(string)` | `[]` | No |
-| `tags` | Tags to apply | `map(string)` | `{}` | No |
+| Name                           | Description                      | Type           | Default          | Required |
+| ------------------------------ | -------------------------------- | -------------- | ---------------- | -------- |
+| `name`                         | Name prefix for resources        | `string`       | -                | Yes      |
+| `environment`                  | Environment (dev, staging, prod) | `string`       | -                | Yes      |
+| `vpc_id`                       | VPC ID                           | `string`       | -                | Yes      |
+| `subnet_ids`                   | Subnet IDs for DB subnet group   | `list(string)` | -                | Yes      |
+| `engine`                       | Database engine                  | `string`       | `"postgres"`     | No       |
+| `engine_version`               | Engine version                   | `string`       | `"15.4"`         | No       |
+| `instance_class`               | Instance class                   | `string`       | `"db.t3.medium"` | No       |
+| `allocated_storage`            | Storage in GB                    | `number`       | `20`             | No       |
+| `max_allocated_storage`        | Max storage for autoscaling      | `number`       | `100`            | No       |
+| `storage_type`                 | Storage type                     | `string`       | `"gp3"`          | No       |
+| `storage_encrypted`            | Enable encryption                | `bool`         | `true`           | No       |
+| `kms_key_id`                   | KMS key ID                       | `string`       | `null`           | No       |
+| `database_name`                | Database name                    | `string`       | `"app"`          | No       |
+| `master_username`              | Master username                  | `string`       | `"admin"`        | No       |
+| `manage_master_user_password`  | AWS manages password             | `bool`         | `true`           | No       |
+| `port`                         | Database port                    | `number`       | `5432`           | No       |
+| `multi_az`                     | Enable Multi-AZ                  | `bool`         | `true`           | No       |
+| `publicly_accessible`          | Public access                    | `bool`         | `false`          | No       |
+| `backup_retention_period`      | Backup retention days            | `number`       | `7`              | No       |
+| `deletion_protection`          | Enable deletion protection       | `bool`         | `true`           | No       |
+| `performance_insights_enabled` | Enable Performance Insights      | `bool`         | `true`           | No       |
+| `monitoring_interval`          | Enhanced monitoring interval     | `number`       | `60`             | No       |
+| `allowed_security_group_ids`   | Allowed security groups          | `list(string)` | `[]`             | No       |
+| `allowed_cidr_blocks`          | Allowed CIDR blocks              | `list(string)` | `[]`             | No       |
+| `tags`                         | Tags to apply                    | `map(string)`  | `{}`             | No       |
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| `db_instance_id` | RDS instance ID |
-| `db_instance_arn` | RDS instance ARN |
-| `db_instance_endpoint` | RDS instance endpoint |
-| `db_instance_address` | RDS instance address |
-| `db_instance_port` | RDS instance port |
-| `db_instance_name` | Database name |
-| `db_instance_username` | Master username |
-| `db_security_group_id` | Security group ID |
+| Name                     | Description                      |
+| ------------------------ | -------------------------------- |
+| `db_instance_id`         | RDS instance ID                  |
+| `db_instance_arn`        | RDS instance ARN                 |
+| `db_instance_endpoint`   | RDS instance endpoint            |
+| `db_instance_address`    | RDS instance address             |
+| `db_instance_port`       | RDS instance port                |
+| `db_instance_name`       | Database name                    |
+| `db_instance_username`   | Master username                  |
+| `db_security_group_id`   | Security group ID                |
 | `master_user_secret_arn` | Secrets Manager ARN for password |
 
 ## Architecture
@@ -223,6 +223,7 @@ data "aws_secretsmanager_secret_version" "db" {
 ### Performance Insights
 
 Analyze database performance:
+
 - Top SQL queries
 - Wait events
 - Database load
@@ -230,6 +231,7 @@ Analyze database performance:
 ### Enhanced Monitoring
 
 OS-level metrics:
+
 - CPU, memory, disk
 - Process information
 - File system metrics
@@ -237,29 +239,31 @@ OS-level metrics:
 ### CloudWatch Logs
 
 Export database logs:
+
 - PostgreSQL: `postgresql`, `upgrade`
 - MySQL: `audit`, `error`, `general`, `slowquery`
 
 ## Supported Engines
 
-| Engine | Versions | Default Port |
-|--------|----------|--------------|
-| `postgres` | 13, 14, 15 | 5432 |
-| `mysql` | 5.7, 8.0 | 3306 |
-| `mariadb` | 10.5, 10.6 | 3306 |
+| Engine     | Versions   | Default Port |
+| ---------- | ---------- | ------------ |
+| `postgres` | 13, 14, 15 | 5432         |
+| `mysql`    | 5.7, 8.0   | 3306         |
+| `mariadb`  | 10.5, 10.6 | 3306         |
 
 ## Cost Considerations
 
-| Component | Cost Factor |
-|-----------|-------------|
-| Instance | Per hour by class |
-| Storage | Per GB/month |
-| I/O | Per million requests (io1/io2) |
-| Backups | Free up to DB size |
-| Multi-AZ | 2x instance cost |
-| Performance Insights | Free (7 days) or paid |
+| Component            | Cost Factor                    |
+| -------------------- | ------------------------------ |
+| Instance             | Per hour by class              |
+| Storage              | Per GB/month                   |
+| I/O                  | Per million requests (io1/io2) |
+| Backups              | Free up to DB size             |
+| Multi-AZ             | 2x instance cost               |
+| Performance Insights | Free (7 days) or paid          |
 
 **Tips:**
+
 - Use Reserved Instances for production
 - Use `db.t3` for development
 - Consider Aurora for high-throughput workloads
