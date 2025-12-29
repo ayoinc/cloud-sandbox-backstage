@@ -34,6 +34,15 @@ jobs:
           done
         working-directory: catalog/terraform-modules
 
+      - name: Format generated docs with Prettier
+        run: |
+          # Run Prettier on all generated README files
+          find . -name "README.md" -type f | while read file; do
+            echo "Formatting $file with Prettier"
+            npx prettier --write "$file" 2>/dev/null || true
+          done
+        working-directory: catalog/terraform-modules
+
       - name: Commit Changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
