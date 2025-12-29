@@ -35,6 +35,7 @@ jobs:
         if: always()
         with:
           sarif_file: checkov-results.sarif
+          check_existence: false
 
       - name: TFSec Scan
         uses: aquasecurity/tfsec-action@v1.0.0
@@ -49,6 +50,7 @@ jobs:
         if: always()
         with:
           sarif_file: tfsec-results.sarif
+          check_existence: false
 
       - name: Trivy IaC Scan
         uses: aquasecurity/trivy-action@master
@@ -64,3 +66,4 @@ jobs:
         if: always()
         with:
           sarif_file: trivy-results.sarif
+          check_existence: false

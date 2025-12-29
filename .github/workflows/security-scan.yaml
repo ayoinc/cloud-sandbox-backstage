@@ -139,6 +139,7 @@ jobs:
         with:
           sarif_file: 'trivy-deps-results.sarif'
           category: 'trivy-dependencies'
+          check_existence: false
         continue-on-error: true
 
       - name: Run npm audit
@@ -219,6 +220,7 @@ jobs:
         with:
           sarif_file: semgrep.sarif
           category: 'semgrep-sast'
+          check_existence: false
         continue-on-error: true
 
       # =======================================================================
@@ -241,6 +243,7 @@ jobs:
         with:
           sarif_file: 'trivy-iac-results.sarif'
           category: 'trivy-iac'
+          check_existence: false
         continue-on-error: true
 
       - name: Run Checkov IaC scanner
@@ -260,6 +263,7 @@ jobs:
         with:
           sarif_file: 'checkov-results.sarif'
           category: 'checkov-iac'
+          check_existence: false
         continue-on-error: true
 
       # =======================================================================
@@ -282,6 +286,7 @@ jobs:
         with:
           sarif_file: 'trivy-container-results.sarif'
           category: 'trivy-container'
+          check_existence: false
         continue-on-error: true
 
       # =======================================================================
