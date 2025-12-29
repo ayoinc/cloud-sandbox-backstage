@@ -115,6 +115,7 @@ spec:
       input:
         url: ./skeleton
         templateFileExtension: '.j2'
+        cookiecutterCompat: false
         values:
           name: ${{ parameters.name }}
           description: ${{ parameters.description }}
