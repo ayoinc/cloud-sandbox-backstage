@@ -135,7 +135,7 @@ jobs:
 
       - name: Upload Trivy dependency scan to GitHub Security
         if: inputs.scan_dependencies && inputs.upload_sarif
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: 'trivy-deps-results.sarif'
           category: 'trivy-dependencies'
