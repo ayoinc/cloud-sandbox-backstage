@@ -97,18 +97,6 @@ spec:
           provider: ${{ parameters.provider }}
           terraform_version: ${{ parameters.terraform_version }}
           destination: ${{ parameters.repoUrl | parseRepoUrl }}
-        # Copy without templating: files that contain || operators or other
-        # syntax that conflicts with Nunjucks template parsing
-        copyWithoutTemplating:
-          - '**/*.sh'
-          - '**/*.tpl'
-          - '**/cloud-init.yaml'
-          - '.github/workflows/**'
-          # Provider submodule .tf files contain || operators that break Nunjucks
-          - 'aws/**/*.tf'
-          - 'azure/**/*.tf'
-          - 'gcp/**/*.tf'
-          - 'examples/**/*.tf'
 
     - id: remove-aws
       name: Remove AWS folder (not selected)
