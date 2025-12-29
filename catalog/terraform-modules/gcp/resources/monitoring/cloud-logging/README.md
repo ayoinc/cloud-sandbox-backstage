@@ -21,32 +21,32 @@ module "cloud_logging" {
 
 ## Requirements
 
-| Name | Version |
-|------|---------|
-| terraform | >= 1.0 |
-| google | >= 5.0 |
+| Name      | Version |
+| --------- | ------- |
+| terraform | >= 1.0  |
+| google    | >= 5.0  |
 
 ## Inputs
 
-| Name | Description | Type | Required |
-|------|-------------|------|----------|
-| `project_name` | See variables.tf | `any` | See default |
-| `project_id` | See variables.tf | `any` | See default |
-| `environment` | See variables.tf | `any` | See default |
-| `log_buckets` | See variables.tf | `any` | See default |
-| `log_sinks` | See variables.tf | `any` | See default |
+| Name             | Description      | Type  | Required    |
+| ---------------- | ---------------- | ----- | ----------- |
+| `project_name`   | See variables.tf | `any` | See default |
+| `project_id`     | See variables.tf | `any` | See default |
+| `environment`    | See variables.tf | `any` | See default |
+| `log_buckets`    | See variables.tf | `any` | See default |
+| `log_sinks`      | See variables.tf | `any` | See default |
 | `log_exclusions` | See variables.tf | `any` | See default |
-| `log_metrics` | See variables.tf | `any` | See default |
+| `log_metrics`    | See variables.tf | `any` | See default |
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| `log_bucket_ids` | See outputs.tf |
-| `log_sink_ids` | See outputs.tf |
+| Name                         | Description    |
+| ---------------------------- | -------------- |
+| `log_bucket_ids`             | See outputs.tf |
+| `log_sink_ids`               | See outputs.tf |
 | `log_sink_writer_identities` | See outputs.tf |
-| `log_exclusion_ids` | See outputs.tf |
-| `log_metric_ids` | See outputs.tf |
+| `log_exclusion_ids`          | See outputs.tf |
+| `log_metric_ids`             | See outputs.tf |
 
 ## Features
 

@@ -21,31 +21,31 @@ module "cloud_armor" {
 
 ## Requirements
 
-| Name | Version |
-|------|---------|
-| terraform | >= 1.0 |
-| google | >= 5.0 |
+| Name      | Version |
+| --------- | ------- |
+| terraform | >= 1.0  |
+| google    | >= 5.0  |
 
 ## Inputs
 
-| Name | Description | Type | Required |
-|------|-------------|------|----------|
-| `project_name` | See variables.tf | `any` | See default |
-| `project_id` | See variables.tf | `any` | See default |
-| `environment` | See variables.tf | `any` | See default |
-| `name` | See variables.tf | `any` | See default |
-| `description` | See variables.tf | `any` | See default |
-| `type` | See variables.tf | `any` | See default |
+| Name                         | Description      | Type  | Required    |
+| ---------------------------- | ---------------- | ----- | ----------- |
+| `project_name`               | See variables.tf | `any` | See default |
+| `project_id`                 | See variables.tf | `any` | See default |
+| `environment`                | See variables.tf | `any` | See default |
+| `name`                       | See variables.tf | `any` | See default |
+| `description`                | See variables.tf | `any` | See default |
+| `type`                       | See variables.tf | `any` | See default |
 | `adaptive_protection_config` | See variables.tf | `any` | See default |
-| `rules` | See variables.tf | `any` | See default |
-| `default_rule_action` | See variables.tf | `any` | See default |
+| `rules`                      | See variables.tf | `any` | See default |
+| `default_rule_action`        | See variables.tf | `any` | See default |
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| `security_policy_id` | See outputs.tf |
-| `security_policy_self_link` | See outputs.tf |
+| Name                          | Description    |
+| ----------------------------- | -------------- |
+| `security_policy_id`          | See outputs.tf |
+| `security_policy_self_link`   | See outputs.tf |
 | `security_policy_fingerprint` | See outputs.tf |
 
 ## Features

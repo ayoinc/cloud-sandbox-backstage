@@ -21,20 +21,20 @@ module "vpc" {
 
 ## Requirements
 
-| Name | Version |
-|------|---------|
-| terraform | >= 1.0 |
-| google | >= 5.0 |
+| Name      | Version |
+| --------- | ------- |
+| terraform | >= 1.0  |
+| google    | >= 5.0  |
 
 ## Inputs
 
 | Name | Description | Type | Required |
-|------|-------------|------|----------|
+| ---- | ----------- | ---- | -------- |
 
 ## Outputs
 
 | Name | Description |
-|------|-------------|
+| ---- | ----------- |
 
 ## Features
 

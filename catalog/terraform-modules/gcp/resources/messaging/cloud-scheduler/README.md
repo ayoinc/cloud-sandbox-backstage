@@ -21,26 +21,26 @@ module "cloud_scheduler" {
 
 ## Requirements
 
-| Name | Version |
-|------|---------|
-| terraform | >= 1.0 |
-| google | >= 5.0 |
+| Name      | Version |
+| --------- | ------- |
+| terraform | >= 1.0  |
+| google    | >= 5.0  |
 
 ## Inputs
 
-| Name | Description | Type | Required |
-|------|-------------|------|----------|
+| Name           | Description      | Type  | Required    |
+| -------------- | ---------------- | ----- | ----------- |
 | `project_name` | See variables.tf | `any` | See default |
-| `project_id` | See variables.tf | `any` | See default |
-| `environment` | See variables.tf | `any` | See default |
-| `region` | See variables.tf | `any` | See default |
-| `jobs` | See variables.tf | `any` | See default |
+| `project_id`   | See variables.tf | `any` | See default |
+| `environment`  | See variables.tf | `any` | See default |
+| `region`       | See variables.tf | `any` | See default |
+| `jobs`         | See variables.tf | `any` | See default |
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| `job_ids` | See outputs.tf |
+| Name        | Description    |
+| ----------- | -------------- |
+| `job_ids`   | See outputs.tf |
 | `job_names` | See outputs.tf |
 
 ## Features

@@ -21,31 +21,31 @@ module "kms" {
 
 ## Requirements
 
-| Name | Version |
-|------|---------|
-| terraform | >= 1.0 |
-| google | >= 5.0 |
+| Name      | Version |
+| --------- | ------- |
+| terraform | >= 1.0  |
+| google    | >= 5.0  |
 
 ## Inputs
 
-| Name | Description | Type | Required |
-|------|-------------|------|----------|
-| `project_name` | See variables.tf | `any` | See default |
-| `project_id` | See variables.tf | `any` | See default |
-| `environment` | See variables.tf | `any` | See default |
-| `location` | See variables.tf | `any` | See default |
-| `key_ring_name` | See variables.tf | `any` | See default |
-| `crypto_keys` | See variables.tf | `any` | See default |
+| Name               | Description      | Type  | Required    |
+| ------------------ | ---------------- | ----- | ----------- |
+| `project_name`     | See variables.tf | `any` | See default |
+| `project_id`       | See variables.tf | `any` | See default |
+| `environment`      | See variables.tf | `any` | See default |
+| `location`         | See variables.tf | `any` | See default |
+| `key_ring_name`    | See variables.tf | `any` | See default |
+| `crypto_keys`      | See variables.tf | `any` | See default |
 | `key_iam_bindings` | See variables.tf | `any` | See default |
-| `labels` | See variables.tf | `any` | See default |
+| `labels`           | See variables.tf | `any` | See default |
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| `key_ring_id` | See outputs.tf |
-| `key_ring_name` | See outputs.tf |
-| `crypto_key_ids` | See outputs.tf |
+| Name               | Description    |
+| ------------------ | -------------- |
+| `key_ring_id`      | See outputs.tf |
+| `key_ring_name`    | See outputs.tf |
+| `crypto_key_ids`   | See outputs.tf |
 | `crypto_key_names` | See outputs.tf |
 
 ## Features

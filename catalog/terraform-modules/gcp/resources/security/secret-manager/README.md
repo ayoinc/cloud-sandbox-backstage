@@ -21,27 +21,27 @@ module "secret_manager" {
 
 ## Requirements
 
-| Name | Version |
-|------|---------|
-| terraform | >= 1.0 |
-| google | >= 5.0 |
+| Name      | Version |
+| --------- | ------- |
+| terraform | >= 1.0  |
+| google    | >= 5.0  |
 
 ## Inputs
 
-| Name | Description | Type | Required |
-|------|-------------|------|----------|
+| Name           | Description      | Type  | Required    |
+| -------------- | ---------------- | ----- | ----------- |
 | `project_name` | See variables.tf | `any` | See default |
-| `project_id` | See variables.tf | `any` | See default |
-| `environment` | See variables.tf | `any` | See default |
-| `secrets` | See variables.tf | `any` | See default |
-| `labels` | See variables.tf | `any` | See default |
+| `project_id`   | See variables.tf | `any` | See default |
+| `environment`  | See variables.tf | `any` | See default |
+| `secrets`      | See variables.tf | `any` | See default |
+| `labels`       | See variables.tf | `any` | See default |
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| `secret_ids` | See outputs.tf |
-| `secret_names` | See outputs.tf |
+| Name                 | Description    |
+| -------------------- | -------------- |
+| `secret_ids`         | See outputs.tf |
+| `secret_names`       | See outputs.tf |
 | `secret_version_ids` | See outputs.tf |
 
 ## Features
