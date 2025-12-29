@@ -104,3 +104,5 @@ ignore: |
   dist/
   templates/**/skeleton/**/*.yaml
   templates/**/skeleton/**/*.yml
+  catalog/terraform-modules/templates/**/skeleton/**/*.yaml
+  catalog/terraform-modules/templates/**/skeleton/**/*.yml
