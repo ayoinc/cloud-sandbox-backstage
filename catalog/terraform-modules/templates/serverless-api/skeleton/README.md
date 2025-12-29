@@ -56,45 +56,45 @@ Production-ready serverless API with Lambda/Functions/Cloud Functions, API Gatew
 
 ## Components by Cloud Provider
 
-| Component | AWS | Azure | GCP |
-|-----------|-----|-------|-----|
-| Functions | Lambda | Azure Functions | Cloud Functions |
-| API Gateway | API Gateway (HTTP/REST) | API Management | Cloud Endpoints |
-| Auth | Cognito | Azure AD B2C | Firebase Auth |
-| NoSQL DB | DynamoDB | Cosmos DB | Firestore |
-| SQL DB | Aurora Serverless | SQL Database (Serverless) | Cloud Spanner |
-| Object Storage | S3 | Blob Storage | Cloud Storage |
-| Cache | ElastiCache | Redis Cache | Memorystore |
-| WAF | AWS WAF | Azure WAF | Cloud Armor |
-| Tracing | X-Ray | Application Insights | Cloud Trace |
+| Component      | AWS                     | Azure                     | GCP             |
+| -------------- | ----------------------- | ------------------------- | --------------- |
+| Functions      | Lambda                  | Azure Functions           | Cloud Functions |
+| API Gateway    | API Gateway (HTTP/REST) | API Management            | Cloud Endpoints |
+| Auth           | Cognito                 | Azure AD B2C              | Firebase Auth   |
+| NoSQL DB       | DynamoDB                | Cosmos DB                 | Firestore       |
+| SQL DB         | Aurora Serverless       | SQL Database (Serverless) | Cloud Spanner   |
+| Object Storage | S3                      | Blob Storage              | Cloud Storage   |
+| Cache          | ElastiCache             | Redis Cache               | Memorystore     |
+| WAF            | AWS WAF                 | Azure WAF                 | Cloud Armor     |
+| Tracing        | X-Ray                   | Application Insights      | Cloud Trace     |
 
 ## Supported Runtimes
 
-| Runtime | AWS Lambda | Azure Functions | Cloud Functions |
-|---------|------------|-----------------|-----------------|
-| Node.js 20 | nodejs20.x | node:20 | nodejs20 |
-| Python 3.12 | python3.12 | python:3.12 | python312 |
-| Go 1.21 | provided.al2023 | custom | go121 |
-| .NET 8 | dotnet8 | dotnet-isolated:8.0 | dotnet8 |
-| Java 21 | java21 | java:21 | java21 |
+| Runtime     | AWS Lambda      | Azure Functions     | Cloud Functions |
+| ----------- | --------------- | ------------------- | --------------- |
+| Node.js 20  | nodejs20.x      | node:20             | nodejs20        |
+| Python 3.12 | python3.12      | python:3.12         | python312       |
+| Go 1.21     | provided.al2023 | custom              | go121           |
+| .NET 8      | dotnet8         | dotnet-isolated:8.0 | dotnet8         |
+| Java 21     | java21          | java:21             | java21          |
 
 ## API Types
 
-| Type | Description | Best For |
-|------|-------------|----------|
+| Type     | Description             | Best For              |
+| -------- | ----------------------- | --------------------- |
 | HTTP API | Low latency, lower cost | Simple APIs, webhooks |
-| REST API | Full-featured, API keys | Enterprise APIs |
-| GraphQL | Flexible queries | Complex data models |
+| REST API | Full-featured, API keys | Enterprise APIs       |
+| GraphQL  | Flexible queries        | Complex data models   |
 
 ## Authentication Options
 
-| Type | Description |
-|------|-------------|
-| None | Public API |
-| API Key | Simple key-based auth |
-| JWT | Token-based (Cognito/AAD/Firebase) |
-| OAuth 2.0 | Third-party integration |
-| IAM | AWS service-to-service |
+| Type      | Description                        |
+| --------- | ---------------------------------- |
+| None      | Public API                         |
+| API Key   | Simple key-based auth              |
+| JWT       | Token-based (Cognito/AAD/Firebase) |
+| OAuth 2.0 | Third-party integration            |
+| IAM       | AWS service-to-service             |
 
 ## Usage
 

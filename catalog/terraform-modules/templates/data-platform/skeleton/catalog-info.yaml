@@ -11,25 +11,6 @@ metadata:
     - data
     - analytics
     - ${{ values.cloudProvider }}
-  links:
-    {%- if values.cloudProvider == "aws" %}
-    - url: https://console.aws.amazon.com/glue/home?region=${{ values.awsRegion }}
-      title: AWS Glue Console
-      icon: cloud
-    - url: https://console.aws.amazon.com/redshiftv2/home?region=${{ values.awsRegion }}
-      title: AWS Redshift Console
-      icon: database
-    {%- endif %}
-    {%- if values.cloudProvider == "azure" %}
-    - url: https://portal.azure.com/#view/HubsExtension/BrowseResource/resourceType/Microsoft.Synapse%2Fworkspaces
-      title: Azure Synapse Portal
-      icon: cloud
-    {%- endif %}
-    {%- if values.cloudProvider == "gcp" %}
-    - url: https://console.cloud.google.com/bigquery?project=${{ values.gcpProjectId }}
-      title: BigQuery Console
-      icon: cloud
-    {%- endif %}
 spec:
   type: infrastructure
   lifecycle: production

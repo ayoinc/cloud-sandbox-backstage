@@ -56,25 +56,25 @@ Production-ready data platform with data lake, warehouse, and ETL/ELT pipelines 
 
 ## Components by Cloud Provider
 
-| Component | AWS | Azure | GCP |
-|-----------|-----|-------|-----|
-| Object Storage | S3 | ADLS Gen2 | Cloud Storage |
-| Data Catalog | Glue Catalog | Purview | Data Catalog |
-| Data Warehouse | Redshift | Synapse Analytics | BigQuery |
-| ETL (Native) | Glue | Data Factory | Dataflow |
-| ETL (Spark) | EMR | Databricks | Dataproc |
-| Orchestration | Step Functions | Data Factory | Cloud Composer |
-| Streaming | Kinesis | Event Hubs | Pub/Sub |
-| BI | QuickSight | Power BI | Looker |
-| ML | SageMaker | Azure ML | Vertex AI |
+| Component      | AWS            | Azure             | GCP            |
+| -------------- | -------------- | ----------------- | -------------- |
+| Object Storage | S3             | ADLS Gen2         | Cloud Storage  |
+| Data Catalog   | Glue Catalog   | Purview           | Data Catalog   |
+| Data Warehouse | Redshift       | Synapse Analytics | BigQuery       |
+| ETL (Native)   | Glue           | Data Factory      | Dataflow       |
+| ETL (Spark)    | EMR            | Databricks        | Dataproc       |
+| Orchestration  | Step Functions | Data Factory      | Cloud Composer |
+| Streaming      | Kinesis        | Event Hubs        | Pub/Sub        |
+| BI             | QuickSight     | Power BI          | Looker         |
+| ML             | SageMaker      | Azure ML          | Vertex AI      |
 
 ## Data Zones
 
-| Zone | Purpose | Data Quality |
-|------|---------|--------------|
-| Raw | Landing zone for source data | As-is from source |
+| Zone      | Purpose                      | Data Quality            |
+| --------- | ---------------------------- | ----------------------- |
+| Raw       | Landing zone for source data | As-is from source       |
 | Processed | Cleaned and transformed data | Validated, deduplicated |
-| Curated | Business-ready datasets | Aggregated, enriched |
+| Curated   | Business-ready datasets      | Aggregated, enriched    |
 
 ## Usage
 

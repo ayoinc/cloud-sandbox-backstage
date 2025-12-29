@@ -43,16 +43,16 @@ Production-ready 3-tier architecture with Cloud Load Balancer, GKE/MIG, and Clou
 
 ## Components
 
-| Layer | Component | Description |
-|-------|-----------|-------------|
-| Edge | Cloud Armor | WAF and DDoS protection |
-| Edge | Global Load Balancer | HTTPS/HTTP traffic distribution |
-| Compute | GKE Autopilot | Serverless Kubernetes (default) |
-| Compute | GKE Standard | Standard Kubernetes cluster |
-| Compute | Managed Instance Group | VM-based compute |
-| Database | Cloud SQL | Managed PostgreSQL/MySQL |
-| Security | Secret Manager | Secrets storage |
-| Network | VPC | Private networking with Cloud NAT |
+| Layer    | Component              | Description                       |
+| -------- | ---------------------- | --------------------------------- |
+| Edge     | Cloud Armor            | WAF and DDoS protection           |
+| Edge     | Global Load Balancer   | HTTPS/HTTP traffic distribution   |
+| Compute  | GKE Autopilot          | Serverless Kubernetes (default)   |
+| Compute  | GKE Standard           | Standard Kubernetes cluster       |
+| Compute  | Managed Instance Group | VM-based compute                  |
+| Database | Cloud SQL              | Managed PostgreSQL/MySQL          |
+| Security | Secret Manager         | Secrets storage                   |
+| Network  | VPC                    | Private networking with Cloud NAT |
 
 ## Usage
 
@@ -71,6 +71,7 @@ Production-ready 3-tier architecture with Cloud Load Balancer, GKE/MIG, and Clou
 ## Outputs
 
 After deployment, you'll receive:
+
 - Load Balancer IP address
 - Cluster credentials (for GKE)
 - Database connection string

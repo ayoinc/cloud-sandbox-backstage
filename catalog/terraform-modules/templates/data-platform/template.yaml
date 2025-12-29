@@ -227,6 +227,7 @@ spec:
       action: fetch:template
       input:
         url: ./skeleton
+        templateFileExtension: '.j2'
         values:
           projectName: ${{ parameters.projectName }}
           environment: ${{ parameters.environment }}

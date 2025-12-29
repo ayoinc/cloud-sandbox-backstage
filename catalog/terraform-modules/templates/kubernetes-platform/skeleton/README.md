@@ -50,26 +50,26 @@ Production-ready Kubernetes platform with GitOps, observability, and security on
 
 ## Platform Components
 
-| Category | Component | Description |
-|----------|-----------|-------------|
-| GitOps | ArgoCD | GitOps-based continuous deployment |
-| Observability | Prometheus | Metrics collection and alerting |
-| Observability | Grafana | Dashboards and visualization |
-| Observability | Loki | Log aggregation |
-| Service Mesh | Istio | Traffic management, security, observability |
-| Ingress | NGINX/Traefik | HTTP(S) routing |
-| TLS | Cert-Manager | Automatic TLS certificate management |
-| DNS | External-DNS | Automatic DNS record management |
-| Policy | OPA Gatekeeper | Policy enforcement |
-| Security | Network Policies | Pod-to-pod network segmentation |
+| Category      | Component        | Description                                 |
+| ------------- | ---------------- | ------------------------------------------- |
+| GitOps        | ArgoCD           | GitOps-based continuous deployment          |
+| Observability | Prometheus       | Metrics collection and alerting             |
+| Observability | Grafana          | Dashboards and visualization                |
+| Observability | Loki             | Log aggregation                             |
+| Service Mesh  | Istio            | Traffic management, security, observability |
+| Ingress       | NGINX/Traefik    | HTTP(S) routing                             |
+| TLS           | Cert-Manager     | Automatic TLS certificate management        |
+| DNS           | External-DNS     | Automatic DNS record management             |
+| Policy        | OPA Gatekeeper   | Policy enforcement                          |
+| Security      | Network Policies | Pod-to-pod network segmentation             |
 
 ## Cloud Provider Support
 
-| Provider | Kubernetes Service | Features |
-|----------|-------------------|----------|
-| AWS | EKS | IRSA, ALB Ingress, EBS CSI |
-| Azure | AKS | Pod Identity, Azure CNI, Managed Disks |
-| GCP | GKE | Workload Identity, Cloud NAT, PD CSI |
+| Provider | Kubernetes Service | Features                               |
+| -------- | ------------------ | -------------------------------------- |
+| AWS      | EKS                | IRSA, ALB Ingress, EBS CSI             |
+| Azure    | AKS                | Pod Identity, Azure CNI, Managed Disks |
+| GCP      | GKE                | Workload Identity, Cloud NAT, PD CSI   |
 
 ## Usage
 
