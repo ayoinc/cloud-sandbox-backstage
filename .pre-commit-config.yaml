@@ -16,7 +16,7 @@ repos:
         exclude: \.md$
       - id: check-yaml
         args: [--unsafe]
-        exclude: templates/.*/skeleton/
+        exclude: (templates/.*/skeleton/|catalog/terraform-modules/templates/.*/skeleton/)
       - id: check-json
       - id: check-added-large-files
         args: ['--maxkb=1000']
@@ -34,19 +34,19 @@ repos:
       - id: terraform_fmt
         args:
           - --args=-recursive
-        exclude: templates/.*/skeleton/(?!modules/)
+        exclude: (templates/.*/skeleton/(?!modules/)|catalog/terraform-modules/templates/.*/skeleton/(?!modules/))
       - id: terraform_validate
         args:
           - --hook-config=--retry-once-with-cleanup=true
-        exclude: templates/.*/skeleton/(?!modules/)
+        exclude: (templates/.*/skeleton/(?!modules/)|catalog/terraform-modules/templates/.*/skeleton/(?!modules/))
       - id: terraform_tflint
         args:
           - --args=--config=__GIT_WORKING_DIR__/.tflint.hcl
-        exclude: templates/.*/skeleton/(?!modules/)
+        exclude: (templates/.*/skeleton/(?!modules/)|catalog/terraform-modules/templates/.*/skeleton/(?!modules/))
       - id: terraform_docs
         args:
           - --args=--config=.terraform-docs.yml
-        exclude: templates/.*/skeleton/
+        exclude: (templates/.*/skeleton/|catalog/terraform-modules/templates/.*/skeleton/)
 
   # Security scanning
   - repo: https://github.com/aquasecurity/tfsec
@@ -55,7 +55,7 @@ repos:
       - id: tfsec
         args:
           - --soft-fail
-        exclude: templates/.*/skeleton/
+        exclude: (templates/.*/skeleton/|catalog/terraform-modules/templates/.*/skeleton/)
 
   - repo: https://github.com/bridgecrewio/checkov
     rev: 3.2.0
@@ -65,7 +65,7 @@ repos:
           - --skip-check=CKV_TF_1
           - --quiet
           - --compact
-        exclude: templates/.*/skeleton/
+        exclude: (templates/.*/skeleton/|catalog/terraform-modules/templates/.*/skeleton/)
 
   # JavaScript/TypeScript hooks
   - repo: https://github.com/pre-commit/mirrors-eslint
@@ -142,7 +142,7 @@ repos:
     hooks:
       - id: yamllint
         args: ['-c', '.yamllint.yml']
-        exclude: (templates/.*/skeleton/|\.yarn/)
+        exclude: (templates/.*/skeleton/|catalog/terraform-modules/templates/.*/skeleton/|\.yarn/)
 
 # CI configuration - skip some hooks in CI
 ci:
