@@ -187,7 +187,7 @@ jobs:
       # =======================================================================
       - name: Initialize CodeQL
         if: inputs.scan_sast
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: ${{ inputs.language == 'auto' && 'javascript,python' || inputs.language }}
           queries: security-extended
@@ -195,7 +195,7 @@ jobs:
 
       - name: Perform CodeQL Analysis
         if: inputs.scan_sast
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: 'codeql-sast'
         continue-on-error: true
@@ -215,7 +215,7 @@ jobs:
 
       - name: Upload Semgrep results to GitHub Security
         if: inputs.scan_sast && inputs.upload_sarif
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: semgrep.sarif
           category: 'semgrep-sast'
@@ -237,7 +237,7 @@ jobs:
 
       - name: Upload Trivy IaC results to GitHub Security
         if: inputs.scan_iac && inputs.upload_sarif
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: 'trivy-iac-results.sarif'
           category: 'trivy-iac'
@@ -256,7 +256,7 @@ jobs:
 
       - name: Upload Checkov results to GitHub Security
         if: inputs.scan_iac && inputs.upload_sarif
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: 'checkov-results.sarif'
           category: 'checkov-iac'
@@ -278,7 +278,7 @@ jobs:
 
       - name: Upload Trivy container results to GitHub Security
         if: inputs.scan_containers && inputs.container_image != '' && inputs.upload_sarif
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: 'trivy-container-results.sarif'
           category: 'trivy-container'

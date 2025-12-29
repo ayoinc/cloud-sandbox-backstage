@@ -249,7 +249,7 @@ jobs:
 
       - name: Upload Trivy scan results to GitHub Security
         if: inputs.scan_image && inputs.push
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: 'trivy-results.sarif'
           category: 'container-scanning'
