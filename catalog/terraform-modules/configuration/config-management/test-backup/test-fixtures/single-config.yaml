@@ -1,0 +1,7 @@
+app_name: 'test-app'
+environment: 'dev'
+version: '1.0.0'
+providers:
+  azure:
+    enabled: true
+    default_region: 'eastus'

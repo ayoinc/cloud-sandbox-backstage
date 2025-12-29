@@ -19,9 +19,7 @@ variable "required_keys" {
 
 locals {
   # Load all configuration files
-  raw_configs = [for path in var.config_paths : (
-    fileexists(path) ? yamldecode(file(path)) : {}
-  )]
+  raw_configs = [for path in var.config_paths : try(yamldecode(file(path)), {})]
 
   # Merge configurations (later files override earlier ones)
   merged_config = merge(flatten([
@@ -29,9 +27,9 @@ locals {
   ])...)
 
   # Get environments config safely
-  environments = lookup(local.merged_config, "environments", {})
-  wildcard_env = lookup(local.environments, "*", {})
-  specific_env = lookup(local.environments, var.environment, {})
+  environments = try(lookup(local.merged_config, "environments", {}), {})
+  wildcard_env = try(lookup(local.environments, "*", {}), {})
+  specific_env = try(lookup(local.environments, var.environment, {}), {})
 
   # Extract environment-specific config
   env_config = merge(
@@ -40,10 +38,10 @@ locals {
     local.specific_env
   )
 
-  # Validate required keys
+  # Validate required keys - check if key exists and has a non-null, non-empty value
   missing_keys = [
     for key in var.required_keys :
-    key if !can(lookup(local.env_config, key, null))
+    key if !contains(keys(local.env_config), key)
   ]
 
   # Validation result
@@ -58,7 +56,7 @@ locals {
 
 output "config" {
   description = "Final merged and cleaned configuration"
-  value       = local.is_valid ? local.cleaned_config : {}
+  value       = local.is_valid ? local.cleaned_config : tomap({})
 }
 
 output "is_valid" {

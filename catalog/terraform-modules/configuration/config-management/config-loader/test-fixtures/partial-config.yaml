@@ -1,0 +1,4 @@
+# Partial configuration (missing some fields)
+app_name: 'partial-app'
+database_host: 'localhost'
+# Missing: api_port, logging_level

@@ -1,0 +1,151 @@
+# AWS Full Infrastructure Architecture
+
+vars: {
+  grid-gap: 60
+  layout: dagre
+}
+
+# Network Layer
+VPC: AWS VPC {
+  shape: rectangle
+  style: {
+    fill: "#FF9900"
+    stroke: "#FF9900"
+    stroke-width: 3
+  }
+
+  IGW: Internet Gateway
+  NAT: NAT Gateway
+  
+  Public1: Public Subnet A
+  Public2: Public Subnet B
+  
+  Private1: Private Subnet A
+  Private2: Private Subnet B
+  
+  Data1: Data Subnet A
+  Data2: Data Subnet B
+}
+
+# Security
+IAM: IAM & Security {
+  shape: rectangle
+  style: {
+    fill: "#DD344C"
+    stroke: "#DD344C"
+    stroke-width: 3
+  }
+  
+  KMS: KMS Keys
+  Secrets: Secrets Manager
+  GuardDuty: GuardDuty
+}
+
+# Container Services
+Containers: Container Services {
+  shape: rectangle
+  style: {
+    fill: "#FF9900"
+    stroke: "#FF9900"
+    stroke-width: 3
+  }
+  
+  EKS: EKS Cluster
+  NodeGroup: EKS Node Group
+  ECR: ECR Registry
+  Fargate: Fargate
+}
+
+# Compute
+Compute: Compute Services {
+  shape: rectangle
+  style: {
+    fill: "#FF9900"
+    stroke: "#FF9900"
+    stroke-width: 3
+  }
+  
+  EC2: EC2 Instances
+  ASG: Auto Scaling Group
+  LT: Launch Template
+}
+
+# Storage
+Storage: Storage Services {
+  shape: rectangle
+  style: {
+    fill: "#6CA868"
+    stroke: "#6CA868"
+    stroke-width: 3
+  }
+  
+  S3: S3 Buckets
+  EFS: EFS File Systems
+  EBS: EBS Volumes
+}
+
+# Database
+Database: Database Services {
+  shape: rectangle
+  style: {
+    fill: "#527FFF"
+    stroke: "#527FFF"
+    stroke-width: 3
+  }
+  
+  RDS: RDS Database
+  DynamoDB: DynamoDB
+  ElastiCache: ElastiCache Redis
+}
+
+# Monitoring
+Monitoring: Monitoring {
+  shape: rectangle
+  style: {
+    fill: "#FF8C00"
+    stroke: "#FF8C00"
+    stroke-width: 3
+  }
+  
+  CloudWatch: CloudWatch
+  XRay: X-Ray
+  Prometheus: Managed Prometheus
+}
+
+# Connections
+VPC -> IGW
+VPC -> NAT
+IGW -> Public1
+IGW -> Public2
+NAT -> Private1
+NAT -> Private2
+NAT -> Data1
+NAT -> Data2
+
+Public1 -> EKS
+Public2 -> EKS
+Private1 -> EKS
+Private2 -> EKS
+Private1 -> EC2
+Private2 -> EC2
+Data1 -> RDS
+Data2 -> RDS
+
+EKS -> NodeGroup
+EKS -> ECR
+
+IAM -> EKS
+IAM -> EC2
+IAM -> RDS
+
+KMS -> S3
+KMS -> EFS
+
+RDS -> EBS
+NodeGroup -> EFS
+
+CloudWatch -> EKS
+CloudWatch -> EC2
+CloudWatch -> VPC
+
+GuardDuty -> VPC

@@ -1,0 +1,23 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.projectName }}-infrastructure
+  description: AWS 3-Tier Infrastructure for ${{ values.projectName }}
+  annotations:
+    github.com/project-slug: ${{ values.repoUrl | projectSlug }}
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - terraform
+    - aws
+    - infrastructure
+    - ${{ values.environment }}
+    - three-tier
+  links:
+    - url: https://console.aws.amazon.com
+      title: AWS Console
+      icon: cloud
+spec:
+  type: infrastructure
+  lifecycle: ${{ values.environment }}
+  owner: platform-team
+  system: cloud-infrastructure

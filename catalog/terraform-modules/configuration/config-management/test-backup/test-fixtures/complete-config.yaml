@@ -1,0 +1,7 @@
+# Complete configuration with all required fields
+app_name: 'myapp'
+database_host: 'db.example.com'
+api_port: 8080
+logging_level: 'info'
+cache_enabled: true
+max_connections: 100

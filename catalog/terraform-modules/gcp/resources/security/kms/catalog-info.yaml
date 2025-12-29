@@ -1,0 +1,28 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: google-kms
+  title: GCP Key Management Service
+  description: |
+    Security module for GCP Key Management Service.
+    Provides production-ready Terraform configuration with best practices.
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: containercode/terraform-modules
+  tags:
+    - terraform
+    - gcp
+    - security
+    - kms
+    - iac
+  links:
+    - url: https://registry.terraform.io/providers/hashicorp/google/latest/docs
+      title: GCP Provider Docs
+      icon: dashboard
+spec:
+  type: terraform-module
+  lifecycle: production
+  owner: platform-team
+  system: cloud-infrastructure
+  dependsOn:
+    - resource:terraform-gcp-modules

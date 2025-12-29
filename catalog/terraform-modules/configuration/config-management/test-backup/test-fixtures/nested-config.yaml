@@ -1,0 +1,13 @@
+# Nested configuration structure
+database:
+  host: 'localhost'
+  port: 5432
+  name: 'myapp'
+
+api:
+  port: 8080
+  endpoints:
+    users: '/api/v1/users'
+    products: '/api/v1/products'
+
+environment_name: 'development'

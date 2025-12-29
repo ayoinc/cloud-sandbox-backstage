@@ -1,0 +1,6 @@
+# Override configuration
+app_name: 'override-app'
+database_host: 'prod-db.example.com'
+api_port: 8080
+cache_enabled: true
+max_connections: 50

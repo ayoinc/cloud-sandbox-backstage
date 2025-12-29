@@ -1,0 +1,23 @@
+# Configuration with environment-specific settings
+app_name: 'myapp'
+database_host: 'localhost'
+
+environments:
+  '*':
+    api_port: 8080
+    logging_level: 'info'
+
+  dev:
+    environment_name: 'development'
+    database_host: 'dev-db.example.com'
+    logging_level: 'debug'
+
+  stg:
+    environment_name: 'staging'
+    database_host: 'stg-db.example.com'
+    logging_level: 'warn'
+
+  prod:
+    environment_name: 'production'
+    database_host: 'prod-db.example.com'
+    logging_level: 'error'

@@ -1,0 +1,28 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: google-artifact-registry
+  title: GCP Artifact Registry
+  description: |
+    Container module for GCP Artifact Registry.
+    Provides production-ready Terraform configuration with best practices.
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: containercode/terraform-modules
+  tags:
+    - terraform
+    - gcp
+    - containers
+    - artifact-registry
+    - iac
+  links:
+    - url: https://registry.terraform.io/providers/hashicorp/google/latest/docs
+      title: GCP Provider Docs
+      icon: dashboard
+spec:
+  type: terraform-module
+  lifecycle: production
+  owner: platform-team
+  system: cloud-infrastructure
+  dependsOn:
+    - resource:terraform-gcp-modules

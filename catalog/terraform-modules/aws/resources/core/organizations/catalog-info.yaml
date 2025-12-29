@@ -1,0 +1,28 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: aws-organizations
+  title: AWS Organizations
+  description: |
+    Core infrastructure module for AWS Organizations.
+    Provides production-ready Terraform configuration with best practices.
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: containercode/terraform-modules
+  tags:
+    - terraform
+    - aws
+    - core
+    - organizations
+    - iac
+  links:
+    - url: https://registry.terraform.io/providers/hashicorp/aws/latest/docs
+      title: AWS Provider Docs
+      icon: dashboard
+spec:
+  type: terraform-module
+  lifecycle: production
+  owner: platform-team
+  system: cloud-infrastructure
+  dependsOn:
+    - resource:terraform-aws-modules

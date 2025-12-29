@@ -1,0 +1,348 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: serverless-api
+  title: Multi-Cloud Serverless API
+  description: Production-ready serverless API with Lambda/Functions/Cloud Functions, API Gateway, and supporting services
+  tags:
+    - serverless
+    - api
+    - multi-cloud
+    - lambda
+    - functions
+    - terraform
+    - recommended
+spec:
+  owner: platform-team
+  type: infrastructure
+
+  parameters:
+    - title: Project Configuration
+      required:
+        - projectName
+        - environment
+        - cloudProvider
+      properties:
+        projectName:
+          title: Project Name
+          type: string
+          description: Name for the serverless API (lowercase, hyphens allowed)
+          pattern: '^[a-z0-9-]+$'
+          ui:autofocus: true
+        environment:
+          title: Environment
+          type: string
+          enum:
+            - dev
+            - staging
+            - production
+          default: dev
+        cloudProvider:
+          title: Cloud Provider
+          type: string
+          enum:
+            - aws
+            - azure
+            - gcp
+          enumNames:
+            - Amazon Web Services (Lambda)
+            - Microsoft Azure (Functions)
+            - Google Cloud Platform (Cloud Functions)
+          default: aws
+
+    - title: AWS Configuration
+      dependencies:
+        cloudProvider:
+          oneOf:
+            - properties:
+                cloudProvider:
+                  const: aws
+                awsRegion:
+                  title: AWS Region
+                  type: string
+                  enum:
+                    - us-east-1
+                    - us-west-2
+                    - eu-west-1
+                    - eu-central-1
+                    - ap-southeast-1
+                  default: us-east-1
+
+    - title: Azure Configuration
+      dependencies:
+        cloudProvider:
+          oneOf:
+            - properties:
+                cloudProvider:
+                  const: azure
+                azureRegion:
+                  title: Azure Region
+                  type: string
+                  enum:
+                    - eastus
+                    - westus2
+                    - westeurope
+                    - northeurope
+                    - southeastasia
+                  default: eastus
+                azureSubscriptionId:
+                  title: Azure Subscription ID
+                  type: string
+
+    - title: GCP Configuration
+      dependencies:
+        cloudProvider:
+          oneOf:
+            - properties:
+                cloudProvider:
+                  const: gcp
+                gcpRegion:
+                  title: GCP Region
+                  type: string
+                  enum:
+                    - us-central1
+                    - us-east1
+                    - europe-west1
+                    - europe-west2
+                    - asia-east1
+                  default: us-central1
+                gcpProjectId:
+                  title: GCP Project ID
+                  type: string
+
+    - title: Function Configuration
+      properties:
+        runtime:
+          title: Runtime
+          type: string
+          enum:
+            - nodejs20
+            - python312
+            - go121
+            - dotnet8
+            - java21
+          enumNames:
+            - Node.js 20
+            - Python 3.12
+            - Go 1.21
+            - .NET 8
+            - Java 21
+          default: nodejs20
+        memorySize:
+          title: Memory Size (MB)
+          type: number
+          enum:
+            - 128
+            - 256
+            - 512
+            - 1024
+            - 2048
+          default: 256
+        timeout:
+          title: Timeout (seconds)
+          type: number
+          default: 30
+          minimum: 1
+          maximum: 900
+
+    - title: API Gateway Configuration
+      properties:
+        apiType:
+          title: API Type
+          type: string
+          enum:
+            - rest
+            - http
+            - graphql
+          enumNames:
+            - REST API
+            - HTTP API (lower latency)
+            - GraphQL (AppSync/API Management)
+          default: http
+        enableCors:
+          title: Enable CORS
+          type: boolean
+          default: true
+        enableThrottling:
+          title: Enable Throttling
+          type: boolean
+          default: true
+        throttleRateLimit:
+          title: Rate Limit (requests/second)
+          type: number
+          default: 1000
+        throttleBurstLimit:
+          title: Burst Limit
+          type: number
+          default: 2000
+
+    - title: Authentication & Authorization
+      properties:
+        authType:
+          title: Authentication Type
+          type: string
+          enum:
+            - none
+            - api-key
+            - jwt
+            - oauth2
+            - iam
+          enumNames:
+            - None (Public API)
+            - API Key
+            - JWT (Cognito/AAD/Firebase)
+            - OAuth 2.0
+            - IAM (AWS only)
+          default: jwt
+        enableWaf:
+          title: Enable WAF
+          type: boolean
+          default: true
+          description: Web Application Firewall for API protection
+
+    - title: Data & Storage
+      properties:
+        enableDatabase:
+          title: Enable Database
+          type: boolean
+          default: true
+        databaseType:
+          title: Database Type
+          type: string
+          enum:
+            - dynamodb
+            - cosmosdb
+            - firestore
+            - aurora-serverless
+            - sql-serverless
+            - spanner
+          enumNames:
+            - DynamoDB (AWS)
+            - Cosmos DB (Azure)
+            - Firestore (GCP)
+            - Aurora Serverless (AWS)
+            - SQL Serverless (Azure)
+            - Spanner (GCP)
+          default: dynamodb
+        enableCache:
+          title: Enable Cache
+          type: boolean
+          default: false
+          description: ElastiCache / Redis Cache / Memorystore
+        enableStorage:
+          title: Enable Object Storage
+          type: boolean
+          default: false
+          description: S3 / Blob Storage / Cloud Storage
+
+    - title: Observability
+      properties:
+        enableTracing:
+          title: Enable Distributed Tracing
+          type: boolean
+          default: true
+          description: X-Ray / Application Insights / Cloud Trace
+        enableMetrics:
+          title: Enable Custom Metrics
+          type: boolean
+          default: true
+        enableAlarms:
+          title: Enable Alarms/Alerts
+          type: boolean
+          default: true
+        logRetentionDays:
+          title: Log Retention (days)
+          type: number
+          default: 30
+
+    - title: CI/CD Configuration
+      properties:
+        enableCicd:
+          title: Enable CI/CD Pipeline
+          type: boolean
+          default: true
+        deploymentStrategy:
+          title: Deployment Strategy
+          type: string
+          enum:
+            - all-at-once
+            - canary
+            - linear
+          enumNames:
+            - All at Once
+            - Canary (10% increments)
+            - Linear (gradual rollout)
+          default: canary
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch
+      name: Fetch Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          projectName: ${{ parameters.projectName }}
+          environment: ${{ parameters.environment }}
+          cloudProvider: ${{ parameters.cloudProvider }}
+          awsRegion: ${{ parameters.awsRegion }}
+          azureRegion: ${{ parameters.azureRegion }}
+          azureSubscriptionId: ${{ parameters.azureSubscriptionId }}
+          gcpRegion: ${{ parameters.gcpRegion }}
+          gcpProjectId: ${{ parameters.gcpProjectId }}
+          runtime: ${{ parameters.runtime }}
+          memorySize: ${{ parameters.memorySize }}
+          timeout: ${{ parameters.timeout }}
+          apiType: ${{ parameters.apiType }}
+          enableCors: ${{ parameters.enableCors }}
+          enableThrottling: ${{ parameters.enableThrottling }}
+          throttleRateLimit: ${{ parameters.throttleRateLimit }}
+          throttleBurstLimit: ${{ parameters.throttleBurstLimit }}
+          authType: ${{ parameters.authType }}
+          enableWaf: ${{ parameters.enableWaf }}
+          enableDatabase: ${{ parameters.enableDatabase }}
+          databaseType: ${{ parameters.databaseType }}
+          enableCache: ${{ parameters.enableCache }}
+          enableStorage: ${{ parameters.enableStorage }}
+          enableTracing: ${{ parameters.enableTracing }}
+          enableMetrics: ${{ parameters.enableMetrics }}
+          enableAlarms: ${{ parameters.enableAlarms }}
+          logRetentionDays: ${{ parameters.logRetentionDays }}
+          enableCicd: ${{ parameters.enableCicd }}
+          deploymentStrategy: ${{ parameters.deploymentStrategy }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        repoUrl: ${{ parameters.repoUrl }}
+        description: Serverless API Infrastructure for ${{ parameters.projectName }}
+        defaultBranch: main
+        repoVisibility: private
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}

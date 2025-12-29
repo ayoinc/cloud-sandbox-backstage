@@ -1,0 +1,22 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.projectName }}-infrastructure
+  description: GCP 3-Tier Infrastructure for ${{ values.projectName }}
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: ${{ values.repoUrl | replace("github.com?repo=", "") | replace("&owner=", "/") }}
+  tags:
+    - terraform
+    - gcp
+    - infrastructure
+    - three-tier
+  links:
+    - url: https://console.cloud.google.com/home/dashboard?project=${{ values.gcpProjectId }}
+      title: GCP Console
+      icon: cloud
+spec:
+  type: infrastructure
+  lifecycle: production
+  owner: platform-team
+  system: ${{ values.projectName }}

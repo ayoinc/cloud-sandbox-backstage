@@ -1,0 +1,278 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: data-platform
+  title: Multi-Cloud Data Platform
+  description: Production-ready data platform with data lake, warehouse, and ETL/ELT pipelines on AWS, Azure, or GCP
+  tags:
+    - data
+    - analytics
+    - multi-cloud
+    - data-lake
+    - terraform
+    - recommended
+spec:
+  owner: platform-team
+  type: infrastructure
+
+  parameters:
+    - title: Project Configuration
+      required:
+        - projectName
+        - environment
+        - cloudProvider
+      properties:
+        projectName:
+          title: Project Name
+          type: string
+          description: Name for the data platform (lowercase, hyphens allowed)
+          pattern: '^[a-z0-9-]+$'
+          ui:autofocus: true
+        environment:
+          title: Environment
+          type: string
+          enum:
+            - dev
+            - staging
+            - production
+          default: dev
+        cloudProvider:
+          title: Cloud Provider
+          type: string
+          enum:
+            - aws
+            - azure
+            - gcp
+          enumNames:
+            - Amazon Web Services
+            - Microsoft Azure
+            - Google Cloud Platform
+          default: aws
+
+    - title: AWS Configuration
+      dependencies:
+        cloudProvider:
+          oneOf:
+            - properties:
+                cloudProvider:
+                  const: aws
+                awsRegion:
+                  title: AWS Region
+                  type: string
+                  enum:
+                    - us-east-1
+                    - us-west-2
+                    - eu-west-1
+                    - eu-central-1
+                  default: us-east-1
+
+    - title: Azure Configuration
+      dependencies:
+        cloudProvider:
+          oneOf:
+            - properties:
+                cloudProvider:
+                  const: azure
+                azureRegion:
+                  title: Azure Region
+                  type: string
+                  enum:
+                    - eastus
+                    - westus2
+                    - westeurope
+                    - northeurope
+                  default: eastus
+                azureSubscriptionId:
+                  title: Azure Subscription ID
+                  type: string
+
+    - title: GCP Configuration
+      dependencies:
+        cloudProvider:
+          oneOf:
+            - properties:
+                cloudProvider:
+                  const: gcp
+                gcpRegion:
+                  title: GCP Region
+                  type: string
+                  enum:
+                    - us-central1
+                    - us-east1
+                    - europe-west1
+                    - europe-west2
+                  default: us-central1
+                gcpProjectId:
+                  title: GCP Project ID
+                  type: string
+
+    - title: Data Lake Configuration
+      properties:
+        enableDataLake:
+          title: Enable Data Lake
+          type: boolean
+          default: true
+          description: Create object storage for raw and processed data
+        dataLakeStorageClass:
+          title: Storage Class
+          type: string
+          enum:
+            - standard
+            - infrequent
+            - archive
+          default: standard
+        enableDataCatalog:
+          title: Enable Data Catalog
+          type: boolean
+          default: true
+          description: AWS Glue Catalog / Azure Purview / GCP Data Catalog
+
+    - title: Data Warehouse Configuration
+      properties:
+        enableDataWarehouse:
+          title: Enable Data Warehouse
+          type: boolean
+          default: true
+          description: Redshift / Synapse / BigQuery
+        warehouseSize:
+          title: Warehouse Size
+          type: string
+          enum:
+            - small
+            - medium
+            - large
+          enumNames:
+            - Small (2 nodes)
+            - Medium (4 nodes)
+            - Large (8 nodes)
+          default: small
+
+    - title: ETL/ELT Configuration
+      properties:
+        enableEtlPipelines:
+          title: Enable ETL/ELT Pipelines
+          type: boolean
+          default: true
+        etlEngine:
+          title: ETL Engine
+          type: string
+          enum:
+            - spark
+            - native
+          enumNames:
+            - Apache Spark (EMR/Databricks/Dataproc)
+            - Native (Glue/Data Factory/Dataflow)
+          default: native
+        enableOrchestration:
+          title: Enable Workflow Orchestration
+          type: boolean
+          default: true
+          description: Step Functions / Data Factory / Cloud Composer (Airflow)
+
+    - title: Streaming Configuration
+      properties:
+        enableStreaming:
+          title: Enable Streaming
+          type: boolean
+          default: false
+          description: Kinesis / Event Hubs / Pub/Sub
+        streamingRetention:
+          title: Streaming Retention (hours)
+          type: number
+          default: 24
+
+    - title: Analytics & BI
+      properties:
+        enableBiTools:
+          title: Enable BI Integration
+          type: boolean
+          default: false
+          description: QuickSight / Power BI / Looker
+        enableMlPlatform:
+          title: Enable ML Platform
+          type: boolean
+          default: false
+          description: SageMaker / Azure ML / Vertex AI
+
+    - title: Security & Governance
+      properties:
+        enableEncryption:
+          title: Enable Encryption at Rest
+          type: boolean
+          default: true
+        enableDataLineage:
+          title: Enable Data Lineage
+          type: boolean
+          default: true
+        enableAccessControl:
+          title: Enable Fine-Grained Access Control
+          type: boolean
+          default: true
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch
+      name: Fetch Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          projectName: ${{ parameters.projectName }}
+          environment: ${{ parameters.environment }}
+          cloudProvider: ${{ parameters.cloudProvider }}
+          awsRegion: ${{ parameters.awsRegion }}
+          azureRegion: ${{ parameters.azureRegion }}
+          azureSubscriptionId: ${{ parameters.azureSubscriptionId }}
+          gcpRegion: ${{ parameters.gcpRegion }}
+          gcpProjectId: ${{ parameters.gcpProjectId }}
+          enableDataLake: ${{ parameters.enableDataLake }}
+          dataLakeStorageClass: ${{ parameters.dataLakeStorageClass }}
+          enableDataCatalog: ${{ parameters.enableDataCatalog }}
+          enableDataWarehouse: ${{ parameters.enableDataWarehouse }}
+          warehouseSize: ${{ parameters.warehouseSize }}
+          enableEtlPipelines: ${{ parameters.enableEtlPipelines }}
+          etlEngine: ${{ parameters.etlEngine }}
+          enableOrchestration: ${{ parameters.enableOrchestration }}
+          enableStreaming: ${{ parameters.enableStreaming }}
+          streamingRetention: ${{ parameters.streamingRetention }}
+          enableBiTools: ${{ parameters.enableBiTools }}
+          enableMlPlatform: ${{ parameters.enableMlPlatform }}
+          enableEncryption: ${{ parameters.enableEncryption }}
+          enableDataLineage: ${{ parameters.enableDataLineage }}
+          enableAccessControl: ${{ parameters.enableAccessControl }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        repoUrl: ${{ parameters.repoUrl }}
+        description: Data Platform Infrastructure for ${{ parameters.projectName }}
+        defaultBranch: main
+        repoVisibility: private
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}

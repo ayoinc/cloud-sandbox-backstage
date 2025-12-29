@@ -1,0 +1,28 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: azurerm-container-app
+  title: Azure Container App
+  description: |
+    Compute module for Azure Container App.
+    Provides production-ready Terraform configuration with best practices.
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: containercode/terraform-modules
+  tags:
+    - terraform
+    - azure
+    - compute
+    - container-app
+    - iac
+  links:
+    - url: https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs
+      title: Azure Provider Docs
+      icon: dashboard
+spec:
+  type: terraform-module
+  lifecycle: production
+  owner: platform-team
+  system: cloud-infrastructure
+  dependsOn:
+    - resource:terraform-azure-modules

@@ -1,0 +1,28 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: google-pub-sub
+  title: GCP Pub/Sub
+  description: |
+    Messaging module for GCP Pub/Sub.
+    Provides production-ready Terraform configuration with best practices.
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: containercode/terraform-modules
+  tags:
+    - terraform
+    - gcp
+    - messaging
+    - pub-sub
+    - iac
+  links:
+    - url: https://registry.terraform.io/providers/hashicorp/google/latest/docs
+      title: GCP Provider Docs
+      icon: dashboard
+spec:
+  type: terraform-module
+  lifecycle: production
+  owner: platform-team
+  system: cloud-infrastructure
+  dependsOn:
+    - resource:terraform-gcp-modules

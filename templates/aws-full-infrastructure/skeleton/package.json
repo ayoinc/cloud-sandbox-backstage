@@ -1,0 +1,13 @@
+{
+  "name": "{{ componentName }}",
+  "description": "{{ description }}",
+  "environment": "{{ environment }}",
+  "region": "{{ region }}",
+  "enable_networking": {{ enable_networking }},
+  "enable_compute": {{ enable_compute }},
+  "enable_containers": {{ enable_containers }},
+  "enable_storage": {{ enable_storage }},
+  "enable_database": {{ enable_database }},
+  "enable_security": {{ enable_security }},
+  "enable_monitoring": {{ enable_monitoring }}
+}

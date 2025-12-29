@@ -81,3 +81,75 @@ spec:
   type: module-library
   owner: platform-team
   system: cloud-infrastructure
+---
+# Location to discover all AWS module catalog entries
+apiVersion: backstage.io/v1alpha1
+kind: Location
+metadata:
+  name: terraform-aws-module-catalog
+  description: AWS Terraform module catalog entries
+spec:
+  type: file
+  targets:
+    - ./aws/resources/compute/*/catalog-info.yaml
+    - ./aws/resources/containers/*/catalog-info.yaml
+    - ./aws/resources/core/*/catalog-info.yaml
+    - ./aws/resources/database/*/catalog-info.yaml
+    - ./aws/resources/kubernetes/*/catalog-info.yaml
+    - ./aws/resources/messaging/*/catalog-info.yaml
+    - ./aws/resources/monitoring/*/catalog-info.yaml
+    - ./aws/resources/network/*/catalog-info.yaml
+    - ./aws/resources/security/*/catalog-info.yaml
+    - ./aws/resources/storage/*/catalog-info.yaml
+---
+# Location to discover all Azure module catalog entries
+apiVersion: backstage.io/v1alpha1
+kind: Location
+metadata:
+  name: terraform-azure-module-catalog
+  description: Azure Terraform module catalog entries
+spec:
+  type: file
+  targets:
+    - ./azure/resources/compute/*/catalog-info.yaml
+    - ./azure/resources/containers/*/catalog-info.yaml
+    - ./azure/resources/core/*/catalog-info.yaml
+    - ./azure/resources/database/*/catalog-info.yaml
+    - ./azure/resources/kubernetes/*/catalog-info.yaml
+    - ./azure/resources/messaging/*/catalog-info.yaml
+    - ./azure/resources/monitoring/*/catalog-info.yaml
+    - ./azure/resources/network/*/catalog-info.yaml
+    - ./azure/resources/security/*/catalog-info.yaml
+    - ./azure/resources/storage/*/catalog-info.yaml
+---
+# Location to discover all GCP module catalog entries
+apiVersion: backstage.io/v1alpha1
+kind: Location
+metadata:
+  name: terraform-gcp-module-catalog
+  description: GCP Terraform module catalog entries
+spec:
+  type: file
+  targets:
+    - ./gcp/resources/compute/*/catalog-info.yaml
+    - ./gcp/resources/containers/*/catalog-info.yaml
+    - ./gcp/resources/core/*/catalog-info.yaml
+    - ./gcp/resources/database/*/catalog-info.yaml
+    - ./gcp/resources/kubernetes/*/catalog-info.yaml
+    - ./gcp/resources/messaging/*/catalog-info.yaml
+    - ./gcp/resources/monitoring/*/catalog-info.yaml
+    - ./gcp/resources/network/*/catalog-info.yaml
+    - ./gcp/resources/security/*/catalog-info.yaml
+    - ./gcp/resources/storage/*/catalog-info.yaml
+---
+# Location to discover all Backstage templates
+apiVersion: backstage.io/v1alpha1
+kind: Location
+metadata:
+  name: terraform-templates-catalog
+  description: Terraform infrastructure templates
+spec:
+  type: file
+  targets:
+    - ./templates/*/template.yaml
+    - ./templates/*/*/template.yaml

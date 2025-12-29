@@ -1,0 +1,34 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.projectName }}-kubernetes-platform
+  description: Kubernetes Platform Infrastructure for ${{ values.projectName }}
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: ${{ values.repoUrl | replace("github.com?repo=", "") | replace("&owner=", "/") }}
+  tags:
+    - terraform
+    - kubernetes
+    - ${{ values.cloudProvider }}
+    - platform
+  links:
+    {%- if values.cloudProvider == "aws" %}
+    - url: https://console.aws.amazon.com/eks/home?region=${{ values.awsRegion }}#/clusters
+      title: AWS EKS Console
+      icon: cloud
+    {%- endif %}
+    {%- if values.cloudProvider == "azure" %}
+    - url: https://portal.azure.com/#view/HubsExtension/BrowseResource/resourceType/Microsoft.ContainerService%2FmanagedClusters
+      title: Azure AKS Portal
+      icon: cloud
+    {%- endif %}
+    {%- if values.cloudProvider == "gcp" %}
+    - url: https://console.cloud.google.com/kubernetes/list?project=${{ values.gcpProjectId }}
+      title: GCP GKE Console
+      icon: cloud
+    {%- endif %}
+spec:
+  type: infrastructure
+  lifecycle: production
+  owner: platform-team
+  system: ${{ values.projectName }}

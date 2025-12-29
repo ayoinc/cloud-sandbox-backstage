@@ -1,0 +1,28 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: google-cloud-nat
+  title: GCP Cloud NAT
+  description: |
+    Networking module for GCP Cloud NAT.
+    Provides production-ready Terraform configuration with best practices.
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: containercode/terraform-modules
+  tags:
+    - terraform
+    - gcp
+    - network
+    - cloud-nat
+    - iac
+  links:
+    - url: https://registry.terraform.io/providers/hashicorp/google/latest/docs
+      title: GCP Provider Docs
+      icon: dashboard
+spec:
+  type: terraform-module
+  lifecycle: production
+  owner: platform-team
+  system: cloud-infrastructure
+  dependsOn:
+    - resource:terraform-gcp-modules

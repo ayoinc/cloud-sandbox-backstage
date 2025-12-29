@@ -1,0 +1,247 @@
+# Azure Full Infrastructure Architecture
+
+vars: {
+  grid-gap: 60
+  layout: dagre
+}
+
+# Network Layer - VNet with subnets
+VNet: Azure Virtual Network {
+  shape: rectangle
+  style: {
+    fill: "#0078D4"
+    stroke: "#0078D4"
+    stroke-width: 3
+  }
+
+  # Connectivity
+  PIP: Public IP
+  VPN: VPN Gateway
+  Bastion: Bastion Host
+  
+  # Subnets
+  GatewaySubnet: Gateway Subnet {
+    style.fill: "#52BE80"
+  }
+  
+  WebSubnet: Web Subnet {
+    style.fill: "#52BE80"
+  }
+  
+  AppSubnet: App Subnet {
+    style.fill: "#52BE80"
+  }
+  
+  DataSubnet: Data Subnet {
+    style.fill: "#52BE80"
+  }
+}
+
+# Security & Identity Layer
+Security: Security & Identity {
+  shape: rectangle
+  style: {
+    fill: "#0078D4"
+    stroke: "#0078D4"
+    stroke-width: 3
+  }
+  
+  KV: Key Vault
+  MI: Managed Identities
+  RBAC: RBAC Roles
+}
+
+# Container Services - AKS
+AKS: Azure Kubernetes Service {
+  shape: rectangle
+  style: {
+    fill: "#0078D4"
+    stroke: "#0078D4"
+    stroke-width: 3
+  }
+  
+  Cluster: AKS Cluster
+  
+  # Node Pools
+  UserPool: User Node Pool
+  SystemPool: System Node Pool
+}
+
+# Registry
+ACR: Azure Container Registry {
+  shape: rectangle
+  style: {
+    fill: "#0078D4"
+    stroke: "#0078D4"
+    stroke-width: 3
+  }
+}
+
+# Compute Layer
+Compute: Compute Services {
+  shape: rectangle
+  style: {
+    fill: "#0078D4"
+    stroke: "#0078D4"
+    stroke-width: 3
+  }
+  
+  VM: Virtual Machines
+  VMSS: Virtual Machine Scale Sets
+  LB: Load Balancer
+  AGW: Application Gateway
+}
+
+# Storage Layer
+Storage: Storage Services {
+  shape: rectangle
+  style: {
+    fill: "#0078D4"
+    stroke: "#0078D4"
+    stroke-width: 3
+  }
+  
+  Blob: Blob Storage
+  Files: File Shares
+  Disk: Managed Disks
+}
+
+# Database Layer
+Database: Database Services {
+  shape: rectangle
+  style: {
+    fill: "#0078D4"
+    stroke: "#0078D4"
+    stroke-width: 3
+  }
+  
+  SQL: SQL Database
+  Cosmos: Cosmos DB
+  Redis: Redis Cache
+}
+
+# Monitoring Layer
+Monitoring: Monitoring & Observability {
+  shape: rectangle
+  style: {
+    fill: "#F35022"
+    stroke: "#F35022"
+    stroke-width: 3
+  }
+  
+  LA: Log Analytics
+  Insights: Application Insights
+  Defender: Microsoft Defender
+  VMInsights: VM Insights
+}
+
+# Network Appliances
+Network: Network Security {
+  shape: rectangle
+  style: {
+    fill: "#0078D4"
+    stroke: "#0078D4"
+    stroke-width: 3
+  }
+  
+  NSG: Network Security Groups
+  RT: Route Tables
+  WAF: Web Application Firewall
+}
+
+# Connections
+VNet -> PIP
+VNet -> VPN
+VNet -> Bastion
+
+PIP -> GatewaySubnet
+VPN -> GatewaySubnet
+Bastion -> GatewaySubnet
+
+PublicLB: Public Load Balancer
+GatewaySubnet -> PublicLB
+PublicLB -> WebSubnet
+
+WebSubnet -> AGW
+AGW -> AppSubnet
+
+GatewaySubnet -> NSG
+AppSubnet -> NSG
+DataSubnet -> NSG
+
+NSG -> RT
+
+AppSubnet -> AKS
+AKS -> Cluster
+Cluster -> SystemPool
+Cluster -> UserPool
+
+AKS -> ACR
+
+AppSubnet -> VM
+AppSubnet -> VMSS
+
+AppSubnet -> LB
+
+VMSS -> LB
+
+DataSubnet -> SQL
+DataSubnet -> Cosmos
+DataSubnet -> Redis
+
+AppSubnet -> Storage
+WebSubnet -> Storage
+Storage -> Blob
+Storage -> Files
+Storage -> Disk
+
+NSG -> Database
+
+AKS -> KV
+VM -> KV
+VMSS -> KV
+
+Security -> KV
+Security -> MI
+Security -> RBAC
+
+KV -> SQL
+KV -> Cosmos
+KV -> ACR
+KV -> Storage
+
+SystemPool -> Disk
+UserPool -> Disk
+
+Monitoring -> LA
+Monitoring -> Insights
+Monitoring -> Defender
+Monitoring -> VMInsights
+
+AKS -> Insights
+VM -> VMInsights
+VMSS -> VMInsights
+
+Network -> NSG
+Network -> RT
+Network -> WAF
+
+WAF -> AGW
+
+RBAC -> AKS
+RBAC -> VM
+RBAC -> VMSS
+RBAC -> SQL
+RBAC -> Cosmos
+
+MI -> AKS
+MI -> VM
+MI -> VMSS
+
+Defender -> KV
+Defender -> ACR
+Defender -> SQL
+Defender -> Cosmos
+
+RT -> VPN
+RT -> Bastion

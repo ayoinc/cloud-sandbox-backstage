@@ -1,0 +1,6 @@
+# Base configuration to be overridden
+app_name: 'base-app'
+database_host: 'localhost'
+api_port: 3000
+logging_level: 'debug'
+cache_enabled: false

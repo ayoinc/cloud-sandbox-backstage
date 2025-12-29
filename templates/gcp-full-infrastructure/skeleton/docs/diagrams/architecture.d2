@@ -1,0 +1,209 @@
+# GCP Full Infrastructure Architecture
+
+vars: {
+  grid-gap: 60
+  layout: dagre
+}
+
+# Network Layer
+VPC: GCP VPC Network {
+  shape: rectangle
+  style: {
+    fill: "#4285F4"
+    stroke: "#4285F4"
+    stroke-width: 3
+  }
+
+  # Load Balancing
+  LB: Cloud Load Balancing {
+    style: {
+      fill: "#FBBC04"
+      stroke: "#FBBC04"
+    }
+  }
+  
+  # Cloud NAT and Router
+  NAT: Cloud NAT
+  Router: Cloud Router
+  
+  # Subnets
+  PublicSubnet: Public Subnet
+  PrivateSubnet: Private Subnet
+  DataSubnet: Data Subnet
+  
+  # VPC Service Controls
+  VPCSC: VPC Service Controls
+  
+  CloudArmor: Cloud Armor {
+    style: {
+      fill: "#34A853"
+      stroke: "#34A853"
+    }
+  }
+}
+
+# Security
+Security: Security & IAM {
+  shape: rectangle
+  style: {
+    fill: "#4285F4"
+    stroke: "#4285F4"
+    stroke-width: 3
+  }
+  
+  IAM: IAM Service Accounts
+  KMS: Cloud KMS
+  Secrets: Secret Manager
+  
+  # Security products
+  SecurityCommandCenter: Security Command Center
+}
+
+# Container Services
+Containers: Container Services {
+  shape: rectangle
+  style: {
+    fill: "#4285F4"
+    stroke: "#4285F4"
+    stroke-width: 3
+  }
+  
+  GKE: GKE Cluster
+  Autopilot: GKE Autopilot
+  NodePool: Node Pool
+  
+  # Container Registry
+  AR: Artifact Registry
+}
+
+# Compute
+Compute: Compute Services {
+  shape: rectangle
+  style: {
+    fill: "#4285F4"
+    stroke: "#4285F4"
+    stroke-width: 3
+  }
+  
+  GCE: Compute Engine
+  InstanceGroup: Managed Instance Group
+  InstanceTemplate: Instance Template
+  
+  # Serverless
+  CloudRun: Cloud Run
+  CloudFunctions: Cloud Functions
+}
+
+# Storage
+Storage: Storage Services {
+  shape: rectangle
+  style: {
+    fill: "#FBBC04"
+    stroke: "#FBBC04"
+    stroke-width: 3
+  }
+  
+  GCS: Cloud Storage Buckets
+  Filestore: Filestore
+  
+  # Additional storage
+  PersistentDisk: Persistent Disks
+}
+
+# Database
+Database: Database Services {
+  shape: rectangle
+  style: {
+    fill: "#34A853"
+    stroke: "#34A853"
+    stroke-width: 3
+  }
+  
+  CloudSQL: Cloud SQL
+  Firestore: Firestore
+  BigQuery: BigQuery
+  
+  MemoryStore: Memorystore Redis {
+    style: {
+      fill: "#34A853"
+      stroke: "#34A853"
+    }
+  }
+}
+
+# Monitoring & Operations
+Operations: Monitoring & Operations {
+  shape: rectangle
+  style: {
+    fill: "#FBBC04"
+    stroke: "#FBBC04"
+    stroke-width: 3
+  }
+  
+  Monitoring: Cloud Monitoring
+  Logging: Cloud Logging
+  ErrorReporting: Error Reporting
+  
+  # Additional ops tools
+  Trace: Cloud Trace
+  Profiler: Cloud Profiler
+}
+
+# Connections
+VPC -> LB
+VPC -> Router
+Router -> NAT
+LB -> PublicSubnet
+Router -> PrivateSubnet
+Router -> DataSubnet
+VPC -> VPCSC
+VPC -> CloudArmor
+
+LB -> Security
+Security -> IAM
+Security -> KMS
+Security -> Secrets
+Security -> SecurityCommandCenter
+
+PublicSubnet -> GKE
+PublicSubnet -> GCE
+PrivateSubnet -> GKE
+PrivateSubnet -> GCE
+PrivateSubnet -> CloudRun
+PrivateSubnet -> CloudFunctions
+DataSubnet -> CloudSQL
+DataSubnet -> Firestore
+DataSubnet -> BigQuery
+
+GKE -> NodePool
+GKE -> AR
+NodePool -> Autopilot
+
+IAM -> GKE
+IAM -> GCE
+IAM -> CloudSQL
+IAM -> GCS
+
+KMS -> Secrets
+KMS -> GCS
+KMS -> PersistentDisk
+
+CloudSQL -> PersistentDisk
+GKE -> PersistentDisk
+GCE -> PersistentDisk
+GCE -> InstanceGroup
+InstanceGroup -> InstanceTemplate
+
+Operations -> Monitoring
+Operations -> Logging
+Operations -> ErrorReporting
+Operations -> Trace
+Operations -> Profiler
+
+Monitoring -> GKE
+Monitoring -> GCE
+Monitoring -> VPC
+Monitoring -> CloudSQL
+Logging -> GKE
+Logging -> GCE
+ErrorReporting -> GKE

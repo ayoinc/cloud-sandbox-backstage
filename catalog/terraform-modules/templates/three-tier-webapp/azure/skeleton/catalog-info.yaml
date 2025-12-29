@@ -1,0 +1,19 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.projectName }}-infrastructure
+  description: Azure 3-Tier Infrastructure for ${{ values.projectName }}
+  annotations:
+    github.com/project-slug: ${{ values.repoUrl | projectSlug }}
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - terraform
+    - azure
+    - infrastructure
+    - ${{ values.environment }}
+    - three-tier
+spec:
+  type: infrastructure
+  lifecycle: ${{ values.environment }}
+  owner: platform-team
+  system: cloud-infrastructure

@@ -1,0 +1,11 @@
+# Configuration that should override for production environments
+app_name: 'override-app'
+database_host: 'localhost'
+
+environments:
+  '*':
+    api_port: 8080
+
+  prod:
+    database_host: 'prod-db.example.com'
+    logging_level: 'error'

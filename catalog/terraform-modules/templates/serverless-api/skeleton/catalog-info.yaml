@@ -1,0 +1,39 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.projectName }}-serverless-api
+  description: Serverless API Infrastructure for ${{ values.projectName }}
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: ${{ values.repoUrl | replace("github.com?repo=", "") | replace("&owner=", "/") }}
+  tags:
+    - terraform
+    - serverless
+    - api
+    - ${{ values.cloudProvider }}
+  links:
+    {%- if values.cloudProvider == "aws" %}
+    - url: https://console.aws.amazon.com/lambda/home?region=${{ values.awsRegion }}#/functions
+      title: AWS Lambda Console
+      icon: cloud
+    - url: https://console.aws.amazon.com/apigateway/home?region=${{ values.awsRegion }}
+      title: API Gateway Console
+      icon: api
+    {%- endif %}
+    {%- if values.cloudProvider == "azure" %}
+    - url: https://portal.azure.com/#view/HubsExtension/BrowseResource/resourceType/Microsoft.Web%2Fsites/kind/functionapp
+      title: Azure Functions Portal
+      icon: cloud
+    {%- endif %}
+    {%- if values.cloudProvider == "gcp" %}
+    - url: https://console.cloud.google.com/functions/list?project=${{ values.gcpProjectId }}
+      title: Cloud Functions Console
+      icon: cloud
+    {%- endif %}
+spec:
+  type: service
+  lifecycle: production
+  owner: platform-team
+  system: ${{ values.projectName }}
+  providesApis:
+    - ${{ values.projectName }}-api

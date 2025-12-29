@@ -1,0 +1,28 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: aws-elasticache
+  title: AWS ElastiCache Redis
+  description: |
+    Database module for AWS ElastiCache Redis.
+    Provides production-ready Terraform configuration with best practices.
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: containercode/terraform-modules
+  tags:
+    - terraform
+    - aws
+    - database
+    - elasticache
+    - iac
+  links:
+    - url: https://registry.terraform.io/providers/hashicorp/aws/latest/docs
+      title: AWS Provider Docs
+      icon: dashboard
+spec:
+  type: terraform-module
+  lifecycle: production
+  owner: platform-team
+  system: cloud-infrastructure
+  dependsOn:
+    - resource:terraform-aws-modules
