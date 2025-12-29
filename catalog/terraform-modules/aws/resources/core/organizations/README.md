@@ -21,33 +21,33 @@ module "organizations" {
 
 ## Requirements
 
-| Name | Version |
-|------|---------|
-| terraform | >= 1.0 |
-| aws | >= 5.0 |
+| Name      | Version |
+| --------- | ------- |
+| terraform | >= 1.0  |
+| aws       | >= 5.0  |
 
 ## Inputs
 
-| Name | Description | Type | Required |
-|------|-------------|------|----------|
-| `feature_set` | See variables.tf | `any` | See default |
-| `enabled_policy_types` | See variables.tf | `any` | See default |
+| Name                            | Description      | Type  | Required    |
+| ------------------------------- | ---------------- | ----- | ----------- |
+| `feature_set`                   | See variables.tf | `any` | See default |
+| `enabled_policy_types`          | See variables.tf | `any` | See default |
 | `aws_service_access_principals` | See variables.tf | `any` | See default |
-| `organizational_units` | See variables.tf | `any` | See default |
-| `accounts` | See variables.tf | `any` | See default |
-| `service_control_policies` | See variables.tf | `any` | See default |
-| `tags` | See variables.tf | `any` | See default |
+| `organizational_units`          | See variables.tf | `any` | See default |
+| `accounts`                      | See variables.tf | `any` | See default |
+| `service_control_policies`      | See variables.tf | `any` | See default |
+| `tags`                          | See variables.tf | `any` | See default |
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| `organization_id` | See outputs.tf |
-| `organization_arn` | See outputs.tf |
+| Name                             | Description    |
+| -------------------------------- | -------------- |
+| `organization_id`                | See outputs.tf |
+| `organization_arn`               | See outputs.tf |
 | `organization_master_account_id` | See outputs.tf |
-| `roots` | See outputs.tf |
-| `organizational_unit_ids` | See outputs.tf |
-| `account_ids` | See outputs.tf |
+| `roots`                          | See outputs.tf |
+| `organizational_unit_ids`        | See outputs.tf |
+| `account_ids`                    | See outputs.tf |
 
 ## Features
 

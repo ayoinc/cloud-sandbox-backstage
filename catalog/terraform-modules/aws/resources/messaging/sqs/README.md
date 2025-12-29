@@ -21,20 +21,20 @@ module "sqs" {
 
 ## Requirements
 
-| Name | Version |
-|------|---------|
-| terraform | >= 1.0 |
-| aws | >= 5.0 |
+| Name      | Version |
+| --------- | ------- |
+| terraform | >= 1.0  |
+| aws       | >= 5.0  |
 
 ## Inputs
 
 | Name | Description | Type | Required |
-|------|-------------|------|----------|
+| ---- | ----------- | ---- | -------- |
 
 ## Outputs
 
 | Name | Description |
-|------|-------------|
+| ---- | ----------- |
 
 ## Features
 

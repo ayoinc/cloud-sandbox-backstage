@@ -21,44 +21,44 @@ module "dynamodb" {
 
 ## Requirements
 
-| Name | Version |
-|------|---------|
-| terraform | >= 1.0 |
-| aws | >= 5.0 |
+| Name      | Version |
+| --------- | ------- |
+| terraform | >= 1.0  |
+| aws       | >= 5.0  |
 
 ## Inputs
 
-| Name | Description | Type | Required |
-|------|-------------|------|----------|
-| `project_name` | See variables.tf | `any` | See default |
-| `environment` | See variables.tf | `any` | See default |
-| `table_name` | See variables.tf | `any` | See default |
-| `billing_mode` | See variables.tf | `any` | See default |
-| `read_capacity` | See variables.tf | `any` | See default |
-| `write_capacity` | See variables.tf | `any` | See default |
-| `hash_key` | See variables.tf | `any` | See default |
-| `hash_key_type` | See variables.tf | `any` | See default |
-| `range_key` | See variables.tf | `any` | See default |
-| `range_key_type` | See variables.tf | `any` | See default |
-| `attributes` | See variables.tf | `any` | See default |
-| `global_secondary_indexes` | See variables.tf | `any` | See default |
-| `local_secondary_indexes` | See variables.tf | `any` | See default |
+| Name                            | Description      | Type  | Required    |
+| ------------------------------- | ---------------- | ----- | ----------- |
+| `project_name`                  | See variables.tf | `any` | See default |
+| `environment`                   | See variables.tf | `any` | See default |
+| `table_name`                    | See variables.tf | `any` | See default |
+| `billing_mode`                  | See variables.tf | `any` | See default |
+| `read_capacity`                 | See variables.tf | `any` | See default |
+| `write_capacity`                | See variables.tf | `any` | See default |
+| `hash_key`                      | See variables.tf | `any` | See default |
+| `hash_key_type`                 | See variables.tf | `any` | See default |
+| `range_key`                     | See variables.tf | `any` | See default |
+| `range_key_type`                | See variables.tf | `any` | See default |
+| `attributes`                    | See variables.tf | `any` | See default |
+| `global_secondary_indexes`      | See variables.tf | `any` | See default |
+| `local_secondary_indexes`       | See variables.tf | `any` | See default |
 | `enable_point_in_time_recovery` | See variables.tf | `any` | See default |
-| `enable_encryption` | See variables.tf | `any` | See default |
-| `kms_key_arn` | See variables.tf | `any` | See default |
-| `ttl_attribute_name` | See variables.tf | `any` | See default |
-| `enable_streams` | See variables.tf | `any` | See default |
-| `stream_view_type` | See variables.tf | `any` | See default |
-| `tags` | See variables.tf | `any` | See default |
+| `enable_encryption`             | See variables.tf | `any` | See default |
+| `kms_key_arn`                   | See variables.tf | `any` | See default |
+| `ttl_attribute_name`            | See variables.tf | `any` | See default |
+| `enable_streams`                | See variables.tf | `any` | See default |
+| `stream_view_type`              | See variables.tf | `any` | See default |
+| `tags`                          | See variables.tf | `any` | See default |
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| `table_id` | See outputs.tf |
-| `table_arn` | See outputs.tf |
-| `table_name` | See outputs.tf |
-| `table_stream_arn` | See outputs.tf |
+| Name                 | Description    |
+| -------------------- | -------------- |
+| `table_id`           | See outputs.tf |
+| `table_arn`          | See outputs.tf |
+| `table_name`         | See outputs.tf |
+| `table_stream_arn`   | See outputs.tf |
 | `table_stream_label` | See outputs.tf |
 
 ## Features

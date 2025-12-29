@@ -21,34 +21,34 @@ module "defender" {
 
 ## Requirements
 
-| Name | Version |
-|------|---------|
-| terraform | >= 1.0 |
-| azurerm | >= 5.0 |
+| Name      | Version |
+| --------- | ------- |
+| terraform | >= 1.0  |
+| azurerm   | >= 5.0  |
 
 ## Inputs
 
-| Name | Description | Type | Required |
-|------|-------------|------|----------|
-| `project_name` | See variables.tf | `any` | See default |
-| `environment` | See variables.tf | `any` | See default |
-| `pricing_tier` | See variables.tf | `any` | See default |
-| `resource_type_pricing` | See variables.tf | `any` | See default |
-| `security_contact_email` | See variables.tf | `any` | See default |
-| `security_contact_phone` | See variables.tf | `any` | See default |
-| `alert_notifications` | See variables.tf | `any` | See default |
-| `alerts_to_admins` | See variables.tf | `any` | See default |
-| `auto_provisioning` | See variables.tf | `any` | See default |
+| Name                         | Description      | Type  | Required    |
+| ---------------------------- | ---------------- | ----- | ----------- |
+| `project_name`               | See variables.tf | `any` | See default |
+| `environment`                | See variables.tf | `any` | See default |
+| `pricing_tier`               | See variables.tf | `any` | See default |
+| `resource_type_pricing`      | See variables.tf | `any` | See default |
+| `security_contact_email`     | See variables.tf | `any` | See default |
+| `security_contact_phone`     | See variables.tf | `any` | See default |
+| `alert_notifications`        | See variables.tf | `any` | See default |
+| `alerts_to_admins`           | See variables.tf | `any` | See default |
+| `auto_provisioning`          | See variables.tf | `any` | See default |
 | `log_analytics_workspace_id` | See variables.tf | `any` | See default |
-| `enable_mcas_integration` | See variables.tf | `any` | See default |
-| `enable_wdatp_integration` | See variables.tf | `any` | See default |
+| `enable_mcas_integration`    | See variables.tf | `any` | See default |
+| `enable_wdatp_integration`   | See variables.tf | `any` | See default |
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| `pricing_ids` | See outputs.tf |
-| `security_contact_id` | See outputs.tf |
+| Name                   | Description    |
+| ---------------------- | -------------- |
+| `pricing_ids`          | See outputs.tf |
+| `security_contact_id`  | See outputs.tf |
 | `auto_provisioning_id` | See outputs.tf |
 
 ## Features

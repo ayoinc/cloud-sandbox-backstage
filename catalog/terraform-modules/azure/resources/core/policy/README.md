@@ -21,35 +21,35 @@ module "policy" {
 
 ## Requirements
 
-| Name | Version |
-|------|---------|
-| terraform | >= 1.0 |
-| azurerm | >= 5.0 |
+| Name      | Version |
+| --------- | ------- |
+| terraform | >= 1.0  |
+| azurerm   | >= 5.0  |
 
 ## Inputs
 
-| Name | Description | Type | Required |
-|------|-------------|------|----------|
-| `project_name` | See variables.tf | `any` | See default |
-| `environment` | See variables.tf | `any` | See default |
-| `custom_policies` | See variables.tf | `any` | See default |
+| Name                     | Description      | Type  | Required    |
+| ------------------------ | ---------------- | ----- | ----------- |
+| `project_name`           | See variables.tf | `any` | See default |
+| `environment`            | See variables.tf | `any` | See default |
+| `custom_policies`        | See variables.tf | `any` | See default |
 | `policy_set_definitions` | See variables.tf | `any` | See default |
-| `policy_assignments` | See variables.tf | `any` | See default |
-| `enable_remediation` | See variables.tf | `any` | See default |
-| `tags` | See variables.tf | `any` | See default |
+| `policy_assignments`     | See variables.tf | `any` | See default |
+| `enable_remediation`     | See variables.tf | `any` | See default |
+| `tags`                   | See variables.tf | `any` | See default |
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| `policy_definition_ids` | See outputs.tf |
-| `policy_definitions` | See outputs.tf |
+| Name                        | Description    |
+| --------------------------- | -------------- |
+| `policy_definition_ids`     | See outputs.tf |
+| `policy_definitions`        | See outputs.tf |
 | `policy_set_definition_ids` | See outputs.tf |
-| `policy_set_definitions` | See outputs.tf |
-| `policy_assignment_ids` | See outputs.tf |
-| `policy_assignments` | See outputs.tf |
-| `remediation_ids` | See outputs.tf |
-| `remediations` | See outputs.tf |
+| `policy_set_definitions`    | See outputs.tf |
+| `policy_assignment_ids`     | See outputs.tf |
+| `policy_assignments`        | See outputs.tf |
+| `remediation_ids`           | See outputs.tf |
+| `remediations`              | See outputs.tf |
 
 ## Features
 

@@ -21,37 +21,37 @@ module "bastion" {
 
 ## Requirements
 
-| Name | Version |
-|------|---------|
-| terraform | >= 1.0 |
-| azurerm | >= 5.0 |
+| Name      | Version |
+| --------- | ------- |
+| terraform | >= 1.0  |
+| azurerm   | >= 5.0  |
 
 ## Inputs
 
-| Name | Description | Type | Required |
-|------|-------------|------|----------|
-| `project_name` | See variables.tf | `any` | See default |
-| `environment` | See variables.tf | `any` | See default |
-| `resource_group_name` | See variables.tf | `any` | See default |
-| `location` | See variables.tf | `any` | See default |
-| `name` | See variables.tf | `any` | See default |
-| `sku` | See variables.tf | `any` | See default |
-| `subnet_id` | See variables.tf | `any` | See default |
-| `scale_units` | See variables.tf | `any` | See default |
-| `copy_paste_enabled` | See variables.tf | `any` | See default |
-| `file_copy_enabled` | See variables.tf | `any` | See default |
-| `ip_connect_enabled` | See variables.tf | `any` | See default |
+| Name                     | Description      | Type  | Required    |
+| ------------------------ | ---------------- | ----- | ----------- |
+| `project_name`           | See variables.tf | `any` | See default |
+| `environment`            | See variables.tf | `any` | See default |
+| `resource_group_name`    | See variables.tf | `any` | See default |
+| `location`               | See variables.tf | `any` | See default |
+| `name`                   | See variables.tf | `any` | See default |
+| `sku`                    | See variables.tf | `any` | See default |
+| `subnet_id`              | See variables.tf | `any` | See default |
+| `scale_units`            | See variables.tf | `any` | See default |
+| `copy_paste_enabled`     | See variables.tf | `any` | See default |
+| `file_copy_enabled`      | See variables.tf | `any` | See default |
+| `ip_connect_enabled`     | See variables.tf | `any` | See default |
 | `shareable_link_enabled` | See variables.tf | `any` | See default |
-| `tunneling_enabled` | See variables.tf | `any` | See default |
-| `tags` | See variables.tf | `any` | See default |
+| `tunneling_enabled`      | See variables.tf | `any` | See default |
+| `tags`                   | See variables.tf | `any` | See default |
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| `bastion_id` | See outputs.tf |
-| `bastion_name` | See outputs.tf |
-| `bastion_dns_name` | See outputs.tf |
+| Name                | Description    |
+| ------------------- | -------------- |
+| `bastion_id`        | See outputs.tf |
+| `bastion_name`      | See outputs.tf |
+| `bastion_dns_name`  | See outputs.tf |
 | `public_ip_address` | See outputs.tf |
 
 ## Features

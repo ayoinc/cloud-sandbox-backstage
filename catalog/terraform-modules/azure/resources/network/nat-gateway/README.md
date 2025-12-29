@@ -21,38 +21,38 @@ module "nat_gateway" {
 
 ## Requirements
 
-| Name | Version |
-|------|---------|
-| terraform | >= 1.0 |
-| azurerm | >= 5.0 |
+| Name      | Version |
+| --------- | ------- |
+| terraform | >= 1.0  |
+| azurerm   | >= 5.0  |
 
 ## Inputs
 
-| Name | Description | Type | Required |
-|------|-------------|------|----------|
-| `project_name` | See variables.tf | `any` | See default |
-| `environment` | See variables.tf | `any` | See default |
-| `resource_group_name` | See variables.tf | `any` | See default |
-| `location` | See variables.tf | `any` | See default |
-| `name` | See variables.tf | `any` | See default |
-| `sku_name` | See variables.tf | `any` | See default |
+| Name                      | Description      | Type  | Required    |
+| ------------------------- | ---------------- | ----- | ----------- |
+| `project_name`            | See variables.tf | `any` | See default |
+| `environment`             | See variables.tf | `any` | See default |
+| `resource_group_name`     | See variables.tf | `any` | See default |
+| `location`                | See variables.tf | `any` | See default |
+| `name`                    | See variables.tf | `any` | See default |
+| `sku_name`                | See variables.tf | `any` | See default |
 | `idle_timeout_in_minutes` | See variables.tf | `any` | See default |
-| `zones` | See variables.tf | `any` | See default |
-| `public_ip_count` | See variables.tf | `any` | See default |
-| `use_public_ip_prefix` | See variables.tf | `any` | See default |
+| `zones`                   | See variables.tf | `any` | See default |
+| `public_ip_count`         | See variables.tf | `any` | See default |
+| `use_public_ip_prefix`    | See variables.tf | `any` | See default |
 | `public_ip_prefix_length` | See variables.tf | `any` | See default |
-| `subnet_ids` | See variables.tf | `any` | See default |
-| `tags` | See variables.tf | `any` | See default |
+| `subnet_ids`              | See variables.tf | `any` | See default |
+| `tags`                    | See variables.tf | `any` | See default |
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| `nat_gateway_id` | See outputs.tf |
-| `nat_gateway_name` | See outputs.tf |
+| Name                  | Description    |
+| --------------------- | -------------- |
+| `nat_gateway_id`      | See outputs.tf |
+| `nat_gateway_name`    | See outputs.tf |
 | `public_ip_addresses` | See outputs.tf |
 | `public_ip_prefix_id` | See outputs.tf |
-| `resource_guid` | See outputs.tf |
+| `resource_guid`       | See outputs.tf |
 
 ## Features
 

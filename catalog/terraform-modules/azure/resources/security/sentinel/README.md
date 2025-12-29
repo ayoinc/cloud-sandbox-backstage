@@ -21,39 +21,39 @@ module "sentinel" {
 
 ## Requirements
 
-| Name | Version |
-|------|---------|
-| terraform | >= 1.0 |
-| azurerm | >= 5.0 |
+| Name      | Version |
+| --------- | ------- |
+| terraform | >= 1.0  |
+| azurerm   | >= 5.0  |
 
 ## Inputs
 
-| Name | Description | Type | Required |
-|------|-------------|------|----------|
-| `project_name` | See variables.tf | `any` | See default |
-| `environment` | See variables.tf | `any` | See default |
-| `resource_group_name` | See variables.tf | `any` | See default |
-| `log_analytics_workspace_id` | See variables.tf | `any` | See default |
-| `log_analytics_workspace_name` | See variables.tf | `any` | See default |
-| `enable_aad_connector` | See variables.tf | `any` | See default |
-| `enable_asc_connector` | See variables.tf | `any` | See default |
-| `enable_mcas_connector` | See variables.tf | `any` | See default |
-| `enable_office365_connector` | See variables.tf | `any` | See default |
+| Name                                   | Description      | Type  | Required    |
+| -------------------------------------- | ---------------- | ----- | ----------- |
+| `project_name`                         | See variables.tf | `any` | See default |
+| `environment`                          | See variables.tf | `any` | See default |
+| `resource_group_name`                  | See variables.tf | `any` | See default |
+| `log_analytics_workspace_id`           | See variables.tf | `any` | See default |
+| `log_analytics_workspace_name`         | See variables.tf | `any` | See default |
+| `enable_aad_connector`                 | See variables.tf | `any` | See default |
+| `enable_asc_connector`                 | See variables.tf | `any` | See default |
+| `enable_mcas_connector`                | See variables.tf | `any` | See default |
+| `enable_office365_connector`           | See variables.tf | `any` | See default |
 | `enable_threat_intelligence_connector` | See variables.tf | `any` | See default |
-| `office365_exchange_enabled` | See variables.tf | `any` | See default |
-| `office365_sharepoint_enabled` | See variables.tf | `any` | See default |
-| `office365_teams_enabled` | See variables.tf | `any` | See default |
-| `alert_rules` | See variables.tf | `any` | See default |
-| `automation_rules` | See variables.tf | `any` | See default |
+| `office365_exchange_enabled`           | See variables.tf | `any` | See default |
+| `office365_sharepoint_enabled`         | See variables.tf | `any` | See default |
+| `office365_teams_enabled`              | See variables.tf | `any` | See default |
+| `alert_rules`                          | See variables.tf | `any` | See default |
+| `automation_rules`                     | See variables.tf | `any` | See default |
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
+| Name                     | Description    |
+| ------------------------ | -------------- |
 | `sentinel_onboarding_id` | See outputs.tf |
-| `data_connector_ids` | See outputs.tf |
-| `alert_rule_ids` | See outputs.tf |
-| `automation_rule_ids` | See outputs.tf |
+| `data_connector_ids`     | See outputs.tf |
+| `alert_rule_ids`         | See outputs.tf |
+| `automation_rule_ids`    | See outputs.tf |
 
 ## Features
 

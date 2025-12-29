@@ -21,20 +21,20 @@ module "key_vault" {
 
 ## Requirements
 
-| Name | Version |
-|------|---------|
-| terraform | >= 1.0 |
-| azurerm | >= 5.0 |
+| Name      | Version |
+| --------- | ------- |
+| terraform | >= 1.0  |
+| azurerm   | >= 5.0  |
 
 ## Inputs
 
 | Name | Description | Type | Required |
-|------|-------------|------|----------|
+| ---- | ----------- | ---- | -------- |
 
 ## Outputs
 
 | Name | Description |
-|------|-------------|
+| ---- | ----------- |
 
 ## Features
 

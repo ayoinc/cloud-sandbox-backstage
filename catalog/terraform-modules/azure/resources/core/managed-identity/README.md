@@ -21,33 +21,33 @@ module "managed_identity" {
 
 ## Requirements
 
-| Name | Version |
-|------|---------|
-| terraform | >= 1.0 |
-| azurerm | >= 5.0 |
+| Name      | Version |
+| --------- | ------- |
+| terraform | >= 1.0  |
+| azurerm   | >= 5.0  |
 
 ## Inputs
 
-| Name | Description | Type | Required |
-|------|-------------|------|----------|
-| `project_name` | See variables.tf | `any` | See default |
-| `environment` | See variables.tf | `any` | See default |
-| `resource_group_name` | See variables.tf | `any` | See default |
-| `location` | See variables.tf | `any` | See default |
-| `identity_name` | See variables.tf | `any` | See default |
-| `role_assignments` | See variables.tf | `any` | See default |
+| Name                             | Description      | Type  | Required    |
+| -------------------------------- | ---------------- | ----- | ----------- |
+| `project_name`                   | See variables.tf | `any` | See default |
+| `environment`                    | See variables.tf | `any` | See default |
+| `resource_group_name`            | See variables.tf | `any` | See default |
+| `location`                       | See variables.tf | `any` | See default |
+| `identity_name`                  | See variables.tf | `any` | See default |
+| `role_assignments`               | See variables.tf | `any` | See default |
 | `federated_identity_credentials` | See variables.tf | `any` | See default |
-| `tags` | See variables.tf | `any` | See default |
+| `tags`                           | See variables.tf | `any` | See default |
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| `identity_id` | See outputs.tf |
+| Name            | Description    |
+| --------------- | -------------- |
+| `identity_id`   | See outputs.tf |
 | `identity_name` | See outputs.tf |
-| `principal_id` | See outputs.tf |
-| `client_id` | See outputs.tf |
-| `tenant_id` | See outputs.tf |
+| `principal_id`  | See outputs.tf |
+| `client_id`     | See outputs.tf |
+| `tenant_id`     | See outputs.tf |
 
 ## Features
 
