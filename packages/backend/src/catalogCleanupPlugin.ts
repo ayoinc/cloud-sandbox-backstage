@@ -7,6 +7,7 @@ import { Octokit } from '@octokit/rest';
 import { Entity } from '@backstage/catalog-model';
 import * as express from 'express';
 import * as crypto from 'crypto';
+import rateLimit from 'express-rate-limit';
 
 /**
  * =============================================================================
@@ -736,7 +737,22 @@ export default createBackendPlugin({
         });
 
         // Trigger immediate cleanup
-        router.post('/trigger', async (_, res) => {
+        // Rate limiters for admin and webhook endpoints
+        const adminLimiter = rateLimit({
+          windowMs: 60 * 1000, // 1 minute
+          max: 30, // limit each IP to 30 requests per window
+          standardHeaders: true,
+          legacyHeaders: false,
+        });
+
+        const webhookLimiter = rateLimit({
+          windowMs: 60 * 1000, // 1 minute
+          max: 60, // limit each IP to 60 webhook requests per window
+          standardHeaders: true,
+          legacyHeaders: false,
+        });
+
+        router.post('/trigger', adminLimiter, async (_, res) => {
           try {
             const stats = await runCleanup();
             res.json({
@@ -752,72 +768,83 @@ export default createBackendPlugin({
         });
 
         // Force delete an entity
-        router.delete('/entity/:kind/:namespace/:name', async (req, res) => {
-          const { kind, namespace, name } = req.params;
-          const entityRef = `${kind}:${namespace}/${name}`;
+        router.delete(
+          '/entity/:kind/:namespace/:name',
+          adminLimiter,
+          async (req, res) => {
+            const { kind, namespace, name } = req.params;
+            const entityRef = `${kind}:${namespace}/${name}`;
 
-          try {
-            const token = await getToken();
-            const entity = await catalogClient.getEntityByRef(entityRef, {
-              token,
-            });
+            try {
+              const token = await getToken();
+              const entity = await catalogClient.getEntityByRef(entityRef, {
+                token,
+              });
 
-            if (!entity) {
-              res.status(404).json({ error: 'Entity not found' });
+              if (!entity) {
+                res.status(404).json({ error: 'Entity not found' });
+                return;
+              }
+
+              const deleted = await deleteEntity(entity, token);
+              if (deleted) {
+                failedEntities.delete(entityRef);
+                res.json({
+                  message: `Entity ${entityRef} deleted successfully`,
+                });
+              } else {
+                res.status(500).json({ error: 'Failed to delete entity' });
+              }
+            } catch (error) {
+              res.status(500).json({
+                error: 'Failed to delete entity',
+                message: String(error),
+              });
+            }
+          },
+        );
+
+        // GitHub webhook receiver
+        router.post(
+          '/webhook',
+          webhookLimiter,
+          express.json(),
+          async (req, res) => {
+            const event = req.headers['x-github-event'] as string;
+            const signature = req.headers['x-hub-signature-256'] as string;
+            const payload = JSON.stringify(req.body);
+
+            // Verify signature
+            if (!verifyWebhookSignature(payload, signature)) {
+              logger.warn('Invalid webhook signature received');
+              res.status(401).json({ error: 'Invalid signature' });
               return;
             }
 
-            const deleted = await deleteEntity(entity, token);
-            if (deleted) {
-              failedEntities.delete(entityRef);
-              res.json({ message: `Entity ${entityRef} deleted successfully` });
-            } else {
-              res.status(500).json({ error: 'Failed to delete entity' });
+            // Handle repository deletion
+            if (event === 'repository' && req.body.action === 'deleted') {
+              const { owner, name } = req.body.repository;
+              const ownerLogin = owner?.login || owner?.name;
+
+              if (ownerLogin && name) {
+                const result = await handleRepoDeleted(ownerLogin, name);
+                res.json({
+                  message: 'Repository deletion processed',
+                  ...result,
+                });
+              } else {
+                res.status(400).json({ error: 'Invalid repository data' });
+              }
+              return;
             }
-          } catch (error) {
-            res.status(500).json({
-              error: 'Failed to delete entity',
-              message: String(error),
-            });
-          }
-        });
 
-        // GitHub webhook receiver
-        router.post('/webhook', express.json(), async (req, res) => {
-          const event = req.headers['x-github-event'] as string;
-          const signature = req.headers['x-hub-signature-256'] as string;
-          const payload = JSON.stringify(req.body);
-
-          // Verify signature
-          if (!verifyWebhookSignature(payload, signature)) {
-            logger.warn('Invalid webhook signature received');
-            res.status(401).json({ error: 'Invalid signature' });
-            return;
-          }
-
-          // Handle repository deletion
-          if (event === 'repository' && req.body.action === 'deleted') {
-            const { owner, name } = req.body.repository;
-            const ownerLogin = owner?.login || owner?.name;
-
-            if (ownerLogin && name) {
-              const result = await handleRepoDeleted(ownerLogin, name);
-              res.json({
-                message: 'Repository deletion processed',
-                ...result,
-              });
-            } else {
-              res.status(400).json({ error: 'Invalid repository data' });
-            }
-            return;
-          }
-
-          // Acknowledge other events
-          res.json({ message: `Event ${event} received` });
-        });
+            // Acknowledge other events
+            res.json({ message: `Event ${event} received` });
+          },
+        );
 
         // Clear all tracked orphans (admin action)
-        router.post('/clear', (_, res) => {
+        router.post('/clear', adminLimiter, (_, res) => {
           const count = failedEntities.size;
           failedEntities.clear();
           res.json({

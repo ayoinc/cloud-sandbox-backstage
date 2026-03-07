@@ -64,7 +64,8 @@
     "knex": "^3.1.0",
     "multer": "^2.0.2",
     "node-gyp": "^10.0.0",
-    "pg": "^8.11.3"
+    "pg": "^8.11.3",
+    "express-rate-limit": "^8.3.0"
   },
   "devDependencies": {
     "@backstage/cli": "^0.35.0",
