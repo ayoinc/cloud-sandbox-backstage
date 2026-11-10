@@ -131,7 +131,8 @@ export interface TaskEvent {
  * Appends events to a task in order and moves its status along: the first
  * event starts it, a completion ends it as failed if it carries an error,
  * as cancelled if the run was cancelled, and as completed otherwise. `spec`,
- * when given, replaces the stored task spec.
+ * when given, replaces the stored task spec, except for the user who
+ * created the task.
  */
 export async function appendTaskEvents(
   db: D1Database,
@@ -141,10 +142,10 @@ export async function appendTaskEvents(
 ): Promise<void> {
   const task = await db
     .prepare(
-      "SELECT status, EXISTS (SELECT 1 FROM task_events WHERE task_id = ?1 AND event_type = 'cancelled' AND id > coalesce((SELECT max(id) FROM task_events WHERE task_id = ?1 AND event_type = 'recovered'), 0)) AS cancelled FROM tasks WHERE id = ?1",
+      "SELECT status, json_extract(spec, '$.user') AS user, EXISTS (SELECT 1 FROM task_events WHERE task_id = ?1 AND event_type = 'cancelled' AND id > coalesce((SELECT max(id) FROM task_events WHERE task_id = ?1 AND event_type = 'recovered'), 0)) AS cancelled FROM tasks WHERE id = ?1",
     )
     .bind(taskId)
-    .first<{ status: string; cancelled: number }>();
+    .first<{ status: string; user: string | null; cancelled: number }>();
   if (!task) {
     throw notFoundError(`No task with id '${taskId}' found`);
   }
@@ -169,6 +170,12 @@ export async function appendTaskEvents(
       status = 'processing';
     }
   }
+  // The pipeline's scaffolder runs the template without a user, so the spec
+  // it reports has none. The task list shows the owner from the spec.
+  const storedSpec = spec && {
+    ...spec,
+    ...(task.user && { user: JSON.parse(task.user) as unknown }),
+  };
   // The rows travel as one JSON parameter: D1 allows 100 parameters a
   // statement, which a batch of events would exceed.
   await db.batch([
@@ -193,7 +200,7 @@ export async function appendTaskEvents(
       .bind(
         status,
         new Date().toISOString(),
-        spec ? JSON.stringify(spec) : null,
+        storedSpec ? JSON.stringify(storedSpec) : null,
         taskId,
       ),
   ]);

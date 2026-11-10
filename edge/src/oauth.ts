@@ -2,16 +2,17 @@ import { Hono, type Context } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import {
   backstageIdentity,
+  checkToken,
   GUEST_PROVIDER,
   PORTAL_SESSION,
   SESSION_AUDIENCE,
   SESSION_TTL_SECONDS,
   sharePortalSession,
   signToken,
-  verifyToken,
   type Profile,
   type Session,
 } from './auth';
+import { recordSignIn } from './catalog/users';
 import { bytesToBase64, decodeJson, encodeJson } from './encoding';
 import {
   authenticationError,
@@ -20,6 +21,7 @@ import {
   notAllowedError,
   notFoundError,
 } from './errors';
+import { isRecord } from './json';
 import type { AppEnv } from './types';
 
 /**
@@ -33,6 +35,9 @@ import type { AppEnv } from './types';
  * allow-list is checked again every time a session is refreshed. Where the
  * front end expects an access token for GitHub's API it is given the user's
  * own portal token, which only `/api/github` on this Worker accepts.
+ *
+ * Everyone who signs in is recorded as a catalog User entity, with the name,
+ * email and picture the provider gave: see `catalog/users.ts`.
  */
 
 interface Account {
@@ -261,29 +266,76 @@ async function popupResponse(c: AuthContext, origin: string, message: unknown) {
   });
 }
 
-/** Whether the sign-in behind a session would still be accepted now. */
-function isStillAllowed(env: Env, session: Session): boolean {
+/** Why the sign-in behind a session would not be accepted now, if it would not. */
+function whyNotAllowed(env: Env, session: Session): string | undefined {
   if (session.provider === GUEST_PROVIDER) {
-    return env.GUEST_AUTH_ENABLED === 'true';
+    return env.GUEST_AUTH_ENABLED === 'true'
+      ? undefined
+      : 'guest sign-in is not enabled';
   }
   const provider = providers[session.provider];
   if (!provider) {
-    return false;
+    return `there is no sign-in method called ${session.provider}`;
   }
   const { clientId, clientSecret } = provider.credentials(env);
-  return (
-    Boolean(clientId && clientSecret) && provider.isAllowed(env, session.id)
-  );
+  if (!clientId || !clientSecret) {
+    return `sign-in with ${session.provider} is not configured`;
+  }
+  return provider.isAllowed(env, session.id)
+    ? undefined
+    : `${session.id} is not on the ${session.provider} allow-list`;
 }
 
-async function readSession(c: AuthContext, cookieName: string) {
+/**
+ * The session a cookie holds, or `refused`: why there is none to use.
+ * `sent` tells a cookie that was refused from one the browser did not send.
+ */
+type SessionCookie =
+  | { token: string; session: Session & { exp: number } }
+  | { refused: string; sent: boolean };
+
+async function readSession(
+  c: AuthContext,
+  cookieName: string,
+): Promise<SessionCookie> {
   const token = getCookie(c, cookieName);
-  const session =
-    token &&
-    ((await verifyToken(c.env.SESSION_SECRET, SESSION_AUDIENCE, token)) as
-      | (Session & { exp: number })
-      | undefined);
-  return token && session ? { token, session } : undefined;
+  if (!token) {
+    return { refused: `no ${cookieName} cookie was sent`, sent: false };
+  }
+  const checked = await checkToken(
+    c.env.SESSION_SECRET,
+    SESSION_AUDIENCE,
+    token,
+  );
+  if ('problem' in checked) {
+    return {
+      refused: `the ${cookieName} cookie ${checked.problem}`,
+      sent: true,
+    };
+  }
+  const { provider, id, sub, profile, exp } = checked.claims;
+  // The allow-list is checked against these, so a session that lacks one
+  // cannot be accepted. A missing profile only costs the display name.
+  if (
+    typeof provider !== 'string' ||
+    typeof id !== 'string' ||
+    typeof sub !== 'string'
+  ) {
+    return {
+      refused: `the ${cookieName} cookie holds a session without a provider, id or sub`,
+      sent: true,
+    };
+  }
+  return {
+    token,
+    session: {
+      provider,
+      id,
+      sub,
+      profile: isRecord(profile) ? (profile as Profile) : {},
+      exp: Number(exp),
+    },
+  };
 }
 
 /**
@@ -379,6 +431,7 @@ oauthRoutes.get('/:provider/handler/frame', async c => {
       sub: account.userEntityRef,
       profile: account.profile,
     };
+    await recordSignIn(c.env.DB, session);
     const sessionToken = await signToken(
       c.env.SESSION_SECRET,
       SESSION_AUDIENCE,
@@ -431,20 +484,36 @@ oauthRoutes.get('/:provider/refresh', async c => {
   const id = c.req.param('provider');
   const provider = providers[id];
   const scope = c.req.query('scope') ?? '';
+  // Why each session that was looked at could not be used: the 401 and the
+  // log both carry it, so a session that ends early can be explained.
+  const refused: string[] = [];
+  // Whether a cookie the browser did send was turned down. A visitor who
+  // has not signed in sends none, on every page load.
+  let turnedDown = false;
   const own = await readSession(c, `${id}-session`);
-  if (
-    provider &&
-    own?.session.provider === id &&
-    isStillAllowed(c.env, own.session)
-  ) {
-    if (!provider.issuesAccessToken) {
-      sharePortalSession(
-        c,
-        own.token,
-        own.session.exp - Math.floor(Date.now() / 1000),
+  if ('refused' in own) {
+    refused.push(own.refused);
+    turnedDown ||= own.sent;
+  } else if (provider) {
+    const problem =
+      own.session.provider === id
+        ? whyNotAllowed(c.env, own.session)
+        : `the ${id}-session cookie holds a ${own.session.provider} session`;
+    if (!problem) {
+      await recordSignIn(c.env.DB, own.session);
+      if (!provider.issuesAccessToken) {
+        sharePortalSession(
+          c,
+          own.token,
+          own.session.exp - Math.floor(Date.now() / 1000),
+        );
+      }
+      return c.json(
+        await sessionResponse(c, provider, own.session, scope, true),
       );
     }
-    return c.json(await sessionResponse(c, provider, own.session, scope, true));
+    refused.push(problem);
+    turnedDown = true;
   }
   // API credentials for a user who signed in another way: a guest or a
   // Google user opening the GitHub Actions tab. They get a token for the
@@ -454,24 +523,53 @@ oauthRoutes.get('/:provider/refresh', async c => {
     scope.split(/[\s,]+/).includes(API_SCOPE)
   ) {
     const other = await readSession(c, PORTAL_SESSION.name);
-    if (
-      other &&
-      other.session.provider !== id &&
-      isStillAllowed(c.env, other.session)
-    ) {
-      return c.json(
-        await sessionResponse(c, provider, other.session, scope, false),
-      );
+    if ('refused' in other) {
+      refused.push(other.refused);
+      turnedDown ||= other.sent;
+    } else {
+      const problem =
+        other.session.provider === id
+          ? `the ${PORTAL_SESSION.name} cookie holds a ${id} session`
+          : whyNotAllowed(c.env, other.session);
+      if (!problem) {
+        return c.json(
+          await sessionResponse(c, provider, other.session, scope, false),
+        );
+      }
+      refused.push(problem);
+      turnedDown = true;
     }
   }
   // Answers 404 for a provider that is unknown or not configured.
   resolve(c);
-  throw authenticationError('No session to refresh');
+  const entry = JSON.stringify({
+    message: 'Session refresh refused',
+    provider: id,
+    reasons: refused,
+    // Names only: shows which cookies reached the Worker.
+    cookies: Object.keys(getCookie(c)),
+  });
+  if (turnedDown) {
+    console.warn(entry);
+  } else {
+    console.log(entry);
+  }
+  throw authenticationError(`No session to refresh: ${refused.join('; ')}`);
 });
 
-oauthRoutes.post('/:provider/logout', c => {
+oauthRoutes.post('/:provider/logout', async c => {
   const { id, provider, base } = resolve(c);
   requireXhr(c);
+  // Logged so that a session ended by a sign-out, the front end's idle
+  // timeout included, can be told from one that a refresh refused.
+  const ended = await readSession(c, `${id}-session`);
+  console.log(
+    JSON.stringify({
+      message: 'Signed out',
+      provider: id,
+      user: 'session' in ended ? ended.session.sub : undefined,
+    }),
+  );
   deleteCookie(c, `${id}-session`, { path: base });
   if (!provider.issuesAccessToken) {
     deleteCookie(c, PORTAL_SESSION.name, { path: PORTAL_SESSION.path });

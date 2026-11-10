@@ -1,4 +1,5 @@
 import { Hono, type MiddlewareHandler } from 'hono';
+import { copySignedInUsers } from './catalog/users';
 import {
   authenticationError,
   conflictError,
@@ -159,7 +160,7 @@ pipelineRoutes.post('/catalog/commit', async c => {
     c.env.DB.prepare(`${sql} WHERE ${IS_CURRENT_SYNC}`).bind(syncId);
   // One batch is one transaction: readers see the old catalog or the new
   // one, and a rejected row leaves the old one in place.
-  const results = await c.env.DB.batch<Record<string, number>>([
+  const swap = [
     ...[...tables]
       .reverse()
       .map(([table]) => whenCurrent(`DELETE FROM ${table}`)),
@@ -171,14 +172,26 @@ pipelineRoutes.post('/catalog/commit', async c => {
       ),
     ),
     ...tables.map(([table]) => whenCurrent(`DELETE FROM staging_${table}`)),
+  ];
+  const results = await c.env.DB.batch<Record<string, number>>([
+    ...swap,
+    // Counted before the signed-in users are added, so the pipeline can
+    // compare the counts with what it sent.
     c.env.DB.prepare(
       'SELECT (SELECT count(*) FROM final_entities) AS entities, (SELECT count(*) FROM search) AS searchRows, (SELECT count(*) FROM search_documents) AS documents, (SELECT count(*) FROM techdocs_sites) AS sites',
     ),
+    // The swap removed everyone who signed in. They go back in, except
+    // those the new catalog defines itself.
+    ...copySignedInUsers(c.env.DB, {
+      sql: IS_CURRENT_SYNC,
+      params: [syncId],
+    }),
     c.env.DB.prepare(
       'DELETE FROM portal_state WHERE key = ? AND value = ?',
     ).bind(SYNC_KEY, syncId),
   ]).catch(rejectedRows);
-  const [counts, finished] = results.slice(-2);
+  const counts = results[swap.length];
+  const finished = results[results.length - 1];
   if (finished.meta.changes !== 1) {
     throw conflictError(`${syncId} is not the catalog sync in progress`);
   }

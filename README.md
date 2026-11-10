@@ -392,7 +392,12 @@ Everything else is stored in Cloudflare and never committed. `edge/.prod.vars`
 (ignored by Git) lists the GitHub and Google client IDs and who may sign in
 (`GITHUB_CLIENT_ID`, `GITHUB_ALLOWED_USERS`, `GOOGLE_CLIENT_ID`,
 `GOOGLE_ALLOWED_EMAILS`, `GOOGLE_ALLOWED_DOMAINS`); the deploy uploads them.
-Nobody outside those lists can sign in.
+Nobody outside those lists can sign in. Everyone who does sign in becomes a
+User in the catalog (name, picture and email from the provider), kept in the
+`signed_in_users` table so that a catalog sync does not remove them; a user
+the catalog files also define keeps the files' definition. Run
+`db:migrate:remote` before pushing a change that adds a migration: the
+pipelines run the Worker from the checkout against the deployed database.
 
 Five more values are set once with `wrangler secret put <NAME>`:
 `SESSION_SECRET` (signs user tokens and session cookies), `GITHUB_CLIENT_SECRET`,

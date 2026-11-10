@@ -1,5 +1,6 @@
 import { Hono, type Context, type MiddlewareHandler } from 'hono';
 import { setCookie } from 'hono/cookie';
+import { recordSignIn } from './catalog/users';
 import { base64ToBytes, bytesToBase64 } from './encoding';
 import { authenticationError, notFoundError } from './errors';
 import type { AppEnv } from './types';
@@ -85,18 +86,23 @@ export async function signToken(
   return `${unsigned}.${base64Url(new Uint8Array(signature))}`;
 }
 
+/** The claims of a token, or what is wrong with it: "the token <problem>". */
+export type TokenCheck =
+  | { claims: Record<string, unknown> }
+  | { problem: string };
+
 /**
- * Returns the claims of a token signed here for `audience`, or `undefined`
- * if the signature, audience or expiry does not hold.
+ * Checks the signature, audience and expiry of a token signed here for
+ * `audience`, and says which of them does not hold.
  */
-export async function verifyToken(
+export async function checkToken(
   secret: string,
   audience: string,
   token: string,
-): Promise<Record<string, unknown> | undefined> {
+): Promise<TokenCheck> {
   const [header, claims, signature, ...rest] = token.split('.');
   if (!header || !claims || !signature || rest.length) {
-    return undefined;
+    return { problem: 'is not a signed token' };
   }
   try {
     const valid = await crypto.subtle.verify(
@@ -106,22 +112,44 @@ export async function verifyToken(
       encoder.encode(`${header}.${claims}`),
     );
     if (!valid) {
-      return undefined;
+      return {
+        problem:
+          'has a signature that does not match (SESSION_SECRET changed, or the token was altered)',
+      };
     }
     const { alg } = JSON.parse(decoder.decode(fromBase64Url(header)));
     const payload = JSON.parse(decoder.decode(fromBase64Url(claims)));
-    if (
-      alg !== 'HS256' ||
-      payload.aud !== audience ||
-      typeof payload.exp !== 'number' ||
-      payload.exp <= Date.now() / 1000
-    ) {
-      return undefined;
+    if (alg !== 'HS256') {
+      return { problem: 'is signed with an algorithm that is not accepted' };
     }
-    return payload;
+    if (payload.aud !== audience) {
+      return { problem: 'was issued for another purpose' };
+    }
+    if (typeof payload.exp !== 'number') {
+      return { problem: 'has no expiry' };
+    }
+    if (payload.exp <= Date.now() / 1000) {
+      return {
+        problem: `expired at ${new Date(payload.exp * 1000).toISOString()}`,
+      };
+    }
+    return { claims: payload };
   } catch {
-    return undefined;
+    return { problem: 'cannot be decoded' };
   }
+}
+
+/**
+ * Returns the claims of a token signed here for `audience`, or `undefined`
+ * if the signature, audience or expiry does not hold.
+ */
+export async function verifyToken(
+  secret: string,
+  audience: string,
+  token: string,
+): Promise<Record<string, unknown> | undefined> {
+  const checked = await checkToken(secret, audience, token);
+  return 'claims' in checked ? checked.claims : undefined;
 }
 
 /** The `backstageIdentity` part of a sign-in response for one user. */
@@ -216,13 +244,20 @@ guestRoutes.get('/refresh', async c => {
   if (c.req.header('x-requested-with') !== 'XMLHttpRequest') {
     throw authenticationError('Invalid X-Requested-With header');
   }
+  const session: Session = {
+    provider: GUEST_PROVIDER,
+    id: 'guest',
+    sub: GUEST_USER,
+    profile: {},
+  };
+  await recordSignIn(c.env.DB, session);
   sharePortalSession(
     c,
     await signToken(
       c.env.SESSION_SECRET,
       SESSION_AUDIENCE,
       SESSION_TTL_SECONDS,
-      { provider: GUEST_PROVIDER, id: 'guest', sub: GUEST_USER, profile: {} },
+      { ...session },
     ),
     SESSION_TTL_SECONDS,
   );
