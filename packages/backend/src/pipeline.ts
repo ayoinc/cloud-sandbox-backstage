@@ -21,11 +21,15 @@ backend.add(import('@backstage/plugin-catalog-backend'));
 backend.add(
   import('@backstage/plugin-catalog-backend-module-scaffolder-entity-model'),
 );
+// Gives the entities of this repository its GitHub Actions runs
+backend.add(import('./pipeline/ownRepository'));
 
 backend.add(import('@backstage/plugin-scaffolder-backend'));
 backend.add(import('@backstage/plugin-scaffolder-backend-module-github'));
 backend.add(import('@roadiehq/scaffolder-backend-module-http-request'));
 backend.add(import('@roadiehq/scaffolder-backend-module-utils'));
+// Teams, team members and invitations of a GitHub organisation
+backend.add(import('./pipeline/githubOrgActions'));
 
 // The portal decides who may start a template before a run reaches here
 backend.add(import('@backstage/plugin-permission-backend'));

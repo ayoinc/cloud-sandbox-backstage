@@ -45,8 +45,11 @@ export async function prepareDataDir(dataDir) {
  * what the main one does. In GitHub Actions the files of this repository are
  * read from GitHub instead of the checkout: entities then carry the
  * repository address as their source, which is what "View source" links and
- * relative documentation paths are built from. `registered` are the locations
- * of repositories created from templates, kept by the portal.
+ * relative documentation paths are built from. The repository is also passed
+ * on as `pipeline.repository`, so the backend can point the entities read
+ * from it at its GitHub Actions runs (packages/backend/src/pipeline/
+ * ownRepository.ts). `registered` are the locations of repositories created
+ * from templates, kept by the portal.
  *
  * It also gives the backend a key pair for the tokens its plugins call each
  * other with. By default those keys are kept in the database, and SQLite
@@ -66,6 +69,7 @@ export async function writeRunConfig(dataDir, { github, registered }) {
   const { catalog } = parse(
     await readFile(join(repoRoot, 'app-config.yaml'), 'utf8'),
   );
+  const repositoryUrl = github && `${github.serverUrl}/${github.repository}`;
   const configured = catalog.locations.map(location => {
     if (location.type !== 'file') {
       return location;
@@ -79,7 +83,7 @@ export async function writeRunConfig(dataDir, { github, registered }) {
     return {
       ...location,
       type: 'url',
-      target: `${github.serverUrl}/${github.repository}/blob/${github.refName}/${path}`,
+      target: `${repositoryUrl}/blob/${github.refName}/${path}`,
     };
   });
   const locations = [
@@ -110,6 +114,11 @@ export async function writeRunConfig(dataDir, { github, registered }) {
         },
       },
       catalog: { rules: catalog.rules, locations },
+      ...(github && {
+        pipeline: {
+          repository: { slug: github.repository, url: repositoryUrl },
+        },
+      }),
     }),
   );
   return locations;

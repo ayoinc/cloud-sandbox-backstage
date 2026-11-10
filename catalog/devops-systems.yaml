@@ -4,8 +4,6 @@ metadata:
   name: infrastructure-as-code-platform
   title: Infrastructure as Code Platform
   description: Terraform, CloudFormation, Pulumi, and infrastructure automation
-  annotations:
-    github.com/project-slug: company/terraform-modules
   tags:
     - terraform
     - cloudformation

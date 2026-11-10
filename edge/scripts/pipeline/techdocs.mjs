@@ -4,10 +4,16 @@
 // describing ten components next to one mkdocs.yml). Each distinct directory
 // is built once, as a "site" with a stable id, and every entity is mapped to
 // its site.
+//
+// A directory with a mkdocs.yml or a docs directory is built as it is. One
+// that documents itself with a README.md alone gets a site made of that
+// README and the files it links to.
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
+  copyFile,
   cp,
+  lstat,
   mkdir,
   readFile,
   readdir,
@@ -15,7 +21,15 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import { availableParallelism } from 'node:os';
-import { basename, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+  sep,
+} from 'node:path';
 import { Writable } from 'node:stream';
 import { promisify } from 'node:util';
 import { ConfigReader } from '@backstage/config';
@@ -25,7 +39,7 @@ import {
   getLocationForEntity,
 } from '@backstage/plugin-techdocs-node';
 import mime from 'mime-types';
-import { parse } from 'yaml';
+import { parse, stringify } from 'yaml';
 import { portalRequest } from './portal.mjs';
 import { repoRoot } from './settings.mjs';
 
@@ -37,6 +51,18 @@ const DELETE_BATCH = 500;
 // metadata is given the same one. Pinning it makes a build of unchanged
 // sources byte-for-byte identical, so nothing is uploaded again.
 const BUILD_EPOCH_SECONDS = Date.UTC(2000, 0, 1) / 1000;
+// mkdocs makes a file of exactly this name the index page of its directory.
+const README = 'README.md';
+// What a source directory with its own documentation set-up holds.
+const DOCS_SETUP = new Set(['mkdocs.yml', 'mkdocs.yaml', 'docs']);
+const MARKDOWN_FILE = /\.(?:md|markdown)$/i;
+// Where Markdown and the HTML inside it point: `](target)` and `](<target>)`
+// of links and images, `[label]: target` reference definitions, and `src`
+// and `href` attributes.
+const LINK_TARGETS =
+  /\]\(\s*(?:<([^<>\n]+)>|([^\s<>()]+))|^ {0,3}\[[^\]\n]+\]:\s*<?([^\s<>]+)|\b(?:src|href)\s*=\s*["']([^"'\n]+)["']/gm;
+// A target with a scheme, or one that starts at the root of a host.
+const NOT_RELATIVE = /^(?:[a-z][a-z0-9+.-]*:|\/)/i;
 
 const execFileAsync = promisify(execFile);
 
@@ -278,16 +304,129 @@ function searchDocuments(site, sections) {
   });
 }
 
+/**
+ * Whether a source directory documents itself with a README alone: it has
+ * one, and neither a mkdocs configuration nor a docs directory.
+ */
+async function hasOnlyReadme(dir) {
+  const entries = await readdir(dir, { withFileTypes: true });
+  return (
+    !entries.some(entry => DOCS_SETUP.has(entry.name)) &&
+    entries.some(entry => entry.name === README && entry.isFile())
+  );
+}
+
+/**
+ * The files under `root` that the Markdown file `file` links to or embeds,
+ * as paths from `root`. A link to a directory counts as one to its index
+ * page. Links that lead out of `root`, to something that is not there or to
+ * a symbolic link are left out.
+ */
+async function linkedFiles(root, file) {
+  const text = await readFile(join(root, file), 'utf8');
+  const linked = [];
+  for (const [, ...groups] of text.matchAll(LINK_TARGETS)) {
+    const target = groups.find(Boolean).replace(/[?#].*$/, '');
+    if (!target || NOT_RELATIVE.test(target)) {
+      continue;
+    }
+    let path;
+    try {
+      path = relative(
+        root,
+        resolve(root, dirname(file), decodeURIComponent(target)),
+      );
+    } catch {
+      continue;
+    }
+    if (!path || path.startsWith('..') || isAbsolute(path)) {
+      continue;
+    }
+    const found = await lstat(join(root, path)).catch(() => undefined);
+    if (found?.isFile()) {
+      linked.push(path);
+    } else if (found?.isDirectory()) {
+      // mkdocs serves either of these as the page of a directory.
+      for (const page of [join(path, 'index.md'), join(path, README)]) {
+        const index = await lstat(join(root, page)).catch(() => undefined);
+        if (index?.isFile()) {
+          linked.push(page);
+          break;
+        }
+      }
+    }
+  }
+  return linked;
+}
+
+/**
+ * `repo_url` and `edit_uri` for pages that lie directly in the source
+ * directory. The generator can only point them at a docs directory inside
+ * it, and leaves alone what a mkdocs.yml already sets.
+ */
+function sourceDirEditLinks(editLocation, integrations) {
+  if (editLocation?.type !== 'url') {
+    return {};
+  }
+  const { target } = editLocation;
+  const editUrl = integrations.byUrl(target)?.resolveEditUrl(target);
+  if (!editUrl) {
+    return {};
+  }
+  // A URL that names no branch has no edit form and comes back as it went in.
+  return editUrl === target
+    ? { repo_url: target }
+    : { repo_url: target, edit_uri: editUrl };
+}
+
+/**
+ * Writes the mkdocs project of a source directory that has only a README: a
+ * mkdocs.yml, and a docs directory holding the README and, at the paths they
+ * have in the source, the files it links to, followed through every Markdown
+ * file reached. The README becomes the home page, its relative links and
+ * images work as written, and each page's edit link is its source file.
+ */
+async function writeReadmeProject(site, inputDir, integrations) {
+  const docsDir = join(inputDir, 'docs');
+  const copied = new Set();
+  const pending = [README];
+  while (pending.length > 0) {
+    const file = pending.pop();
+    if (copied.has(file)) {
+      continue;
+    }
+    copied.add(file);
+    await mkdir(dirname(join(docsDir, file)), { recursive: true });
+    await copyFile(join(site.dir, file), join(docsDir, file));
+    if (MARKDOWN_FILE.test(file)) {
+      pending.push(...(await linkedFiles(site.dir, file)));
+    }
+  }
+  await writeFile(
+    join(inputDir, 'mkdocs.yml'),
+    stringify({
+      site_name: site.title,
+      docs_dir: 'docs',
+      plugins: ['techdocs-core'],
+      ...sourceDirEditLinks(site.editLocation, integrations),
+    }),
+  );
+}
+
 /** Builds one site with Backstage's generator. Throws with mkdocs' output. */
-async function buildSite(generator, site, workDir) {
+async function buildSite(generator, site, workDir, integrations) {
   const inputDir = join(workDir, 'src', site.siteId);
   const outputDir = join(workDir, 'site', site.siteId);
-  // Built from a copy: the generator rewrites mkdocs.yml and the D2 plugin
-  // writes a cache next to it.
-  await cp(site.dir, inputDir, {
-    recursive: true,
-    filter: source => !['.git', 'node_modules'].includes(basename(source)),
-  });
+  if (await hasOnlyReadme(site.dir)) {
+    await writeReadmeProject(site, inputDir, integrations);
+  } else {
+    // Built from a copy: the generator rewrites mkdocs.yml and the D2 plugin
+    // writes a cache next to it.
+    await cp(site.dir, inputDir, {
+      recursive: true,
+      filter: source => !['.git', 'node_modules'].includes(basename(source)),
+    });
+  }
 
   const output = [];
   const record = message => output.push(String(message).trimEnd());
@@ -440,7 +579,7 @@ export async function buildDocs({ entities, dataDir, github, githubToken }) {
         siteId,
         source,
         entities: documented,
-        ...(await buildSite(generator, site, workDir)),
+        ...(await buildSite(generator, site, workDir, integrations)),
       };
     } catch (error) {
       return { siteId, source, entities: documented, error: error.message };

@@ -144,4 +144,8 @@ backend.add(import('@roadiehq/scaffolder-backend-module-http-request'));
 // Scaffolder utilities - Extra scaffolder helper actions
 backend.add(import('@roadiehq/scaffolder-backend-module-utils'));
 
+// GitHub organisation actions used by the team and user templates. The
+// pipeline backend (pipeline.ts) carries the same module.
+backend.add(import('./pipeline/githubOrgActions'));
+
 backend.start();

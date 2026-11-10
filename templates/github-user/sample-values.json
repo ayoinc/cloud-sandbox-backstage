@@ -1,0 +1,8 @@
+{
+  "values": {
+    "org": "example-org",
+    "inviteeEmail": "new.engineer@example.com",
+    "role": "direct_member",
+    "teamSlugs": ["payments-platform", "engineering"]
+  }
+}

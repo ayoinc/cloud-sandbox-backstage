@@ -8,7 +8,6 @@ metadata:
     Includes shared modules for naming, tagging, and validation.
   annotations:
     backstage.io/techdocs-ref: dir:.
-    github.com/project-slug: containercode/terraform-modules
   tags:
     - terraform
     - iac

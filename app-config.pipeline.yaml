@@ -12,8 +12,10 @@
 # The scripts in edge/scripts/pipeline start the backend with a second,
 # generated config file (app-config.run.yaml in the data directory). It holds
 # `catalog.rules` and `catalog.locations`, taken from app-config.yaml at run
-# time so the two backends always read the same entity files, and a key pair
-# for the tokens plugins call each other with (see writeRunConfig in
+# time so the two backends always read the same entity files; a key pair for
+# the tokens plugins call each other with; and, in GitHub Actions,
+# `pipeline.repository`: the repository these files are in, which entities
+# defined here get as their pipeline link (see writeRunConfig in
 # edge/scripts/pipeline/backend.mjs).
 #
 # To start it by hand, with an empty catalog, from packages/backend:
@@ -69,3 +71,7 @@ techdocs:
       # diagram plugin is installed with the rest of the TechDocs toolchain
       # (see the root Dockerfile) and used by most documentation here.
       dangerouslyAllowAdditionalPlugins: [d2]
+      # legacyCopyReadmeMdToIndexMd is left off on purpose. techdocs.mjs builds
+      # a directory that has only a README.md itself: that option copies the
+      # README to docs/index.md, so the edit link of the page names a file the
+      # repository does not have and the README's relative links stop working.

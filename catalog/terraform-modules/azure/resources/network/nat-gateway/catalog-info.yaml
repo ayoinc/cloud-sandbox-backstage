@@ -8,7 +8,6 @@ metadata:
     Provides production-ready Terraform configuration with best practices.
   annotations:
     backstage.io/techdocs-ref: dir:.
-    github.com/project-slug: containercode/terraform-modules
   tags:
     - terraform
     - azure

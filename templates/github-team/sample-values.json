@@ -1,0 +1,9 @@
+{
+  "values": {
+    "org": "example-org",
+    "teamName": "Payments Platform",
+    "description": "Owns the payment services and their infrastructure",
+    "privacy": "closed",
+    "notificationSetting": "notifications_enabled"
+  }
+}

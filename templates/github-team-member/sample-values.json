@@ -1,0 +1,8 @@
+{
+  "values": {
+    "org": "example-org",
+    "teamSlug": "payments-platform",
+    "username": "octocat",
+    "role": "maintainer"
+  }
+}

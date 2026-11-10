@@ -81,3 +81,6 @@ worker-configuration.d.ts
 
 # Local secret-scanner cache
 .cache_ggshield
+
+# Browser captures taken while testing
+cmux-assets/

@@ -27,9 +27,10 @@ import { dataDirFor, repoRoot } from './settings.mjs';
 
 const TEMPLATE_ROOTS = ['templates', 'catalog/terraform-modules/templates'];
 const SAMPLE_VALUES = 'sample-values.json';
-// Template syntax that should have been replaced by a value. GitHub Actions
-// expressions such as ${{ github.sha }} are meant to survive.
-const UNRENDERED = /\$\{\{\s*(values|parameters|steps|user)\b[^}]*\}\}/;
+// Template syntax that should have been replaced by a value: the contexts a
+// skeleton is rendered with. GitHub Actions expressions such as
+// ${{ github.sha }} or ${{ steps.build.outputs.tag }} are meant to survive.
+const UNRENDERED = /\$\{\{\s*(values|parameters)\b[^}]*\}\}/;
 
 async function filesUnder(dir) {
   const entries = await readdir(dir, { recursive: true, withFileTypes: true });
