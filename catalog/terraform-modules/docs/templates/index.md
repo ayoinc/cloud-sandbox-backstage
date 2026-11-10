@@ -7,8 +7,8 @@ Full-stack infrastructure templates that combine multiple resource modules with 
 | Template                                                  | Cloud | Description                                     |
 | --------------------------------------------------------- | ----- | ----------------------------------------------- |
 | [Azure Full Infrastructure](azure-full-infrastructure.md) | Azure | Complete Azure stack with 10+ module categories |
-| AWS Full Infrastructure                                   | AWS   | Complete AWS stack (Coming Soon)                |
-| GCP Full Infrastructure                                   | GCP   | Complete GCP stack (Coming Soon)                |
+| AWS Full Infrastructure                                   | AWS   | Complete AWS stack, one file per category       |
+| GCP Full Infrastructure                                   | GCP   | Complete GCP stack, one file per category       |
 
 ## Template Strategy
 

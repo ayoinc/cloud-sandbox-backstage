@@ -9,6 +9,20 @@ locals {
   identifier = "${var.name}-${var.environment}"
   db_port    = var.port != null ? var.port : (var.engine == "postgres" ? 5432 : 3306)
 
+  # postgres16, postgres17, ... or mysql8.0, mysql8.4: PostgreSQL families use
+  # the major version, MySQL families the major and minor version.
+  version_parts = split(".", var.engine_version)
+  derived_family = (
+    var.engine == "postgres"
+    ? "postgres${local.version_parts[0]}"
+    : "mysql${join(".", slice(concat(local.version_parts, ["0"]), 0, 2))}"
+  )
+  engine_family = var.engine_family != null ? var.engine_family : local.derived_family
+
+  # Performance Insights is not available for MySQL on micro and small classes.
+  performance_insights_supported = !(var.engine == "mysql" && can(regex("\\.(micro|small)$", var.instance_class)))
+  performance_insights_enabled   = var.performance_insights_enabled && local.performance_insights_supported
+
   # CloudWatch log exports based on engine
   default_log_exports = var.engine == "postgres" ? ["postgresql", "upgrade"] : ["error", "slowquery"]
   log_exports         = length(var.enabled_cloudwatch_logs_exports) > 0 ? var.enabled_cloudwatch_logs_exports : local.default_log_exports
@@ -120,7 +134,7 @@ resource "aws_db_subnet_group" "this" {
 # -----------------------------------------------------------------------------
 resource "aws_db_parameter_group" "this" {
   name   = "${local.identifier}-params"
-  family = var.engine_family
+  family = local.engine_family
 
   # Clients must connect over TLS.
   dynamic "parameter" {
@@ -234,9 +248,9 @@ resource "aws_db_instance" "this" {
   copy_tags_to_snapshot   = true
 
   # Monitoring Configuration
-  performance_insights_enabled          = var.performance_insights_enabled
-  performance_insights_retention_period = var.performance_insights_enabled ? var.performance_insights_retention_period : null
-  performance_insights_kms_key_id       = var.performance_insights_enabled ? aws_kms_key.this.arn : null
+  performance_insights_enabled          = local.performance_insights_enabled
+  performance_insights_retention_period = local.performance_insights_enabled ? var.performance_insights_retention_period : null
+  performance_insights_kms_key_id       = local.performance_insights_enabled ? aws_kms_key.this.arn : null
   monitoring_interval                   = var.monitoring_interval
   monitoring_role_arn                   = var.monitoring_interval > 0 ? aws_iam_role.monitoring[0].arn : null
   enabled_cloudwatch_logs_exports       = local.log_exports

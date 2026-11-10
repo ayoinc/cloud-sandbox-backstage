@@ -457,3 +457,181 @@ run "engine_version_output" {
     error_message = "Engine version should match input"
   }
 }
+
+# -----------------------------------------------------------------------------
+# Test: The engine and its version are enough; the parameter group family and
+# Performance Insights support follow from them
+# -----------------------------------------------------------------------------
+run "derived_family_postgres_15" {
+  command = apply
+
+  variables {
+    name               = "family-test"
+    environment        = "staging"
+    region             = "us-east-1"
+    vpc_id             = "vpc-12345678"
+    private_subnet_ids = ["subnet-11111111", "subnet-22222222"]
+    vpc_cidr_block     = "10.0.0.0/16"
+    database_name      = "testapp"
+    engine             = "postgres"
+    engine_version     = "15"
+    instance_class     = "db.t3.small"
+
+    performance_insights_enabled = true
+  }
+
+  assert {
+    condition     = output.parameter_group_family == "postgres15"
+    error_message = "The parameter group family must be postgres15 for postgres 15."
+  }
+
+  assert {
+    condition     = output.performance_insights_enabled == true
+    error_message = "Performance Insights must be on for postgres on db.t3.small."
+  }
+}
+
+run "derived_family_postgres_16" {
+  command = apply
+
+  variables {
+    name               = "family-test"
+    environment        = "staging"
+    region             = "us-east-1"
+    vpc_id             = "vpc-12345678"
+    private_subnet_ids = ["subnet-11111111", "subnet-22222222"]
+    vpc_cidr_block     = "10.0.0.0/16"
+    database_name      = "testapp"
+    engine             = "postgres"
+    engine_version     = "16"
+    instance_class     = "db.t3.small"
+
+    performance_insights_enabled = true
+  }
+
+  assert {
+    condition     = output.parameter_group_family == "postgres16"
+    error_message = "The parameter group family must be postgres16 for postgres 16."
+  }
+
+  assert {
+    condition     = output.performance_insights_enabled == true
+    error_message = "Performance Insights must be on for postgres on db.t3.small."
+  }
+}
+
+run "derived_family_postgres_17" {
+  command = apply
+
+  variables {
+    name               = "family-test"
+    environment        = "staging"
+    region             = "us-east-1"
+    vpc_id             = "vpc-12345678"
+    private_subnet_ids = ["subnet-11111111", "subnet-22222222"]
+    vpc_cidr_block     = "10.0.0.0/16"
+    database_name      = "testapp"
+    engine             = "postgres"
+    engine_version     = "17.2"
+    instance_class     = "db.r6g.large"
+
+    performance_insights_enabled = true
+  }
+
+  assert {
+    condition     = output.parameter_group_family == "postgres17"
+    error_message = "The parameter group family must be postgres17 for postgres 17.2."
+  }
+
+  assert {
+    condition     = output.performance_insights_enabled == true
+    error_message = "Performance Insights must be on for postgres on db.r6g.large."
+  }
+}
+
+run "derived_family_mysql_80" {
+  command = apply
+
+  variables {
+    name               = "family-test"
+    environment        = "staging"
+    region             = "us-east-1"
+    vpc_id             = "vpc-12345678"
+    private_subnet_ids = ["subnet-11111111", "subnet-22222222"]
+    vpc_cidr_block     = "10.0.0.0/16"
+    database_name      = "testapp"
+    engine             = "mysql"
+    engine_version     = "8.0"
+    instance_class     = "db.t3.small"
+
+    performance_insights_enabled = true
+  }
+
+  assert {
+    condition     = output.parameter_group_family == "mysql8.0"
+    error_message = "The parameter group family must be mysql8.0 for mysql 8.0."
+  }
+
+  assert {
+    condition     = output.performance_insights_enabled == false
+    error_message = "Performance Insights must be off for mysql on db.t3.small."
+  }
+}
+
+run "derived_family_mysql_84" {
+  command = apply
+
+  variables {
+    name               = "family-test"
+    environment        = "staging"
+    region             = "us-east-1"
+    vpc_id             = "vpc-12345678"
+    private_subnet_ids = ["subnet-11111111", "subnet-22222222"]
+    vpc_cidr_block     = "10.0.0.0/16"
+    database_name      = "testapp"
+    engine             = "mysql"
+    engine_version     = "8.4"
+    instance_class     = "db.t3.medium"
+
+    performance_insights_enabled = true
+  }
+
+  assert {
+    condition     = output.parameter_group_family == "mysql8.4"
+    error_message = "The parameter group family must be mysql8.4 for mysql 8.4."
+  }
+
+  assert {
+    condition     = output.performance_insights_enabled == true
+    error_message = "Performance Insights must be on for mysql on db.t3.medium."
+  }
+}
+
+run "derived_family_mysql_patch_version" {
+  command = apply
+
+  variables {
+    name               = "family-test"
+    environment        = "staging"
+    region             = "us-east-1"
+    vpc_id             = "vpc-12345678"
+    private_subnet_ids = ["subnet-11111111", "subnet-22222222"]
+    vpc_cidr_block     = "10.0.0.0/16"
+    database_name      = "testapp"
+    engine             = "mysql"
+    engine_version     = "8.4.3"
+    instance_class     = "db.r6g.large"
+
+    performance_insights_enabled = true
+  }
+
+  assert {
+    condition     = output.parameter_group_family == "mysql8.4"
+    error_message = "The parameter group family must be mysql8.4 for mysql 8.4.3."
+  }
+
+  assert {
+    condition     = output.performance_insights_enabled == true
+    error_message = "Performance Insights must be on for mysql on db.r6g.large."
+  }
+}

@@ -27,8 +27,7 @@ vpc_cidr_block     = "${{ values.vpcCidrBlock }}"
 # Database Engine
 # -----------------------------------------------------------------------------
 engine         = "${{ values.engine }}"
-engine_version = "${{ values.engineVersion }}"
-engine_family  = "${{ values.engineFamily }}"
+engine_version = "${{ values.engineVersion or ('8.4' if values.engine == 'mysql' else '16') }}"
 
 # -----------------------------------------------------------------------------
 # Instance Configuration (production)

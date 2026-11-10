@@ -195,22 +195,35 @@ run "nodejs_runtime" {
   }
 }
 
-run "java_runtime" {
+run "python_313_runtime" {
   command = apply
 
   variables {
-    name        = "java-lambda"
+    name        = "python313-lambda"
     environment = "dev"
-    runtime     = "java21"
-    handler     = "com.example.Handler::handleRequest"
+    runtime     = "python3.13"
+    handler     = "main.handler"
     memory_size = 512
     timeout     = 60
   }
 
   assert {
-    condition     = output.runtime == "java21"
-    error_message = "Java runtime should be 21"
+    condition     = output.runtime == "python3.13"
+    error_message = "Python runtime should be 3.13"
   }
+}
+
+run "rejects_runtime_without_handler" {
+  command = plan
+
+  variables {
+    name        = "test-lambda-java"
+    environment = "dev"
+    runtime     = "java21"
+    handler     = "main.handler"
+  }
+
+  expect_failures = [var.runtime]
 }
 
 # =============================================================================

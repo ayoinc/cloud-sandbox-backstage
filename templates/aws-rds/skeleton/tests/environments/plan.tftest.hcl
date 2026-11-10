@@ -38,4 +38,9 @@ run "plan" {
     condition     = output.instance_identifier == "${var.name}-${var.environment}"
     error_message = "The instance identifier must be <name>-<environment>."
   }
+
+  assert {
+    condition     = startswith(output.parameter_group_family, var.engine)
+    error_message = "The parameter group family must belong to the chosen engine."
+  }
 }

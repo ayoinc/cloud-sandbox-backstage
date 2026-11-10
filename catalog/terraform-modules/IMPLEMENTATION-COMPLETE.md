@@ -136,7 +136,12 @@ backstage/catalog/terraform-modules/
 
 ### Phase 1: Full Infrastructure Templates ✅
 
-**File:** `/backstage/catalog/terraform-modules/templates/azure-full-infrastructure/template.yaml`
+> The three full-infrastructure templates now live at the repository root, in
+> `templates/aws-full-infrastructure`, `templates/azure-full-infrastructure`
+> and `templates/gcp-full-infrastructure`, each written for its own cloud. The
+> tree above shows where they were first placed.
+
+**File:** `/backstage/templates/azure-full-infrastructure/template.yaml`
 
 **Features:**
 
@@ -494,8 +499,8 @@ Result: 200+ tests, all run in CI/CD without credentials!
 ```bash
 cd backstage/catalog/terraform-modules/
 
-# Create full infrastructure stack
-cd templates/azure-full-infrastructure/skeleton/
+# Create a full infrastructure stack from the portal's "Azure Full
+# Infrastructure" template, then in the new repository:
 terraform init
 terraform plan -var-file=environments/dev.tfvars
 terraform apply -var-file=environments/dev.tfvars

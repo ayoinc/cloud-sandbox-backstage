@@ -13,7 +13,6 @@
     "vpcCidrBlock": "10.0.0.0/16",
     "engine": "postgres",
     "engineVersion": "16",
-    "engineFamily": "postgres16",
     "databaseName": "app",
     "instanceClass": "db.t3.small",
     "allocatedStorage": 20,

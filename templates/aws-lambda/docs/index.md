@@ -49,10 +49,12 @@ This template provisions an AWS Lambda function with a comprehensive set of prod
 
 | Runtime | Version    | Use Case                           |
 | ------- | ---------- | ---------------------------------- |
-| Python  | 3.12, 3.11 | Data processing, automation, APIs  |
-| Node.js | 20.x, 18.x | Web backends, real-time processing |
-| Go      | 1.x        | High-performance workloads         |
-| Java    | 21, 17     | Enterprise applications            |
+| Python  | 3.13, 3.12 | Data processing, automation, APIs  |
+| Node.js | 22.x       | Web backends, real-time processing |
+
+The generated repository contains a handler and unit tests for both languages
+(`src/main.py`, `src/main.mjs`). Both export `main.handler`, so the default
+handler works with every runtime offered.
 
 ### Core Capabilities
 
@@ -165,12 +167,12 @@ terraform apply -var-file=environments/dev.tfvars
 
 ### Required Variables
 
-| Variable      | Type   | Description                                   |
-| ------------- | ------ | --------------------------------------------- |
-| `name`        | string | Function name identifier                      |
-| `environment` | string | Environment (dev, staging, prod)              |
-| `runtime`     | string | Lambda runtime (python3.12, nodejs20.x, etc.) |
-| `handler`     | string | Function handler (file.function)              |
+| Variable      | Type   | Description                                         |
+| ------------- | ------ | --------------------------------------------------- |
+| `name`        | string | Function name identifier                            |
+| `environment` | string | Environment (dev, staging, prod)                    |
+| `runtime`     | string | Lambda runtime (python3.13, python3.12, nodejs22.x) |
+| `handler`     | string | Function handler (file.function)                    |
 
 ### Resource Configuration
 

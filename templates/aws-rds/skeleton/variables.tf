@@ -52,15 +52,15 @@ variable "engine" {
 }
 
 variable "engine_version" {
-  description = "Database engine version"
+  description = "Database engine version (e.g., 16 for PostgreSQL, 8.4 for MySQL)"
   type        = string
   default     = "16"
 }
 
 variable "engine_family" {
-  description = "Database parameter group family (e.g., postgres16, mysql8.0)"
+  description = "Database parameter group family. Derived from the engine and its version when null"
   type        = string
-  default     = "postgres16"
+  default     = null
 }
 
 variable "instance_class" {

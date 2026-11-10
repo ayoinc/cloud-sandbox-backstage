@@ -53,16 +53,8 @@ spec:
           title: Runtime
           type: string
           default: python3.12
-          enum:
-            [
-              python3.12,
-              python3.11,
-              nodejs20.x,
-              nodejs18.x,
-              go1.x,
-              java21,
-              java17,
-            ]
+          description: The repository ships a handler and unit tests for Python and for Node.js
+          enum: [python3.13, python3.12, nodejs22.x]
         handler:
           title: Handler
           type: string

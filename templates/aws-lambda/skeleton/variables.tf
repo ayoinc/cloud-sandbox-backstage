@@ -19,8 +19,13 @@ variable "environment" {
 }
 
 variable "runtime" {
-  description = "Lambda runtime (e.g., python3.12, nodejs22.x, java21)"
+  description = "Lambda runtime: python3.12, python3.13 or nodejs22.x"
   type        = string
+
+  validation {
+    condition     = contains(["python3.12", "python3.13", "nodejs22.x"], var.runtime)
+    error_message = "The runtime must be python3.12, python3.13 or nodejs22.x: src/ has handlers for Python and Node.js only."
+  }
 }
 
 variable "handler" {

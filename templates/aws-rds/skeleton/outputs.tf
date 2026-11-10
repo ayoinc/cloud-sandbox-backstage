@@ -95,6 +95,16 @@ output "engine_version" {
   value       = module.rds.engine_version
 }
 
+output "parameter_group_family" {
+  description = "The parameter group family used for the engine version"
+  value       = module.rds.parameter_group_family
+}
+
+output "performance_insights_enabled" {
+  description = "Whether Performance Insights is enabled on the instance"
+  value       = module.rds.performance_insights_enabled
+}
+
 output "instance_class" {
   description = "The RDS instance class"
   value       = module.rds.instance_class

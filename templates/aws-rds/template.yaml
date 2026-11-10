@@ -96,16 +96,6 @@ spec:
             - postgres
             - mysql
           default: postgres
-        engineVersion:
-          title: Engine Version
-          type: string
-          default: '16'
-          description: Major version (e.g., 16 for PostgreSQL, 8.0 for MySQL)
-        engineFamily:
-          title: Parameter Group Family
-          type: string
-          description: Database parameter group family (e.g., postgres16, mysql8.0)
-          default: 'postgres16'
         databaseName:
           title: Database Name
           type: string
@@ -133,6 +123,34 @@ spec:
           type: boolean
           default: false
           description: Enable for high availability (production recommended)
+      dependencies:
+        engine:
+          oneOf:
+            - properties:
+                engine:
+                  enum:
+                    - postgres
+                engineVersion:
+                  title: PostgreSQL Version
+                  type: string
+                  description: Major version. The parameter group family follows from it.
+                  enum:
+                    - '17'
+                    - '16'
+                    - '15'
+                  default: '16'
+            - properties:
+                engine:
+                  enum:
+                    - mysql
+                engineVersion:
+                  title: MySQL Version
+                  type: string
+                  description: Major version. The parameter group family follows from it.
+                  enum:
+                    - '8.4'
+                    - '8.0'
+                  default: '8.4'
 
     - title: Repository Configuration
       required:
@@ -165,7 +183,6 @@ spec:
           vpcCidrBlock: ${{ parameters.vpcCidrBlock }}
           engine: ${{ parameters.engine }}
           engineVersion: ${{ parameters.engineVersion }}
-          engineFamily: ${{ parameters.engineFamily }}
           databaseName: ${{ parameters.databaseName }}
           instanceClass: ${{ parameters.instanceClass }}
           allocatedStorage: ${{ parameters.allocatedStorage }}

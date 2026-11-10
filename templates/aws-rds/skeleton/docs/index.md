@@ -135,7 +135,7 @@ internet -> vpc.public.app: HTTPS
 | Database Name   | `${{ values.databaseName }}`          |
 | Master Username | `dbadmin`    |
 | Port            | `{% if values.engine == "mysql" %}3306{% else %}5432{% endif %}` |
-| Parameter Group | `${{ values.engineFamily }}`   |
+| Parameter Group | Family derived from the engine and version (`postgres16`, `mysql8.4`, ...) |
 
 ---
 

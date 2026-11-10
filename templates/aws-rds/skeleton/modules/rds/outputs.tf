@@ -129,6 +129,16 @@ output "engine_version" {
   value       = aws_db_instance.this.engine_version
 }
 
+output "parameter_group_family" {
+  description = "The parameter group family used for the engine version"
+  value       = aws_db_parameter_group.this.family
+}
+
+output "performance_insights_enabled" {
+  description = "Whether Performance Insights is enabled on the instance"
+  value       = local.performance_insights_enabled
+}
+
 output "instance_class" {
   description = "The RDS instance class"
   value       = aws_db_instance.this.instance_class

@@ -28,12 +28,12 @@ variable "environment" {
 }
 
 variable "runtime" {
-  description = "Lambda runtime (e.g., python3.12, nodejs22.x, java21)"
+  description = "Lambda runtime. Python and Node.js are the runtimes src/ has a handler for"
   type        = string
 
   validation {
-    condition     = can(regex("^(python3\\.(9|10|11|12)|nodejs(18|20|22)\\.x|java(11|17|21)|go1\\.x|ruby3\\.2|dotnet(6|8)|provided(\\.al2023)?)$", var.runtime))
-    error_message = "Invalid Lambda runtime specified."
+    condition     = can(regex("^(python3\\.(12|13)|nodejs22\\.x)$", var.runtime))
+    error_message = "The runtime must be python3.12, python3.13 or nodejs22.x: src/ has handlers for Python and Node.js only."
   }
 }
 
