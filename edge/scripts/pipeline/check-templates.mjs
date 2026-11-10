@@ -6,6 +6,11 @@
 // the values against the form and runs the steps that only write files. A
 // template that cannot be rendered fails here instead of in front of a user.
 //
+// Each template is then rendered a second time with awkward prose in its
+// free-text fields (see AWKWARD_TEXT). Every YAML and JSON file that parsed
+// the first time must still parse: a description with a colon or a quote in
+// it must not produce a repository whose catalog-info.yaml is refused.
+//
 //   yarn workspace @internal/edge template:check             every template
 //   yarn workspace @internal/edge template:check <dir> ...   those templates
 //   ... --out <dir>   also write what each template produced to <dir>/<name>
@@ -15,7 +20,7 @@
 import { readFileSync } from 'node:fs';
 import { mkdir, readdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve, sep } from 'node:path';
-import { parse } from 'yaml';
+import { parse, parseAllDocuments } from 'yaml';
 import {
   backendLogTail,
   backendRequest,
@@ -55,6 +60,53 @@ async function findTemplates() {
   return found.sort();
 }
 
+// What a person may well type into a description: an apostrophe, quotes, a
+// colon followed by a space, a percent sign, a hash and an ampersand all
+// mean something to YAML or JSON when pasted in unquoted.
+const AWKWARD_TEXT = `It's the team's "main" service: handles 50% of #1 & more`;
+const PROSE_FIELD =
+  /descri|summary|purpose|title|about|notes?$|comment|message|tagline|headline/i;
+
+/**
+ * The form fields a user writes prose in: strings with no pattern, format,
+ * fixed choices or picker, named like a description or a title.
+ */
+function proseFields(template) {
+  const fields = new Map();
+  for (const page of [template.spec?.parameters ?? []].flat()) {
+    for (const [key, schema] of Object.entries(page?.properties ?? {})) {
+      if (
+        schema?.type === 'string' &&
+        !schema.enum &&
+        !schema.pattern &&
+        !schema.format &&
+        !schema['ui:field'] &&
+        PROSE_FIELD.test(`${key} ${schema.title ?? ''}`)
+      ) {
+        fields.set(key, AWKWARD_TEXT.slice(0, schema.maxLength ?? Infinity));
+      }
+    }
+  }
+  return fields;
+}
+
+/** Whether the text of a .yaml, .yml or .json file parses; undefined for other files. */
+function parses({ path, content }) {
+  const text = content.toString('utf8');
+  if (/\.ya?ml$/.test(path)) {
+    return parseAllDocuments(text).every(document => !document.errors.length);
+  }
+  if (/\.json$/.test(path)) {
+    try {
+      JSON.parse(text);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  return undefined;
+}
+
 /** Renders one template. Returns `{ name, files }` or throws with the reason. */
 async function renderTemplate(backend, dir) {
   const template = parse(readFileSync(join(dir, 'template.yaml'), 'utf8'));
@@ -75,25 +127,28 @@ async function renderTemplate(backend, dir) {
       path: relative(dir, file).split(sep).join('/'),
       base64Content: readFileSync(file).toString('base64'),
     }));
-  let result;
-  try {
-    result = await backendRequest(backend, '/api/scaffolder/v2/dry-run', {
-      method: 'POST',
-      json: { template, values: sample.values, secrets: {}, directoryContents },
-    });
-  } catch (error) {
-    // The scaffolder answers 400 with the schema errors of the form values.
-    const invalid = error.body?.errors?.map(e => e.stack ?? e.message);
-    throw invalid
-      ? new Error(`The sample values were rejected: ${invalid.join('; ')}`)
-      : error;
-  }
+  /** What the steps write with these form values: the new repository. */
+  const render = async values => {
+    let result;
+    try {
+      result = await backendRequest(backend, '/api/scaffolder/v2/dry-run', {
+        method: 'POST',
+        json: { template, values, secrets: {}, directoryContents },
+      });
+    } catch (error) {
+      // The scaffolder answers 400 with the schema errors of the form values.
+      const invalid = error.body?.errors?.map(e => e.stack ?? e.message);
+      throw invalid
+        ? new Error(`The values were rejected: ${invalid.join('; ')}`)
+        : error;
+    }
+    return result.directoryContents.map(file => ({
+      path: file.path,
+      content: Buffer.from(file.base64Content, 'base64'),
+    }));
+  };
 
-  // What the steps wrote: the new repository.
-  const files = result.directoryContents.map(file => ({
-    path: file.path,
-    content: Buffer.from(file.base64Content, 'base64'),
-  }));
+  const files = await render(sample.values);
   const unrendered = files
     .filter(file => UNRENDERED.test(file.content.toString('utf8')))
     .map(file => file.path);
@@ -103,6 +158,38 @@ async function renderTemplate(backend, dir) {
         .slice(0, 5)
         .join(', ')}`,
     );
+  }
+
+  const prose = proseFields(template);
+  if (prose.size > 0) {
+    let awkward;
+    try {
+      awkward = await render({
+        ...sample.values,
+        ...Object.fromEntries(prose),
+      });
+    } catch (error) {
+      throw new Error(
+        `With ${[...prose.keys()].join(', ')} set to ${JSON.stringify(
+          AWKWARD_TEXT,
+        )}: ${error.message.split('\n')[0]}`,
+      );
+    }
+    const sound = new Set(
+      files.filter(file => parses(file) === true).map(file => file.path),
+    );
+    const broken = awkward
+      .filter(file => sound.has(file.path) && parses(file) === false)
+      .map(file => file.path);
+    if (broken.length > 0) {
+      throw new Error(
+        `Free text breaks ${broken.length} files. With ${[...prose.keys()].join(
+          ', ',
+        )} set to ${JSON.stringify(
+          AWKWARD_TEXT,
+        )} these no longer parse: ${broken.slice(0, 6).join(', ')}`,
+      );
+    }
   }
   return { name: template.metadata.name, files };
 }
