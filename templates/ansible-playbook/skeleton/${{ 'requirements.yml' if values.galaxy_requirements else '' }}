@@ -5,7 +5,7 @@
 {%- if values.collections | length %}
 collections:
 {%- for collection in values.collections %}
-  - name: ${{ collection }}
+  - name: ${{ collection | dump }}
 {%- endfor %}
 {%- else %}
 collections: []

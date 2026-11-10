@@ -1,7 +1,7 @@
 {
   "values": {
     "name": "sample-playbook",
-    "description": "Baseline configuration for application servers",
+    "description": "Baseline playbook: the platform team's \"day one\" setup for app servers",
     "owner": "group:default/platform-team",
     "target_os": "linux",
     "repoUrl": "github.com?owner=example-org&repo=sample-playbook",

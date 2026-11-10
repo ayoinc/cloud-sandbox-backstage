@@ -4,10 +4,10 @@
 
 galaxy_info:
   # Galaxy allows only lower-case letters, digits and underscores in both
-  role_name: ${{ values.name | lower | replace('-', '_') }}
-  namespace: ${{ values.destination.owner | lower | replace('-', '_') }}
-  author: ${{ values.owner }}
-  description: ${{ values.description }}
+  role_name: ${{ values.name | lower | replace('-', '_') | dump }}
+  namespace: ${{ values.destination.owner | lower | replace('-', '_') | dump }}
+  author: ${{ values.owner | dump }}
+  description: ${{ values.description | dump }}
   company: ''
   license: MIT
   min_ansible_version: '2.9'

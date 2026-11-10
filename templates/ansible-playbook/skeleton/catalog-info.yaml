@@ -2,9 +2,9 @@
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
-  name: ${{ values.name }}
-  title: ${{ values.name | title }}
-  description: ${{ values.description }}
+  name: ${{ values.name | dump }}
+  title: ${{ values.name | title | dump }}
+  description: ${{ values.description | dump }}
   annotations:
     github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
     backstage.io/techdocs-ref: dir:.
@@ -23,5 +23,5 @@ metadata:
 spec:
   type: library
   lifecycle: experimental
-  owner: ${{ values.owner }}
+  owner: ${{ values.owner | dump }}
   system: awx-automation-platform

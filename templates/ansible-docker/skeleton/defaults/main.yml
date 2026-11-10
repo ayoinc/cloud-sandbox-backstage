@@ -6,7 +6,7 @@
 docker_edition: ${{ values.dockerEdition }}
 
 # Docker version (leave empty for latest)
-docker_version: '${{ values.dockerVersion }}'
+docker_version: ${{ (values.dockerVersion or '') | dump }}
 
 # Docker release channel: stable, edge, or test
 docker_channel: stable
@@ -29,7 +29,7 @@ docker_compose_version: ''
 {%- if dockerUsers | length %}
 docker_users:
 {%- for user in dockerUsers %}
-  - ${{ user }}
+  - ${{ user | dump }}
 {%- endfor %}
 {%- else %}
 docker_users: []

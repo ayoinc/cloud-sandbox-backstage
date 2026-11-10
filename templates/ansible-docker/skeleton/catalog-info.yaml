@@ -2,12 +2,12 @@
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
-  name: ${{ values.name }}
-  description: ${{ values.description }}
+  name: ${{ values.name | dump }}
+  description: ${{ values.description | dump }}
   annotations:
     backstage.io/techdocs-ref: dir:.
     github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
-    ansible.com/role-name: ${{ values.name }}
+    ansible.com/role-name: ${{ values.name | dump }}
   tags:
     - ansible
     - docker
@@ -15,4 +15,4 @@ metadata:
 spec:
   type: ansible-role
   lifecycle: production
-  owner: ${{ values.owner }}
+  owner: ${{ values.owner | dump }}

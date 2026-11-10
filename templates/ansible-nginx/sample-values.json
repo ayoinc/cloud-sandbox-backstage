@@ -1,7 +1,7 @@
 {
   "values": {
     "name": "sample-nginx-role",
-    "description": "Installs and configures Nginx",
+    "description": "Nginx role: the web team's \"front door\" proxy, serves 100% of #1 site",
     "owner": "group:default/platform-team",
     "nginxWorkerProcesses": "auto",
     "nginxWorkerConnections": 1024,

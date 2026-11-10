@@ -23,7 +23,9 @@ spec:
         name:
           title: Role Name
           type: string
-          description: Name for this Ansible role
+          description: Name for this Ansible role (lower-case letters, digits, hyphens and underscores)
+          pattern: '^[a-z0-9]([a-z0-9_-]*[a-z0-9])?$'
+          maxLength: 63
           ui:autofocus: true
         description:
           title: Description
@@ -56,6 +58,7 @@ spec:
           title: Docker Version
           type: string
           description: Specific Docker version (leave empty for latest)
+          pattern: '^[0-9A-Za-z.:~+-]*$'
           default: ''
         dockerComposeInstall:
           title: Install Docker Compose
@@ -66,6 +69,7 @@ spec:
           title: Docker Users
           type: string
           description: Comma-separated list of users to add to docker group
+          pattern: '^\s*([a-z_][a-z0-9_-]*\s*(,\s*[a-z_][a-z0-9_-]*\s*)*)?$'
           default: ''
 
     - title: Repository Configuration

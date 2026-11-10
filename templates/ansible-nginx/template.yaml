@@ -23,7 +23,9 @@ spec:
         name:
           title: Role Name
           type: string
-          description: Name for this Ansible role
+          description: Name for this Ansible role (lower-case letters, digits, hyphens and underscores)
+          pattern: '^[a-z0-9]([a-z0-9_-]*[a-z0-9])?$'
+          maxLength: 63
           ui:autofocus: true
         description:
           title: Description
@@ -45,6 +47,7 @@ spec:
           title: Worker Processes
           type: string
           description: Number of worker processes (auto for CPU count)
+          pattern: '^(auto|[1-9][0-9]*)$'
           default: auto
         nginxWorkerConnections:
           title: Worker Connections

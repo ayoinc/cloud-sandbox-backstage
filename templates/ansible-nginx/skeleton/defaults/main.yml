@@ -10,7 +10,7 @@ nginx_service_enabled: true
 nginx_service_state: started
 
 # Worker configuration
-nginx_worker_processes: '${{ values.nginxWorkerProcesses }}'
+nginx_worker_processes: ${{ values.nginxWorkerProcesses | dump }}
 nginx_worker_connections: ${{ values.nginxWorkerConnections }}
 nginx_multi_accept: 'on'
 

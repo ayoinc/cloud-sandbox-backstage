@@ -1,7 +1,7 @@
 {
   "values": {
     "name": "sample-docker-role",
-    "description": "Installs and configures Docker",
+    "description": "Docker role: installs the team's \"standard\" engine & compose plugin",
     "owner": "group:default/platform-team",
     "dockerEdition": "ce",
     "dockerVersion": "",

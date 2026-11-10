@@ -87,6 +87,7 @@ spec:
           description: List of Ansible collections this playbook requires
           items:
             type: string
+            pattern: '^[a-z0-9_]+\.[a-z0-9_]+$'
           default:
             - community.general
             - ansible.posix
