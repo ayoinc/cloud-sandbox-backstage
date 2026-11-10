@@ -4,7 +4,6 @@ metadata:
   name: cloud-sandbox-catalog
   description: Main catalog for Cloud Sandbox Backstage Platform
 spec:
-  type: file
   targets:
     # Users and Groups
     - ./users.yaml

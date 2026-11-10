@@ -89,7 +89,6 @@ metadata:
   name: terraform-aws-module-catalog
   description: AWS Terraform module catalog entries
 spec:
-  type: file
   targets:
     - ./aws/resources/compute/*/catalog-info.yaml
     - ./aws/resources/containers/*/catalog-info.yaml
@@ -109,7 +108,6 @@ metadata:
   name: terraform-azure-module-catalog
   description: Azure Terraform module catalog entries
 spec:
-  type: file
   targets:
     - ./azure/resources/compute/*/catalog-info.yaml
     - ./azure/resources/containers/*/catalog-info.yaml
@@ -129,7 +127,6 @@ metadata:
   name: terraform-gcp-module-catalog
   description: GCP Terraform module catalog entries
 spec:
-  type: file
   targets:
     - ./gcp/resources/compute/*/catalog-info.yaml
     - ./gcp/resources/containers/*/catalog-info.yaml
@@ -149,7 +146,6 @@ metadata:
   name: terraform-templates-catalog
   description: Terraform infrastructure templates
 spec:
-  type: file
   targets:
     - ./templates/*/template.yaml
     - ./templates/*/*/template.yaml
