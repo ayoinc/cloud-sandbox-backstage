@@ -107,6 +107,82 @@ function parses({ path, content }) {
   return undefined;
 }
 
+const ENTITY_NAME = /^[A-Za-z0-9]([A-Za-z0-9_.-]{0,61}[A-Za-z0-9])?$/;
+const PROJECT_SLUG = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
+
+/**
+ * What would stop the new repository from appearing properly in the portal:
+ * the catalog file the template registers is missing or not a usable entity,
+ * its pipeline link does not name a repository, or its documentation
+ * reference points at a directory with no mkdocs.yml.
+ */
+function catalogProblems(template, files) {
+  const problems = [];
+  const byPath = new Map(files.map(file => [file.path, file]));
+  for (const step of template.spec?.steps ?? []) {
+    if (step.action !== 'catalog:register') {
+      continue;
+    }
+    const path = String(
+      step.input?.catalogInfoPath ?? '/catalog-info.yaml',
+    ).replace(/^\/+/, '');
+    const file = byPath.get(path);
+    if (!file) {
+      problems.push(`${path} is registered but not written`);
+      continue;
+    }
+    const documents = parseAllDocuments(file.content.toString('utf8'));
+    if (documents.some(document => document.errors.length)) {
+      problems.push(`${path} is not valid YAML`);
+      continue;
+    }
+    for (const entity of documents.map(document => document.toJS())) {
+      const name = entity?.metadata?.name;
+      const where = `${path} (${entity?.kind ?? 'no kind'} ${name ?? ''})`;
+      if (!entity?.apiVersion || !entity?.kind) {
+        problems.push(`${where} has no apiVersion or kind`);
+        continue;
+      }
+      if (typeof name !== 'string' || !ENTITY_NAME.test(name)) {
+        problems.push(`${where} has an invalid metadata.name`);
+      }
+      const annotations = entity.metadata?.annotations ?? {};
+      if (entity.kind === 'Component') {
+        for (const field of ['owner', 'type', 'lifecycle']) {
+          if (!entity.spec?.[field]) {
+            problems.push(`${where} has no spec.${field}`);
+          }
+        }
+        const slug = annotations['github.com/project-slug'];
+        if (typeof slug !== 'string' || !PROJECT_SLUG.test(slug)) {
+          problems.push(
+            `${where} has no usable github.com/project-slug (${JSON.stringify(
+              slug,
+            )}), so its CI/CD tab would be empty`,
+          );
+        }
+      }
+      const docs = annotations['backstage.io/techdocs-ref'];
+      if (typeof docs === 'string' && docs.startsWith('dir:')) {
+        const docsDir = join(dirname(path), docs.slice(4)).replace(
+          /^\.\/?/,
+          '',
+        );
+        const prefix = docsDir === '' || docsDir === '.' ? '' : `${docsDir}/`;
+        if (
+          !byPath.has(`${prefix}mkdocs.yml`) &&
+          !byPath.has(`${prefix}mkdocs.yaml`)
+        ) {
+          problems.push(
+            `${where} refers to documentation in ${docs} but there is no mkdocs.yml there`,
+          );
+        }
+      }
+    }
+  }
+  return problems;
+}
+
 /** Renders one template. Returns `{ name, files }` or throws with the reason. */
 async function renderTemplate(backend, dir) {
   const template = parse(readFileSync(join(dir, 'template.yaml'), 'utf8'));
@@ -158,6 +234,10 @@ async function renderTemplate(backend, dir) {
         .slice(0, 5)
         .join(', ')}`,
     );
+  }
+  const problems = catalogProblems(template, files);
+  if (problems.length > 0) {
+    throw new Error(problems.join('; '));
   }
 
   const prose = proseFields(template);
