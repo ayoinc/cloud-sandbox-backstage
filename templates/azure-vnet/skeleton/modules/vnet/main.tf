@@ -16,12 +16,20 @@ locals {
   nat_gateway_name    = "nat-${var.name}-${var.environment}"
   nat_public_ip_name  = "pip-nat-${var.name}-${var.environment}"
 
+  # A NAT Gateway is a zonal resource: it and its public IP live in one zone.
+  nat_zones = slice(var.availability_zones, 0, 1)
+
   # Common tags applied to all resources
-  common_tags = merge(var.tags, {
-    Project     = var.name
-    Environment = var.environment
-    ManagedBy   = "terraform"
-  })
+  common_tags = merge(
+    var.tags,
+    {
+      Project     = var.name
+      Environment = var.environment
+      ManagedBy   = "terraform"
+    },
+    var.owner != "" ? { Owner = var.owner } : {},
+    var.description != "" ? { Description = substr(var.description, 0, 256) } : {},
+  )
 
   # Subnet configurations
   subnets = {
@@ -80,6 +88,28 @@ resource "azurerm_virtual_network" "main" {
 
   dns_servers = var.dns_servers
 
+  dynamic "ddos_protection_plan" {
+    for_each = azurerm_network_ddos_protection_plan.main
+
+    content {
+      id     = ddos_protection_plan.value.id
+      enable = true
+    }
+  }
+
+  tags = local.common_tags
+}
+
+# =============================================================================
+# DDoS Protection Plan (Optional)
+# =============================================================================
+resource "azurerm_network_ddos_protection_plan" "main" {
+  count = var.enable_ddos_protection ? 1 : 0
+
+  name                = "ddos-${var.name}-${var.environment}"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+
   tags = local.common_tags
 }
 
@@ -114,6 +144,7 @@ resource "azurerm_subnet" "database" {
 }
 
 resource "azurerm_subnet" "aks" {
+  #checkov:skip=CKV2_AZURE_31:AKS attaches its own NSG to the node NICs and manages the rules for its load balancers
   name                 = local.subnets.aks.name
   resource_group_name  = azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
@@ -134,26 +165,14 @@ resource "azurerm_network_security_group" "public" {
 
   # Allow HTTPS inbound
   security_rule {
-    name                       = "AllowHTTPS"
-    priority                   = 100
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "443"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-  }
-
-  # Allow HTTP inbound (for redirects to HTTPS)
-  security_rule {
-    name                       = "AllowHTTP"
-    priority                   = 110
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "80"
+    name                   = "AllowHTTPS"
+    priority               = 100
+    direction              = "Inbound"
+    access                 = "Allow"
+    protocol               = "Tcp"
+    source_port_range      = "*"
+    destination_port_range = "443"
+    #trivy:ignore:AZU-0047 The public subnet fronts internet-facing load balancers; HTTPS from anywhere is its purpose
     source_address_prefix      = "*"
     destination_address_prefix = "*"
   }
@@ -312,7 +331,7 @@ resource "azurerm_public_ip" "nat" {
   resource_group_name = azurerm_resource_group.main.name
   allocation_method   = "Static"
   sku                 = "Standard"
-  zones               = var.availability_zones
+  zones               = local.nat_zones
 
   tags = local.common_tags
 }
@@ -326,7 +345,7 @@ resource "azurerm_nat_gateway" "main" {
   sku_name                = "Standard"
   idle_timeout_in_minutes = var.nat_idle_timeout
 
-  zones = var.availability_zones
+  zones = local.nat_zones
 
   tags = local.common_tags
 }

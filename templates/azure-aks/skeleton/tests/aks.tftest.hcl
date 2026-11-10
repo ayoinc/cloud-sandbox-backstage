@@ -8,8 +8,55 @@
 # -----------------------------------------------------------------------------
 # Mock Provider for Testing
 # -----------------------------------------------------------------------------
+# The provider checks the format of the IDs passed between resources, so the
+# mocked resources return well-formed Azure resource IDs.
 mock_provider "azurerm" {
   alias = "mock"
+
+  mock_resource "azurerm_log_analytics_workspace" {
+    defaults = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-test/providers/Microsoft.OperationalInsights/workspaces/law-test"
+    }
+  }
+
+  mock_resource "azurerm_container_registry" {
+    defaults = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-test/providers/Microsoft.ContainerRegistry/registries/acrtest"
+    }
+  }
+
+  mock_resource "azurerm_user_assigned_identity" {
+    defaults = {
+      id           = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-test/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-test"
+      principal_id = "00000000-0000-0000-0000-000000000001"
+      client_id    = "00000000-0000-0000-0000-000000000002"
+    }
+  }
+
+  mock_resource "azurerm_kubernetes_cluster" {
+    defaults = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-test/providers/Microsoft.ContainerService/managedClusters/aks-test"
+      kubelet_identity = [{
+        client_id                 = "00000000-0000-0000-0000-000000000003"
+        object_id                 = "00000000-0000-0000-0000-000000000004"
+        user_assigned_identity_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-test/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-kubelet"
+      }]
+      kube_config = [{
+        host                   = "https://aks-test.hcp.eastus.azmk8s.io:443"
+        client_certificate     = "dGVzdA=="
+        client_key             = "dGVzdA=="
+        cluster_ca_certificate = "dGVzdA=="
+        username               = "clusterUser"
+        password               = "dGVzdA=="
+      }]
+    }
+  }
+
+  mock_resource "azurerm_kubernetes_cluster_node_pool" {
+    defaults = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-test/providers/Microsoft.ContainerService/managedClusters/aks-test/agentPools/user"
+    }
+  }
 }
 
 # -----------------------------------------------------------------------------
@@ -21,7 +68,7 @@ variables {
   location           = "eastus"
   description        = "Test AKS cluster"
   owner              = "platform-team"
-  kubernetes_version = "1.28.5"
+  kubernetes_version = "1.36"
 
   # System Node Pool
   system_node_vm_size = "Standard_D2s_v3"
@@ -86,7 +133,7 @@ variables {
 # Test: AKS Module Plan Succeeds
 # -----------------------------------------------------------------------------
 run "aks_plan_succeeds" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -107,7 +154,7 @@ run "aks_plan_succeeds" {
 # Test: AKS Naming Convention
 # -----------------------------------------------------------------------------
 run "aks_naming_convention" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -128,7 +175,7 @@ run "aks_naming_convention" {
 # Test: ACR Created When Enabled
 # -----------------------------------------------------------------------------
 run "acr_created_when_enabled" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -153,7 +200,7 @@ run "acr_created_when_enabled" {
 # Test: ACR NOT Created When Disabled
 # -----------------------------------------------------------------------------
 run "acr_not_created_when_disabled" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -173,14 +220,14 @@ run "acr_not_created_when_disabled" {
 # Test: Kubernetes Version
 # -----------------------------------------------------------------------------
 run "kubernetes_version" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
   }
 
   assert {
-    condition     = output.kubernetes_version == "1.28.5"
+    condition     = output.kubernetes_version == "1.36"
     error_message = "Kubernetes version should match input"
   }
 }
@@ -189,7 +236,7 @@ run "kubernetes_version" {
 # Test: Get Credentials Command
 # -----------------------------------------------------------------------------
 run "get_credentials_command" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -210,7 +257,7 @@ run "get_credentials_command" {
 # Test: Cluster Info Summary
 # -----------------------------------------------------------------------------
 run "cluster_info_summary" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -236,7 +283,7 @@ run "cluster_info_summary" {
 # Test: Environment Validation - Development
 # -----------------------------------------------------------------------------
 run "environment_dev" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -256,7 +303,7 @@ run "environment_dev" {
 # Test: Environment Validation - Production
 # -----------------------------------------------------------------------------
 run "environment_prod" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -276,7 +323,7 @@ run "environment_prod" {
 # Test: Identity Outputs
 # -----------------------------------------------------------------------------
 run "identity_outputs" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -297,7 +344,7 @@ run "identity_outputs" {
 # Test: Log Analytics Created
 # -----------------------------------------------------------------------------
 run "log_analytics_created" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock

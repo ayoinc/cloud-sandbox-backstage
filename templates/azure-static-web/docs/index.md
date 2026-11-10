@@ -1,55 +1,51 @@
 # Azure Static Web App Template
 
-This template creates an Azure Static Web App for hosting static sites and SPAs.
+This template creates a repository with the Terraform configuration of an Azure Static Web App and a pipeline that validates and deploys it. The repository holds the infrastructure only; the site is deployed to the app from its own repository.
 
-## Features
+## What It Creates
 
-- **Global CDN** - Fast content delivery worldwide
-- **Free SSL** - Automatic HTTPS certificates
-- **Staging environments** - Preview deployments for PRs
-- **API integration** - Azure Functions backend
-- **Custom domains** - Bring your own domain
-- **Authentication** - Built-in auth providers
+- Resource group and Static Web App (Free or Standard)
+- Optional custom domain (Standard) and Azure Functions API backend registration
+- A `build_config` output with the app, API and output locations of the chosen framework
 
-## Prerequisites
+## Form Fields
 
-- Azure Subscription
-- GitHub repository
-- Terraform >= 1.5
+| Field | Description |
+| ----- | ----------- |
+| App Name | Name used in resource names |
+| Description | Purpose of the website |
+| Owner | Team that owns the resource |
+| Environment | Environment the pipeline deploys on push; variable files for all three are generated |
+| Azure Region | Region of the app |
+| SKU Tier | Free or Standard, applied to the chosen environment |
+| Frontend Framework | Selects the build configuration and is recorded as a tag |
+| Repository Location | GitHub repository to create |
 
-## Supported Frameworks
+## The Generated Repository
 
-- React
-- Vue.js
-- Angular
-- Next.js
-- Gatsby
-- Hugo
-- Plain HTML/CSS/JS
+| Path | Content |
+| ---- | ------- |
+| `main.tf`, `variables.tf`, `outputs.tf`, `modules/` | Terraform configuration |
+| `environments/dev.tfvars`, `staging.tfvars`, `prod.tfvars` | One variable file per environment |
+| `tests/` | Terraform tests that run against a mocked provider |
+| `.github/workflows/terraform.yaml` | Pipeline |
+| `docs/`, `mkdocs.yml`, `catalog-info.yaml` | TechDocs and the catalog entity |
 
-## Quick Start
+### Pipeline
 
-```bash
-terraform init
-terraform apply
-```
+The pipeline passes on the first push with nothing configured: it checks formatting, validates the configuration, lints it with TFLint, runs the Terraform tests and scans it with Trivy and Checkov. None of these needs an Azure account.
 
-## Configuration
+Plan and apply sign in to Azure with OIDC. They are skipped until these repository secrets exist:
 
-| Variable   | Description  | Default |
-| ---------- | ------------ | ------- |
-| `name`     | App name     | -       |
-| `sku_tier` | Pricing tier | `Free`  |
-| `sku_size` | SKU size     | `Free`  |
+| Secret | Description |
+| ------ | ----------- |
+| `AZURE_CLIENT_ID` | Application (client) ID of the app registration |
+| `AZURE_TENANT_ID` | Directory (tenant) ID |
+| `AZURE_SUBSCRIPTION_ID` | Subscription to deploy into |
+| `AZURE_STORAGE_ACCOUNT` | Storage account that holds the Terraform state |
+| `INFRACOST_API_KEY` | Optional: cost estimates on pull requests |
 
-## Deployment
-
-Push to your connected GitHub repository to trigger automatic deployments.
-
-## Outputs
-
-- `default_host_name` - Default URL
-- `api_key` - Deployment token
+The documentation of the generated repository explains how to create the app registration, its permissions and the state storage account.
 
 ## Support
 

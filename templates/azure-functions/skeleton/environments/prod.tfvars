@@ -11,7 +11,7 @@
 name        = "${{ values.name }}"
 environment = "prod"
 location    = "${{ values.location }}"
-description = "${{ values.description }}"
+description = ${{ values.description | dump | replace('${', '$${') | replace('%{', '%%{') }}
 owner       = "${{ values.owner }}"
 
 # Runtime Configuration
@@ -23,7 +23,7 @@ sku_tier             = "${{ values.skuTier }}"
 storage_account_tier = "${{ values.storageAccountTier }}"
 
 # Monitoring
-enable_app_insights = ${{ values.enableAppInsights }}
+enable_app_insights = ${{ values.enableAppInsights | dump }}
 
 # Application Settings
 app_settings = {}

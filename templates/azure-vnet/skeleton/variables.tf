@@ -3,7 +3,6 @@
 # =============================================================================
 # These variables are passed to the child module.
 # Values are provided via environment-specific .tfvars files.
-# NO Jinja2 defaults here - all values come from tfvars.
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -42,28 +41,37 @@ variable "owner" {
 # -----------------------------------------------------------------------------
 
 variable "address_space" {
-  description = "CIDR block for the Virtual Network"
+  description = "CIDR block for the Virtual Network (/24 or larger; the subnets are carved out of it)"
   type        = string
+
+  validation {
+    condition     = can(cidrhost(var.address_space, 0)) && try(tonumber(split("/", var.address_space)[1]) <= 24, false)
+    error_message = "Address space must be a valid CIDR block of /24 or larger."
+  }
 }
 
 variable "public_subnet_cidr" {
-  description = "CIDR block for the public subnet"
+  description = "CIDR block for the public subnet (defaults to 1/16 of the address space)"
   type        = string
+  default     = null
 }
 
 variable "private_subnet_cidr" {
-  description = "CIDR block for the private subnet"
+  description = "CIDR block for the private subnet (defaults to 1/16 of the address space)"
   type        = string
+  default     = null
 }
 
 variable "database_subnet_cidr" {
-  description = "CIDR block for the database subnet"
+  description = "CIDR block for the database subnet (defaults to 1/16 of the address space)"
   type        = string
+  default     = null
 }
 
 variable "aks_subnet_cidr" {
-  description = "CIDR block for the AKS subnet"
+  description = "CIDR block for the AKS subnet (defaults to 1/4 of the address space)"
   type        = string
+  default     = null
 }
 
 # -----------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 site_name: ${{ values.name }}
-site_description: Azure Static Web App - ${{ values.description }}
+site_description: ${{ ('Azure Static Web App - ' + values.description) | dump }}
 
 nav:
   - Home: index.md

@@ -1,144 +1,35 @@
 # =============================================================================
-# SECURITY MODULE FOR AZURE FULL INFRASTRUCTURE
+# Security Module
 # =============================================================================
-# Creates Key Vault and Managed Identity
+# Key Vault with Azure RBAC authorization, soft delete and purge protection.
 # =============================================================================
-
-terraform {
-  required_version = ">= 1.5.0"
-  required_providers {
-    azurerm = {
-      source  = "hashicorp/azurerm"
-      version = ">= 3.70.0"
-    }
-  }
-}
-
-# -----------------------------------------------------------------------------
-# Variables
-# -----------------------------------------------------------------------------
-
-variable "name_prefix" {
-  type = string
-}
-
-variable "resource_group_name" {
-  type = string
-}
-
-variable "location" {
-  type = string
-}
-
-variable "tenant_id" {
-  type = string
-}
-
-variable "enable_keyvault" {
-  type    = bool
-  default = true
-}
-
-variable "enable_managed_identity" {
-  type    = bool
-  default = true
-}
-
-variable "keyvault_sku" {
-  type    = string
-  default = "standard"
-}
-
-variable "enable_rbac_authorization" {
-  type    = bool
-  default = true
-}
-
-variable "soft_delete_retention_days" {
-  type    = number
-  default = 90
-}
-
-variable "purge_protection_enabled" {
-  type    = bool
-  default = true
-}
-
-variable "tags" {
-  type    = map(string)
-  default = {}
-}
-
-# -----------------------------------------------------------------------------
-# Data Sources
-# -----------------------------------------------------------------------------
 
 data "azurerm_client_config" "current" {}
 
-# -----------------------------------------------------------------------------
-# Managed Identity
-# -----------------------------------------------------------------------------
-
-resource "azurerm_user_assigned_identity" "main" {
-  count = var.enable_managed_identity ? 1 : 0
-
-  name                = "${var.name_prefix}-identity"
-  resource_group_name = var.resource_group_name
-  location            = var.location
-  tags                = var.tags
-}
-
-# -----------------------------------------------------------------------------
-# Key Vault
-# -----------------------------------------------------------------------------
-
+#trivy:ignore:AZU-0013 The vault accepts requests from any network by default so the pipeline can manage it; every request still needs an Azure role. Set restrict_network_access to change it
 resource "azurerm_key_vault" "main" {
-  count = var.enable_keyvault ? 1 : 0
+  #checkov:skip=CKV_AZURE_109:The vault accepts requests from any network by default so the pipeline can manage it; set restrict_network_access to change it
+  #checkov:skip=CKV2_AZURE_32:Workloads reach the vault through the Microsoft.KeyVault service endpoint of their subnet
+  name                = "kv-${var.name}-${var.environment}"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  tenant_id           = data.azurerm_client_config.current.tenant_id
+  sku_name            = "standard"
 
-  name                       = replace("${var.name_prefix}-kv", "-", "")
-  location                   = var.location
-  resource_group_name        = var.resource_group_name
-  tenant_id                  = var.tenant_id
-  sku_name                   = var.keyvault_sku
-  enable_rbac_authorization  = var.enable_rbac_authorization
-  soft_delete_retention_days = var.soft_delete_retention_days
-  purge_protection_enabled   = var.purge_protection_enabled
-  tags                       = var.tags
-}
+  # Access is granted with Azure role assignments, not access policies
+  enable_rbac_authorization = true
 
-# Grant Managed Identity access to Key Vault
-resource "azurerm_role_assignment" "keyvault_secrets" {
-  count = var.enable_keyvault && var.enable_managed_identity ? 1 : 0
+  # A deleted vault stays recoverable for 90 days and cannot be purged earlier;
+  # creating it again restores it
+  soft_delete_retention_days = 90
+  purge_protection_enabled   = true
 
-  scope                = azurerm_key_vault.main[0].id
-  role_definition_name = "Key Vault Secrets User"
-  principal_id         = azurerm_user_assigned_identity.main[0].principal_id
-}
+  network_acls {
+    default_action             = var.restrict_network_access ? "Deny" : "Allow"
+    bypass                     = "AzureServices"
+    virtual_network_subnet_ids = var.allowed_subnet_ids
+    ip_rules                   = var.allowed_ip_ranges
+  }
 
-# -----------------------------------------------------------------------------
-# Outputs
-# -----------------------------------------------------------------------------
-
-output "key_vault_id" {
-  value = var.enable_keyvault ? azurerm_key_vault.main[0].id : null
-}
-
-output "key_vault_uri" {
-  value = var.enable_keyvault ? azurerm_key_vault.main[0].vault_uri : null
-}
-
-output "key_vault_name" {
-  value = var.enable_keyvault ? azurerm_key_vault.main[0].name : null
-}
-
-output "managed_identity_id" {
-  value = var.enable_managed_identity ? azurerm_user_assigned_identity.main[0].id : null
-}
-
-output "managed_identity_principal_id" {
-  value = var.enable_managed_identity ? azurerm_user_assigned_identity.main[0].principal_id : null
-}
-
-output "managed_identity_client_id" {
-  value = var.enable_managed_identity ? azurerm_user_assigned_identity.main[0].client_id : null
+  tags = var.tags
 }

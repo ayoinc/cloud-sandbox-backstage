@@ -10,11 +10,11 @@
 name        = "${{ values.name }}"
 environment = "staging"
 location    = "${{ values.location }}"
-description = "${{ values.description }}"
+description = ${{ values.description | dump | replace('${', '$${') | replace('%{', '%%{') }}
 owner       = "${{ values.owner }}"
 
 # Static Web App Configuration
-sku_tier  = "Standard"
+sku_tier  = "${{ values.skuTier if values.envName == 'staging' else 'Standard' }}"
 framework = "${{ values.framework }}"
 
 # Preview Environments

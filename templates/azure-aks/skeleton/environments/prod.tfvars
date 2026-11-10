@@ -13,11 +13,11 @@
 name        = "${{ values.name }}"
 environment = "prod"
 location    = "${{ values.location }}"
-description = "${{ values.description }}"
+description = ${{ values.description | dump | replace('${', '$${') | replace('%{', '%%{') }}
 owner       = "${{ values.owner }}"
 
-# Kubernetes Version
-kubernetes_version = "1.28.5"
+# Kubernetes Version (minor version; AKS selects the latest patch)
+kubernetes_version = "${{ values.kubernetesVersion }}"
 
 # System Node Pool - Production scale
 system_node_vm_size = "Standard_D4s_v3"
@@ -25,12 +25,13 @@ system_node_count   = 3
 system_min_count    = 3
 system_max_count    = 10
 
-# User Node Pool - Production scale
+{% set fromForm = values.envName == 'prod' -%}
+# User Node Pool - Production scale{% if fromForm %} (sized from the template form){% endif %}
 create_user_node_pool = true
-user_node_vm_size     = "Standard_D8s_v3"
-user_node_count       = 3
-user_min_count        = 2
-user_max_count        = 20
+user_node_vm_size     = "${{ values.nodeVmSize if fromForm else 'Standard_D8s_v3' }}"
+user_node_count       = ${{ values.nodeCount if fromForm else 3 }}
+user_min_count        = ${{ ([values.nodeCount, 2] | sort | first) if fromForm else 2 }}
+user_max_count        = ${{ ([values.nodeCount, values.maxNodeCount] | sort | last) if fromForm else 20 }}
 user_node_taints      = []
 
 # Spot Node Pool - For batch/non-critical workloads
@@ -55,9 +56,9 @@ service_cidr   = "10.0.0.0/16"
 dns_service_ip = "10.0.0.10"
 
 # Container Registry - Premium for production
-create_acr = true
-acr_sku    = "Premium"
-acr_georeplication_locations = []  # Add secondary regions if needed
+create_acr                   = true
+acr_sku                      = "Premium"
+acr_georeplication_locations = [] # Add secondary regions if needed
 
 # Monitoring - Extended retention
 log_retention_days = 90
@@ -65,7 +66,7 @@ enable_defender    = true
 
 # Security
 enable_azure_rbac        = true
-admin_group_object_ids   = []  # Add Azure AD group IDs for admin access
+admin_group_object_ids   = [] # Add Azure AD group IDs for admin access
 enable_workload_identity = true
 enable_secret_rotation   = true
 secret_rotation_interval = "2m"

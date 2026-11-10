@@ -12,17 +12,19 @@
 name        = "${{ values.name }}"
 environment = "prod"
 location    = "${{ values.location }}"
-description = "${{ values.description }}"
+description = ${{ values.description | dump | replace('${', '$${') | replace('%{', '%%{') }}
 owner       = "${{ values.owner }}"
 
-# Network Configuration - Large /16 for production
-address_space = "10.2.0.0/16"
+# Network Configuration
+address_space = "${{ values.addressSpace if (values.envName == 'prod' and values.addressSpace) else '10.2.0.0/16' }}"
 
-# Subnet CIDRs - Large production-scale sizing
-public_subnet_cidr   = "10.2.0.0/20"   # 4094 hosts
-private_subnet_cidr  = "10.2.16.0/20"  # 4094 hosts
-database_subnet_cidr = "10.2.32.0/22"  # 1022 hosts
-aks_subnet_cidr      = "10.2.64.0/18"  # 16382 hosts
+# Subnets are carved out of the address space automatically: public, private
+# and database each take 1/16 of it, AKS takes 1/4. Set any of these to
+# override the layout:
+# public_subnet_cidr   = "..."
+# private_subnet_cidr  = "..."
+# database_subnet_cidr = "..."
+# aks_subnet_cidr      = "..."
 
 # NAT Gateway - Enabled for production
 enable_nat_gateway = true

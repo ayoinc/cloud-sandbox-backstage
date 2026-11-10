@@ -1,0 +1,11 @@
+{
+  "values": {
+    "name": "sample-vnet",
+    "description": "Hub network for the team's \"main\" platform: shared by all workloads",
+    "owner": "group:default/platform-team",
+    "environment": "development",
+    "location": "westeurope",
+    "addressSpace": "10.20.0.0/16",
+    "repoUrl": "github.com?owner=example-org&repo=sample-vnet"
+  }
+}

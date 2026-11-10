@@ -12,11 +12,11 @@
 name        = "${{ values.name }}"
 environment = "dev"
 location    = "${{ values.location }}"
-description = "${{ values.description }}"
+description = ${{ values.description | dump | replace('${', '$${') | replace('%{', '%%{') }}
 owner       = "${{ values.owner }}"
 
-# Kubernetes Version
-kubernetes_version = "1.28.5"
+# Kubernetes Version (minor version; AKS selects the latest patch)
+kubernetes_version = "${{ values.kubernetesVersion }}"
 
 # System Node Pool - Minimal for dev
 system_node_vm_size = "Standard_D2s_v3"
@@ -24,12 +24,13 @@ system_node_count   = 1
 system_min_count    = 1
 system_max_count    = 3
 
-# User Node Pool - Small for dev
+{% set fromForm = values.envName == 'dev' -%}
+# User Node Pool - Small for dev{% if fromForm %} (sized from the template form){% endif %}
 create_user_node_pool = true
-user_node_vm_size     = "Standard_D2s_v3"
-user_node_count       = 1
-user_min_count        = 0
-user_max_count        = 5
+user_node_vm_size     = "${{ values.nodeVmSize if fromForm else 'Standard_D2s_v3' }}"
+user_node_count       = ${{ values.nodeCount if fromForm else 1 }}
+user_min_count        = ${{ ([values.nodeCount, 0] | sort | first) if fromForm else 0 }}
+user_max_count        = ${{ ([values.nodeCount, values.maxNodeCount] | sort | last) if fromForm else 5 }}
 user_node_taints      = []
 
 # Spot Node Pool - Disabled for dev
@@ -50,8 +51,8 @@ service_cidr   = "10.0.0.0/16"
 dns_service_ip = "10.0.0.10"
 
 # Container Registry - Basic for dev
-create_acr = true
-acr_sku    = "Basic"
+create_acr                   = true
+acr_sku                      = "Basic"
 acr_georeplication_locations = []
 
 # Monitoring - Short retention for dev

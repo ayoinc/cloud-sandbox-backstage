@@ -1,0 +1,15 @@
+{
+  "values": {
+    "name": "sample-functions",
+    "description": "Event-driven functions for the team's \"main\" platform: order processing",
+    "owner": "group:default/platform-team",
+    "environment": "development",
+    "location": "westeurope",
+    "runtimeStack": "node",
+    "runtimeVersion": "20",
+    "skuTier": "Consumption",
+    "storageAccountTier": "Standard",
+    "enableAppInsights": true,
+    "repoUrl": "github.com?owner=example-org&repo=sample-functions"
+  }
+}

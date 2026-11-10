@@ -11,17 +11,19 @@
 name        = "${{ values.name }}"
 environment = "staging"
 location    = "${{ values.location }}"
-description = "${{ values.description }}"
+description = ${{ values.description | dump | replace('${', '$${') | replace('%{', '%%{') }}
 owner       = "${{ values.owner }}"
 
-# Network Configuration - Medium /18 for staging
-address_space = "10.1.0.0/18"
+# Network Configuration
+address_space = "${{ values.addressSpace if (values.envName == 'staging' and values.addressSpace) else '10.1.0.0/18' }}"
 
-# Subnet CIDRs - Production-like sizing
-public_subnet_cidr   = "10.1.0.0/22"   # 1022 hosts
-private_subnet_cidr  = "10.1.4.0/22"   # 1022 hosts
-database_subnet_cidr = "10.1.8.0/24"   # 254 hosts
-aks_subnet_cidr      = "10.1.16.0/20"  # 4094 hosts
+# Subnets are carved out of the address space automatically: public, private
+# and database each take 1/16 of it, AKS takes 1/4. Set any of these to
+# override the layout:
+# public_subnet_cidr   = "..."
+# private_subnet_cidr  = "..."
+# database_subnet_cidr = "..."
+# aks_subnet_cidr      = "..."
 
 # NAT Gateway - Enabled for staging
 enable_nat_gateway = true

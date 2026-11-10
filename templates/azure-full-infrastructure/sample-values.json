@@ -1,0 +1,26 @@
+{
+  "values": {
+    "name": "sample-stack",
+    "description": "Shared Azure infrastructure for the team's \"main\" platform: all environments",
+    "owner": "group:default/platform-team",
+    "environment": "development",
+    "businessUnit": "platform",
+    "primaryRegion": "westeurope",
+    "secondaryRegion": "northeurope",
+    "enableNetworking": true,
+    "enableCompute": true,
+    "enableContainers": true,
+    "enableStorage": true,
+    "enableDatabase": true,
+    "enableSecurity": true,
+    "enableIdentity": true,
+    "enableMonitoring": true,
+    "enableIntegration": true,
+    "enableGovernance": true,
+    "enableDR": false,
+    "enableHighAvailability": true,
+    "enableAutoShutdown": true,
+    "autoShutdownTime": "1900",
+    "repoUrl": "github.com?owner=example-org&repo=sample-stack"
+  }
+}

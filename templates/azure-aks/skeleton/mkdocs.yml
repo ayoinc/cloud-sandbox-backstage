@@ -1,5 +1,5 @@
 site_name: ${{ values.name }}
-site_description: Azure AKS Cluster - ${{ values.description }}
+site_description: ${{ ('Azure AKS Cluster - ' + values.description) | dump }}
 
 nav:
   - Home: index.md

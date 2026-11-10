@@ -78,7 +78,7 @@ variable "runtime_stack" {
 variable "runtime_version" {
   description = "Version of the runtime stack"
   type        = string
-  default     = "18"
+  default     = "20"
 }
 
 # -----------------------------------------------------------------------------

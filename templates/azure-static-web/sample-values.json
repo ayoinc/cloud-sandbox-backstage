@@ -1,0 +1,12 @@
+{
+  "values": {
+    "name": "sample-static-web",
+    "description": "Marketing site for the team's \"main\" product: landing pages",
+    "owner": "group:default/platform-team",
+    "environment": "development",
+    "location": "westeurope",
+    "skuTier": "Free",
+    "framework": "react",
+    "repoUrl": "github.com?owner=example-org&repo=sample-static-web"
+  }
+}

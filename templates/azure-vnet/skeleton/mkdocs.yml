@@ -1,5 +1,5 @@
 site_name: ${{ values.name }}
-site_description: Azure Virtual Network - ${{ values.description }}
+site_description: ${{ ('Azure Virtual Network - ' + values.description) | dump }}
 
 nav:
   - Home: index.md

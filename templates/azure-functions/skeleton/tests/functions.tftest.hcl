@@ -8,26 +8,59 @@
 # -----------------------------------------------------------------------------
 # Mock Provider for Testing
 # -----------------------------------------------------------------------------
+# The provider checks the format of the IDs passed between resources, so the
+# mocked resources return well-formed Azure resource IDs.
 mock_provider "azurerm" {
   alias = "mock"
+
+  mock_resource "azurerm_storage_account" {
+    defaults = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-test/providers/Microsoft.Storage/storageAccounts/sttest"
+    }
+  }
+
+  mock_resource "azurerm_service_plan" {
+    defaults = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-test/providers/Microsoft.Web/serverFarms/asp-test"
+    }
+  }
+
+  mock_resource "azurerm_log_analytics_workspace" {
+    defaults = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-test/providers/Microsoft.OperationalInsights/workspaces/log-test"
+    }
+  }
+
+  mock_resource "azurerm_application_insights" {
+    defaults = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-test/providers/Microsoft.Insights/components/appi-test"
+    }
+  }
+
+  mock_resource "azurerm_linux_function_app" {
+    defaults = {
+      id               = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-test/providers/Microsoft.Web/sites/func-test"
+      default_hostname = "func-test.azurewebsites.net"
+    }
+  }
 }
 
 # -----------------------------------------------------------------------------
 # Test Variables
 # -----------------------------------------------------------------------------
 variables {
-  name                 = "test-functions"
-  environment          = "dev"
-  location             = "eastus2"
-  description          = "Test Function App for validation"
-  owner                = "platform-team"
-  runtime_stack        = "node"
-  runtime_version      = "18"
-  sku_tier             = "Consumption"
-  storage_account_tier = "Standard"
-  enable_app_insights  = true
-  app_settings         = {}
-  cors_allowed_origins = ["https://portal.azure.com"]
+  name                     = "test-functions"
+  environment              = "dev"
+  location                 = "eastus2"
+  description              = "Test Function App for validation"
+  owner                    = "platform-team"
+  runtime_stack            = "node"
+  runtime_version          = "20"
+  sku_tier                 = "Consumption"
+  storage_account_tier     = "Standard"
+  enable_app_insights      = true
+  app_settings             = {}
+  cors_allowed_origins     = ["https://portal.azure.com"]
   cors_support_credentials = false
   tags = {
     TestTag = "test-value"
@@ -38,7 +71,7 @@ variables {
 # Test: Function App Module Plan Succeeds
 # -----------------------------------------------------------------------------
 run "function_app_plan_succeeds" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -59,7 +92,7 @@ run "function_app_plan_succeeds" {
 # Test: Function App Naming Convention
 # -----------------------------------------------------------------------------
 run "function_app_naming_convention" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -80,7 +113,7 @@ run "function_app_naming_convention" {
 # Test: URL Output Format
 # -----------------------------------------------------------------------------
 run "url_output_format" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -101,7 +134,7 @@ run "url_output_format" {
 # Test: Default Hostname Output
 # -----------------------------------------------------------------------------
 run "default_hostname_output" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -117,7 +150,7 @@ run "default_hostname_output" {
 # Test: Storage Account Output
 # -----------------------------------------------------------------------------
 run "storage_account_output" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -133,7 +166,7 @@ run "storage_account_output" {
 # Test: Runtime Stack - Node.js
 # -----------------------------------------------------------------------------
 run "runtime_stack_node" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -141,7 +174,7 @@ run "runtime_stack_node" {
 
   variables {
     runtime_stack   = "node"
-    runtime_version = "18"
+    runtime_version = "20"
   }
 
   assert {
@@ -155,7 +188,7 @@ run "runtime_stack_node" {
   }
 
   assert {
-    condition     = output.function_app_info.runtime_version == "18"
+    condition     = output.function_app_info.runtime_version == "20"
     error_message = "Runtime version should be '18'"
   }
 }
@@ -164,7 +197,7 @@ run "runtime_stack_node" {
 # Test: Runtime Stack - Python
 # -----------------------------------------------------------------------------
 run "runtime_stack_python" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -190,7 +223,7 @@ run "runtime_stack_python" {
 # Test: Runtime Stack - .NET
 # -----------------------------------------------------------------------------
 run "runtime_stack_dotnet" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -216,7 +249,7 @@ run "runtime_stack_dotnet" {
 # Test: Runtime Stack - Java
 # -----------------------------------------------------------------------------
 run "runtime_stack_java" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -242,7 +275,7 @@ run "runtime_stack_java" {
 # Test: SKU Tier - Consumption
 # -----------------------------------------------------------------------------
 run "sku_tier_consumption" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -262,7 +295,7 @@ run "sku_tier_consumption" {
 # Test: SKU Tier - Premium
 # -----------------------------------------------------------------------------
 run "sku_tier_premium" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -282,7 +315,7 @@ run "sku_tier_premium" {
 # Test: SKU Tier - Dedicated
 # -----------------------------------------------------------------------------
 run "sku_tier_dedicated" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -302,7 +335,7 @@ run "sku_tier_dedicated" {
 # Test: Environment Validation - Development
 # -----------------------------------------------------------------------------
 run "environment_dev" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -322,7 +355,7 @@ run "environment_dev" {
 # Test: Environment Validation - Staging
 # -----------------------------------------------------------------------------
 run "environment_staging" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -342,7 +375,7 @@ run "environment_staging" {
 # Test: Environment Validation - Production
 # -----------------------------------------------------------------------------
 run "environment_prod" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -362,7 +395,7 @@ run "environment_prod" {
 # Test: Application Insights Enabled
 # -----------------------------------------------------------------------------
 run "app_insights_enabled" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -382,7 +415,7 @@ run "app_insights_enabled" {
 # Test: Application Insights Disabled
 # -----------------------------------------------------------------------------
 run "app_insights_disabled" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -402,7 +435,7 @@ run "app_insights_disabled" {
 # Test: Function App Info Summary
 # -----------------------------------------------------------------------------
 run "function_app_info_summary" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -433,7 +466,7 @@ run "function_app_info_summary" {
 # Test: Managed Identity Output
 # -----------------------------------------------------------------------------
 run "managed_identity_output" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -454,7 +487,7 @@ run "managed_identity_output" {
 # Test: Location Configuration
 # -----------------------------------------------------------------------------
 run "location_westus2" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -474,7 +507,7 @@ run "location_westus2" {
 # Test: Location Configuration - Europe
 # -----------------------------------------------------------------------------
 run "location_westeurope" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -494,7 +527,7 @@ run "location_westeurope" {
 # Test: Custom Tags
 # -----------------------------------------------------------------------------
 run "custom_tags" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock

@@ -8,8 +8,23 @@
 # -----------------------------------------------------------------------------
 # Mock Provider for Testing
 # -----------------------------------------------------------------------------
+# The provider checks the format of the IDs passed between resources, so the
+# mocked resources return well-formed Azure resource IDs.
 mock_provider "azurerm" {
   alias = "mock"
+
+  mock_resource "azurerm_static_web_app" {
+    defaults = {
+      id                = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-test/providers/Microsoft.Web/staticSites/swa-test"
+      default_host_name = "swa-test.azurestaticapps.net"
+    }
+  }
+
+  mock_resource "azurerm_static_web_app_custom_domain" {
+    defaults = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-test/providers/Microsoft.Web/staticSites/swa-test/customDomains/www.example.com"
+    }
+  }
 }
 
 # -----------------------------------------------------------------------------
@@ -36,7 +51,7 @@ variables {
 # Test: Static Web App Module Plan Succeeds
 # -----------------------------------------------------------------------------
 run "static_web_plan_succeeds" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -57,7 +72,7 @@ run "static_web_plan_succeeds" {
 # Test: Static Web App Naming Convention
 # -----------------------------------------------------------------------------
 run "static_web_naming_convention" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -78,7 +93,7 @@ run "static_web_naming_convention" {
 # Test: URL Output Format
 # -----------------------------------------------------------------------------
 run "url_output_format" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -99,7 +114,7 @@ run "url_output_format" {
 # Test: Default Hostname Output
 # -----------------------------------------------------------------------------
 run "default_hostname_output" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -115,7 +130,7 @@ run "default_hostname_output" {
 # Test: Build Configuration Output - React
 # -----------------------------------------------------------------------------
 run "build_config_react" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -145,7 +160,7 @@ run "build_config_react" {
 # Test: Build Configuration Output - Vue
 # -----------------------------------------------------------------------------
 run "build_config_vue" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -170,7 +185,7 @@ run "build_config_vue" {
 # Test: Build Configuration Output - Next.js
 # -----------------------------------------------------------------------------
 run "build_config_nextjs" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -186,8 +201,8 @@ run "build_config_nextjs" {
   }
 
   assert {
-    condition     = output.build_config.output_location == ".next"
-    error_message = "Next.js output_location should be '.next'"
+    condition     = output.build_config.output_location == ""
+    error_message = "Next.js builds are hybrid (server-rendered), so output_location should be empty"
   }
 }
 
@@ -195,7 +210,7 @@ run "build_config_nextjs" {
 # Test: Build Configuration Output - Angular
 # -----------------------------------------------------------------------------
 run "build_config_angular" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -220,7 +235,7 @@ run "build_config_angular" {
 # Test: Build Configuration Output - Static
 # -----------------------------------------------------------------------------
 run "build_config_static" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -245,7 +260,7 @@ run "build_config_static" {
 # Test: Static Web App Info Summary
 # -----------------------------------------------------------------------------
 run "static_web_info_summary" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -276,7 +291,7 @@ run "static_web_info_summary" {
 # Test: Environment Validation - Development
 # -----------------------------------------------------------------------------
 run "environment_dev" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -296,7 +311,7 @@ run "environment_dev" {
 # Test: Environment Validation - Staging
 # -----------------------------------------------------------------------------
 run "environment_staging" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -316,7 +331,7 @@ run "environment_staging" {
 # Test: Environment Validation - Production
 # -----------------------------------------------------------------------------
 run "environment_prod" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -336,7 +351,7 @@ run "environment_prod" {
 # Test: SKU Tier - Free
 # -----------------------------------------------------------------------------
 run "sku_tier_free" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -356,7 +371,7 @@ run "sku_tier_free" {
 # Test: SKU Tier - Standard
 # -----------------------------------------------------------------------------
 run "sku_tier_standard" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -376,7 +391,7 @@ run "sku_tier_standard" {
 # Test: Custom Tags
 # -----------------------------------------------------------------------------
 run "custom_tags" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -399,7 +414,7 @@ run "custom_tags" {
 # Test: Static Web App ID Output
 # -----------------------------------------------------------------------------
 run "static_web_app_id_output" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -415,7 +430,7 @@ run "static_web_app_id_output" {
 # Test: Location Configuration
 # -----------------------------------------------------------------------------
 run "location_westus2" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -435,7 +450,7 @@ run "location_westus2" {
 # Test: Location Configuration - Europe
 # -----------------------------------------------------------------------------
 run "location_westeurope" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock

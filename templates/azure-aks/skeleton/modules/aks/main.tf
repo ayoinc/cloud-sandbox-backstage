@@ -19,11 +19,16 @@ locals {
   identity_name       = "id-${var.name}-${var.environment}"
 
   # Common tags applied to all resources
-  common_tags = merge(var.tags, {
-    Project     = var.name
-    Environment = var.environment
-    ManagedBy   = "terraform"
-  })
+  common_tags = merge(
+    var.tags,
+    {
+      Project     = var.name
+      Environment = var.environment
+      ManagedBy   = "terraform"
+    },
+    var.owner != "" ? { Owner = var.owner } : {},
+    var.description != "" ? { Description = substr(var.description, 0, 256) } : {},
+  )
 
   # Environment-based settings
   is_production = var.environment == "prod" || var.environment == "production"
@@ -55,6 +60,12 @@ resource "azurerm_log_analytics_workspace" "main" {
 # Container Registry
 # =============================================================================
 resource "azurerm_container_registry" "main" {
+  #checkov:skip=CKV_AZURE_139:The registry keeps its public endpoint so pipelines can push images; pulls need the AcrPull role and the admin user is disabled
+  #checkov:skip=CKV_AZURE_233:Zone redundancy exists only in the Premium SKU and is switched on with it below
+  #checkov:skip=CKV_AZURE_237:Dedicated data endpoints exist only in the Premium SKU and matter only behind a firewall
+  #checkov:skip=CKV_AZURE_165:Geo-replication is opt-in through acr_georeplication_locations (Premium SKU)
+  #checkov:skip=CKV_AZURE_164:Content trust exists only in the Premium SKU and is being retired by Azure
+  #checkov:skip=CKV_AZURE_166:Image quarantine is a preview feature of the Premium SKU
   count = var.create_acr ? 1 : 0
 
   name                = local.acr_name
@@ -62,6 +73,17 @@ resource "azurerm_container_registry" "main" {
   location            = azurerm_resource_group.main.location
   sku                 = var.acr_sku
   admin_enabled       = false
+
+  # Zone redundancy and untagged-manifest cleanup exist only in the Premium SKU.
+  zone_redundancy_enabled = var.acr_sku == "Premium"
+
+  dynamic "retention_policy" {
+    for_each = var.acr_sku == "Premium" ? [1] : []
+    content {
+      days    = 7
+      enabled = true
+    }
+  }
 
   # Geo-replication for Premium SKU in production
   dynamic "georeplications" {
@@ -111,7 +133,14 @@ resource "azurerm_role_assignment" "aks_network" {
 # =============================================================================
 # AKS Cluster
 # =============================================================================
+#trivy:ignore:AZU-0065 The API server is public by default so kubectl works without a VNet connection; set private_cluster_enabled to change it
+#trivy:ignore:AZU-0041 API access is open by default and protected by Entra ID with Azure RBAC; set api_server_authorized_ip_ranges to restrict it
 resource "azurerm_kubernetes_cluster" "main" {
+  #checkov:skip=CKV_AZURE_115:The API server is public by default so kubectl works without a VNet connection; set private_cluster_enabled to change it
+  #checkov:skip=CKV_AZURE_6:API access is open by default and protected by Entra ID with Azure RBAC; set api_server_authorized_ip_ranges to restrict it
+  #checkov:skip=CKV_AZURE_117:Node disks use platform-managed keys; a disk encryption set needs a customer-managed key in Key Vault
+  #checkov:skip=CKV_AZURE_226:Ephemeral OS disks need a VM cache larger than the OS disk, which the offered D-series sizes lack
+  #checkov:skip=CKV_AZURE_227:Encryption at host needs the EncryptionAtHost feature registered on the subscription; set enable_host_encryption once it is
   name                = local.aks_name
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
@@ -124,6 +153,22 @@ resource "azurerm_kubernetes_cluster" "main" {
   # Automatic channel upgrade
   automatic_channel_upgrade = var.automatic_channel_upgrade
 
+  # API server exposure
+  private_cluster_enabled = var.private_cluster_enabled
+
+  dynamic "api_server_access_profile" {
+    for_each = length(var.api_server_authorized_ip_ranges) > 0 ? [1] : []
+    content {
+      authorized_ip_ranges = var.api_server_authorized_ip_ranges
+    }
+  }
+
+  # Sign-in goes through Entra ID only; no shared admin certificate
+  local_account_disabled = var.local_account_disabled
+
+  # Azure Policy add-on (Gatekeeper)
+  azure_policy_enabled = true
+
   # System Node Pool
   default_node_pool {
     name                         = "system"
@@ -134,6 +179,8 @@ resource "azurerm_kubernetes_cluster" "main" {
     max_count                    = var.enable_auto_scaling ? var.system_max_count : null
     os_disk_size_gb              = var.os_disk_size_gb
     os_disk_type                 = "Managed"
+    max_pods                     = var.max_pods
+    enable_host_encryption       = var.enable_host_encryption
     type                         = "VirtualMachineScaleSets"
     vnet_subnet_id               = var.vnet_subnet_id != "" ? var.vnet_subnet_id : null
     only_critical_addons_enabled = true
@@ -247,18 +294,21 @@ resource "azurerm_kubernetes_cluster" "main" {
 # User Node Pool
 # =============================================================================
 resource "azurerm_kubernetes_cluster_node_pool" "user" {
+  #checkov:skip=CKV_AZURE_227:Encryption at host needs the EncryptionAtHost feature registered on the subscription; set enable_host_encryption once it is
   count = var.create_user_node_pool ? 1 : 0
 
-  name                  = "user"
-  kubernetes_cluster_id = azurerm_kubernetes_cluster.main.id
-  vm_size               = var.user_node_vm_size
-  node_count            = var.user_node_count
-  enable_auto_scaling   = var.enable_auto_scaling
-  min_count             = var.enable_auto_scaling ? var.user_min_count : null
-  max_count             = var.enable_auto_scaling ? var.user_max_count : null
-  os_disk_size_gb       = var.os_disk_size_gb
-  os_disk_type          = "Managed"
-  vnet_subnet_id        = var.vnet_subnet_id != "" ? var.vnet_subnet_id : null
+  name                   = "user"
+  kubernetes_cluster_id  = azurerm_kubernetes_cluster.main.id
+  vm_size                = var.user_node_vm_size
+  node_count             = var.user_node_count
+  enable_auto_scaling    = var.enable_auto_scaling
+  min_count              = var.enable_auto_scaling ? var.user_min_count : null
+  max_count              = var.enable_auto_scaling ? var.user_max_count : null
+  os_disk_size_gb        = var.os_disk_size_gb
+  os_disk_type           = "Managed"
+  max_pods               = var.max_pods
+  enable_host_encryption = var.enable_host_encryption
+  vnet_subnet_id         = var.vnet_subnet_id != "" ? var.vnet_subnet_id : null
 
   zones = var.availability_zones
 
@@ -287,21 +337,24 @@ resource "azurerm_kubernetes_cluster_node_pool" "user" {
 # Spot Node Pool (Optional - for cost savings)
 # =============================================================================
 resource "azurerm_kubernetes_cluster_node_pool" "spot" {
+  #checkov:skip=CKV_AZURE_227:Encryption at host needs the EncryptionAtHost feature registered on the subscription; set enable_host_encryption once it is
   count = var.create_spot_node_pool ? 1 : 0
 
-  name                  = "spot"
-  kubernetes_cluster_id = azurerm_kubernetes_cluster.main.id
-  vm_size               = var.spot_node_vm_size
-  node_count            = var.spot_node_count
-  enable_auto_scaling   = true
-  min_count             = 0
-  max_count             = var.spot_max_count
-  os_disk_size_gb       = var.os_disk_size_gb
-  os_disk_type          = "Managed"
-  priority              = "Spot"
-  eviction_policy       = "Delete"
-  spot_max_price        = var.spot_max_price
-  vnet_subnet_id        = var.vnet_subnet_id != "" ? var.vnet_subnet_id : null
+  name                   = "spot"
+  kubernetes_cluster_id  = azurerm_kubernetes_cluster.main.id
+  vm_size                = var.spot_node_vm_size
+  node_count             = var.spot_node_count
+  enable_auto_scaling    = true
+  min_count              = 0
+  max_count              = var.spot_max_count
+  os_disk_size_gb        = var.os_disk_size_gb
+  os_disk_type           = "Managed"
+  max_pods               = var.max_pods
+  enable_host_encryption = var.enable_host_encryption
+  priority               = "Spot"
+  eviction_policy        = "Delete"
+  spot_max_price         = var.spot_max_price
+  vnet_subnet_id         = var.vnet_subnet_id != "" ? var.vnet_subnet_id : null
 
   zones = var.availability_zones
 
@@ -312,10 +365,6 @@ resource "azurerm_kubernetes_cluster_node_pool" "spot" {
   }
 
   node_taints = ["kubernetes.azure.com/scalesetpriority=spot:NoSchedule"]
-
-  upgrade_settings {
-    max_surge = var.max_surge
-  }
 
   tags = local.common_tags
 

@@ -104,16 +104,16 @@ spec:
       action: fetch:template
       input:
         url: ./skeleton
-        templateFileExtension: '.j2'
-        cookiecutterCompat: false
         values:
           name: ${{ parameters.name }}
-          description: ${{ parameters.description }}
+          description: ${{ parameters.description or 'Azure Static Web App ' + parameters.name }}
           owner: ${{ parameters.owner }}
           environment: ${{ parameters.environment }}
+          envName: "${{ {'development': 'dev', 'staging': 'staging', 'production': 'prod'}[parameters.environment] }}"
           location: ${{ parameters.location }}
           skuTier: ${{ parameters.skuTier }}
-          framework: ${{ parameters.framework }}
+          framework: ${{ parameters.framework or 'react' }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
 
     - id: publish
       name: Publish to GitHub

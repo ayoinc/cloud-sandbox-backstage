@@ -1,97 +1,52 @@
 # Azure Virtual Network Template
 
-This template creates an Azure Virtual Network (VNet) with subnets, network security groups, and peering configurations.
+This template creates a repository with the Terraform configuration of an Azure Virtual Network and a pipeline that validates and deploys it.
 
-## Features
+## What It Creates
 
-- **Virtual Network** - Configurable address space and DNS settings
-- **Subnets** - Multiple subnet support with service endpoints
-- **Network Security Groups** - Pre-configured security rules
-- **VNet Peering** - Connect to other virtual networks
-- **Private DNS** - Optional private DNS zone integration
+- Resource group and virtual network
+- Public, private, database and AKS subnets, carved out of the address space
+- Network security groups for the public, private and database subnets
+- NAT gateway for outbound traffic (staging and production)
+- Optional DDoS protection plan
 
-## Prerequisites
+## Form Fields
 
-- Azure Subscription
-- Terraform >= 1.5
-- Azure CLI configured
-- Appropriate RBAC permissions
+| Field | Description |
+| ----- | ----------- |
+| VNet Name | Name used in resource names |
+| Description | Purpose of the network |
+| Owner | Team that owns the resource |
+| Environment | Environment the pipeline deploys on push; variable files for all three are generated |
+| Azure Region | Region of the network |
+| Address Space | CIDR block of the network in the chosen environment, /16 to /24 |
+| Repository Location | GitHub repository to create |
 
-## Architecture
+## The Generated Repository
 
-```d2
-direction: down
+| Path | Content |
+| ---- | ------- |
+| `main.tf`, `variables.tf`, `outputs.tf`, `modules/` | Terraform configuration |
+| `environments/dev.tfvars`, `staging.tfvars`, `prod.tfvars` | One variable file per environment |
+| `tests/` | Terraform tests that run against a mocked provider |
+| `.github/workflows/terraform.yaml` | Pipeline |
+| `docs/`, `mkdocs.yml`, `catalog-info.yaml` | TechDocs and the catalog entity |
 
-vnet: Azure VNet (10.0.0.0/16) {
-  style.fill: "#e3f2fd"
+### Pipeline
 
-  public: Public Subnet (10.0.1.0/24) {
-    style.fill: "#c8e6c9"
-    nsg: NSG {
-      style.fill: "#fff9c4"
-    }
-  }
+The pipeline passes on the first push with nothing configured: it checks formatting, validates the configuration, lints it with TFLint, runs the Terraform tests and scans it with Trivy and Checkov. None of these needs an Azure account.
 
-  private: Private Subnet (10.0.2.0/24) {
-    style.fill: "#b3e5fc"
-    nsg: NSG {
-      style.fill: "#fff9c4"
-    }
-  }
+Plan and apply sign in to Azure with OIDC. They are skipped until these repository secrets exist:
 
-  database: Database Subnet (10.0.3.0/24) {
-    style.fill: "#f3e5f5"
-  }
+| Secret | Description |
+| ------ | ----------- |
+| `AZURE_CLIENT_ID` | Application (client) ID of the app registration |
+| `AZURE_TENANT_ID` | Directory (tenant) ID |
+| `AZURE_SUBSCRIPTION_ID` | Subscription to deploy into |
+| `AZURE_STORAGE_ACCOUNT` | Storage account that holds the Terraform state |
+| `INFRACOST_API_KEY` | Optional: cost estimates on pull requests |
 
-  aks: AKS Subnet (10.0.4.0/22) {
-    style.fill: "#fff3e0"
-  }
-}
-```
-
-## Quick Start
-
-```bash
-# Initialize Terraform
-terraform init
-
-# Review the plan
-terraform plan
-
-# Apply the configuration
-terraform apply
-```
-
-## Configuration
-
-| Variable              | Description                 | Default           |
-| --------------------- | --------------------------- | ----------------- |
-| `vnet_name`           | Name of the virtual network | -                 |
-| `resource_group_name` | Azure resource group        | -                 |
-| `location`            | Azure region                | `eastus`          |
-| `address_space`       | VNet address space          | `["10.0.0.0/16"]` |
-| `subnets`             | Subnet configurations       | See variables.tf  |
-
-## Subnet Configuration
-
-```hcl
-subnets = {
-  public = {
-    address_prefix = "10.0.1.0/24"
-    service_endpoints = ["Microsoft.Storage"]
-  }
-  private = {
-    address_prefix = "10.0.2.0/24"
-    service_endpoints = ["Microsoft.Sql", "Microsoft.KeyVault"]
-  }
-}
-```
-
-## Outputs
-
-- `vnet_id` - Virtual Network resource ID
-- `vnet_name` - Virtual Network name
-- `subnet_ids` - Map of subnet names to IDs
+The documentation of the generated repository explains how to create the app registration, its permissions and the state storage account.
 
 ## Support
 

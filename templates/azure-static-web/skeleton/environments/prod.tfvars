@@ -10,19 +10,19 @@
 name        = "${{ values.name }}"
 environment = "prod"
 location    = "${{ values.location }}"
-description = "${{ values.description }}"
+description = ${{ values.description | dump | replace('${', '$${') | replace('%{', '%%{') }}
 owner       = "${{ values.owner }}"
 
 # Static Web App Configuration
-sku_tier  = "Standard"
+sku_tier  = "${{ values.skuTier if values.envName == 'prod' else 'Standard' }}"
 framework = "${{ values.framework }}"
 
 # Preview Environments
-enable_preview_environments = false  # Disable preview environments in prod
-enable_config_file_changes  = false  # Lock down config changes in prod
+enable_preview_environments = false # Disable preview environments in prod
+enable_config_file_changes  = false # Lock down config changes in prod
 
 # Custom Domain - Configure for production
-custom_domain = ""  # Set your custom domain here
+custom_domain = "" # Set your custom domain here
 
 # API Backend
 api_backend_resource_id = ""

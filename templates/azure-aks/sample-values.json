@@ -1,0 +1,14 @@
+{
+  "values": {
+    "name": "sample-aks",
+    "description": "AKS cluster for the team's \"main\" platform: runs the shared services",
+    "owner": "group:default/platform-team",
+    "environment": "development",
+    "location": "westeurope",
+    "kubernetesVersion": "1.37",
+    "nodeVmSize": "Standard_D4s_v3",
+    "nodeCount": 3,
+    "maxNodeCount": 10,
+    "repoUrl": "github.com?owner=example-org&repo=sample-aks"
+  }
+}

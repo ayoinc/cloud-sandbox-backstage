@@ -1,124 +1,66 @@
 # =============================================================================
-# NETWORKING MODULE FOR AZURE FULL INFRASTRUCTURE
+# Networking Module
 # =============================================================================
-# Creates VNet, Subnets, NSGs, and optional components
+# Virtual network, subnets with a network security group each, and optionally
+# a NAT gateway, a Bastion host and a DDoS protection plan.
 # =============================================================================
 
-terraform {
-  required_version = ">= 1.5.0"
-  required_providers {
-    azurerm = {
-      source  = "hashicorp/azurerm"
-      version = ">= 3.70.0"
-    }
-  }
-}
-
-# -----------------------------------------------------------------------------
-# Variables
-# -----------------------------------------------------------------------------
-
-variable "name_prefix" {
-  description = "Prefix for resource names"
-  type        = string
-}
-
-variable "resource_group_name" {
-  description = "Resource group name"
-  type        = string
-}
-
-variable "location" {
-  description = "Azure region"
-  type        = string
-}
-
-variable "address_space" {
-  description = "VNet address space"
-  type        = list(string)
-  default     = ["10.0.0.0/16"]
-}
-
-variable "subnets" {
-  description = "Subnet configurations"
-  type = map(object({
-    address_prefixes  = list(string)
-    service_endpoints = optional(list(string), [])
-    delegation        = optional(string, null)
-  }))
-  default = {
-    default = { address_prefixes = ["10.0.1.0/24"] }
-  }
-}
-
-variable "enable_bastion" {
-  description = "Enable Bastion host"
-  type        = bool
-  default     = false
-}
-
-variable "enable_firewall" {
-  description = "Enable Azure Firewall"
-  type        = bool
-  default     = false
-}
-
-variable "enable_nat_gateway" {
-  description = "Enable NAT Gateway"
-  type        = bool
-  default     = false
-}
-
-variable "enable_vpn_gateway" {
-  description = "Enable VPN Gateway"
-  type        = bool
-  default     = false
-}
-
-variable "dns_servers" {
-  description = "Custom DNS servers"
-  type        = list(string)
-  default     = []
-}
-
-variable "tags" {
-  description = "Tags to apply"
-  type        = map(string)
-  default     = {}
+locals {
+  prefix = "${var.name}-${var.environment}"
 }
 
 # -----------------------------------------------------------------------------
 # Virtual Network
 # -----------------------------------------------------------------------------
+resource "azurerm_network_ddos_protection_plan" "main" {
+  count = var.enable_ddos_protection ? 1 : 0
 
-resource "azurerm_virtual_network" "main" {
-  name                = "${var.name_prefix}-vnet"
+  name                = "ddos-${local.prefix}"
   location            = var.location
   resource_group_name = var.resource_group_name
-  address_space       = var.address_space
-  dns_servers         = length(var.dns_servers) > 0 ? var.dns_servers : null
   tags                = var.tags
+}
+
+resource "azurerm_virtual_network" "main" {
+  name                = "vnet-${local.prefix}"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  address_space       = [var.address_space]
+  dns_servers         = var.dns_servers
+
+  dynamic "ddos_protection_plan" {
+    for_each = azurerm_network_ddos_protection_plan.main
+
+    content {
+      id     = ddos_protection_plan.value.id
+      enable = true
+    }
+  }
+
+  tags = var.tags
 }
 
 # -----------------------------------------------------------------------------
 # Subnets
 # -----------------------------------------------------------------------------
-
-resource "azurerm_subnet" "subnets" {
+resource "azurerm_subnet" "main" {
   for_each = var.subnets
 
-  name                 = "${var.name_prefix}-${each.key}-snet"
+  name                 = "snet-${each.key}"
   resource_group_name  = var.resource_group_name
   virtual_network_name = azurerm_virtual_network.main.name
-  address_prefixes     = each.value.address_prefixes
+  address_prefixes     = [each.value.address_prefix]
   service_endpoints    = each.value.service_endpoints
 
   dynamic "delegation" {
-    for_each = each.value.delegation != null ? [each.value.delegation] : []
+    for_each = each.value.delegation == null ? [] : [each.value.delegation]
+
     content {
       name = "delegation"
+
       service_delegation {
-        name = delegation.value
+        name    = delegation.value
+        actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
       }
     }
   }
@@ -127,71 +69,31 @@ resource "azurerm_subnet" "subnets" {
 # -----------------------------------------------------------------------------
 # Network Security Groups
 # -----------------------------------------------------------------------------
-
-resource "azurerm_network_security_group" "subnets" {
+# The groups start with Azure's default rules only: traffic inside the virtual
+# network is allowed, inbound traffic from the internet is denied.
+resource "azurerm_network_security_group" "main" {
   for_each = var.subnets
 
-  name                = "${var.name_prefix}-${each.key}-nsg"
+  name                = "nsg-${each.key}-${local.prefix}"
   location            = var.location
   resource_group_name = var.resource_group_name
   tags                = var.tags
 }
 
-resource "azurerm_subnet_network_security_group_association" "subnets" {
+resource "azurerm_subnet_network_security_group_association" "main" {
   for_each = var.subnets
 
-  subnet_id                 = azurerm_subnet.subnets[each.key].id
-  network_security_group_id = azurerm_network_security_group.subnets[each.key].id
-}
-
-# -----------------------------------------------------------------------------
-# Bastion Host (Optional)
-# -----------------------------------------------------------------------------
-
-resource "azurerm_subnet" "bastion" {
-  count = var.enable_bastion ? 1 : 0
-
-  name                 = "AzureBastionSubnet"
-  resource_group_name  = var.resource_group_name
-  virtual_network_name = azurerm_virtual_network.main.name
-  address_prefixes     = ["10.0.254.0/26"]
-}
-
-resource "azurerm_public_ip" "bastion" {
-  count = var.enable_bastion ? 1 : 0
-
-  name                = "${var.name_prefix}-bastion-pip"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  allocation_method   = "Static"
-  sku                 = "Standard"
-  tags                = var.tags
-}
-
-resource "azurerm_bastion_host" "main" {
-  count = var.enable_bastion ? 1 : 0
-
-  name                = "${var.name_prefix}-bastion"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  sku                 = "Standard"
-  tags                = var.tags
-
-  ip_configuration {
-    name                 = "configuration"
-    subnet_id            = azurerm_subnet.bastion[0].id
-    public_ip_address_id = azurerm_public_ip.bastion[0].id
-  }
+  subnet_id                 = azurerm_subnet.main[each.key].id
+  network_security_group_id = azurerm_network_security_group.main[each.key].id
 }
 
 # -----------------------------------------------------------------------------
 # NAT Gateway (Optional)
 # -----------------------------------------------------------------------------
-
 resource "azurerm_public_ip" "nat" {
   count = var.enable_nat_gateway ? 1 : 0
 
-  name                = "${var.name_prefix}-nat-pip"
+  name                = "pip-nat-${local.prefix}"
   location            = var.location
   resource_group_name = var.resource_group_name
   allocation_method   = "Static"
@@ -202,7 +104,7 @@ resource "azurerm_public_ip" "nat" {
 resource "azurerm_nat_gateway" "main" {
   count = var.enable_nat_gateway ? 1 : 0
 
-  name                = "${var.name_prefix}-nat"
+  name                = "nat-${local.prefix}"
   location            = var.location
   resource_group_name = var.resource_group_name
   sku_name            = "Standard"
@@ -216,36 +118,49 @@ resource "azurerm_nat_gateway_public_ip_association" "main" {
   public_ip_address_id = azurerm_public_ip.nat[0].id
 }
 
+resource "azurerm_subnet_nat_gateway_association" "main" {
+  for_each = var.enable_nat_gateway ? toset(var.nat_gateway_subnets) : toset([])
+
+  subnet_id      = azurerm_subnet.main[each.key].id
+  nat_gateway_id = azurerm_nat_gateway.main[0].id
+}
+
 # -----------------------------------------------------------------------------
-# Outputs
+# Bastion Host (Optional)
 # -----------------------------------------------------------------------------
+resource "azurerm_subnet" "bastion" {
+  #checkov:skip=CKV2_AZURE_31:Azure Bastion manages the traffic of its own subnet; a custom NSG needs the full Bastion rule set
+  count = var.enable_bastion ? 1 : 0
 
-output "vnet_id" {
-  description = "Virtual Network ID"
-  value       = azurerm_virtual_network.main.id
+  name                 = "AzureBastionSubnet"
+  resource_group_name  = var.resource_group_name
+  virtual_network_name = azurerm_virtual_network.main.name
+  address_prefixes     = [var.bastion_subnet_prefix]
 }
 
-output "vnet_name" {
-  description = "Virtual Network name"
-  value       = azurerm_virtual_network.main.name
+resource "azurerm_public_ip" "bastion" {
+  count = var.enable_bastion ? 1 : 0
+
+  name                = "pip-bastion-${local.prefix}"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  allocation_method   = "Static"
+  sku                 = "Standard"
+  tags                = var.tags
 }
 
-output "subnet_ids" {
-  description = "Map of subnet names to IDs"
-  value       = { for k, v in azurerm_subnet.subnets : k => v.id }
-}
+resource "azurerm_bastion_host" "main" {
+  count = var.enable_bastion ? 1 : 0
 
-output "nsg_ids" {
-  description = "Map of NSG names to IDs"
-  value       = { for k, v in azurerm_network_security_group.subnets : k => v.id }
-}
+  name                = "bas-${local.prefix}"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  sku                 = "Standard"
+  tags                = var.tags
 
-output "bastion_id" {
-  description = "Bastion Host ID"
-  value       = var.enable_bastion ? azurerm_bastion_host.main[0].id : null
-}
-
-output "nat_gateway_id" {
-  description = "NAT Gateway ID"
-  value       = var.enable_nat_gateway ? azurerm_nat_gateway.main[0].id : null
+  ip_configuration {
+    name                 = "configuration"
+    subnet_id            = azurerm_subnet.bastion[0].id
+    public_ip_address_id = azurerm_public_ip.bastion[0].id
+  }
 }

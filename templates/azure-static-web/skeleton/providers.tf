@@ -1,21 +1,17 @@
 # =============================================================================
 # Azure Static Web App - Provider Configuration
 # =============================================================================
-
-terraform {
-  required_version = ">= 1.6.0"
-
-  required_providers {
-    azurerm = {
-      source  = "hashicorp/azurerm"
-      version = "~> 3.0"
-    }
-  }
-}
+# Authentication comes from the environment: ARM_CLIENT_ID, ARM_TENANT_ID and
+# ARM_SUBSCRIPTION_ID with OIDC in the pipeline, or `az login` locally.
+# =============================================================================
 
 provider "azurerm" {
-  features {}
+  features {
+    resource_group {
+      prevent_deletion_if_contains_resources = false
+    }
+  }
 
-  subscription_id            = "${{ values.subscriptionId }}"
+  # The deploying identity needs no rights to register resource providers.
   skip_provider_registration = true
 }

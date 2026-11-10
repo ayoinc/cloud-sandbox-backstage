@@ -326,3 +326,37 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+# -----------------------------------------------------------------------------
+# Hardening
+# -----------------------------------------------------------------------------
+
+variable "private_cluster_enabled" {
+  description = "Expose the API server only inside the virtual network"
+  type        = bool
+  default     = false
+}
+
+variable "api_server_authorized_ip_ranges" {
+  description = "CIDR ranges allowed to reach the public API server (empty allows any address)"
+  type        = list(string)
+  default     = []
+}
+
+variable "local_account_disabled" {
+  description = "Disable the shared cluster admin certificate so that all access goes through Entra ID"
+  type        = bool
+  default     = true
+}
+
+variable "max_pods" {
+  description = "Maximum number of pods per node"
+  type        = number
+  default     = 50
+}
+
+variable "enable_host_encryption" {
+  description = "Encrypt temp disks and caches on the node hosts (needs the EncryptionAtHost subscription feature)"
+  type        = bool
+  default     = false
+}

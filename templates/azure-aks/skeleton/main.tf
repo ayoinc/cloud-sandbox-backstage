@@ -76,6 +76,13 @@ module "aks" {
   scale_down_unneeded              = var.scale_down_unneeded
   scale_down_utilization_threshold = var.scale_down_utilization_threshold
 
+  # Hardening
+  private_cluster_enabled         = var.private_cluster_enabled
+  api_server_authorized_ip_ranges = var.api_server_authorized_ip_ranges
+  local_account_disabled          = var.local_account_disabled
+  max_pods                        = var.max_pods
+  enable_host_encryption          = var.enable_host_encryption
+
   # Tags
   tags = var.tags
 }

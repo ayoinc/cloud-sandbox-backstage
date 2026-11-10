@@ -2,9 +2,10 @@ apiVersion: backstage.io/v1alpha1
 kind: Resource
 metadata:
   name: ${{ values.name }}
-  description: ${{ values.description }}
+  description: ${{ values.description | dump }}
   annotations:
     backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
   tags:
     - azure
     - aks

@@ -8,7 +8,7 @@ plugin "terraform" {
 
 plugin "azurerm" {
   enabled = true
-  version = "0.26.0"
+  version = "0.33.0"
   source  = "github.com/terraform-linters/tflint-ruleset-azurerm"
 }
 
@@ -39,4 +39,9 @@ rule "terraform_required_version" {
 
 rule "terraform_required_providers" {
   enabled = true
+}
+
+# The pipeline's destroy action must be able to remove every resource.
+rule "azurerm_resources_missing_prevent_destroy" {
+  enabled = false
 }

@@ -431,6 +431,10 @@ catalog:
       target: ../../templates/azure-functions/template.yaml
       rules:
         - allow: [Template]
+    - type: file
+      target: ../../templates/azure-full-infrastructure/template.yaml
+      rules:
+        - allow: [Template]
 
     # GCP Cloud Templates
     - type: file

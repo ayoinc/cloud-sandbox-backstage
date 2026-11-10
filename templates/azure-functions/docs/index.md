@@ -1,268 +1,52 @@
-# ${{ values.name }}
+# Azure Functions Template
 
-${{ values.description }}
+This template creates a repository with the Terraform configuration of an Azure Functions app and a pipeline that validates and deploys it. The repository holds the infrastructure only; function code is published to the app from its own project.
 
-## Overview
+## What It Creates
 
-This Azure Functions App provides serverless compute using the **${{ values.runtimeStack }}** runtime for the **${{ values.environment }}** environment.
+- Resource group, storage account and service plan (Consumption, Premium or Dedicated)
+- Linux Function App with a system-assigned managed identity
+- Application Insights with its Log Analytics workspace (optional)
 
-## Architecture
+## Form Fields
 
-```d2
-direction: right
+| Field | Description |
+| ----- | ----------- |
+| Function App Name | Name used in resource names |
+| Description | Purpose of the app |
+| Owner | Team that owns the resource |
+| Environment | Environment the pipeline deploys on push; variable files for all three are generated |
+| Azure Region | Region of the app |
+| Runtime Stack, Runtime Version | Language runtime; the versions offered are the ones the pinned AzureRM provider accepts |
+| Hosting Plan, Storage Account Tier, Enable Application Insights | Applied to the chosen environment and to production |
+| Repository Location | GitHub repository to create |
 
-client: Client {
-  shape: person
-}
+## The Generated Repository
 
-azure: Azure {
-  rg: Resource Group {
-    func: Function App {
-      shape: hexagon
-      style.fill: "#0078D4"
-    }
+| Path | Content |
+| ---- | ------- |
+| `main.tf`, `variables.tf`, `outputs.tf`, `modules/` | Terraform configuration |
+| `environments/dev.tfvars`, `staging.tfvars`, `prod.tfvars` | One variable file per environment |
+| `tests/` | Terraform tests that run against a mocked provider |
+| `.github/workflows/terraform.yaml` | Pipeline |
+| `docs/`, `mkdocs.yml`, `catalog-info.yaml` | TechDocs and the catalog entity |
 
-    storage: Storage Account {
-      shape: cylinder
-      style.fill: "#0078D4"
-    }
+### Pipeline
 
-    plan: Service Plan {
-      shape: rectangle
-      style.fill: "#0078D4"
-    }
+The pipeline passes on the first push with nothing configured: it checks formatting, validates the configuration, lints it with TFLint, runs the Terraform tests and scans it with Trivy and Checkov. None of these needs an Azure account.
 
-    insights: Application Insights {
-      shape: rectangle
-      style.fill: "#68217A"
-    }
-  }
+Plan and apply sign in to Azure with OIDC. They are skipped until these repository secrets exist:
 
-  monitor: Azure Monitor {
-    shape: rectangle
-    style.fill: "#0078D4"
-  }
-}
+| Secret | Description |
+| ------ | ----------- |
+| `AZURE_CLIENT_ID` | Application (client) ID of the app registration |
+| `AZURE_TENANT_ID` | Directory (tenant) ID |
+| `AZURE_SUBSCRIPTION_ID` | Subscription to deploy into |
+| `AZURE_STORAGE_ACCOUNT` | Storage account that holds the Terraform state |
+| `INFRACOST_API_KEY` | Optional: cost estimates on pull requests |
 
-triggers: Event Sources {
-  http: HTTP Triggers {
-    shape: rectangle
-  }
+The documentation of the generated repository explains how to create the app registration, its permissions and the state storage account.
 
-  queue: Queue Triggers {
-    shape: queue
-  }
+## Support
 
-  timer: Timer Triggers {
-    shape: rectangle
-  }
-
-  blob: Blob Triggers {
-    shape: cylinder
-  }
-}
-
-outputs: Outputs {
-  database: Database {
-    shape: cylinder
-  }
-
-  api: External APIs {
-    shape: rectangle
-  }
-
-  events: Event Hub {
-    shape: queue
-  }
-}
-
-# Connections
-client -> azure.rg.func: HTTPS
-triggers.http -> azure.rg.func
-triggers.queue -> azure.rg.func
-triggers.timer -> azure.rg.func
-triggers.blob -> azure.rg.func
-
-azure.rg.func -> azure.rg.storage: State & Triggers
-azure.rg.plan -> azure.rg.func: Hosts
-azure.rg.func -> azure.rg.insights: Telemetry
-azure.rg.insights -> azure.monitor: Aggregates
-
-azure.rg.func -> outputs.database
-azure.rg.func -> outputs.api
-azure.rg.func -> outputs.events
-```
-
-## Configuration
-
-| Setting              | Value                            |
-| -------------------- | -------------------------------- |
-| Runtime Stack        | ${{ values.runtimeStack }}       |
-| Runtime Version      | ${{ values.runtimeVersion }}     |
-| Hosting Plan         | ${{ values.skuTier }}            |
-| Storage Tier         | ${{ values.storageAccountTier }} |
-| Location             | ${{ values.location }}           |
-| Environment          | ${{ values.environment }}        |
-| Application Insights | ${{ values.enableAppInsights }}  |
-
-## Features
-
-- **Event-Driven**: Trigger functions from HTTP, queues, timers, blobs, and more
-- **Auto-Scaling**: Scale automatically based on demand
-- **Managed Identity**: Secure access to Azure resources without secrets
-- **Application Insights**: Built-in monitoring and telemetry
-- **Durable Functions**: Stateful workflows and orchestrations
-
-## Trigger Types
-
-### HTTP Triggers
-
-Invoke functions via HTTP requests:
-
-```bash
-curl https://func-${{ values.name }}-${{ values.environment }}.azurewebsites.net/api/hello
-```
-
-### Timer Triggers
-
-Run functions on a schedule using CRON expressions:
-
-```json
-{
-  "schedule": "0 */5 * * * *",
-  "runOnStartup": false
-}
-```
-
-### Queue Triggers
-
-Process messages from Azure Storage Queues:
-
-```json
-{
-  "queueName": "my-queue",
-  "connection": "AzureWebJobsStorage"
-}
-```
-
-### Blob Triggers
-
-React to blob storage events:
-
-```json
-{
-  "path": "container/{name}",
-  "connection": "AzureWebJobsStorage"
-}
-```
-
-## Local Development
-
-### Prerequisites
-
-- Azure Functions Core Tools
-- ${{ values.runtimeStack }} runtime installed
-- Azure CLI
-
-### Running Locally
-
-```bash
-# Install dependencies (varies by runtime)
-# For Node.js:
-npm install
-
-# For Python:
-pip install -r requirements.txt
-
-# Start the function app locally
-func start
-```
-
-### Testing
-
-```bash
-# Call a local HTTP function
-curl http://localhost:7071/api/hello?name=World
-```
-
-## Deployment
-
-### CI/CD Pipeline
-
-Deployments are triggered automatically via GitHub Actions when pushing to `main`.
-
-### Manual Deployment
-
-```bash
-# Deploy using Azure Functions Core Tools
-func azure functionapp publish func-${{ values.name }}-${{ values.environment }}
-
-# Or using Azure CLI
-az functionapp deployment source config-zip \
-  --resource-group rg-${{ values.name }}-${{ values.environment }} \
-  --name func-${{ values.name }}-${{ values.environment }} \
-  --src ./deployment.zip
-```
-
-## Environment Variables
-
-Configure environment variables in Azure Portal or via Terraform:
-
-```hcl
-app_settings = {
-  "MY_API_KEY"    = "@Microsoft.KeyVault(SecretUri=https://...)"
-  "DATABASE_URL"  = "..."
-  "FEATURE_FLAG"  = "true"
-}
-```
-
-## Monitoring
-
-### Application Insights
-
-- View function invocations and failures
-- Analyze performance metrics
-- Set up alerts for errors and latency
-
-### Log Analytics
-
-```kusto
-// Query function execution logs
-traces
-| where cloud_RoleName == "func-${{ values.name }}-${{ values.environment }}"
-| order by timestamp desc
-| take 100
-```
-
-## Security
-
-### Managed Identity
-
-The function app uses a system-assigned managed identity for secure access to Azure resources:
-
-```hcl
-# Grant access to Key Vault
-resource "azurerm_key_vault_access_policy" "function" {
-  key_vault_id = azurerm_key_vault.main.id
-  tenant_id    = data.azurerm_client_config.current.tenant_id
-  object_id    = module.functions.principal_id
-
-  secret_permissions = ["Get", "List"]
-}
-```
-
-### Network Security
-
-For Premium and Dedicated plans, enable VNET integration:
-
-```hcl
-# VNET integration (Premium/Dedicated only)
-resource "azurerm_app_service_virtual_network_swift_connection" "main" {
-  app_service_id = module.functions.function_app_id
-  subnet_id      = azurerm_subnet.functions.id
-}
-```
-
-## Owner
-
-This resource is owned by **${{ values.owner }}**.
+Contact the Platform Team for assistance.

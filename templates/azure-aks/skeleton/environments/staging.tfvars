@@ -12,11 +12,11 @@
 name        = "${{ values.name }}"
 environment = "staging"
 location    = "${{ values.location }}"
-description = "${{ values.description }}"
+description = ${{ values.description | dump | replace('${', '$${') | replace('%{', '%%{') }}
 owner       = "${{ values.owner }}"
 
-# Kubernetes Version
-kubernetes_version = "1.28.5"
+# Kubernetes Version (minor version; AKS selects the latest patch)
+kubernetes_version = "${{ values.kubernetesVersion }}"
 
 # System Node Pool - Production-like
 system_node_vm_size = "Standard_D4s_v3"
@@ -24,12 +24,13 @@ system_node_count   = 2
 system_min_count    = 2
 system_max_count    = 5
 
-# User Node Pool - Production-like
+{% set fromForm = values.envName == 'staging' -%}
+# User Node Pool - Production-like{% if fromForm %} (sized from the template form){% endif %}
 create_user_node_pool = true
-user_node_vm_size     = "Standard_D4s_v3"
-user_node_count       = 2
-user_min_count        = 1
-user_max_count        = 10
+user_node_vm_size     = "${{ values.nodeVmSize if fromForm else 'Standard_D4s_v3' }}"
+user_node_count       = ${{ values.nodeCount if fromForm else 2 }}
+user_min_count        = ${{ ([values.nodeCount, 1] | sort | first) if fromForm else 1 }}
+user_max_count        = ${{ ([values.nodeCount, values.maxNodeCount] | sort | last) if fromForm else 10 }}
 user_node_taints      = []
 
 # Spot Node Pool - Optional for staging
@@ -54,8 +55,8 @@ service_cidr   = "10.0.0.0/16"
 dns_service_ip = "10.0.0.10"
 
 # Container Registry - Standard for staging
-create_acr = true
-acr_sku    = "Standard"
+create_acr                   = true
+acr_sku                      = "Standard"
 acr_georeplication_locations = []
 
 # Monitoring

@@ -99,11 +99,11 @@ output "kube_config_cluster_ca_certificate" {
 # -----------------------------------------------------------------------------
 
 output "kubelet_identity" {
-  description = "Kubelet identity information"
+  description = "Kubelet identity information (null until the cluster exists)"
   value = {
-    client_id                 = azurerm_kubernetes_cluster.main.kubelet_identity[0].client_id
-    object_id                 = azurerm_kubernetes_cluster.main.kubelet_identity[0].object_id
-    user_assigned_identity_id = azurerm_kubernetes_cluster.main.kubelet_identity[0].user_assigned_identity_id
+    client_id                 = try(azurerm_kubernetes_cluster.main.kubelet_identity[0].client_id, null)
+    object_id                 = try(azurerm_kubernetes_cluster.main.kubelet_identity[0].object_id, null)
+    user_assigned_identity_id = try(azurerm_kubernetes_cluster.main.kubelet_identity[0].user_assigned_identity_id, null)
   }
 }
 

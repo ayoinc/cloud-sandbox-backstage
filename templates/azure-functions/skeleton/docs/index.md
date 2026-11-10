@@ -4,7 +4,7 @@ ${{ values.description }}
 
 ## Overview
 
-This Azure Functions project provides serverless compute capabilities for event-driven applications in the **${{ values.environment }}** environment deployed to **${{ values.location }}**.
+This Azure Functions project provides serverless compute capabilities for event-driven applications in the **${{ values.envName }}** environment deployed to **${{ values.location }}**.
 
 Key features include:
 
@@ -124,14 +124,15 @@ function_app.functions -> outputs.api
 
 | Setting             | Value                             |
 | ------------------- | --------------------------------- |
-| Function App Name   | `func-${{ values.name }}-${{ values.environment }}` |
-| Resource Group      | `rg-${{ values.name }}-${{ values.environment }}`   |
+| Function App Name   | `func-${{ values.name }}-${{ values.envName }}` |
+| Resource Group      | `rg-${{ values.name }}-${{ values.envName }}`   |
 | Region              | `${{ values.location }}`          |
 | Runtime Stack       | `${{ values.runtimeStack }}`      |
 | Runtime Version     | `${{ values.runtimeVersion }}`    |
 | SKU Tier            | `${{ values.skuTier }}`           |
-| Environment         | `${{ values.environment }}`       |
-| App Insights        | Enabled                           |
+| Storage Tier        | `${{ values.storageAccountTier }}` |
+| Environment         | `${{ values.envName }}`       |
+| App Insights        | {% if values.enableAppInsights %}Enabled (workspace-based){% else %}Disabled{% endif %} |
 | Managed Identity    | System Assigned                   |
 
 ## Hosting Plans
@@ -146,66 +147,55 @@ function_app.functions -> outputs.api
 
 ## CI/CD Pipeline
 
-This repository includes a comprehensive GitHub Actions pipeline with:
+`.github/workflows/terraform.yaml` runs on every push and pull request to `main`, and on demand from the **Actions** tab.
 
-- **Validation**: Format checking, linting, Terraform validation
-- **Security Scanning**: tfsec, Checkov, Trivy for vulnerability detection
-- **Terraform Tests**: Native Terraform test framework execution
-- **Cost Estimation**: Infracost integration for cost visibility
-- **Multi-Environment**: Separate plans for dev, staging, and production
-- **Manual Approvals**: Required for apply and destroy operations
-- **Drift Detection**: On-demand checks for configuration drift
+### Checks
+
+These jobs need no cloud account and run from the first commit:
+
+| Job             | What it does                                                                  |
+| --------------- | ----------------------------------------------------------------------------- |
+| Validate        | `terraform fmt -check`, `terraform init -backend=false`, `terraform validate` |
+| TFLint          | Lints the root module and `modules/` with the AzureRM ruleset                 |
+| Terraform Tests | Runs `tests/*.tftest.hcl` against a mocked provider                           |
+| Security Scan   | Trivy and Checkov; any finding fails the job                                  |
+
+### Deployment
+
+These jobs sign in to Azure with OIDC. They are skipped until the repository secrets listed under [GitHub Repository Setup](#2-github-repository-setup) exist:
+
+| Job             | Runs on                                              | What it does                                                       |
+| --------------- | ---------------------------------------------------- | ------------------------------------------------------------------ |
+| Cost Estimate   | Pull requests, once `INFRACOST_API_KEY` is set       | Posts an Infracost breakdown on the pull request                   |
+| Plan            | Pull requests, pushes to `main`, manual plan/apply   | Plans the target environment and adds the plan to the run summary  |
+| Apply           | Pushes to `main`, manual apply                       | Applies the saved plan in the GitHub environment of the same name  |
+| Destroy         | Manual destroy with `DESTROY` typed as confirmation  | Destroys the target environment                                    |
+| Drift Detection | Manual drift-detection                               | Opens an issue when the deployed infrastructure has drifted        |
+
+Pushes and pull requests target the `${{ values.envName }}` environment (`DEFAULT_ENVIRONMENT` in the workflow). The other environments are deployed from **Actions > Terraform > Run workflow**.
 
 ### Pipeline Workflow
 
 ```d2
 direction: right
 
-pr: Pull Request {
+push: Push or pull request {
   shape: oval
-  style.fill: "#E3F2FD"
-  style.stroke: "#1976D2"
 }
 
-validate: Validate {
-  style.fill: "#E8F5E9"
-  style.stroke: "#388E3C"
-  label: "Format Check\nTerraform Validate\nTFLint"
+checks: Checks {
+  validate: Validate
+  lint: TFLint
+  test: Terraform Tests
+  security: Security Scan
 }
 
-security: Security {
-  style.fill: "#FFCDD2"
-  style.stroke: "#D32F2F"
-  label: "tfsec\nCheckov\nTrivy"
-}
-
-test: Test {
-  style.fill: "#E1BEE7"
-  style.stroke: "#7B1FA2"
-  label: "Terraform Test\nUnit Tests"
-}
-
-plan: Plan {
-  style.fill: "#E3F2FD"
-  style.stroke: "#1976D2"
-  label: "Generate Plan\nCost Estimate"
-}
-
-review: Review {
-  shape: diamond
-  style.fill: "#FFECB3"
-  style.stroke: "#FFA000"
-  label: "Manual\nApproval"
-}
-
+plan: Plan
 apply: Apply {
-  style.fill: "#E8F5E9"
-  style.stroke: "#388E3C"
-  label: "Deploy to\nAzure"
+  label: "Apply\n(main only)"
 }
 
-pr -> validate -> security
-security -> test -> plan -> review -> apply
+push -> checks -> plan -> apply
 ```
 
 ---
@@ -370,39 +360,44 @@ az storage account blob-service-properties update \
   --account-name $STORAGE_ACCOUNT_NAME \
   --resource-group rg-terraform-state \
   --enable-versioning true
+
+# Let the pipeline read and write the state with its Entra ID identity
+az role assignment create \
+  --assignee $SP_OBJECT_ID \
+  --role "Storage Blob Data Contributor" \
+  --scope $(az storage account show --name $STORAGE_ACCOUNT_NAME --resource-group rg-terraform-state --query id -o tsv)
+
+# Store this name in the AZURE_STORAGE_ACCOUNT repository secret
+echo $STORAGE_ACCOUNT_NAME
 ```
 
 ### 2. GitHub Repository Setup
 
 #### Required Secrets
 
-Configure these in **Settings > Secrets and variables > Actions**:
+Configure these in **Settings > Secrets and variables > Actions**. Until the four `AZURE_*` secrets exist the pipeline runs its checks and skips every job that talks to Azure:
 
-| Secret                   | Description                                | Example                              |
-| ------------------------ | ------------------------------------------ | ------------------------------------ |
-| `AZURE_CLIENT_ID`        | Azure AD application (client) ID           | `12345678-1234-1234-1234-123456789012` |
-| `AZURE_TENANT_ID`        | Azure AD tenant ID                         | `12345678-1234-1234-1234-123456789012` |
-| `AZURE_SUBSCRIPTION_ID`  | Azure subscription ID                      | `12345678-1234-1234-1234-123456789012` |
-| `AZURE_STORAGE_ACCOUNT`  | Storage account name for Terraform state   | `stterraformstateabc123`             |
-| `INFRACOST_API_KEY`      | API key for cost estimation (optional)     | `ico-xxxxxxxx`                       |
+| Secret                  | Description                                 | Example                                |
+| ----------------------- | ------------------------------------------- | -------------------------------------- |
+| `AZURE_CLIENT_ID`       | Application (client) ID of the app registration | `12345678-1234-1234-1234-123456789012` |
+| `AZURE_TENANT_ID`       | Directory (tenant) ID                       | `12345678-1234-1234-1234-123456789012` |
+| `AZURE_SUBSCRIPTION_ID` | Subscription to deploy into                 | `12345678-1234-1234-1234-123456789012` |
+| `AZURE_STORAGE_ACCOUNT` | Storage account that holds the Terraform state | `stterraformstate1234`              |
+| `INFRACOST_API_KEY`     | Enables cost estimates on pull requests (optional) | `ico-xxxxxxxx`                  |
 
-#### Repository Variables
+The state lives in resource group `rg-terraform-state`, container `tfstate`. Set the repository variables `TF_STATE_RESOURCE_GROUP` and `TF_STATE_CONTAINER` to use other names.
 
-Configure these in **Settings > Secrets and variables > Actions > Variables**:
 
-| Variable          | Description             | Default         |
-| ----------------- | ----------------------- | --------------- |
-| `AZURE_LOCATION`  | Default Azure region    | `eastus`        |
 
 #### GitHub Environments
 
-Create environments in **Settings > Environments**:
+The Apply and Destroy jobs run in the GitHub environment named after their target: `dev`, `staging` or `prod`. GitHub creates an environment the first time a job uses it; add protection rules in **Settings > Environments** to require approval:
 
-| Environment | Protection Rules                                     | Reviewers                |
-| ----------- | ---------------------------------------------------- | ------------------------ |
-| `dev`       | None                                                 | -                        |
-| `staging`   | Required reviewers (optional)                        | Team leads               |
-| `prod`      | Required reviewers, Deployment branches: `main` only | Senior engineers, DevOps |
+| Environment | Suggested protection rules                          |
+| ----------- | --------------------------------------------------- |
+| `dev`       | None                                                |
+| `staging`   | Required reviewers                                  |
+| `prod`      | Required reviewers, deployment branches: `main` only |
 
 ---
 
@@ -416,7 +411,7 @@ Install the following tools:
 
 - [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli) >= 2.50
 - [Azure Functions Core Tools](https://docs.microsoft.com/en-us/azure/azure-functions/functions-run-local) >= 4.x
-- [Terraform](https://www.terraform.io/downloads) >= 1.9
+- [Terraform](https://www.terraform.io/downloads) >= 1.7
 - Runtime-specific SDK (${{ values.runtimeStack }} ${{ values.runtimeVersion }})
 
 #### Function Development
@@ -447,8 +442,8 @@ curl http://localhost:7071/api/HttpTrigger?name=World
 #### Infrastructure Development
 
 ```bash
-# Initialize Terraform
-terraform init
+# Initialize Terraform without the state backend
+terraform init -backend=false
 
 # Format code (fix formatting issues)
 terraform fmt -recursive
@@ -458,49 +453,51 @@ terraform validate
 
 # Run Terraform tests
 terraform test
+```
 
-# Plan changes (dev environment)
-terraform plan -var-file=environments/dev.tfvars
+To plan or apply from your machine, sign in with `az login`, initialize against the state backend as shown in the README, then:
 
-# Apply changes (requires appropriate Azure credentials)
-terraform apply -var-file=environments/dev.tfvars
+```bash
+terraform plan -var-file=environments/${{ values.envName }}.tfvars
+terraform apply -var-file=environments/${{ values.envName }}.tfvars
 ```
 
 ### Running the Pipeline
 
 #### Automatic Triggers
 
-| Trigger          | Actions                                          |
-| ---------------- | ------------------------------------------------ |
-| Pull Request     | Validate, Security Scan, Test, Plan, Cost Estimate |
-| Push to main     | Validate, Security Scan, Test, Plan, Apply (dev)  |
-| Push to develop  | Validate, Security Scan, Test, Plan              |
+| Trigger        | Jobs                                                             |
+| -------------- | ---------------------------------------------------------------- |
+| Pull request   | Checks, Cost Estimate, Plan (`${{ values.envName }}`)            |
+| Push to `main` | Checks, Plan and Apply (`${{ values.envName }}`)                 |
+
+Plan, Apply and Cost Estimate are skipped while their secrets are missing.
 
 #### Manual Deployment
 
-1. Navigate to **Actions** tab
-2. Select **Terraform CI/CD** workflow
+1. Open the **Actions** tab
+2. Select the **Terraform** workflow
 3. Click **Run workflow**
-4. Configure:
+4. Choose:
    - **action**: `plan`, `apply`, `destroy`, or `drift-detection`
    - **environment**: `dev`, `staging`, or `prod`
-   - **confirm_destroy**: Type `DESTROY` to confirm (required for destroy action)
+   - **confirm_destroy**: type `DESTROY` (destroy only)
 5. Click **Run workflow**
 
-For `staging` and `prod` environments, you'll need approval from designated reviewers.
+A manual run fails straight away, naming the missing secrets, if the Azure credentials are not configured.
 
 ### Deploying Function Code
 
-After infrastructure is deployed, deploy your function code:
+This repository provisions the Function App; it holds no function code. After the infrastructure is deployed, publish your functions from the project that contains them:
 
 ```bash
 # Using Azure Functions Core Tools
-func azure functionapp publish func-${{ values.name }}-${{ values.environment }}
+func azure functionapp publish func-${{ values.name }}-${{ values.envName }}
 
 # Using Azure CLI
 az functionapp deployment source config-zip \
-  --resource-group rg-${{ values.name }}-${{ values.environment }} \
-  --name func-${{ values.name }}-${{ values.environment }} \
+  --resource-group rg-${{ values.name }}-${{ values.envName }} \
+  --name func-${{ values.name }}-${{ values.envName }} \
   --src function-app.zip
 ```
 
@@ -508,35 +505,35 @@ az functionapp deployment source config-zip \
 
 ## Security Scanning
 
-The pipeline includes three security scanning tools:
+The Security Scan job runs two scanners and fails on any finding:
 
-| Tool        | Purpose                                                   | Documentation                        |
-| ----------- | --------------------------------------------------------- | ------------------------------------ |
-| **tfsec**   | Static analysis for Terraform security misconfigurations  | [tfsec.dev](https://tfsec.dev)       |
-| **Checkov** | Policy-as-code for infrastructure security and compliance | [checkov.io](https://www.checkov.io) |
-| **Trivy**   | Comprehensive vulnerability scanner for IaC               | [trivy.dev](https://trivy.dev)       |
+| Tool        | Scope                                                      | Run locally                                        |
+| ----------- | ---------------------------------------------------------- | -------------------------------------------------- |
+| **Trivy**   | Misconfigurations of severity MEDIUM and above             | `trivy config --severity CRITICAL,HIGH,MEDIUM .`   |
+| **Checkov** | Policy checks for Terraform                                | `checkov --directory . --config-file .checkov.yaml` |
 
-Results are uploaded to the GitHub **Security** tab as SARIF reports.
+### Accepted Findings
 
-### Common Security Findings
+Each exception is declared next to the resource it applies to, with its reason:
 
-| Finding                              | Resolution                                            |
-| ------------------------------------ | ----------------------------------------------------- |
-| Storage account allows public access | Set `public_network_access_enabled = false`           |
-| HTTPS not enforced                   | Already configured (`https_only = true`)              |
-| Missing encryption                   | Storage encryption enabled by default                 |
-| Managed identity not enabled         | Already configured with System Assigned identity      |
-| TLS version too low                  | Already configured (`min_tls_version = "1.2"`)        |
+| Finding | Where | Reason |
+| ------- | ----- | ------ |
+| Trivy `AZU-0012`, Checkov `CKV_AZURE_59`, `CKV2_AZURE_33` | Storage account | The Functions host reaches its storage over the public endpoint; Consumption plans have no VNet integration |
+| Checkov `CKV2_AZURE_40` | Storage account | The Functions host connects to its storage with the account key |
+| Checkov `CKV2_AZURE_1` | Storage account | Data is encrypted with platform-managed keys; a customer-managed key needs a Key Vault |
+| Checkov `CKV_AZURE_206` | Storage account | Locally redundant outside production to save cost; production is geo-redundant |
+| Checkov `CKV_AZURE_225`, `CKV_AZURE_212` | Service plan | Zone redundancy and a minimum instance count do not apply to the Consumption and Basic SKUs |
+| Checkov `CKV_AZURE_221` | Function App | HTTP-triggered functions are served from the public endpoint |
 
-### Suppressing False Positives
+### Suppressing a Finding
 
-Create a `.tfsec.yml` file in the root directory:
+Fix the configuration where you can. To accept a finding, add a comment on the resource and state why:
 
-```yaml
-# .tfsec.yml
-minimum_severity: MEDIUM
-exclude:
-  - azure-storage-queue-services-logging-enabled
+```hcl
+resource "azurerm_example" "this" {
+  #checkov:skip=CKV_AZURE_123:Reason the check does not apply
+  #trivy:ignore:AZU-0001 Reason the check does not apply
+}
 ```
 
 ---
@@ -602,8 +599,8 @@ terraform output -raw storage_account_primary_connection_string
 
 Access monitoring data in the Azure Portal:
 
-1. Navigate to **Resource Groups** > `rg-${{ values.name }}-${{ values.environment }}`
-2. Select the **Application Insights** resource (`appi-${{ values.name }}-${{ values.environment }}`)
+1. Navigate to **Resource Groups** > `rg-${{ values.name }}-${{ values.envName }}`
+2. Select the **Application Insights** resource (`appi-${{ values.name }}-${{ values.envName }}`)
 3. View:
    - **Live Metrics**: Real-time performance data
    - **Failures**: Exception tracking and analysis
@@ -677,7 +674,7 @@ Error: Error acquiring the state lock
    az storage blob lease break \
      --account-name $STORAGE_ACCOUNT_NAME \
      --container-name tfstate \
-     --blob-name "${{ values.name }}/${{ values.environment }}/terraform.tfstate"
+     --blob-name "${{ values.name }}/${{ values.envName }}/terraform.tfstate"
    ```
 
 ### Function App Issues
@@ -713,13 +710,7 @@ Deployment failed with status code 409 (Conflict)
 
 **Security scan failing**
 
-Set `soft_fail: true` in the workflow to allow warnings without blocking:
-
-```yaml
-- uses: aquasecurity/tfsec-action@v1.0.3
-  with:
-    soft_fail: true
-```
+The job log lists each finding with its file and line. Fix the configuration, or accept the finding as described under [Security Scanning](#security-scanning).
 
 ---
 

@@ -8,28 +8,60 @@
 # -----------------------------------------------------------------------------
 # Mock Provider for Testing
 # -----------------------------------------------------------------------------
+# The provider checks the format of the IDs passed between resources, so the
+# mocked resources return well-formed Azure resource IDs.
 mock_provider "azurerm" {
   alias = "mock"
+
+  mock_resource "azurerm_subnet" {
+    defaults = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-test/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/snet-test"
+    }
+  }
+
+  mock_resource "azurerm_network_security_group" {
+    defaults = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-test/providers/Microsoft.Network/networkSecurityGroups/nsg-test"
+    }
+  }
+
+  mock_resource "azurerm_public_ip" {
+    defaults = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-test/providers/Microsoft.Network/publicIPAddresses/pip-test"
+    }
+  }
+
+  mock_resource "azurerm_nat_gateway" {
+    defaults = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-test/providers/Microsoft.Network/natGateways/nat-test"
+    }
+  }
+
+  mock_resource "azurerm_network_ddos_protection_plan" {
+    defaults = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-test/providers/Microsoft.Network/ddosProtectionPlans/ddos-test"
+    }
+  }
 }
 
 # -----------------------------------------------------------------------------
 # Test Variables
 # -----------------------------------------------------------------------------
 variables {
-  name                 = "test-vnet"
-  environment          = "dev"
-  location             = "eastus"
-  description          = "Test VNet for validation"
-  owner                = "platform-team"
-  address_space        = "10.0.0.0/16"
-  public_subnet_cidr   = "10.0.1.0/24"
-  private_subnet_cidr  = "10.0.2.0/24"
-  database_subnet_cidr = "10.0.3.0/24"
-  aks_subnet_cidr      = "10.0.16.0/20"
-  enable_nat_gateway   = true
-  nat_idle_timeout     = 10
-  availability_zones   = ["1"]
-  dns_servers          = []
+  name                   = "test-vnet"
+  environment            = "dev"
+  location               = "eastus"
+  description            = "Test VNet for validation"
+  owner                  = "platform-team"
+  address_space          = "10.0.0.0/16"
+  public_subnet_cidr     = "10.0.1.0/24"
+  private_subnet_cidr    = "10.0.2.0/24"
+  database_subnet_cidr   = "10.0.3.0/24"
+  aks_subnet_cidr        = "10.0.16.0/20"
+  enable_nat_gateway     = true
+  nat_idle_timeout       = 10
+  availability_zones     = ["1"]
+  dns_servers            = []
   enable_ddos_protection = false
   tags = {
     TestTag = "test-value"
@@ -40,7 +72,7 @@ variables {
 # Test: VNet Module Plan Succeeds
 # -----------------------------------------------------------------------------
 run "vnet_plan_succeeds" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -61,7 +93,7 @@ run "vnet_plan_succeeds" {
 # Test: VNet Naming Convention
 # -----------------------------------------------------------------------------
 run "vnet_naming_convention" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -82,7 +114,7 @@ run "vnet_naming_convention" {
 # Test: Subnet IDs are Created
 # -----------------------------------------------------------------------------
 run "subnet_ids_created" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -113,7 +145,7 @@ run "subnet_ids_created" {
 # Test: NSG IDs are Created
 # -----------------------------------------------------------------------------
 run "nsg_ids_created" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -139,7 +171,7 @@ run "nsg_ids_created" {
 # Test: NAT Gateway is Created When Enabled
 # -----------------------------------------------------------------------------
 run "nat_gateway_created_when_enabled" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -159,7 +191,7 @@ run "nat_gateway_created_when_enabled" {
 # Test: NAT Gateway is NOT Created When Disabled
 # -----------------------------------------------------------------------------
 run "nat_gateway_not_created_when_disabled" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -179,7 +211,7 @@ run "nat_gateway_not_created_when_disabled" {
 # Test: VNet Address Space
 # -----------------------------------------------------------------------------
 run "vnet_address_space" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -195,7 +227,7 @@ run "vnet_address_space" {
 # Test: Subnet Map Contains All Subnets
 # -----------------------------------------------------------------------------
 run "subnet_map_complete" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -231,7 +263,7 @@ run "subnet_map_complete" {
 # Test: VNet Info Summary
 # -----------------------------------------------------------------------------
 run "vnet_info_summary" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -257,7 +289,7 @@ run "vnet_info_summary" {
 # Test: Environment Validation - Development
 # -----------------------------------------------------------------------------
 run "environment_dev" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -277,7 +309,7 @@ run "environment_dev" {
 # Test: Environment Validation - Production
 # -----------------------------------------------------------------------------
 run "environment_prod" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -297,7 +329,7 @@ run "environment_prod" {
 # Test: Multiple Availability Zones
 # -----------------------------------------------------------------------------
 run "multiple_availability_zones" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock
@@ -318,7 +350,7 @@ run "multiple_availability_zones" {
 # Test: Custom Tags
 # -----------------------------------------------------------------------------
 run "custom_tags" {
-  command = plan
+  command = apply
 
   providers = {
     azurerm = azurerm.mock

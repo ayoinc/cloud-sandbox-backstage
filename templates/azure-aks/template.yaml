@@ -69,11 +69,12 @@ spec:
         kubernetesVersion:
           title: Kubernetes Version
           type: string
+          description: Minor version; AKS supports each one for 12 months and selects the latest patch
           enum:
-            - '1.29'
-            - '1.28'
-            - '1.27'
-          default: '1.29'
+            - '1.37'
+            - '1.36'
+            - '1.35'
+          default: '1.37'
         nodeVmSize:
           title: Node VM Size
           type: string
@@ -114,18 +115,18 @@ spec:
       action: fetch:template
       input:
         url: ./skeleton
-        templateFileExtension: '.j2'
-        cookiecutterCompat: false
         values:
           name: ${{ parameters.name }}
-          description: ${{ parameters.description }}
+          description: ${{ parameters.description or 'Azure Kubernetes Service cluster ' + parameters.name }}
           owner: ${{ parameters.owner }}
           environment: ${{ parameters.environment }}
+          envName: "${{ {'development': 'dev', 'staging': 'staging', 'production': 'prod'}[parameters.environment] }}"
           location: ${{ parameters.location }}
           kubernetesVersion: ${{ parameters.kubernetesVersion }}
-          nodeVmSize: ${{ parameters.nodeVmSize }}
-          nodeCount: ${{ parameters.nodeCount }}
-          maxNodeCount: ${{ parameters.maxNodeCount }}
+          nodeVmSize: ${{ parameters.nodeVmSize or 'Standard_D4s_v3' }}
+          nodeCount: ${{ parameters.nodeCount or 3 }}
+          maxNodeCount: ${{ parameters.maxNodeCount or 10 }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
 
     - id: publish
       name: Publish to GitHub

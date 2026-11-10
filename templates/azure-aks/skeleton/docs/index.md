@@ -4,7 +4,7 @@ ${{ values.description }}
 
 ## Overview
 
-This Azure Kubernetes Service (AKS) cluster provides a production-ready Kubernetes platform for the **${{ values.environment }}** environment in **${{ values.location }}**. The infrastructure is managed by Terraform with:
+This Azure Kubernetes Service (AKS) cluster provides a production-ready Kubernetes platform for the **${{ values.envName }}** environment in **${{ values.location }}**. The infrastructure is managed by Terraform with:
 
 - Azure AD integration with RBAC for secure access control
 - Multiple node pools (system, user, optional spot) for workload isolation
@@ -39,7 +39,7 @@ azure: Azure (${{ values.location }}) {
   rg: Resource Group {
     style.fill: "#E8F5E9"
     style.stroke: "#388E3C"
-    label: "rg-${{ values.name }}-${{ values.environment }}"
+    label: "rg-${{ values.name }}-${{ values.envName }}"
   }
 
   aad: Azure AD {
@@ -112,11 +112,11 @@ internet -> azure.aks.control: kubectl/API
 
 | Setting | Value |
 | --- | --- |
-| Cluster Name | `aks-${{ values.name }}-${{ values.environment }}` |
-| Resource Group | `rg-${{ values.name }}-${{ values.environment }}` |
+| Cluster Name | `aks-${{ values.name }}-${{ values.envName }}` |
+| Resource Group | `rg-${{ values.name }}-${{ values.envName }}` |
 | Kubernetes Version | `${{ values.kubernetesVersion }}` |
 | Location | `${{ values.location }}` |
-| Environment | `${{ values.environment }}` |
+| Environment | `${{ values.envName }}` |
 | Network Plugin | `azure` (Azure CNI) |
 | Network Policy | `calico` |
 | Azure RBAC | Enabled |
@@ -125,14 +125,18 @@ internet -> azure.aks.control: kubectl/API
 
 | Node Pool | VM Size | Initial Count | Min | Max | Purpose |
 | --- | --- | --- | --- | --- | --- |
-| System | `${{ values.nodeVmSize }}` | ${{ values.nodeCount }} | 1 | ${{ values.maxNodeCount }} | Critical system workloads (CoreDNS, etc.) |
-| User | `${{ values.nodeVmSize }}` | ${{ values.nodeCount }} | 1 | ${{ values.maxNodeCount }} | Application workloads |
+| System | Set per environment | Set per environment | - | - | Critical system workloads (CoreDNS, etc.) |
+| User | `${{ values.nodeVmSize }}` | ${{ values.nodeCount }} | - | ${{ values.maxNodeCount }} | Application workloads |
+
+The User pool values above apply to the `${{ values.envName }}` environment. Every pool of every environment is defined in `environments/*.tfvars`.
 
 ### Security Features
 
 | Feature | Status | Description |
 | --- | --- | --- |
 | Azure AD Integration | Enabled | Managed Azure AD with RBAC |
+| Local Accounts | Disabled | No shared admin certificate; every user signs in with Entra ID |
+| Azure Policy Add-on | Enabled | Gatekeeper policies from Azure Policy |
 | Workload Identity | Enabled | Pod-level Azure identity access |
 | Network Policy | Calico | Pod-to-pod traffic control |
 | Private ACR | Enabled | No admin credentials required |
@@ -142,74 +146,56 @@ internet -> azure.aks.control: kubectl/API
 
 ## CI/CD Pipeline
 
-This repository includes a comprehensive GitHub Actions pipeline with:
+`.github/workflows/terraform.yaml` runs on every push and pull request to `main`, and on demand from the **Actions** tab.
 
-- **Validation**: Format checking, TFLint, Terraform validation
-- **Security Scanning**: tfsec, Checkov, Trivy for vulnerability detection
-- **Cost Estimation**: Infracost integration for cost visibility
-- **Terraform Tests**: Native Terraform testing framework
-- **Multi-Environment**: Separate plans for dev, staging, and production
-- **Manual Approvals**: Required for apply and destroy operations
-- **Drift Detection**: On-demand configuration drift checks
+### Checks
+
+These jobs need no cloud account and run from the first commit:
+
+| Job             | What it does                                                                  |
+| --------------- | ----------------------------------------------------------------------------- |
+| Validate        | `terraform fmt -check`, `terraform init -backend=false`, `terraform validate` |
+| TFLint          | Lints the root module and `modules/` with the AzureRM ruleset                 |
+| Terraform Tests | Runs `tests/*.tftest.hcl` against a mocked provider                           |
+| Security Scan   | Trivy and Checkov; any finding fails the job                                  |
+
+### Deployment
+
+These jobs sign in to Azure with OIDC. They are skipped until the repository secrets listed under [GitHub Repository Setup](#3-github-repository-setup) exist:
+
+| Job             | Runs on                                              | What it does                                                       |
+| --------------- | ---------------------------------------------------- | ------------------------------------------------------------------ |
+| Cost Estimate   | Pull requests, once `INFRACOST_API_KEY` is set       | Posts an Infracost breakdown on the pull request                   |
+| Plan            | Pull requests, pushes to `main`, manual plan/apply   | Plans the target environment and adds the plan to the run summary  |
+| Apply           | Pushes to `main`, manual apply                       | Applies the saved plan in the GitHub environment of the same name  |
+| Destroy         | Manual destroy with `DESTROY` typed as confirmation  | Destroys the target environment                                    |
+| Drift Detection | Manual drift-detection                               | Opens an issue when the deployed infrastructure has drifted        |
+
+Pushes and pull requests target the `${{ values.envName }}` environment (`DEFAULT_ENVIRONMENT` in the workflow). The other environments are deployed from **Actions > Terraform > Run workflow**.
 
 ### Pipeline Workflow
 
 ```d2
 direction: right
 
-pr: Pull Request {
+push: Push or pull request {
   shape: oval
-  style.fill: "#E3F2FD"
-  style.stroke: "#0078D4"
 }
 
-validate: Validate {
-  style.fill: "#E8F5E9"
-  style.stroke: "#388E3C"
-  label: "Format Check\nTFLint\nValidate"
+checks: Checks {
+  validate: Validate
+  lint: TFLint
+  test: Terraform Tests
+  security: Security Scan
 }
 
-security: Security {
-  style.fill: "#FFCDD2"
-  style.stroke: "#D32F2F"
-  label: "tfsec\nCheckov\nTrivy"
-}
-
-test: Test {
-  style.fill: "#E8EAF6"
-  style.stroke: "#3F51B5"
-  label: "Terraform\nNative Tests"
-}
-
-plan: Plan {
-  style.fill: "#E3F2FD"
-  style.stroke: "#0078D4"
-  label: "Generate Plan\nCost Estimate"
-}
-
-review: Review {
-  shape: diamond
-  style.fill: "#FFECB3"
-  style.stroke: "#FFA000"
-  label: "Manual\nApproval"
-}
-
+plan: Plan
 apply: Apply {
-  style.fill: "#E8F5E9"
-  style.stroke: "#388E3C"
-  label: "Deploy\nInfrastructure"
+  label: "Apply\n(main only)"
 }
 
-pr -> validate -> security -> test -> plan -> review -> apply
+push -> checks -> plan -> apply
 ```
-
-### Pipeline Triggers
-
-| Trigger | Actions |
-| --- | --- |
-| Pull Request | Validate, Security Scan, Test, Plan, Cost Estimate |
-| Push to main | Validate, Security Scan, Plan (all environments) |
-| Manual (workflow_dispatch) | Plan, Apply, Destroy, or Drift Detection |
 
 ---
 
@@ -247,7 +233,15 @@ az ad app federated-credential create --id $APP_ID --parameters '{
   "audiences": ["api://AzureADTokenExchange"]
 }'
 
-# Create additional credentials for environments
+# Create federated credential for pull requests (the Plan job)
+az ad app federated-credential create --id $APP_ID --parameters '{
+  "name": "github-actions-pr",
+  "issuer": "https://token.actions.githubusercontent.com",
+  "subject": "repo:'$GITHUB_ORG'/'$GITHUB_REPO':pull_request",
+  "audiences": ["api://AzureADTokenExchange"]
+}'
+
+# Create credentials for the environments the Apply and Destroy jobs run in
 for env in dev staging prod; do
   az ad app federated-credential create --id $APP_ID --parameters '{
     "name": "github-actions-'$env'",
@@ -371,29 +365,27 @@ az ad group member add \
 
 #### Required Secrets
 
-Configure these in **Settings > Secrets and variables > Actions**:
+Configure these in **Settings > Secrets and variables > Actions**. Until the four `AZURE_*` secrets exist the pipeline runs its checks and skips every job that talks to Azure:
 
-| Secret | Description | Example |
-| --- | --- | --- |
-| `AZURE_CLIENT_ID` | Azure AD Application (client) ID | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
-| `AZURE_TENANT_ID` | Azure AD Tenant ID | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
-| `AZURE_SUBSCRIPTION_ID` | Azure Subscription ID | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
-| `AZURE_STORAGE_ACCOUNT` | Terraform state storage account name | `stterraformstatexxxx` |
-| `INFRACOST_API_KEY` | API key for cost estimation (optional) | `ico-xxxxxxxx` |
+| Secret                  | Description                                 | Example                                |
+| ----------------------- | ------------------------------------------- | -------------------------------------- |
+| `AZURE_CLIENT_ID`       | Application (client) ID of the app registration | `12345678-1234-1234-1234-123456789012` |
+| `AZURE_TENANT_ID`       | Directory (tenant) ID                       | `12345678-1234-1234-1234-123456789012` |
+| `AZURE_SUBSCRIPTION_ID` | Subscription to deploy into                 | `12345678-1234-1234-1234-123456789012` |
+| `AZURE_STORAGE_ACCOUNT` | Storage account that holds the Terraform state | `stterraformstate1234`              |
+| `INFRACOST_API_KEY`     | Enables cost estimates on pull requests (optional) | `ico-xxxxxxxx`                  |
+
+The state lives in resource group `rg-terraform-state`, container `tfstate`. Set the repository variables `TF_STATE_RESOURCE_GROUP` and `TF_STATE_CONTAINER` to use other names.
 
 #### GitHub Environments
 
-Create environments in **Settings > Environments**:
+The Apply and Destroy jobs run in the GitHub environment named after their target: `dev`, `staging` or `prod`. GitHub creates an environment the first time a job uses it; add protection rules in **Settings > Environments** to require approval:
 
-| Environment | Protection Rules | Reviewers |
-| --- | --- | --- |
-| `dev` | None | - |
-| `dev-plan` | None | - |
-| `staging` | Required reviewers | Team leads |
-| `staging-plan` | None | - |
-| `prod` | Required reviewers, Deployment branches: `main` only | Senior engineers, DevOps |
-| `prod-plan` | None | - |
-| `*-destroy` | Required reviewers | Infrastructure admins |
+| Environment | Suggested protection rules                          |
+| ----------- | --------------------------------------------------- |
+| `dev`       | None                                                |
+| `staging`   | Required reviewers                                  |
+| `prod`      | Required reviewers, deployment branches: `main` only |
 
 ---
 
@@ -434,13 +426,22 @@ terraform apply -var-file=environments/dev.tfvars
 
 ### kubectl Access
 
-After the cluster is deployed, configure kubectl access:
+Local accounts are disabled, so every user signs in with Entra ID and needs a Kubernetes role in Azure. Grant it once per user or group (or list admin groups in `admin_group_object_ids`):
+
+```bash
+az role assignment create \
+  --role "Azure Kubernetes Service RBAC Cluster Admin" \
+  --assignee <user-or-group-object-id> \
+  --scope $(az aks show --resource-group rg-${{ values.name }}-${{ values.envName }} --name aks-${{ values.name }}-${{ values.envName }} --query id -o tsv)
+```
+
+Then configure kubectl (it uses [kubelogin](https://azure.github.io/kubelogin/) to sign in):
 
 ```bash
 # Get AKS credentials
 az aks get-credentials \
-  --resource-group rg-${{ values.name }}-${{ values.environment }} \
-  --name aks-${{ values.name }}-${{ values.environment }}
+  --resource-group rg-${{ values.name }}-${{ values.envName }} \
+  --name aks-${{ values.name }}-${{ values.envName }}
 
 # Verify connection
 kubectl get nodes
@@ -459,11 +460,11 @@ kubectl cluster-info
 kubectl create namespace my-app
 
 # Login to ACR
-az acr login --name acr${{ values.name | replace("-", "") }}${{ values.environment }}
+az acr login --name acr${{ values.name | replace("-", "") }}${{ values.envName }}
 
 # Tag and push your image
-docker tag myapp:latest acr${{ values.name | replace("-", "") }}${{ values.environment }}.azurecr.io/myapp:v1
-docker push acr${{ values.name | replace("-", "") }}${{ values.environment }}.azurecr.io/myapp:v1
+docker tag myapp:latest acr${{ values.name | replace("-", "") }}${{ values.envName }}.azurecr.io/myapp:v1
+docker push acr${{ values.name | replace("-", "") }}${{ values.envName }}.azurecr.io/myapp:v1
 
 # Deploy application
 kubectl apply -f - <<EOF
@@ -484,7 +485,7 @@ spec:
     spec:
       containers:
       - name: myapp
-        image: acr${{ values.name | replace("-", "") }}${{ values.environment }}.azurecr.io/myapp:v1
+        image: acr${{ values.name | replace("-", "") }}${{ values.envName }}.azurecr.io/myapp:v1
         ports:
         - containerPort: 8080
         resources:
@@ -506,54 +507,62 @@ kubectl expose deployment myapp \
 
 ### Running the Pipeline
 
+#### Automatic Triggers
+
+| Trigger        | Jobs                                                             |
+| -------------- | ---------------------------------------------------------------- |
+| Pull request   | Checks, Cost Estimate, Plan (`${{ values.envName }}`)            |
+| Push to `main` | Checks, Plan and Apply (`${{ values.envName }}`)                 |
+
+Plan, Apply and Cost Estimate are skipped while their secrets are missing.
+
 #### Manual Deployment
 
-1. Navigate to **Actions** tab
-2. Select **Terraform CI/CD** workflow
+1. Open the **Actions** tab
+2. Select the **Terraform** workflow
 3. Click **Run workflow**
-4. Configure:
+4. Choose:
    - **action**: `plan`, `apply`, `destroy`, or `drift-detection`
    - **environment**: `dev`, `staging`, or `prod`
-   - **confirm_destroy**: Type `DESTROY` to confirm (required for destroy)
+   - **confirm_destroy**: type `DESTROY` (destroy only)
 5. Click **Run workflow**
 
-For `staging` and `prod` environments, you'll need approval from designated reviewers.
+A manual run fails straight away, naming the missing secrets, if the Azure credentials are not configured.
 
 ---
 
 ## Security Scanning
 
-The pipeline includes three security scanning tools:
+The Security Scan job runs two scanners and fails on any finding:
 
-| Tool | Purpose | Documentation |
-| --- | --- | --- |
-| **tfsec** | Static analysis for Terraform security misconfigurations | [tfsec.dev](https://tfsec.dev) |
-| **Checkov** | Policy-as-code for infrastructure security and compliance | [checkov.io](https://www.checkov.io) |
-| **Trivy** | Comprehensive vulnerability scanner for IaC | [trivy.dev](https://trivy.dev) |
+| Tool        | Scope                                                      | Run locally                                        |
+| ----------- | ---------------------------------------------------------- | -------------------------------------------------- |
+| **Trivy**   | Misconfigurations of severity MEDIUM and above             | `trivy config --severity CRITICAL,HIGH,MEDIUM .`   |
+| **Checkov** | Policy checks for Terraform                                | `checkov --directory . --config-file .checkov.yaml` |
 
-Results are uploaded to the GitHub **Security** tab as SARIF reports.
+### Accepted Findings
 
-### Common Security Findings
+Each exception is declared next to the resource it applies to, with its reason:
 
-| Finding | Severity | Resolution |
-| --- | --- | --- |
-| API server authorized IP ranges not configured | Medium | Configure `api_server_authorized_ip_ranges` for production |
-| Azure Policy addon not enabled | Low | Enable Azure Policy addon if required by compliance |
-| Network policy not enabled | Medium | Already configured with Calico in this template |
-| Cluster has no resource quota | Low | Apply ResourceQuota objects to namespaces |
-| Container images from untrusted registries | High | Use ACR and enable image scanning |
+| Finding | Where | Reason |
+| ------- | ----- | ------ |
+| Trivy `AZU-0065`, Checkov `CKV_AZURE_115` | AKS cluster | The API server is public by default so `kubectl` works without a VNet connection; set `private_cluster_enabled` to change it |
+| Trivy `AZU-0041`, Checkov `CKV_AZURE_6` | AKS cluster | API access is open by default and protected by Entra ID with Azure RBAC; set `api_server_authorized_ip_ranges` to restrict it |
+| Checkov `CKV_AZURE_117` | AKS cluster | Node disks use platform-managed keys; a disk encryption set needs a customer-managed key in Key Vault |
+| Checkov `CKV_AZURE_226` | AKS cluster | Ephemeral OS disks need a VM cache larger than the OS disk, which the offered D-series sizes lack |
+| Checkov `CKV_AZURE_227` | AKS cluster and node pools | Encryption at host needs the `EncryptionAtHost` feature registered on the subscription; set `enable_host_encryption` once it is |
+| Checkov `CKV_AZURE_139` | Container registry | The registry keeps its public endpoint so pipelines can push images; pulls need the `AcrPull` role and the admin user is disabled |
+| Checkov `CKV_AZURE_233`, `CKV_AZURE_237`, `CKV_AZURE_164`, `CKV_AZURE_165`, `CKV_AZURE_166` | Container registry | Premium SKU features; zone redundancy and untagged-manifest cleanup switch on automatically with `acr_sku = "Premium"` |
 
-### Suppressing False Positives
+### Suppressing a Finding
 
-Create a `.tfsec.yaml` file to suppress known false positives:
+Fix the configuration where you can. To accept a finding, add a comment on the resource and state why:
 
-```yaml
-# .tfsec.yaml
-severity_overrides:
-  azure-container-limit-authorized-ips: LOW
-
-exclude:
-  - azure-container-configured-network-policy  # Already using Calico
+```hcl
+resource "azurerm_example" "this" {
+  #checkov:skip=CKV_AZURE_123:Reason the check does not apply
+  #trivy:ignore:AZU-0001 Reason the check does not apply
+}
 ```
 
 ---
@@ -772,20 +781,14 @@ terraform force-unlock LOCK_ID
 
 **Security scan failing**
 
-Set `soft_fail: true` in the workflow to allow warnings without blocking:
-
-```yaml
-- uses: aquasecurity/tfsec-action@v1.0.3
-  with:
-    soft_fail: true
-```
+The job log lists each finding with its file and line. Fix the configuration, or accept the finding as described under [Security Scanning](#security-scanning).
 
 **Terraform plan timeout**
 
 Increase timeout for large clusters:
 
 ```yaml
-- name: Terraform Plan
+- name: Plan
   run: terraform plan ...
   timeout-minutes: 30
 ```
@@ -851,12 +854,12 @@ This cluster has workload identity enabled for secure Azure service access from 
 # Create a managed identity for your app
 az identity create \
   --name "id-myapp" \
-  --resource-group "rg-${{ values.name }}-${{ values.environment }}"
+  --resource-group "rg-${{ values.name }}-${{ values.envName }}"
 
 # Get the client ID
 CLIENT_ID=$(az identity show \
   --name "id-myapp" \
-  --resource-group "rg-${{ values.name }}-${{ values.environment }}" \
+  --resource-group "rg-${{ values.name }}-${{ values.envName }}" \
   --query clientId -o tsv)
 
 # Create federated credential
@@ -865,7 +868,7 @@ OIDC_ISSUER=$(terraform output -raw oidc_issuer_url)
 az identity federated-credential create \
   --name "fc-myapp" \
   --identity-name "id-myapp" \
-  --resource-group "rg-${{ values.name }}-${{ values.environment }}" \
+  --resource-group "rg-${{ values.name }}-${{ values.envName }}" \
   --issuer "$OIDC_ISSUER" \
   --subject "system:serviceaccount:my-namespace:my-service-account" \
   --audiences "api://AzureADTokenExchange"

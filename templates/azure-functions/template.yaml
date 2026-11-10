@@ -69,7 +69,6 @@ spec:
     - title: Runtime Configuration
       required:
         - runtimeStack
-        - runtimeVersion
       properties:
         runtimeStack:
           title: Runtime Stack
@@ -81,11 +80,62 @@ spec:
             - java
           default: node
           description: Programming language runtime for your functions
-        runtimeVersion:
-          title: Runtime Version
-          type: string
-          description: Version of the runtime (e.g., 18 for Node.js, 3.11 for Python)
-          default: '18'
+      # The versions offered are the ones the pinned AzureRM provider accepts.
+      dependencies:
+        runtimeStack:
+          oneOf:
+            - required:
+                - runtimeVersion
+              properties:
+                runtimeStack:
+                  enum:
+                    - node
+                runtimeVersion:
+                  title: Node.js Version
+                  type: string
+                  enum:
+                    - '20'
+                    - '18'
+                  default: '20'
+            - required:
+                - runtimeVersion
+              properties:
+                runtimeStack:
+                  enum:
+                    - python
+                runtimeVersion:
+                  title: Python Version
+                  type: string
+                  enum:
+                    - '3.12'
+                    - '3.11'
+                    - '3.10'
+                  default: '3.12'
+            - required:
+                - runtimeVersion
+              properties:
+                runtimeStack:
+                  enum:
+                    - dotnet
+                runtimeVersion:
+                  title: .NET Version (isolated worker)
+                  type: string
+                  enum:
+                    - '8.0'
+                  default: '8.0'
+            - required:
+                - runtimeVersion
+              properties:
+                runtimeStack:
+                  enum:
+                    - java
+                runtimeVersion:
+                  title: Java Version
+                  type: string
+                  enum:
+                    - '17'
+                    - '11'
+                  default: '17'
 
     - title: Hosting Configuration
       required:
@@ -133,19 +183,19 @@ spec:
       action: fetch:template
       input:
         url: ./skeleton
-        templateFileExtension: '.j2'
-        cookiecutterCompat: false
         values:
           name: ${{ parameters.name }}
-          description: ${{ parameters.description }}
+          description: ${{ parameters.description or 'Azure Functions app ' + parameters.name }}
           owner: ${{ parameters.owner }}
           environment: ${{ parameters.environment }}
+          envName: "${{ {'development': 'dev', 'staging': 'staging', 'production': 'prod'}[parameters.environment] }}"
           location: ${{ parameters.location }}
           runtimeStack: ${{ parameters.runtimeStack }}
           runtimeVersion: ${{ parameters.runtimeVersion }}
           skuTier: ${{ parameters.skuTier }}
           storageAccountTier: ${{ parameters.storageAccountTier }}
-          enableAppInsights: ${{ parameters.enableAppInsights }}
+          enableAppInsights: ${{ parameters.enableAppInsights !== false }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
 
     - id: publish
       name: Publish to GitHub

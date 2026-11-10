@@ -1,6 +1,6 @@
 # ${{ values.name }}
 
-Azure Virtual Network (VNet) infrastructure for the **${{ values.environment }}** environment in **${{ values.location }}**.
+Azure Virtual Network (VNet) infrastructure for the **${{ values.envName }}** environment in **${{ values.location }}**.
 
 ## Overview
 
@@ -107,11 +107,11 @@ azure.rg.nat -> internet: egress
 
 | Setting              | Value                                 |
 | -------------------- | ------------------------------------- |
-| VNet Name            | `vnet-${{ values.name }}-${{ values.environment }}` |
-| Resource Group       | `rg-${{ values.name }}-${{ values.environment }}`   |
+| VNet Name            | `vnet-${{ values.name }}-${{ values.envName }}` |
+| Resource Group       | `rg-${{ values.name }}-${{ values.envName }}`   |
 | Address Space        | `${{ values.addressSpace }}`          |
 | Location             | `${{ values.location }}`              |
-| Environment          | `${{ values.environment }}`           |
+| Environment          | `${{ values.envName }}`           |
 | NAT Gateway          | Enabled                               |
 | DDoS Protection      | Configurable per environment          |
 
@@ -119,103 +119,74 @@ azure.rg.nat -> internet: egress
 
 | Subnet        | CIDR Range | Purpose                                                | Service Endpoints                |
 | ------------- | ---------- | ------------------------------------------------------ | -------------------------------- |
-| snet-public   | /24        | Public-facing resources (Load Balancers, App Gateways) | None                             |
-| snet-private  | /24        | Private workloads (VMs, App Services)                  | None                             |
-| snet-database | /24        | Database services (SQL, CosmosDB, PostgreSQL)          | Microsoft.Sql, Microsoft.Storage |
-| snet-aks      | /20        | AKS cluster nodes (larger for pod IP allocation)       | Microsoft.ContainerRegistry, Microsoft.KeyVault |
+| snet-public   | 1/16 of the address space | Public-facing resources (Load Balancers, App Gateways) | None                             |
+| snet-private  | 1/16 of the address space | Private workloads (VMs, App Services)                  | None                             |
+| snet-database | 1/16 of the address space | Database services (SQL, CosmosDB, PostgreSQL)          | Microsoft.Sql, Microsoft.Storage |
+| snet-aks      | 1/4 of the address space  | AKS cluster nodes (larger for pod IP allocation)       | Microsoft.ContainerRegistry, Microsoft.KeyVault |
+
+The subnets are carved out of `address_space` automatically. With `10.0.0.0/16` that gives `10.0.0.0/20`, `10.0.16.0/20`, `10.0.32.0/20` and `10.0.64.0/18`. Set `public_subnet_cidr`, `private_subnet_cidr`, `database_subnet_cidr` or `aks_subnet_cidr` in a tfvars file to override any of them.
 
 ### Subnet Design Considerations
 
-- **Public Subnet**: Hosts internet-facing resources. NSG allows HTTP/HTTPS inbound and Azure Load Balancer probes.
+- **Public Subnet**: Hosts internet-facing resources. NSG allows HTTPS inbound and Azure Load Balancer probes.
 - **Private Subnet**: For internal workloads. Only VNet-internal traffic allowed. NAT Gateway provides outbound access.
 - **Database Subnet**: Highly restricted. Only accepts connections from private and AKS subnets on database ports (1433, 5432, 3306).
-- **AKS Subnet**: Uses /20 CIDR to accommodate Azure CNI pod IP requirements. No NSG attached (AKS manages its own).
+- **AKS Subnet**: Takes a quarter of the address space to accommodate Azure CNI pod IP requirements. No NSG attached (AKS manages its own).
 
 ---
 
 ## CI/CD Pipeline
 
-This repository includes a comprehensive GitHub Actions pipeline with:
+`.github/workflows/terraform.yaml` runs on every push and pull request to `main`, and on demand from the **Actions** tab.
 
-- **Validation**: Format checking, TFLint, Terraform validation
-- **Security Scanning**: tfsec, Checkov, Trivy for vulnerability detection
-- **Cost Estimation**: Infracost integration for cost visibility
-- **Terraform Tests**: Native Terraform test framework support
-- **Multi-Environment**: Separate plans for dev, staging, and production
-- **Manual Approvals**: Required for apply and destroy operations
-- **Drift Detection**: On-demand checks for configuration drift
+### Checks
+
+These jobs need no cloud account and run from the first commit:
+
+| Job             | What it does                                                                  |
+| --------------- | ----------------------------------------------------------------------------- |
+| Validate        | `terraform fmt -check`, `terraform init -backend=false`, `terraform validate` |
+| TFLint          | Lints the root module and `modules/` with the AzureRM ruleset                 |
+| Terraform Tests | Runs `tests/*.tftest.hcl` against a mocked provider                           |
+| Security Scan   | Trivy and Checkov; any finding fails the job                                  |
+
+### Deployment
+
+These jobs sign in to Azure with OIDC. They are skipped until the repository secrets listed under [GitHub Repository Setup](#2-github-repository-setup) exist:
+
+| Job             | Runs on                                              | What it does                                                       |
+| --------------- | ---------------------------------------------------- | ------------------------------------------------------------------ |
+| Cost Estimate   | Pull requests, once `INFRACOST_API_KEY` is set       | Posts an Infracost breakdown on the pull request                   |
+| Plan            | Pull requests, pushes to `main`, manual plan/apply   | Plans the target environment and adds the plan to the run summary  |
+| Apply           | Pushes to `main`, manual apply                       | Applies the saved plan in the GitHub environment of the same name  |
+| Destroy         | Manual destroy with `DESTROY` typed as confirmation  | Destroys the target environment                                    |
+| Drift Detection | Manual drift-detection                               | Opens an issue when the deployed infrastructure has drifted        |
+
+Pushes and pull requests target the `${{ values.envName }}` environment (`DEFAULT_ENVIRONMENT` in the workflow). The other environments are deployed from **Actions > Terraform > Run workflow**.
 
 ### Pipeline Workflow
 
 ```d2
 direction: right
 
-pr: Pull Request {
+push: Push or pull request {
   shape: oval
-  style.fill: "#E3F2FD"
-  style.stroke: "#0078D4"
 }
 
-validate: Validate {
-  style.fill: "#E8F5E9"
-  style.stroke: "#388E3C"
-  label: "Format Check\nTFLint\nValidate"
+checks: Checks {
+  validate: Validate
+  lint: TFLint
+  test: Terraform Tests
+  security: Security Scan
 }
 
-security: Security {
-  style.fill: "#FFCDD2"
-  style.stroke: "#D32F2F"
-  label: "tfsec\nCheckov\nTrivy"
-}
-
-test: Test {
-  style.fill: "#F3E5F5"
-  style.stroke: "#7B1FA2"
-  label: "Terraform\nTests"
-}
-
-plan: Plan {
-  style.fill: "#E3F2FD"
-  style.stroke: "#0078D4"
-  label: "Generate Plan\nCost Estimate"
-}
-
-review: Review {
-  shape: diamond
-  style.fill: "#FFECB3"
-  style.stroke: "#FFA000"
-  label: "Manual\nApproval"
-}
-
+plan: Plan
 apply: Apply {
-  style.fill: "#E8F5E9"
-  style.stroke: "#388E3C"
-  label: "Deploy\nInfrastructure"
+  label: "Apply\n(main only)"
 }
 
-pr -> validate -> security
-validate -> test
-security -> plan
-test -> plan
-plan -> review -> apply
+push -> checks -> plan -> apply
 ```
-
-### Pipeline Stages
-
-| Stage              | Trigger                     | Actions                                              |
-| ------------------ | --------------------------- | ---------------------------------------------------- |
-| Preflight          | All triggers                | Validate inputs, set environment matrix              |
-| Validate           | All triggers                | terraform fmt, terraform init, terraform validate    |
-| TFLint             | All triggers                | Lint Terraform code for best practices              |
-| Terraform Tests    | All triggers                | Run native Terraform tests                          |
-| Security (tfsec)   | All triggers                | Static analysis for security misconfigurations       |
-| Security (Checkov) | All triggers                | Policy-as-code compliance checks                     |
-| Security (Trivy)   | All triggers                | Comprehensive IaC vulnerability scanner              |
-| Cost Estimation    | PRs and manual plan         | Infracost breakdown for all environments             |
-| Plan               | All triggers                | Generate execution plan per environment              |
-| Apply              | Main branch push or manual  | Deploy infrastructure (requires approval for staging/prod) |
-| Destroy            | Manual only                 | Destroy infrastructure (requires DESTROY confirmation) |
-| Drift Detection    | Manual only                 | Check for configuration drift                        |
 
 ---
 
@@ -266,8 +237,8 @@ az ad app federated-credential create \
     "audiences": ["api://AzureADTokenExchange"]
   }'
 
-# Create Federated Credential for environments (repeat for dev, staging, prod)
-for ENV in dev staging prod production; do
+# Create Federated Credentials for the environments the Apply and Destroy jobs run in
+for ENV in dev staging prod; do
   az ad app federated-credential create \
     --id $APP_ID \
     --parameters '{
@@ -378,29 +349,27 @@ echo "Storage Account: $STORAGE_ACCOUNT"
 
 #### Required Secrets
 
-Configure these in **Settings > Secrets and variables > Actions**:
+Configure these in **Settings > Secrets and variables > Actions**. Until the four `AZURE_*` secrets exist the pipeline runs its checks and skips every job that talks to Azure:
 
-| Secret                   | Description                                     | Example                                |
-| ------------------------ | ----------------------------------------------- | -------------------------------------- |
-| `AZURE_CLIENT_ID`        | Azure AD Application (client) ID                | `12345678-1234-1234-1234-123456789012` |
-| `AZURE_TENANT_ID`        | Azure AD Directory (tenant) ID                  | `12345678-1234-1234-1234-123456789012` |
-| `AZURE_SUBSCRIPTION_ID`  | Azure Subscription ID                           | `12345678-1234-1234-1234-123456789012` |
-| `AZURE_STORAGE_ACCOUNT`  | Storage account for Terraform state             | `stterraformstate1234`                 |
-| `INFRACOST_API_KEY`      | API key for cost estimation (optional)          | `ico-xxxxxxxx`                         |
+| Secret                  | Description                                 | Example                                |
+| ----------------------- | ------------------------------------------- | -------------------------------------- |
+| `AZURE_CLIENT_ID`       | Application (client) ID of the app registration | `12345678-1234-1234-1234-123456789012` |
+| `AZURE_TENANT_ID`       | Directory (tenant) ID                       | `12345678-1234-1234-1234-123456789012` |
+| `AZURE_SUBSCRIPTION_ID` | Subscription to deploy into                 | `12345678-1234-1234-1234-123456789012` |
+| `AZURE_STORAGE_ACCOUNT` | Storage account that holds the Terraform state | `stterraformstate1234`              |
+| `INFRACOST_API_KEY`     | Enables cost estimates on pull requests (optional) | `ico-xxxxxxxx`                  |
+
+The state lives in resource group `rg-terraform-state`, container `tfstate`. Set the repository variables `TF_STATE_RESOURCE_GROUP` and `TF_STATE_CONTAINER` to use other names.
 
 #### GitHub Environments
 
-Create environments in **Settings > Environments**:
+The Apply and Destroy jobs run in the GitHub environment named after their target: `dev`, `staging` or `prod`. GitHub creates an environment the first time a job uses it; add protection rules in **Settings > Environments** to require approval:
 
-| Environment   | Protection Rules                                     | Reviewers                |
-| ------------- | ---------------------------------------------------- | ------------------------ |
-| `dev`         | None                                                 | -                        |
-| `dev-plan`    | None                                                 | -                        |
-| `staging`     | Required reviewers                                   | Team leads               |
-| `staging-plan`| None                                                 | -                        |
-| `prod`        | Required reviewers, Deployment branches: `main` only | Senior engineers, DevOps |
-| `prod-plan`   | None                                                 | -                        |
-| `production`  | Required reviewers, Deployment branches: `main` only | Senior engineers, DevOps |
+| Environment | Suggested protection rules                          |
+| ----------- | --------------------------------------------------- |
+| `dev`       | None                                                |
+| `staging`   | Required reviewers                                  |
+| `prod`      | Required reviewers, deployment branches: `main` only |
 
 ---
 
@@ -447,32 +416,33 @@ terraform apply -var-file=environments/dev.tfvars
 
 #### Automatic Triggers
 
-| Trigger          | Actions                                              |
-| ---------------- | ---------------------------------------------------- |
-| Pull Request     | Validate, Security Scan, Test, Plan, Cost Estimate   |
-| Push to main     | Validate, Security Scan, Test, Plan, Apply (all envs)|
-| Push to develop  | Validate, Security Scan, Test, Plan (dev only)       |
+| Trigger        | Jobs                                                             |
+| -------------- | ---------------------------------------------------------------- |
+| Pull request   | Checks, Cost Estimate, Plan (`${{ values.envName }}`)            |
+| Push to `main` | Checks, Plan and Apply (`${{ values.envName }}`)                 |
+
+Plan, Apply and Cost Estimate are skipped while their secrets are missing.
 
 #### Manual Deployment
 
-1. Navigate to **Actions** tab
-2. Select **Terraform CI/CD** workflow
+1. Open the **Actions** tab
+2. Select the **Terraform** workflow
 3. Click **Run workflow**
-4. Configure:
+4. Choose:
    - **action**: `plan`, `apply`, `destroy`, or `drift-detection`
    - **environment**: `dev`, `staging`, or `prod`
-   - **confirm_destroy**: Type `DESTROY` to confirm (required for destroy)
+   - **confirm_destroy**: type `DESTROY` (destroy only)
 5. Click **Run workflow**
 
-For `staging` and `prod` environments, you'll need approval from designated reviewers.
+A manual run fails straight away, naming the missing secrets, if the Azure credentials are not configured.
 
 ### Referencing in Other Terraform
 
 ```hcl
 # Reference the VNet
 data "azurerm_virtual_network" "main" {
-  name                = "vnet-${{ values.name }}-${{ values.environment }}"
-  resource_group_name = "rg-${{ values.name }}-${{ values.environment }}"
+  name                = "vnet-${{ values.name }}-${{ values.envName }}"
+  resource_group_name = "rg-${{ values.name }}-${{ values.envName }}"
 }
 
 # Reference a specific subnet
@@ -510,8 +480,8 @@ data "azurerm_virtual_network" "hub" {
 # Peering from this VNet to hub
 resource "azurerm_virtual_network_peering" "spoke_to_hub" {
   name                         = "peer-to-hub"
-  resource_group_name          = "rg-${{ values.name }}-${{ values.environment }}"
-  virtual_network_name         = "vnet-${{ values.name }}-${{ values.environment }}"
+  resource_group_name          = "rg-${{ values.name }}-${{ values.envName }}"
+  virtual_network_name         = "vnet-${{ values.name }}-${{ values.envName }}"
   remote_virtual_network_id    = data.azurerm_virtual_network.hub.id
   allow_virtual_network_access = true
   allow_forwarded_traffic      = true
@@ -540,16 +510,15 @@ resource "azurerm_virtual_network_peering" "hub_to_spoke" {
 
 The template creates three NSGs with defense-in-depth rules:
 
-#### Public NSG (`nsg-public-${{ values.name }}-${{ values.environment }}`)
+#### Public NSG (`nsg-public-${{ values.name }}-${{ values.envName }}`)
 
 | Rule                   | Priority | Direction | Access | Protocol | Ports    | Source            |
 | ---------------------- | -------- | --------- | ------ | -------- | -------- | ----------------- |
 | AllowHTTPS             | 100      | Inbound   | Allow  | TCP      | 443      | Any               |
-| AllowHTTP              | 110      | Inbound   | Allow  | TCP      | 80       | Any               |
 | AllowAzureLoadBalancer | 120      | Inbound   | Allow  | Any      | Any      | AzureLoadBalancer |
 | DenyAllInbound         | 4096     | Inbound   | Deny   | Any      | Any      | Any               |
 
-#### Private NSG (`nsg-private-${{ values.name }}-${{ values.environment }}`)
+#### Private NSG (`nsg-private-${{ values.name }}-${{ values.envName }}`)
 
 | Rule                   | Priority | Direction | Access | Protocol | Ports | Source            |
 | ---------------------- | -------- | --------- | ------ | -------- | ----- | ----------------- |
@@ -557,7 +526,7 @@ The template creates three NSGs with defense-in-depth rules:
 | AllowAzureLoadBalancer | 110      | Inbound   | Allow  | Any      | Any   | AzureLoadBalancer |
 | DenyInternetInbound    | 4096     | Inbound   | Deny   | Any      | Any   | Internet          |
 
-#### Database NSG (`nsg-database-${{ values.name }}-${{ values.environment }}`)
+#### Database NSG (`nsg-database-${{ values.name }}-${{ values.envName }}`)
 
 | Rule                | Priority | Direction | Access | Protocol | Ports            | Source          |
 | ------------------- | -------- | --------- | ------ | -------- | ---------------- | --------------- |
@@ -569,7 +538,7 @@ The template creates three NSGs with defense-in-depth rules:
 
 - Provides secure outbound internet access for private resources
 - Static public IP for consistent egress address (firewall whitelisting)
-- Zone-redundant deployment for high availability
+- Deployed in the first configured availability zone (a NAT Gateway is a zonal resource)
 - Configurable idle timeout (default: 10 minutes)
 - Associated with private and AKS subnets
 
@@ -601,24 +570,32 @@ Subnets are configured with service endpoints for secure PaaS connectivity:
 
 ## Security Scanning
 
-The pipeline includes three security scanning tools:
+The Security Scan job runs two scanners and fails on any finding:
 
-| Tool        | Purpose                                                   | Documentation                        |
-| ----------- | --------------------------------------------------------- | ------------------------------------ |
-| **tfsec**   | Static analysis for Terraform security misconfigurations  | [tfsec.dev](https://tfsec.dev)       |
-| **Checkov** | Policy-as-code for infrastructure security and compliance | [checkov.io](https://www.checkov.io) |
-| **Trivy**   | Comprehensive vulnerability scanner for IaC               | [trivy.dev](https://trivy.dev)       |
+| Tool        | Scope                                                      | Run locally                                        |
+| ----------- | ---------------------------------------------------------- | -------------------------------------------------- |
+| **Trivy**   | Misconfigurations of severity MEDIUM and above             | `trivy config --severity CRITICAL,HIGH,MEDIUM .`   |
+| **Checkov** | Policy checks for Terraform                                | `checkov --directory . --config-file .checkov.yaml` |
 
-Results are uploaded to the GitHub **Security** tab as SARIF reports.
+### Accepted Findings
 
-### Common Security Findings
+Each exception is declared next to the resource it applies to, with its reason:
 
-| Finding                           | Resolution                                        |
-| --------------------------------- | ------------------------------------------------- |
-| NSG allows all inbound traffic    | Template uses explicit allow rules with deny-all  |
-| Missing DDoS protection           | Enable via `enable_ddos_protection = true`        |
-| Public IP without DDoS            | NAT Gateway Public IP is protected by NSG rules   |
-| Missing network watcher           | Deploy Azure Network Watcher separately           |
+| Finding | Where | Reason |
+| ------- | ----- | ------ |
+| Trivy `AZU-0047` | Public NSG, `AllowHTTPS` rule | The public subnet fronts internet-facing load balancers; HTTPS from anywhere is its purpose |
+| Checkov `CKV2_AZURE_31` | `snet-aks` | AKS attaches its own NSG to the node NICs and manages the rules for its load balancers |
+
+### Suppressing a Finding
+
+Fix the configuration where you can. To accept a finding, add a comment on the resource and state why:
+
+```hcl
+resource "azurerm_example" "this" {
+  #checkov:skip=CKV_AZURE_123:Reason the check does not apply
+  #trivy:ignore:AZU-0001 Reason the check does not apply
+}
+```
 
 ---
 
@@ -748,7 +725,7 @@ Error: Error acquiring the state lock
    az storage blob lease break \
      --account-name $STORAGE_ACCOUNT \
      --container-name tfstate \
-     --blob-name "${{ values.name }}/${{ values.environment }}/terraform.tfstate"
+     --blob-name "${{ values.name }}/${{ values.envName }}/terraform.tfstate"
    ```
 
 ### Network Issues
@@ -779,9 +756,9 @@ Error: Subnet is in use and cannot be deleted
 
 ### Pipeline Failures
 
-**Security scan failing on known issues**
+**Security scan failing**
 
-Set `soft_fail: true` in the workflow to allow warnings without blocking. Already configured in this template.
+The job log lists each finding with its file and line. Fix the configuration, or accept the finding as described under [Security Scanning](#security-scanning).
 
 **Terraform test failing**
 

@@ -3,225 +3,255 @@ kind: Template
 metadata:
   name: azure-full-infrastructure
   title: Azure Full Infrastructure
-  description: Complete Azure infrastructure with all resource types - enable/disable what you need
+  description: Complete Azure infrastructure stack with Terraform. Enable the modules you need (networking, compute, containers, storage, database, security, identity, monitoring, integration, governance)
   tags:
     - recommended
     - terraform
     - azure
     - infrastructure
     - enterprise
+  annotations:
+    backstage.io/techdocs-ref: dir:.
 spec:
-  owner: platform-team
+  owner: group:platform-team
   type: infrastructure
 
   parameters:
     - title: Project Information
-      required: [name, owner, module_registry]
+      required:
+        - name
+        - owner
+        - environment
+        - businessUnit
       properties:
         name:
           title: Project Name
           type: string
-          pattern: '^[a-z0-9-]+$'
+          description: Used in every resource name, some of which are unique across Azure (Key Vault, storage account, container registry). 3-13 lowercase letters, digits and single hyphens
+          pattern: '^(?=.{3,13}$)[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: What this infrastructure stack is for
         owner:
           title: Owner
           type: string
+          description: Team that owns this infrastructure
           ui:field: OwnerPicker
-        module_registry:
-          title: Module Registry (GitHub org/user)
+          ui:options:
+            catalogFilter:
+              kind: Group
+        environment:
+          title: Environment
           type: string
-          default: your-org
-          description: GitHub org containing terraform-modules repo
+          description: Environment the pipeline deploys on push; all three are generated
+          enum:
+            - development
+            - staging
+            - production
+          default: development
+        businessUnit:
+          title: Business Unit
+          type: string
+          description: Recorded in the BusinessUnit and CostCenter tags
+          enum:
+            - engineering
+            - platform
+            - data
+            - security
+            - finance
+            - marketing
+          enumNames:
+            - Engineering
+            - Platform Engineering
+            - Data & Analytics
+            - Security & Compliance
+            - Finance
+            - Marketing
 
-    - title: Repository
-      required: [repoUrl]
+    - title: Region Configuration
+      required:
+        - primaryRegion
+      properties:
+        primaryRegion:
+          title: Primary Region
+          type: string
+          description: Azure region of all resources (every option has availability zones)
+          enum:
+            - eastus
+            - eastus2
+            - westus2
+            - centralus
+            - northeurope
+            - westeurope
+            - francecentral
+            - uksouth
+            - japaneast
+            - australiaeast
+            - southeastasia
+          default: eastus
+        secondaryRegion:
+          title: Secondary Region
+          type: string
+          description: Region of the container registry replica when Disaster Recovery is enabled
+          enum:
+            - eastus
+            - eastus2
+            - westus
+            - westus2
+            - centralus
+            - northeurope
+            - westeurope
+            - francecentral
+            - uksouth
+            - japaneast
+            - australiaeast
+            - southeastasia
+          default: westus2
+
+    - title: Resource Modules
+      description: Select the modules to include in your infrastructure stack
+      properties:
+        enableNetworking:
+          title: Networking Module
+          type: boolean
+          default: true
+          description: Virtual network with subnets for workloads, AKS, the database, virtual machines and private endpoints, each with a network security group
+        enableCompute:
+          title: Compute Module
+          type: boolean
+          default: false
+          description: Linux virtual machines with private addresses and SSH keys. Adds the Networking module, which they need
+        enableContainers:
+          title: Containers Module
+          type: boolean
+          default: false
+          description: AKS cluster with autoscaling, and a container registry it pulls images from
+        enableStorage:
+          title: Storage Module
+          type: boolean
+          default: true
+          description: Storage account with blob versioning and soft delete
+        enableDatabase:
+          title: Database Module
+          type: boolean
+          default: false
+          description: PostgreSQL flexible server with one database, private to the virtual network when Networking is enabled
+        enableSecurity:
+          title: Security Module
+          type: boolean
+          default: true
+          description: Key Vault with Azure RBAC authorization and purge protection
+        enableIdentity:
+          title: Identity Module
+          type: boolean
+          default: false
+          description: User-assigned managed identity for workloads, with read access to Key Vault secrets when Security is enabled
+        enableMonitoring:
+          title: Monitoring Module
+          type: boolean
+          default: true
+          description: Log Analytics workspace and Application Insights
+        enableIntegration:
+          title: Integration Module
+          type: boolean
+          default: false
+          description: Service Bus namespace and an Event Grid topic
+        enableGovernance:
+          title: Governance Module
+          type: boolean
+          default: false
+          description: Monthly budget with alerts, and tag policies in audit mode
+
+    - title: Advanced Configuration
+      properties:
+        enableDR:
+          title: Enable Disaster Recovery
+          type: boolean
+          default: false
+          description: Geo-redundant storage and database backups, and a registry replica in the secondary region
+        enableHighAvailability:
+          title: Enable High Availability
+          type: boolean
+          default: true
+          description: Zone-redundant storage, database standby, AKS nodes and virtual machines
+        enableAutoShutdown:
+          title: Enable Auto-Shutdown
+          type: boolean
+          default: true
+          description: Shut the virtual machines of the Compute module down every day. Never applied in production
+        autoShutdownTime:
+          title: Auto-Shutdown Time
+          type: string
+          default: '1900'
+          pattern: '^([01][0-9]|2[0-3])[0-5][0-9]$'
+          description: Daily shutdown time in UTC, as HHMM
+          ui:help: '1900 = 7 PM UTC'
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
       properties:
         repoUrl:
           title: Repository Location
           type: string
           ui:field: RepoUrlPicker
           ui:options:
-            allowedHosts: [github.com]
-
-    - title: Networking
-      properties:
-        enable_networking:
-          title: Enable Networking
-          type: boolean
-          default: true
-        enable_bastion:
-          title: Enable Bastion Host
-          type: boolean
-          default: false
-        enable_firewall:
-          title: Enable Azure Firewall
-          type: boolean
-          default: false
-        enable_vpn:
-          title: Enable VPN Gateway
-          type: boolean
-          default: false
-        enable_front_door:
-          title: Enable Front Door
-          type: boolean
-          default: false
-
-    - title: Compute
-      properties:
-        enable_vms:
-          title: Enable Virtual Machines
-          type: boolean
-          default: false
-        enable_vmss:
-          title: Enable VM Scale Sets
-          type: boolean
-          default: false
-        enable_app_service:
-          title: Enable App Service
-          type: boolean
-          default: false
-        enable_functions:
-          title: Enable Azure Functions
-          type: boolean
-          default: false
-        enable_container_apps:
-          title: Enable Container Apps
-          type: boolean
-          default: false
-
-    - title: Containers
-      properties:
-        enable_aks:
-          title: Enable AKS
-          type: boolean
-          default: false
-        enable_acr:
-          title: Enable Container Registry
-          type: boolean
-          default: false
-
-    - title: Storage
-      properties:
-        enable_storage:
-          title: Enable Storage Account
-          type: boolean
-          default: true
-        enable_data_lake:
-          title: Enable Data Lake
-          type: boolean
-          default: false
-
-    - title: Database
-      properties:
-        enable_sql:
-          title: Enable Azure SQL
-          type: boolean
-          default: false
-        enable_cosmos:
-          title: Enable Cosmos DB
-          type: boolean
-          default: false
-        enable_postgresql:
-          title: Enable PostgreSQL
-          type: boolean
-          default: false
-        enable_redis:
-          title: Enable Redis Cache
-          type: boolean
-          default: false
-
-    - title: Security
-      properties:
-        enable_keyvault:
-          title: Enable Key Vault
-          type: boolean
-          default: true
-        enable_managed_identity:
-          title: Enable Managed Identity
-          type: boolean
-          default: true
-
-    - title: Monitoring
-      properties:
-        enable_log_analytics:
-          title: Enable Log Analytics
-          type: boolean
-          default: true
-        enable_app_insights:
-          title: Enable Application Insights
-          type: boolean
-          default: false
-
-    - title: Integration
-      properties:
-        enable_service_bus:
-          title: Enable Service Bus
-          type: boolean
-          default: false
-        enable_event_grid:
-          title: Enable Event Grid
-          type: boolean
-          default: false
-        enable_api_management:
-          title: Enable API Management
-          type: boolean
-          default: false
+            allowedHosts:
+              - github.com
 
   steps:
-    - id: fetch
-      name: Fetch Template
+    - id: fetch-base
+      name: Fetch Base Template
       action: fetch:template
       input:
         url: ./skeleton
-        templateFileExtension: '.j2'
-        cookiecutterCompat: false
         values:
           name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'Azure infrastructure for ' + parameters.name }}
           owner: ${{ parameters.owner }}
-          module_registry: ${{ parameters.module_registry }}
-          enable_networking: ${{ parameters.enable_networking }}
-          enable_bastion: ${{ parameters.enable_bastion }}
-          enable_firewall: ${{ parameters.enable_firewall }}
-          enable_vpn: ${{ parameters.enable_vpn }}
-          enable_front_door: ${{ parameters.enable_front_door }}
-          enable_vms: ${{ parameters.enable_vms }}
-          enable_vmss: ${{ parameters.enable_vmss }}
-          enable_app_service: ${{ parameters.enable_app_service }}
-          enable_functions: ${{ parameters.enable_functions }}
-          enable_container_apps: ${{ parameters.enable_container_apps }}
-          enable_aks: ${{ parameters.enable_aks }}
-          enable_acr: ${{ parameters.enable_acr }}
-          enable_storage: ${{ parameters.enable_storage }}
-          enable_data_lake: ${{ parameters.enable_data_lake }}
-          enable_sql: ${{ parameters.enable_sql }}
-          enable_cosmos: ${{ parameters.enable_cosmos }}
-          enable_postgresql: ${{ parameters.enable_postgresql }}
-          enable_redis: ${{ parameters.enable_redis }}
-          enable_keyvault: ${{ parameters.enable_keyvault }}
-          enable_managed_identity: ${{ parameters.enable_managed_identity }}
-          enable_log_analytics: ${{ parameters.enable_log_analytics }}
-          enable_app_insights: ${{ parameters.enable_app_insights }}
-          enable_service_bus: ${{ parameters.enable_service_bus }}
-          enable_event_grid: ${{ parameters.enable_event_grid }}
-          enable_api_management: ${{ parameters.enable_api_management }}
+          environment: ${{ parameters.environment }}
+          envName: "${{ {'development': 'dev', 'staging': 'staging', 'production': 'prod'}[parameters.environment] }}"
+          businessUnit: ${{ parameters.businessUnit }}
+          primaryRegion: ${{ parameters.primaryRegion }}
+          secondaryRegion: ${{ parameters.secondaryRegion or 'westus2' }}
+          enableNetworking: ${{ parameters.enableNetworking !== false or parameters.enableCompute === true }}
+          enableCompute: ${{ parameters.enableCompute === true }}
+          enableContainers: ${{ parameters.enableContainers === true }}
+          enableStorage: ${{ parameters.enableStorage !== false }}
+          enableDatabase: ${{ parameters.enableDatabase === true }}
+          enableSecurity: ${{ parameters.enableSecurity !== false }}
+          enableIdentity: ${{ parameters.enableIdentity === true }}
+          enableMonitoring: ${{ parameters.enableMonitoring !== false }}
+          enableIntegration: ${{ parameters.enableIntegration === true }}
+          enableGovernance: ${{ parameters.enableGovernance === true }}
+          enableDR: ${{ parameters.enableDR === true }}
+          enableHighAvailability: ${{ parameters.enableHighAvailability !== false }}
+          enableAutoShutdown: ${{ parameters.enableAutoShutdown !== false }}
+          autoShutdownTime: ${{ parameters.autoShutdownTime or '1900' }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
 
     - id: publish
-      name: Publish
+      name: Publish to GitHub
       action: publish:github
       input:
         repoUrl: ${{ parameters.repoUrl }}
-        description: Azure infrastructure for ${{ parameters.name }}
+        description: 'Azure infrastructure: ${{ parameters.name }}'
+        repoVisibility: private
+        defaultBranch: main
 
     - id: register
-      name: Register
+      name: Register in Catalog
       action: catalog:register
       input:
-        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
-        catalogInfoPath: /catalog-info.yaml
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
 
   output:
     links:
       - title: Repository
-        url: ${{ steps.publish.output.remoteUrl }}
-      - title: Catalog
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
         icon: catalog
-        entityRef: ${{ steps.register.output.entityRef }}
+        entityRef: ${{ steps['register'].output.entityRef }}

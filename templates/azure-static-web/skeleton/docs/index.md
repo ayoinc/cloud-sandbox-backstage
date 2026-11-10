@@ -4,7 +4,7 @@ ${{ values.description }}
 
 ## Overview
 
-This Azure Static Web App provides a production-ready hosting platform for your **${{ values.framework }}** application in the **${{ values.environment }}** environment. It includes:
+This Azure Static Web App provides a production-ready hosting platform for your **${{ values.framework }}** application in the **${{ values.envName }}** environment. It includes:
 
 - Global CDN with edge locations worldwide for fast content delivery
 - Automatic HTTPS with free SSL certificates
@@ -111,8 +111,8 @@ github -> swa: deploy
 | Framework                | `${{ values.framework }}`             |
 | SKU Tier                 | `${{ values.skuTier }}`               |
 | Location                 | `${{ values.location }}`              |
-| Environment              | `${{ values.environment }}`           |
-| Preview Environments     | Enabled                               |
+| Environment              | `${{ values.envName }}`           |
+| Preview Environments     | Enabled outside production            |
 | Owner                    | `${{ values.owner }}`                 |
 
 ### Framework Build Configuration
@@ -131,76 +131,56 @@ github -> swa: deploy
 
 ## CI/CD Pipeline
 
-This repository includes a comprehensive GitHub Actions pipeline with:
+`.github/workflows/terraform.yaml` runs on every push and pull request to `main`, and on demand from the **Actions** tab.
 
-- **Validation**: Format checking, TFLint, Terraform validation
-- **Security Scanning**: tfsec, Checkov, Trivy for vulnerability detection
-- **Terraform Tests**: Native Terraform test framework
-- **Cost Estimation**: Infracost integration for cost visibility
-- **Multi-Environment**: Separate plans for dev, staging, and production
-- **Manual Approvals**: Required for apply and destroy operations
-- **Drift Detection**: On-demand checks for configuration drift
+### Checks
+
+These jobs need no cloud account and run from the first commit:
+
+| Job             | What it does                                                                  |
+| --------------- | ----------------------------------------------------------------------------- |
+| Validate        | `terraform fmt -check`, `terraform init -backend=false`, `terraform validate` |
+| TFLint          | Lints the root module and `modules/` with the AzureRM ruleset                 |
+| Terraform Tests | Runs `tests/*.tftest.hcl` against a mocked provider                           |
+| Security Scan   | Trivy and Checkov; any finding fails the job                                  |
+
+### Deployment
+
+These jobs sign in to Azure with OIDC. They are skipped until the repository secrets listed under [GitHub Repository Setup](#2-github-repository-setup) exist:
+
+| Job             | Runs on                                              | What it does                                                       |
+| --------------- | ---------------------------------------------------- | ------------------------------------------------------------------ |
+| Cost Estimate   | Pull requests, once `INFRACOST_API_KEY` is set       | Posts an Infracost breakdown on the pull request                   |
+| Plan            | Pull requests, pushes to `main`, manual plan/apply   | Plans the target environment and adds the plan to the run summary  |
+| Apply           | Pushes to `main`, manual apply                       | Applies the saved plan in the GitHub environment of the same name  |
+| Destroy         | Manual destroy with `DESTROY` typed as confirmation  | Destroys the target environment                                    |
+| Drift Detection | Manual drift-detection                               | Opens an issue when the deployed infrastructure has drifted        |
+
+Pushes and pull requests target the `${{ values.envName }}` environment (`DEFAULT_ENVIRONMENT` in the workflow). The other environments are deployed from **Actions > Terraform > Run workflow**.
 
 ### Pipeline Workflow
 
 ```d2
 direction: right
 
-pr: Pull Request {
+push: Push or pull request {
   shape: oval
-  style.fill: "#E3F2FD"
-  style.stroke: "#1976D2"
 }
 
-validate: Validate {
-  style.fill: "#E8F5E9"
-  style.stroke: "#388E3C"
-  label: "Format Check\nTFLint\nValidate"
+checks: Checks {
+  validate: Validate
+  lint: TFLint
+  test: Terraform Tests
+  security: Security Scan
 }
 
-security: Security {
-  style.fill: "#FFCDD2"
-  style.stroke: "#D32F2F"
-  label: "tfsec\nCheckov\nTrivy"
-}
-
-test: Test {
-  style.fill: "#F3E5F5"
-  style.stroke: "#7B1FA2"
-  label: "Terraform\nTests"
-}
-
-plan: Plan {
-  style.fill: "#E3F2FD"
-  style.stroke: "#1976D2"
-  label: "Generate Plan\nCost Estimate"
-}
-
-review: Review {
-  shape: diamond
-  style.fill: "#FFECB3"
-  style.stroke: "#FFA000"
-  label: "Manual\nApproval"
-}
-
+plan: Plan
 apply: Apply {
-  style.fill: "#E8F5E9"
-  style.stroke: "#388E3C"
-  label: "Deploy\nInfrastructure"
+  label: "Apply\n(main only)"
 }
 
-pr -> validate -> security
-security -> test
-test -> plan -> review -> apply
+push -> checks -> plan -> apply
 ```
-
-### Pipeline Triggers
-
-| Trigger               | Actions                                          |
-| --------------------- | ------------------------------------------------ |
-| Pull Request          | Validate, Security Scan, Test, Plan, Cost Estimate |
-| Push to main          | Validate, Security Scan, Plan (all environments) |
-| Manual (workflow_dispatch) | Plan, Apply, Destroy, or Drift Detection    |
 
 ---
 
@@ -276,7 +256,7 @@ az role assignment create \
 az role assignment create \
   --assignee $SP_OBJECT_ID \
   --role "Contributor" \
-  --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/rg-${{ values.name }}-${{ values.environment }}"
+  --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/rg-${{ values.name }}-${{ values.envName }}"
 ```
 
 #### Create Terraform State Backend
@@ -324,25 +304,27 @@ az role assignment create \
 
 #### Required Secrets
 
-Configure these in **Settings > Secrets and variables > Actions**:
+Configure these in **Settings > Secrets and variables > Actions**. Until the four `AZURE_*` secrets exist the pipeline runs its checks and skips every job that talks to Azure:
 
-| Secret                   | Description                              | Example                              |
-| ------------------------ | ---------------------------------------- | ------------------------------------ |
-| `AZURE_CLIENT_ID`        | App Registration Client ID               | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
-| `AZURE_TENANT_ID`        | Azure AD Tenant ID                       | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
-| `AZURE_SUBSCRIPTION_ID`  | Azure Subscription ID                    | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
-| `AZURE_STORAGE_ACCOUNT`  | Storage Account for Terraform state      | `stterraformstate1234`               |
-| `INFRACOST_API_KEY`      | API key for cost estimation (optional)   | `ico-xxxxxxxx`                       |
+| Secret                  | Description                                 | Example                                |
+| ----------------------- | ------------------------------------------- | -------------------------------------- |
+| `AZURE_CLIENT_ID`       | Application (client) ID of the app registration | `12345678-1234-1234-1234-123456789012` |
+| `AZURE_TENANT_ID`       | Directory (tenant) ID                       | `12345678-1234-1234-1234-123456789012` |
+| `AZURE_SUBSCRIPTION_ID` | Subscription to deploy into                 | `12345678-1234-1234-1234-123456789012` |
+| `AZURE_STORAGE_ACCOUNT` | Storage account that holds the Terraform state | `stterraformstate1234`              |
+| `INFRACOST_API_KEY`     | Enables cost estimates on pull requests (optional) | `ico-xxxxxxxx`                  |
+
+The state lives in resource group `rg-terraform-state`, container `tfstate`. Set the repository variables `TF_STATE_RESOURCE_GROUP` and `TF_STATE_CONTAINER` to use other names.
 
 #### GitHub Environments
 
-Create environments in **Settings > Environments**:
+The Apply and Destroy jobs run in the GitHub environment named after their target: `dev`, `staging` or `prod`. GitHub creates an environment the first time a job uses it; add protection rules in **Settings > Environments** to require approval:
 
-| Environment | Protection Rules                                     | Reviewers                |
-| ----------- | ---------------------------------------------------- | ------------------------ |
-| `dev`       | None                                                 | -                        |
-| `staging`   | Required reviewers (optional)                        | Team leads               |
-| `prod`      | Required reviewers, Deployment branches: `main` only | Senior engineers, DevOps |
+| Environment | Suggested protection rules                          |
+| ----------- | --------------------------------------------------- |
+| `dev`       | None                                                |
+| `staging`   | Required reviewers                                  |
+| `prod`      | Required reviewers, deployment branches: `main` only |
 
 ---
 
@@ -350,10 +332,12 @@ Create environments in **Settings > Environments**:
 
 ### Local Development
 
+This repository provisions the Static Web App; it holds no application code. The commands below run in the repository that contains your ${{ values.framework }} application.
+
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd ${{ values.name }}
+cd <application-repository>
 
 # Install dependencies
 npm install
@@ -392,8 +376,8 @@ swa deploy ./build --deployment-token <token>
 ### Running Terraform Locally
 
 ```bash
-# Initialize Terraform
-terraform init
+# Initialize Terraform without the state backend
+terraform init -backend=false
 
 # Format code (fix formatting issues)
 terraform fmt -recursive
@@ -401,34 +385,40 @@ terraform fmt -recursive
 # Validate configuration
 terraform validate
 
-# Plan changes (dev environment)
-terraform plan -var-file=environments/dev.tfvars
+# Run Terraform tests
+terraform test
+```
 
-# Apply changes (requires Azure credentials)
-terraform apply -var-file=environments/dev.tfvars
+To plan or apply from your machine, sign in with `az login`, initialize against the state backend as shown in the README, then:
+
+```bash
+terraform plan -var-file=environments/${{ values.envName }}.tfvars
+terraform apply -var-file=environments/${{ values.envName }}.tfvars
 ```
 
 ### Running the Pipeline
 
 #### Automatic Triggers
 
-| Trigger      | Actions                                              |
-| ------------ | ---------------------------------------------------- |
-| Pull Request | Validate, Security Scan, Test, Plan, Cost Estimate   |
-| Push to main | Validate, Security Scan, Plan (all environments)     |
+| Trigger        | Jobs                                                             |
+| -------------- | ---------------------------------------------------------------- |
+| Pull request   | Checks, Cost Estimate, Plan (`${{ values.envName }}`)            |
+| Push to `main` | Checks, Plan and Apply (`${{ values.envName }}`)                 |
+
+Plan, Apply and Cost Estimate are skipped while their secrets are missing.
 
 #### Manual Deployment
 
-1. Navigate to **Actions** tab
-2. Select **Terraform CI/CD** workflow
+1. Open the **Actions** tab
+2. Select the **Terraform** workflow
 3. Click **Run workflow**
-4. Configure:
+4. Choose:
    - **action**: `plan`, `apply`, `destroy`, or `drift-detection`
    - **environment**: `dev`, `staging`, or `prod`
-   - **confirm_destroy**: Type `DESTROY` to confirm (required for destroy)
+   - **confirm_destroy**: type `DESTROY` (destroy only)
 5. Click **Run workflow**
 
-For `staging` and `prod` environments, you'll need approval from designated reviewers.
+A manual run fails straight away, naming the missing secrets, if the Azure credentials are not configured.
 
 ---
 
@@ -457,7 +447,7 @@ custom_domain = "www.example.com"
 ### Step 3: Apply Changes
 
 ```bash
-terraform apply -var-file=environments/${{ values.environment }}.tfvars
+terraform apply -var-file=environments/${{ values.envName }}.tfvars
 ```
 
 ### Domain Validation
@@ -528,7 +518,7 @@ Define custom roles in the Azure Portal or via API:
 # Assign a role to a user
 az staticwebapp users update \
   --name ${{ values.name }} \
-  --resource-group rg-${{ values.name }}-${{ values.environment }} \
+  --resource-group rg-${{ values.name }}-${{ values.envName }} \
   --user-details user@example.com \
   --role admin
 ```
@@ -558,7 +548,7 @@ resource "azurerm_static_web_app" "main" {
 ```bash
 az staticwebapp appsettings set \
   --name ${{ values.name }} \
-  --resource-group rg-${{ values.name }}-${{ values.environment }} \
+  --resource-group rg-${{ values.name }}-${{ values.envName }} \
   --setting-names \
     "API_URL=https://api.example.com" \
     "FEATURE_FLAG=true"
@@ -598,23 +588,31 @@ terraform output -raw api_key
 
 ## Security Scanning
 
-The pipeline includes three security scanning tools:
+The Security Scan job runs two scanners and fails on any finding:
 
-| Tool        | Purpose                                                   | Documentation                        |
-| ----------- | --------------------------------------------------------- | ------------------------------------ |
-| **tfsec**   | Static analysis for Terraform security misconfigurations  | [tfsec.dev](https://tfsec.dev)       |
-| **Checkov** | Policy-as-code for infrastructure security and compliance | [checkov.io](https://www.checkov.io) |
-| **Trivy**   | Comprehensive vulnerability scanner for IaC               | [trivy.dev](https://trivy.dev)       |
+| Tool        | Scope                                                      | Run locally                                        |
+| ----------- | ---------------------------------------------------------- | -------------------------------------------------- |
+| **Trivy**   | Misconfigurations of severity MEDIUM and above             | `trivy config --severity CRITICAL,HIGH,MEDIUM .`   |
+| **Checkov** | Policy checks for Terraform                                | `checkov --directory . --config-file .checkov.yaml` |
 
-Results are uploaded to the GitHub **Security** tab as SARIF reports.
+### Accepted Findings
 
-### Common Security Findings
+Each exception is declared next to the resource it applies to, with its reason:
 
-| Finding                        | Resolution                                        |
-| ------------------------------ | ------------------------------------------------- |
-| Missing HTTPS enforcement      | SWA enforces HTTPS by default                     |
-| No WAF configured              | Consider Azure Front Door for WAF                 |
-| Public access enabled          | Configure authentication if needed                |
+| Finding | Where | Reason |
+| ------- | ----- | ------ |
+| - | - | Neither scanner reports a finding for this configuration |
+
+### Suppressing a Finding
+
+Fix the configuration where you can. To accept a finding, add a comment on the resource and state why:
+
+```hcl
+resource "azurerm_example" "this" {
+  #checkov:skip=CKV_AZURE_123:Reason the check does not apply
+  #trivy:ignore:AZU-0001 Reason the check does not apply
+}
+```
 
 ---
 
@@ -688,7 +686,7 @@ Error: Error acquiring the state lock
 2. Check for stale lease on the blob:
    ```bash
    az storage blob lease break \
-     --blob-name "${{ values.name }}/${{ values.environment }}/terraform.tfstate" \
+     --blob-name "${{ values.name }}/${{ values.envName }}/terraform.tfstate" \
      --container-name tfstate \
      --account-name $STORAGE_ACCOUNT
    ```
@@ -743,15 +741,9 @@ Error: Failed to build API. Package.json not found.
 
 ### Pipeline Failures
 
-**Security scan failing on false positives**
+**Security scan failing**
 
-Set `soft_fail: true` in the workflow to allow warnings without blocking:
-
-```yaml
-- uses: aquasecurity/tfsec-action@v1.0.3
-  with:
-    soft_fail: true
-```
+The job log lists each finding with its file and line. Fix the configuration, or accept the finding as described under [Security Scanning](#security-scanning).
 
 ---
 

@@ -14,12 +14,17 @@ locals {
   static_web_app_name = "swa-${var.name}-${var.environment}"
 
   # Common tags
-  common_tags = merge(var.tags, {
-    Project     = var.name
-    Environment = var.environment
-    ManagedBy   = "terraform"
-    Framework   = var.framework
-  })
+  common_tags = merge(
+    var.tags,
+    {
+      Project     = var.name
+      Environment = var.environment
+      ManagedBy   = "terraform"
+      Framework   = var.framework
+    },
+    var.owner != "" ? { Owner = var.owner } : {},
+    var.description != "" ? { Description = substr(var.description, 0, 256) } : {},
+  )
 
   # Framework-specific build settings
   build_config = {
