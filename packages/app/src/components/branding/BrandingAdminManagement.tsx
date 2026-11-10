@@ -77,7 +77,9 @@ export const BrandingAdminManagement: React.FC = () => {
   const fetchAdmins = useCallback(async () => {
     try {
       setError(null);
-      const response = await fetchApi.fetch('/api/branding-settings/admins');
+      const response = await fetchApi.fetch(
+        'plugin://branding-settings/admins',
+      );
       if (!response.ok) {
         if (response.status === 403) {
           setError('You do not have permission to manage admins');
@@ -105,11 +107,14 @@ export const BrandingAdminManagement: React.FC = () => {
       setAdding(true);
       setError(null);
 
-      const response = await fetchApi.fetch('/api/branding-settings/admins', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entityRef: newAdmin.trim() }),
-      });
+      const response = await fetchApi.fetch(
+        'plugin://branding-settings/admins',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ entityRef: newAdmin.trim() }),
+        },
+      );
 
       if (!response.ok) {
         const data = await response.json();
@@ -132,7 +137,7 @@ export const BrandingAdminManagement: React.FC = () => {
       setError(null);
 
       const response = await fetchApi.fetch(
-        `/api/branding-settings/admins/${id}`,
+        `plugin://branding-settings/admins/${id}`,
         {
           method: 'DELETE',
         },

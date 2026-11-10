@@ -2,7 +2,7 @@ import {
   createBackendPlugin,
   coreServices,
 } from '@backstage/backend-plugin-api';
-import { catalogServiceRef } from '@backstage/plugin-catalog-node/alpha';
+import { catalogServiceRef } from '@backstage/plugin-catalog-node';
 import { Router } from 'express';
 import * as express from 'express';
 
@@ -68,6 +68,7 @@ export const ownershipManagementPlugin = createBackendPlugin({
         config: coreServices.rootConfig,
         scheduler: coreServices.scheduler,
         catalog: catalogServiceRef,
+        auth: coreServices.auth,
         httpRouter: coreServices.httpRouter,
         database: coreServices.database,
         httpAuth: coreServices.httpAuth,
@@ -77,6 +78,7 @@ export const ownershipManagementPlugin = createBackendPlugin({
         logger,
         scheduler,
         catalog,
+        auth,
         httpRouter,
         database,
         httpAuth,
@@ -177,9 +179,10 @@ export const ownershipManagementPlugin = createBackendPlugin({
         async function getAllGroups(): Promise<Map<string, GroupInfo>> {
           const groups = new Map<string, GroupInfo>();
           try {
-            const entities = await catalog.getEntities({
-              filter: { kind: 'Group' },
-            });
+            const entities = await catalog.getEntities(
+              { filter: { kind: 'Group' } },
+              { credentials: await auth.getOwnServiceCredentials() },
+            );
 
             for (const entity of entities.items) {
               const name = entity.metadata.name;
@@ -234,12 +237,15 @@ export const ownershipManagementPlugin = createBackendPlugin({
             const overridesMap = await getAllOverridesMap();
 
             // Fetch all kinds in parallel instead of sequentially
+            const credentials = await auth.getOwnServiceCredentials();
             const kindResults = await Promise.all(
               ownableKinds.map(kind =>
-                catalog.getEntities({ filter: { kind } }).then(result => ({
-                  kind,
-                  items: result.items,
-                })),
+                catalog
+                  .getEntities({ filter: { kind } }, { credentials })
+                  .then(result => ({
+                    kind,
+                    items: result.items,
+                  })),
               ),
             );
 
@@ -483,7 +489,10 @@ export const ownershipManagementPlugin = createBackendPlugin({
 
             // Get the entity to verify it exists and get current owner
             try {
-              const entity = await catalog.getEntityByRef(entityRef);
+              const credentials = await auth.getOwnServiceCredentials();
+              const entity = await catalog.getEntityByRef(entityRef, {
+                credentials,
+              });
               if (!entity) {
                 res
                   .status(404)
@@ -511,7 +520,7 @@ export const ownershipManagementPlugin = createBackendPlugin({
 
               // Trigger a catalog refresh for this entity to pick up the change
               try {
-                await catalog.refreshEntity(entityRef);
+                await catalog.refreshEntity(entityRef, { credentials });
                 logger.info(`Triggered catalog refresh for ${entityRef}`);
               } catch (refreshError) {
                 logger.warn(

@@ -9,7 +9,7 @@
 #     build:
 #       uses: ./.github/workflows/build.yaml
 #       with:
-#         node_version: '22'
+#         node_version: '24'
 #         working_directory: '.'
 # =============================================================================
 
@@ -28,7 +28,7 @@ on:
         description: 'Node.js version'
         required: false
         type: string
-        default: '22'
+        default: '24'
       python_version:
         description: 'Python version'
         required: false

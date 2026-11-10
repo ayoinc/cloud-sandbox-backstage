@@ -1,145 +1,26 @@
-import { Navigate, Route } from 'react-router-dom';
-import { apiDocsPlugin, ApiExplorerPage } from '@backstage/plugin-api-docs';
-import {
-  CatalogEntityPage,
-  CatalogIndexPage,
-  catalogPlugin,
-} from '@backstage/plugin-catalog';
-import { customCatalogColumns } from './components/catalog/catalogColumns';
-import {
-  CatalogImportPage,
-  catalogImportPlugin,
-} from '@backstage/plugin-catalog-import';
-import { ScaffolderPage, scaffolderPlugin } from '@backstage/plugin-scaffolder';
-import { orgPlugin } from '@backstage/plugin-org';
-import { SearchPage } from '@backstage/plugin-search';
-import {
-  TechDocsIndexPage,
-  techdocsPlugin,
-  TechDocsReaderPage,
-} from '@backstage/plugin-techdocs';
-import { TechDocsAddons } from '@backstage/plugin-techdocs-react';
-import { ReportIssue } from '@backstage/plugin-techdocs-module-addons-contrib';
-import { UserSettingsPage } from '@backstage/plugin-user-settings';
-import { BrandingAdminPage } from './components/branding';
-import { OwnershipManagementPage } from './components/ownership';
-import { apis } from './apis';
-import { entityPage } from './components/catalog/EntityPage';
-import { searchPage } from './components/search/SearchPage';
-import { Root } from './components/Root';
-import { IdleTimeoutMonitor } from './components/IdleTimeoutMonitor';
-import { GitHubOrgPage } from './components/github';
+import { createApp } from '@backstage/frontend-defaults';
+import catalogPlugin from '@backstage/plugin-catalog/alpha';
+import { adminModule } from './modules/admin';
+import { authModule } from './modules/auth';
+import { brandModule, brandTechDocsModule } from './modules/brand';
+import { catalogModule } from './modules/catalog';
+import { homeModule } from './modules/home';
+import { navModule } from './modules/nav';
+import { catalogImportModule, scaffolderModule } from './modules/permissions';
+import { sessionModule } from './modules/session';
 
-import { OAuthRequestDialog, SignInPage } from '@backstage/core-components';
-import { CustomAlertDisplay } from './components/CustomAlertDisplay';
-import { createApp } from '@backstage/app-defaults';
-import { AppRouter, FlatRoutes } from '@backstage/core-app-api';
-import { CatalogGraphPage } from '@backstage/plugin-catalog-graph';
-import { RequirePermission } from '@backstage/plugin-permission-react';
-import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
-import { NotificationsPage } from '@backstage/plugin-notifications';
-import { SignalsDisplay } from '@backstage/plugin-signals';
-import { taskCreatePermission } from '@backstage/plugin-scaffolder-common/alpha';
-import { githubAuthApiRef } from '@backstage/core-plugin-api';
-
-const app = createApp({
-  apis,
-  bindRoutes({ bind }) {
-    bind(catalogPlugin.externalRoutes, {
-      // createComponent intentionally not bound to hide the redundant "Create" button
-      // in the top-right of the catalog page (we have "Create..." in the sidebar)
-      viewTechDoc: techdocsPlugin.routes.docRoot,
-      createFromTemplate: scaffolderPlugin.routes.selectedTemplate,
-    });
-    bind(apiDocsPlugin.externalRoutes, {
-      registerApi: catalogImportPlugin.routes.importPage,
-    });
-    bind(scaffolderPlugin.externalRoutes, {
-      registerComponent: catalogImportPlugin.routes.importPage,
-      viewTechDoc: techdocsPlugin.routes.docRoot,
-    });
-    bind(orgPlugin.externalRoutes, {
-      catalogIndex: catalogPlugin.routes.catalogIndex,
-    });
-  },
-  components: {
-    SignInPage: props => (
-      <SignInPage
-        {...props}
-        auto
-        providers={[
-          {
-            id: 'github-auth-provider',
-            title: 'GitHub',
-            message: 'Sign in with GitHub',
-            apiRef: githubAuthApiRef,
-          },
-          'guest',
-        ]}
-      />
-    ),
-  },
+export default createApp({
+  features: [
+    catalogPlugin,
+    brandModule,
+    brandTechDocsModule,
+    navModule,
+    homeModule,
+    authModule,
+    sessionModule,
+    adminModule,
+    catalogModule,
+    catalogImportModule,
+    scaffolderModule,
+  ],
 });
-
-const routes = (
-  <FlatRoutes>
-    <Route path="/" element={<Navigate to="catalog" />} />
-    <Route
-      path="/catalog"
-      element={<CatalogIndexPage columns={customCatalogColumns} />}
-    />
-    <Route
-      path="/catalog/:namespace/:kind/:name"
-      element={<CatalogEntityPage />}
-    >
-      {entityPage}
-    </Route>
-    <Route path="/docs" element={<TechDocsIndexPage />} />
-    <Route
-      path="/docs/:namespace/:kind/:name/*"
-      element={<TechDocsReaderPage />}
-    >
-      <TechDocsAddons>
-        <ReportIssue />
-      </TechDocsAddons>
-    </Route>
-    <Route
-      path="/create"
-      element={
-        <RequirePermission permission={taskCreatePermission}>
-          <ScaffolderPage />
-        </RequirePermission>
-      }
-    />
-    <Route path="/api-docs" element={<ApiExplorerPage />} />
-    <Route
-      path="/catalog-import"
-      element={
-        <RequirePermission permission={catalogEntityCreatePermission}>
-          <CatalogImportPage />
-        </RequirePermission>
-      }
-    />
-    <Route path="/search" element={<SearchPage />}>
-      {searchPage}
-    </Route>
-    <Route path="/settings" element={<UserSettingsPage />} />
-    <Route path="/admin/branding" element={<BrandingAdminPage />} />
-    <Route path="/admin/ownership" element={<OwnershipManagementPage />} />
-    <Route path="/catalog-graph" element={<CatalogGraphPage />} />
-    <Route path="/notifications" element={<NotificationsPage />} />
-    <Route path="/github-org" element={<GitHubOrgPage />} />
-  </FlatRoutes>
-);
-
-export default app.createRoot(
-  <>
-    <CustomAlertDisplay />
-    <OAuthRequestDialog />
-    <SignalsDisplay />
-    <IdleTimeoutMonitor />
-    <AppRouter>
-      <Root>{routes}</Root>
-    </AppRouter>
-  </>,
-);

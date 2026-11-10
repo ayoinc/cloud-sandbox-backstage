@@ -1,0 +1,346 @@
+/* The catalog search demo. Every rule sits under .csd, the demo's root, so
+   nothing here reaches the host page or another stage. Colours come from the
+   look (soliriusLook.ts): the kit's --ss-* tokens mapped from the brand tokens. */
+
+/* Fills the slot the host gives it. Decorative: never in the pointer's way. */
+.csd {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* The slot, a gutter above and left of it, and the fading foot below it.
+   Its right edge is the slot's: the window runs off it */
+.csd .csd-crop {
+  position: absolute;
+  right: 0;
+  overflow: hidden;
+}
+
+.csd .ss-stage {
+  overflow: hidden;
+  /* Fade crop: the foot dissolves into the panel instead of being cut at an
+     arbitrary line; the top and the left edge stay whole and hard. A mask,
+     so it fades to whatever the panel is */
+  mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - 72px),
+    transparent calc(100% - 4px)
+  );
+  /* The ground is the dark brand panel in both themes, so the window's edge
+     is a light hairline and its depth a dark fall */
+  --ss-shadow-hero: 0 0 0 1px rgb(255 255 255 / 0.2),
+    0 24px 48px -12px rgb(0 0 0 / 0.45), 0 12px 24px -16px rgb(0 0 0 / 0.4);
+  /* The brand outlines its cards rather than lifting them */
+  --ss-shadow-card: 0 0 0 0 transparent;
+}
+
+/* ---- Window ---- */
+
+.csd .csd-window {
+  position: absolute;
+  box-shadow: var(--ss-shadow-hero);
+}
+
+.csd .csd-window .ss-window__side {
+  background: var(--ss-nav-bg);
+  border-right-color: transparent;
+}
+
+/* The portal's pages are the tinted page colour with white cards on it */
+.csd .csd-window .ss-window__main {
+  background: var(--ss-canvas);
+}
+
+.csd .csd-heading {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  color: var(--ss-text-strong);
+  white-space: nowrap;
+  /* On the edge the page's words keep: its cards' and rows' own 12px inset */
+  margin-left: 12px;
+}
+
+/* ---- Sidebar ---- */
+
+.csd .csd-nav {
+  display: flex;
+  flex-direction: column;
+  padding-top: 2px;
+  /* Placeholder ink for a dark surface */
+  --ss-ink-3: color-mix(in srgb, var(--ss-nav-text) 20%, transparent);
+}
+
+.csd .csd-nav__item {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  height: 30px;
+  /* Over the sidebar's own edge, so a highlight meets the page flush */
+  margin-right: -1px;
+  padding: 0 12px 0 15px;
+  font-size: 12px;
+  color: var(--ss-nav-text);
+  transition: background-color 0.15s ease;
+}
+
+.csd .csd-nav__item > svg {
+  flex: none;
+}
+
+.csd .csd-nav__label {
+  line-height: 16px;
+}
+
+.csd .csd-nav__item[data-selected] {
+  color: var(--ss-nav-selected);
+}
+
+/* Backstage marks the current item with a bar on the sidebar's edge */
+.csd .csd-nav__item[data-selected]::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 3px;
+  background: var(--ss-nav-indicator);
+}
+
+.csd .csd-nav__item[data-hover] {
+  background-color: var(--ss-nav-hover);
+}
+
+.csd .csd-nav__item[data-pressed] {
+  background-color: color-mix(
+    in srgb,
+    var(--ss-nav-hover),
+    var(--ss-nav-text) 14%
+  );
+}
+
+/* What the story does not use trails off instead of stopping */
+.csd .csd-nav__more {
+  display: flex;
+  flex-direction: column;
+  mask-image: linear-gradient(to bottom, #000 20%, transparent 96%);
+}
+
+.csd .csd-nav__rule {
+  flex: none;
+  height: 1px;
+  margin: 8px 15px;
+  background: color-mix(in srgb, var(--ss-nav-text) 18%, transparent);
+}
+
+/* ---- Pages: the chrome stays and the body changes as a dip ---- */
+
+/* The page going out dims for a moment, the next one takes its place at
+   that level and comes up. Two pages are never read at once and the pane is
+   never left blank between them. */
+.csd .csd-pages {
+  height: 100%;
+  transition: opacity 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.csd .csd-pages[data-dim] {
+  opacity: 0.55;
+  transition: opacity 0.1s ease-in;
+}
+
+.csd .csd-pg {
+  display: none;
+  padding: 16px;
+}
+
+.csd .csd-pg[data-show] {
+  display: block;
+}
+
+/* ---- Catalog ---- */
+
+.csd .csd-catalog {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  /* Laid out at the window's widest reading, so a narrower crop cuts the
+     same page instead of squeezing its columns */
+  min-width: 511px;
+}
+
+.csd .csd-search {
+  align-self: flex-start;
+  width: 240px;
+}
+
+.csd .csd-search__icon {
+  flex: none;
+  color: var(--ss-text-faint);
+}
+
+.csd .csd-table {
+  overflow: hidden;
+  background: var(--ss-surface);
+  border-radius: var(--ss-radius-lg);
+  box-shadow: inset 0 0 0 1px var(--ss-line);
+}
+
+/* A ruled table, as the portal's is: square fills on the rule */
+.csd .csd-row {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--ss-line-faint);
+  border-radius: 0;
+}
+
+/* The row that can be opened answers the pointer */
+.csd .csd-row[data-entity] {
+  transition: background-color 0.15s ease;
+}
+
+.csd .csd-row[data-entity][data-hover] {
+  background-color: var(--ss-ink-1);
+}
+
+.csd .csd-row[data-entity][data-pressed] {
+  background-color: color-mix(in srgb, var(--ss-text-strong) 10%, transparent);
+}
+
+.csd .csd-row--head {
+  padding-block: 6px;
+  border-bottom-color: var(--ss-line);
+}
+
+.csd .csd-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ss-accent-text);
+}
+
+/* One set of tracks for every row, so the columns line up */
+.csd .csd-cols {
+  display: grid;
+  grid-template-columns: repeat(3, 100px);
+  column-gap: 12px;
+  align-items: center;
+}
+
+/* ---- Entity ---- */
+
+.csd .csd-entity {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 511px;
+}
+
+.csd .csd-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 300px;
+}
+
+/* A line's second mark sits at its far end */
+.csd .csd-line__end {
+  margin-left: auto;
+}
+
+.csd .csd-fields {
+  display: grid;
+  grid-template-columns: repeat(4, 108px);
+  column-gap: 12px;
+}
+
+.csd .csd-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* A label over its value, each in its own line box whether it is words or a bar */
+.csd .csd-label,
+.csd .csd-value {
+  display: flex;
+  align-items: center;
+  height: 16px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+/* Placeholder lines keep the pitch and sit as far apart as the words' ink does */
+.csd .csd-field--bar .csd-label {
+  align-items: flex-end;
+  padding-bottom: 4px;
+}
+
+.csd .csd-field--bar .csd-value {
+  align-items: flex-start;
+  padding-top: 4px;
+}
+
+.csd .csd-label {
+  font-size: 12px;
+  color: var(--ss-text-faint);
+}
+
+.csd .csd-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ss-accent-text);
+}
+
+.csd .csd-graph {
+  position: relative;
+  height: 100px;
+}
+
+.csd .csd-node {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  padding: 0 10px;
+  color: var(--ss-icon);
+  background: var(--ss-surface);
+  border-radius: var(--ss-radius-lg);
+  box-shadow: inset 0 0 0 1px var(--ss-line);
+}
+
+.csd .csd-node > svg {
+  flex: none;
+}
+
+.csd .csd-node__label {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--ss-text-strong);
+  white-space: nowrap;
+}
+
+/* The entity itself, as Backstage draws the graph's root */
+.csd .csd-node[data-root] {
+  color: var(--ss-on-accent);
+  background: var(--ss-accent);
+  box-shadow: none;
+}
+
+.csd .csd-node[data-root] .csd-node__label {
+  font-weight: 700;
+  color: var(--ss-on-accent);
+}
+
+/* Relations are structure, not the story: neutral lines */
+.csd .csd-edge .ss-connector__line {
+  stroke: var(--ss-text-faint);
+}
+
+.csd .csd-rest {
+  position: absolute;
+  width: 0;
+  height: 0;
+}

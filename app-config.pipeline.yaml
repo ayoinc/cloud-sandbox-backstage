@@ -1,0 +1,71 @@
+# Configuration of the pipeline backend (packages/backend/src/pipeline.ts).
+#
+# Loaded on its own, never layered on app-config.yaml, so it needs none of the
+# main backend's services or environment variables:
+#
+#   PIPELINE_DATA_DIR      directory for the SQLite files (required)
+#   PIPELINE_BACKEND_TOKEN token the pipeline scripts call this backend with (required)
+#   PIPELINE_BACKEND_PORT  port to listen on (default 7107)
+#   PORTAL_GITHUB_TOKEN    GitHub token for reading repositories and for the
+#                          template steps that create them (optional)
+#
+# The scripts in edge/scripts/pipeline start the backend with a second,
+# generated config file (app-config.run.yaml in the data directory). It holds
+# `catalog.rules` and `catalog.locations`, taken from app-config.yaml at run
+# time so the two backends always read the same entity files, and a key pair
+# for the tokens plugins call each other with (see writeRunConfig in
+# edge/scripts/pipeline/backend.mjs).
+#
+# To start it by hand, with an empty catalog, from packages/backend:
+#
+#   PIPELINE_DATA_DIR=/tmp/pipeline-backend PIPELINE_BACKEND_TOKEN=<any long string> \
+#     node --require @backstage/cli/config/nodeTransform.cjs src/pipeline.ts \
+#     --config ../../app-config.pipeline.yaml
+#
+# (`backstage-cli package start` always runs src/index.ts, the main backend.)
+
+backend:
+  baseUrl: http://localhost:${PIPELINE_BACKEND_PORT:-7107}
+  listen:
+    port: ${PIPELINE_BACKEND_PORT:-7107}
+    # Only the scripts on the same machine call this backend
+    host: 127.0.0.1
+  database:
+    # Files rather than memory: the sync script reads the processed catalog
+    # straight from catalog.sqlite
+    client: better-sqlite3
+    connection:
+      directory: ${PIPELINE_DATA_DIR}
+  cache:
+    store: memory
+  auth:
+    externalAccess:
+      # No accessRestrictions: the scaffolder passes these credentials on to
+      # the catalog (catalog:register), which restricted credentials forbid
+      - type: static
+        options:
+          token: ${PIPELINE_BACKEND_TOKEN}
+          subject: portal-pipeline
+
+integrations:
+  github:
+    - host: github.com
+      token: ${PORTAL_GITHUB_TOKEN}
+
+permission:
+  enabled: true
+
+# Backstage's defaults, as in app-config.yaml, so a template commits the same
+# way from both backends
+scaffolder: {}
+
+# Read by edge/scripts/pipeline/techdocs.mjs, which builds documentation with
+# Backstage's own TechDocs generator and the mkdocs installed on the machine.
+techdocs:
+  generator:
+    runIn: local
+    mkdocs:
+      # The generator drops every mkdocs plugin it does not know. The D2
+      # diagram plugin is installed with the rest of the TechDocs toolchain
+      # (see the root Dockerfile) and used by most documentation here.
+      dangerouslyAllowAdditionalPlugins: [d2]

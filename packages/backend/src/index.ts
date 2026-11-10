@@ -97,6 +97,12 @@ backend.add(import('@backstage/plugin-kubernetes-backend'));
 backend.add(import('@backstage/plugin-notifications-backend'));
 backend.add(import('@backstage/plugin-signals-backend'));
 
+// user settings plugin (persists user preferences server-side)
+backend.add(import('@backstage/plugin-user-settings-backend'));
+
+// MCP actions plugin (exposes Backstage actions to AI agents over MCP)
+backend.add(import('@backstage/plugin-mcp-actions-backend'));
+
 // =============================================================================
 // Events Backend - Event-driven architecture support (FUTURE)
 // =============================================================================

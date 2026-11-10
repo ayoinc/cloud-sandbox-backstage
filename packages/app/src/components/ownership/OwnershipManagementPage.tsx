@@ -104,9 +104,9 @@ export const OwnershipManagementPage = () => {
     setError(null);
     try {
       const [entitiesRes, orphansRes, groupsRes] = await Promise.all([
-        fetchApi.fetch('/api/ownership-management/entities'),
-        fetchApi.fetch('/api/ownership-management/orphans'),
-        fetchApi.fetch('/api/ownership-management/groups'),
+        fetchApi.fetch('plugin://ownership-management/entities'),
+        fetchApi.fetch('plugin://ownership-management/orphans'),
+        fetchApi.fetch('plugin://ownership-management/groups'),
       ]);
 
       const errors: string[] = [];
@@ -164,7 +164,7 @@ export const OwnershipManagementPage = () => {
     setReassigning(true);
     try {
       const response = await fetchApi.fetch(
-        '/api/ownership-management/reassign',
+        'plugin://ownership-management/reassign',
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

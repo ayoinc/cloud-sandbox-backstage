@@ -1,0 +1,10 @@
+# Copy to .prod.vars and fill in. `yarn workspace @internal/edge deploy`
+# uploads these to Cloudflare, where they are stored as secrets; values already
+# stored there and not listed here are kept.
+GITHUB_CLIENT_ID=
+# GitHub logins allowed to sign in, comma-separated
+GITHUB_ALLOWED_USERS=
+GOOGLE_CLIENT_ID=
+# Google accounts allowed to sign in: exact emails, and whole domains
+GOOGLE_ALLOWED_EMAILS=
+GOOGLE_ALLOWED_DOMAINS=

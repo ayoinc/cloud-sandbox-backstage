@@ -69,3 +69,12 @@ override.tf.json
 *_override.tf.json
 .terraformrc
 terraform.rc
+
+# Generated TechDocs sites
+techdocs-output/
+
+# Cloudflare Workers local state and secrets
+.wrangler/
+.dev.vars
+worker-configuration.d.ts
+.prod.vars

@@ -1,55 +1,56 @@
-# Development override - adds hot reload and debugging
-# Use with: docker-compose -f docker-compose.yaml -f docker-compose.services.yaml -f docker-compose.dev.yaml up
+# Development override: runs `yarn start` (frontend + backend with hot reload) from the
+# bind-mounted source tree. Linux node_modules live in named volumes so they never
+# clash with the host's (macOS) node_modules.
+#
+#   docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up
+#
+# Frontend: http://localhost:${APP_PORT:-3000}  Backend: http://localhost:${BACKSTAGE_PORT:-7007}
 
 services:
   backstage:
     build:
       context: .
-      dockerfile: Dockerfile.dev
-    volumes:
-      - .:/app
-      - /app/node_modules
-      - /app/.yarn
+      dockerfile: Dockerfile
+      target: dev
+    image: backstage-dev:local
+    # Only app-config.yaml: a host-oriented app-config.local.yaml (localhost infra)
+    # is visible through the bind mount and must not be picked up here.
+    command:
+      - sh
+      - -c
+      - yarn install --immutable && yarn start --config /app/app-config.yaml --inspect 0.0.0.0:9229
     environment:
       NODE_ENV: development
-      GITHUB_TOKEN: ${GITHUB_TOKEN}
-      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
-      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
-      AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:-supersecret-session-key-change-in-production}
-      # PostgreSQL connection
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_USER: backstage
-      POSTGRES_PASSWORD: backstage
-      POSTGRES_DB: backstage
-      # Redis connection (caching)
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      # MinIO connection (TechDocs storage)
-      MINIO_HOST: minio
-      MINIO_PORT: 9000
-      MINIO_ACCESS_KEY: backstage
-      MINIO_SECRET_KEY: backstage123
-      TECHDOCS_BUCKET: techdocs
+      # Keep Yarn's install state with the container's node_modules, not in the
+      # bind-mounted .yarn/ that the host install uses.
+      YARN_INSTALL_STATE_PATH: /app/node_modules/.yarn-install-state.gz
+      APP_CONFIG_app_baseUrl: http://localhost:${APP_PORT:-3000}
+      APP_CONFIG_app_listen_host: 0.0.0.0
+      APP_CONFIG_app_listen_port: 3000
+      APP_CONFIG_backend_baseUrl: http://localhost:${BACKSTAGE_PORT:-7007}
+      APP_CONFIG_backend_cors_origin: http://localhost:${APP_PORT:-3000}
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+      - app_node_modules:/app/packages/app/node_modules
+      - backend_node_modules:/app/packages/backend/node_modules
+      - brand_node_modules:/app/packages/brand/node_modules
+      - yarn_global:/root/.yarn/berry
     ports:
-      - '7007:7007'
-      - '9229:9229' # Node.js debugger
-    command: sh -c "yarn tsc && yarn build:backend && yarn start"
+      - '${APP_PORT:-3000}:3000'
+      - '127.0.0.1:9229:9229' # Node.js inspector (backend), loopback only
+    # Apple `container` gives each container 1 GB unless told otherwise; the dev
+    # servers plus `yarn install` need far more.
+    deploy:
+      resources:
+        limits:
+          memory: 8g
+    healthcheck:
+      start_period: 900s
 
-  nginx:
-    ports:
-      - '80:80'
-      - '443:443'
-
-  postgres:
-    ports:
-      - '5432:5432'
-
-  redis:
-    ports:
-      - '6379:6379'
-
-  minio:
-    ports:
-      - '9000:9000'
-      - '9001:9001'
+volumes:
+  node_modules:
+  app_node_modules:
+  backend_node_modules:
+  brand_node_modules:
+  yarn_global:

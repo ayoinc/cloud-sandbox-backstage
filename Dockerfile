@@ -1,140 +1,157 @@
-# Multi-stage Dockerfile for Backstage
-# Builds both frontend and backend for production deployment
+# syntax=docker/dockerfile:1
+#
+# Multi-stage build of the Backstage app + backend, based on the official
+# https://backstage.io/docs/deployment/docker#multi-stage-build, extended with the
+# TechDocs toolchain (mkdocs + d2) because TechDocs is generated in-process
+# (`techdocs.generator.runIn: local`) and pre-built sites are published to MinIO.
+#
+# Targets:
+#   toolchain  - Node 24 + mkdocs/techdocs-core + d2 + mc (TechDocs generator, dev base)
+#   dev        - toolchain + native build deps for running `yarn start` from a bind mount
+#   (default)  - production image
+#
+# Build: docker build -t backstage:local .
 
-# =============================================================================
-# Stage 1: Build the application
-# =============================================================================
-FROM node:22-bookworm-slim AS build
+ARG NODE_IMAGE=node:24-trixie-slim
 
-ENV PYTHON=/usr/bin/python3
+# MinIO stopped publishing images/binaries; Chainguard builds mc from source (static binary).
+FROM cgr.dev/chainguard/minio-client:latest AS mc
+FROM terrastruct/d2:v0.9.0 AS d2
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends python3 g++ build-essential git libsqlite3-dev && \
+# -----------------------------------------------------------------------------
+# TechDocs toolchain
+# -----------------------------------------------------------------------------
+FROM ${NODE_IMAGE} AS toolchain
+
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && \
+    apt-get install -y --no-install-recommends python3 python3-venv && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV VIRTUAL_ENV=/opt/techdocs \
+    PATH=/opt/techdocs/bin:$PATH
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python3 -m venv "$VIRTUAL_ENV" && \
+    pip install \
+        mkdocs-techdocs-core==1.7.1 \
+        mkdocs-d2-plugin==1.7.0 \
+        mkdocs-monorepo-plugin==1.1.2 \
+        mkdocs-awesome-pages-plugin==2.10.1 && \
+    mkdocs --version
+
+COPY --from=d2 /usr/local/bin/d2 /usr/local/bin/d2
+COPY --from=mc /usr/bin/mc /usr/local/bin/mc
+COPY docker/build-techdocs.sh /usr/local/bin/build-techdocs
+
+# -----------------------------------------------------------------------------
+# Development image: source is bind-mounted, deps installed into volumes at start
+# -----------------------------------------------------------------------------
+FROM toolchain AS dev
+
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && \
+    apt-get install -y --no-install-recommends libsqlite3-dev g++ make git && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+EXPOSE 3000 7007 9229
+CMD ["sh", "-c", "yarn install --immutable && yarn start"]
 
-# Copy package files for dependency installation
-COPY package.json yarn.lock .yarnrc.yml ./
+# -----------------------------------------------------------------------------
+# Stage 1 - yarn install skeleton (only package.json files) for layer caching
+# -----------------------------------------------------------------------------
+FROM ${NODE_IMAGE} AS packages
+
+WORKDIR /app
+COPY backstage.json package.json yarn.lock .yarnrc.yml ./
 COPY .yarn ./.yarn
-COPY backstage.json ./
-COPY packages/app/package.json ./packages/app/
-COPY packages/backend/package.json ./packages/backend/
+COPY packages packages
+RUN find packages \! -name "package.json" -mindepth 2 -maxdepth 2 -exec rm -rf {} \+
+# The Cloudflare Worker is a workspace too; yarn needs its manifest to install.
+COPY edge/package.json edge/package.json
 
-# Install dependencies
-RUN yarn install --immutable
+# -----------------------------------------------------------------------------
+# Stage 2 - install dependencies and build packages
+# -----------------------------------------------------------------------------
+FROM ${NODE_IMAGE} AS build
 
-# Copy the rest of the source code
-COPY . .
-
-# Build the backend (this creates the tarballs)
-RUN yarn build:backend
-
-# =============================================================================
-# Stage 2: Production image
-# =============================================================================
-FROM node:22-bookworm-slim AS production
-
-# Labels
-LABEL maintainer="Platform Team"
-LABEL description="Cloud Sandbox Backstage Developer Portal"
-LABEL version="1.0.0"
-
-ENV PYTHON=/usr/bin/python3
-ENV NODE_ENV=production
-ENV NODE_OPTIONS="--no-node-snapshot"
-
-# Install runtime dependencies including Python pip for mkdocs
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        python3 \
-        python3-pip \
-        python3-venv \
-        g++ \
-        build-essential \
-        libsqlite3-dev \
-        curl \
-        ca-certificates && \
+# python3/g++/make: node-gyp builds for deps without linux-arm64/Node 24 prebuilds
+# (tree-sitter via swagger-ui's apidom, ssh2's cpu-features). Build stage only.
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && \
+    apt-get install -y --no-install-recommends libsqlite3-dev python3 g++ make && \
     rm -rf /var/lib/apt/lists/*
 
-# Install D2 diagramming tool (direct binary download for reliability)
-RUN ARCH=$(dpkg --print-architecture) && \
-    if [ "$ARCH" = "arm64" ]; then D2_ARCH="linux-arm64"; else D2_ARCH="linux-amd64"; fi && \
-    D2_VERSION="v0.7.1" && \
-    curl -fsSL "https://github.com/terrastruct/d2/releases/download/${D2_VERSION}/d2-${D2_VERSION}-${D2_ARCH}.tar.gz" -o /tmp/d2.tar.gz && \
-    mkdir -p /tmp/d2 && \
-    tar -xzf /tmp/d2.tar.gz -C /tmp/d2 --strip-components=1 && \
-    cp /tmp/d2/bin/d2 /usr/local/bin/d2 && \
-    chmod +x /usr/local/bin/d2 && \
-    rm -rf /tmp/d2 /tmp/d2.tar.gz && \
-    d2 --version
-
-# Install mkdocs and plugins for TechDocs generation (including D2 support)
-RUN pip3 install --break-system-packages \
-    mkdocs \
-    mkdocs-material \
-    mkdocs-techdocs-core \
-    mkdocs-monorepo-plugin \
-    mkdocs-d2-plugin
-
-# Install MinIO client for TechDocs upload (multi-arch support)
-RUN ARCH=$(dpkg --print-architecture) && \
-    if [ "$ARCH" = "arm64" ]; then MC_ARCH="linux-arm64"; else MC_ARCH="linux-amd64"; fi && \
-    curl -fsSL "https://dl.min.io/client/mc/release/${MC_ARCH}/mc" -o /usr/local/bin/mc && \
-    chmod +x /usr/local/bin/mc
-
-# Use the node user
 USER node
-
 WORKDIR /app
 
-# Copy yarn files
+COPY --from=packages --chown=node:node /app .
+RUN --mount=type=cache,target=/home/node/.yarn/berry,sharing=locked,uid=1000,gid=1000 \
+    yarn install --immutable
+
+COPY --chown=node:node . .
+RUN yarn tsc
+RUN yarn --cwd packages/backend build
+RUN mkdir packages/backend/dist/skeleton packages/backend/dist/bundle \
+    && tar xzf packages/backend/dist/skeleton.tar.gz -C packages/backend/dist/skeleton \
+    && tar xzf packages/backend/dist/bundle.tar.gz -C packages/backend/dist/bundle
+
+# -----------------------------------------------------------------------------
+# Pre-built TechDocs sites (uploaded to MinIO by the entrypoint)
+# -----------------------------------------------------------------------------
+FROM toolchain AS techdocs
+
+WORKDIR /src
+COPY catalog ./catalog
+COPY templates ./templates
+RUN build-techdocs /techdocs-output
+
+# -----------------------------------------------------------------------------
+# Stage 3 - production image
+# -----------------------------------------------------------------------------
+FROM toolchain AS production
+
+LABEL org.opencontainers.image.title="cloud-sandbox-backstage" \
+      org.opencontainers.image.description="Cloud Sandbox Backstage Developer Portal" \
+      org.opencontainers.image.source="https://github.com/ayointegral/cloud-sandbox-backstage"
+
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && \
+    apt-get install -y --no-install-recommends libsqlite3-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+# From here on we use the least-privileged `node` user to run the backend.
+USER node
+WORKDIR /app
+
 COPY --from=build --chown=node:node /app/.yarn ./.yarn
 COPY --from=build --chown=node:node /app/.yarnrc.yml ./
 COPY --from=build --chown=node:node /app/backstage.json ./
+COPY --from=build --chown=node:node /app/yarn.lock /app/package.json /app/packages/backend/dist/skeleton/ ./
 
-# Copy the skeleton tarball and extract it
-COPY --from=build --chown=node:node /app/yarn.lock /app/package.json /app/packages/backend/dist/skeleton.tar.gz ./
-RUN tar xzf skeleton.tar.gz && rm skeleton.tar.gz
+RUN --mount=type=cache,target=/home/node/.yarn/berry,sharing=locked,uid=1000,gid=1000 \
+    yarn workspaces focus --all --production && rm -rf "$(yarn cache clean)"
 
-# Install production dependencies
-RUN yarn workspaces focus --all --production
+COPY --from=build --chown=node:node /app/packages/backend/dist/bundle/ ./
 
-# Copy examples, catalog, and templates
+# Runtime files: config, catalog/templates (file locations), examples, TechDocs output
+COPY --chown=node:node app-config.yaml app-config.production.yaml ./
 COPY --chown=node:node examples ./examples
 COPY --chown=node:node catalog ./catalog
 COPY --chown=node:node templates ./templates
-
-# Pre-build TechDocs for all components with mkdocs.yml
-RUN for dir in catalog/*/; do \
-      if [ -f "${dir}mkdocs.yml" ]; then \
-        echo "Building TechDocs for ${dir}"; \
-        cd "/app/${dir}" && mkdocs build -d /app/techdocs-output/$(basename ${dir}) && cd /app; \
-      fi; \
-    done && \
-    for dir in templates/*/; do \
-      if [ -f "${dir}mkdocs.yml" ]; then \
-        echo "Building TechDocs for ${dir}"; \
-        cd "/app/${dir}" && mkdocs build -d /app/techdocs-output/$(basename ${dir}) && cd /app; \
-      fi; \
-    done || true
-
-# Copy and extract the bundle
-COPY --from=build --chown=node:node /app/packages/backend/dist/bundle.tar.gz ./
-RUN tar xzf bundle.tar.gz && rm bundle.tar.gz
-
-# Copy configuration files
-COPY --chown=node:node app-config.yaml app-config.production.yaml ./
-
-# Copy entrypoint script
+COPY --from=techdocs --chown=node:node /techdocs-output ./techdocs-output
 COPY --chown=node:node docker/entrypoint.sh ./entrypoint.sh
 
-# Expose port
+# This switches many Node.js dependencies to production mode.
+ENV NODE_ENV=production
+
 EXPOSE 7007
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:7007/healthcheck || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
+    CMD ["node", "-e", "fetch('http://127.0.0.1:7007/.backstage/health/v1/readiness').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
 
-# Start the backend via entrypoint script
 CMD ["./entrypoint.sh"]

@@ -1,17 +1,135 @@
 app:
   title: Cloud Sandbox
   baseUrl: http://localhost
+  # Discover every frontend plugin listed in packages/app/package.json
+  packages: all
+
+  extensions:
+    # Solirius Reply themes (from @internal/brand) replace the stock ones
+    - theme:app/light: false
+    - theme:app/dark: false
+    # The catalog is the landing page
+    - app/routes:
+        config:
+          redirects:
+            - from: /
+              to: /catalog
+
+    # Visit tracking feeds the Most/Recently Visited home widgets (stored via user settings)
+    - api:home/visits: true
+    - app-root-element:home/visit-listener: true
+    - home-page-widget:home/toolkit:
+        config:
+          tools:
+            - url: https://backstage.io/docs
+              label: Backstage Docs
+              icon: docs
+            - url: https://github.com/ayointegral/cloud-sandbox-backstage
+              label: GitHub
+              icon: github
+            - url: /create
+              label: Create a Component
+              icon: kind:template
+            - url: /catalog-import
+              label: Register a Component
+              icon: kind:component
+    - page:home:
+        config:
+          defaultConfig:
+            - component: HomePageSearchBar
+              column: 0
+              row: 0
+              width: 12
+              height: 2
+              deletable: false
+            - component: GettingStarted
+              column: 0
+              row: 1
+              width: 4
+              height: 11
+            - component: HomePageStarredEntities
+              column: 4
+              row: 2
+              width: 4
+              height: 4
+            - component: HomePageToolkit
+              column: 8
+              row: 2
+              width: 4
+              height: 4
+            - component: HomePageMostVisited
+              column: 4
+              row: 6
+              width: 4
+              height: 4
+            - component: HomePageRecentlyVisited
+              column: 8
+              row: 6
+              width: 4
+              height: 4
+    - home-page-widget:home/random-joke: false
+    - home-page-widget:home/world-clock: false
+
+    # Entity page layout
+    - entity-card:catalog-graph/relations:
+        config:
+          height: 400
+          filter:
+            $not:
+              kind:
+                $in: [user, group]
+    # Provided/consumed APIs live on the service "API" tab, not the overview
+    - entity-card:api-docs/provided-apis: false
+    - entity-card:api-docs/consumed-apis: false
+    - entity-content:api-docs/apis:
+        config:
+          path: /api
+          title: API
+          filter:
+            kind: component
+            spec.type: service
+    # Dependencies live on the custom "Dependencies" tab (modules/catalog)
+    - entity-card:catalog/depends-on-components: false
+    - entity-card:catalog/depends-on-resources: false
+    - entity-content:techdocs:
+        config:
+          title: Docs
+          filter:
+            metadata.annotations.backstage.io/techdocs-ref:
+              $exists: true
+    - addon:techdocs/expandable-navigation: false
+    - addon:techdocs/text-size: false
+    - addon:techdocs/light-box: false
+    # GitHub Actions: CI/CD tab for entities annotated with github.com/project-slug
+    - entity-content:github-actions:
+        config:
+          path: /ci-cd
+          title: CI/CD
+    - entity-card:github-actions/latest-workflow-run: false
+    - entity-card:github-actions/latest-branch-workflow-runs: false
+    - entity-card:github-actions/recent-workflow-runs: false
+    # Argo CD: only for entities annotated for Argo CD (requires the argocd config below)
+    - entity-card:argocd/overviewCard:
+        config:
+          filter: &argocdAnnotated
+            $any:
+              - metadata.annotations.argocd/app-name: { $exists: true }
+              - metadata.annotations.argocd/app-selector: { $exists: true }
+              - metadata.annotations.argocd/project-name: { $exists: true }
+    - entity-card:argocd/historyCard:
+        config:
+          filter: *argocdAnnotated
+    - entity-content:argocd/ArgoCdPage:
+        config:
+          filter: *argocdAnnotated
+    # Cost Insights ships only an example (fake data) client; enable once a real
+    # CostInsightsApi is provided
+    - page:cost-insights: false
 
 organization:
   name: Platform Team
 
 backend:
-  # SECURITY WARNING: This disables HTTP-level auth to allow backend-to-backend
-  # service calls (e.g., permission policy querying the catalog).
-  # The permission policy still enforces access control at the application level.
-  # For production, consider proper service-to-service auth configuration instead.
-  auth:
-    dangerouslyDisableDefaultAuthPolicy: true
   baseUrl: http://localhost
   listen:
     port: 7007
@@ -39,6 +157,15 @@ backend:
   cache:
     store: redis
     connection: redis://${REDIS_HOST:-redis}:${REDIS_PORT:-6379}
+    redis:
+      client:
+        namespace: backstage
+  # MCP actions exposed to AI agents: https://backstage.io/docs/ai/mcp-actions#actions-configuration
+  actions:
+    pluginSources:
+      - auth
+      - catalog
+      - scaffolder
 
 integrations:
   github:
@@ -79,6 +206,9 @@ auth:
         clientId: ${GITHUB_CLIENT_ID}
         clientSecret: ${GITHUB_CLIENT_SECRET}
         callbackUrl: http://localhost/api/auth/github/handler/frame
+  # https://backstage.io/docs/ai/mcp-actions#client-id-metadata-documents
+  clientIdMetadataDocuments:
+    enabled: false
 
 scaffolder: {}
 
@@ -87,9 +217,6 @@ catalog:
   orphanStrategy: delete
   # Process entities frequently to detect orphans quickly
   processingInterval: { seconds: 30 }
-  # Lifecycle configuration for automatic cleanup
-  stitchingStrategy:
-    mode: deferred
   import:
     entityFilename: catalog-info.yaml
     pullRequestBranchName: backstage-integration
@@ -425,6 +552,11 @@ kubernetes:
 permission:
   enabled: true
 
+# https://backstage.io/docs/ai/mcp-actions
+mcpActions:
+  name: 'Cloud Sandbox Backstage'
+  description: 'Tools for managing the software catalog, creating services from templates, and exploring the developer portal'
+
 # =============================================================================
 # PLACEHOLDER: Enterprise Plugin Configuration
 # =============================================================================
@@ -453,7 +585,8 @@ permission:
 # -----------------------------------------------------------------------------
 # Grafana - Monitoring Dashboards and Alerts
 # -----------------------------------------------------------------------------
-# Requires frontend: @k-phoen/backstage-plugin-grafana
+# Requires frontend: @backstage-community/plugin-grafana
+
 grafana:
   domain: ${GRAFANA_DOMAIN:-localhost:3000}
   unifiedAlerting: false
@@ -461,8 +594,8 @@ grafana:
 # -----------------------------------------------------------------------------
 # SonarQube - Code Quality Analysis
 # -----------------------------------------------------------------------------
-# Requires frontend: @backstage/plugin-sonarqube
-# Requires backend: @backstage/plugin-sonarqube-backend
+# Requires frontend: @backstage-community/plugin-sonarqube
+# Requires backend: @backstage-community/plugin-sonarqube-backend
 # sonarqube:
 #   baseUrl: ${SONARQUBE_BASE_URL}
 #   apiKey: ${SONARQUBE_API_KEY}
@@ -475,8 +608,8 @@ grafana:
 # -----------------------------------------------------------------------------
 # Cost Insights - Cloud Cost Management
 # -----------------------------------------------------------------------------
-# Requires frontend: @backstage/plugin-cost-insights
-# Needs custom CostInsightsClient implementation
+# Requires frontend: @backstage-community/plugin-cost-insights
+# Needs custom CostInsightsClient implementation (page:cost-insights is disabled under app.extensions until then)
 costInsights:
   engineerCost: 200000
   products:

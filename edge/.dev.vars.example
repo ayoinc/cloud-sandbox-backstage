@@ -1,0 +1,18 @@
+# Copy to .dev.vars for local development.
+# Generate SESSION_SECRET with: openssl rand -hex 32
+SESSION_SECRET=
+# Sign-in clients and who may sign in. Leave empty to use guest sign-in only.
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+GITHUB_ALLOWED_USERS=
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_ALLOWED_EMAILS=
+GOOGLE_ALLOWED_DOMAINS=
+# What pipeline scripts send to /api/pipeline. Generate with: openssl rand -hex 32
+PIPELINE_TOKEN=
+# GitHub token that starts the template workflow and reads Actions runs.
+# Leave empty to work without GitHub: templates then fail with that reason.
+PORTAL_GITHUB_TOKEN=
+# Guest sign-in for local use only
+GUEST_AUTH_ENABLED=true

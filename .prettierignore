@@ -11,3 +11,6 @@ coverage
 # Backstage software templates with Jinja2 syntax
 templates/**/skeleton/**
 catalog/terraform-modules/templates/**/skeleton/**
+
+# Agent skills (third-party)
+.agents

@@ -26,8 +26,8 @@ This project adheres to a code of conduct. By participating, you are expected to
 
 ### Prerequisites
 
-- Node.js 22 or 24
-- Yarn 4.4.1 (via Corepack)
+- Node.js 24 (22 also supported)
+- Yarn 4.13.0 (bundled in `.yarn/releases`, with the Backstage yarn plugin)
 - Docker and Docker Compose
 - Git
 

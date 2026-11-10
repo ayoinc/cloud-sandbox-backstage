@@ -213,8 +213,8 @@ export const BrandingSettingsPanel: React.FC = () => {
   return (
     <Card className={classes.root}>
       <CardHeader
-        title="Branding Settings"
-        subheader="Customize the look and feel of your Backstage instance"
+        title="Branding settings"
+        subheader="Overrides the Solirius Reply defaults for this portal"
         action={
           <Tooltip title="Refresh">
             <IconButton onClick={refresh} disabled={saving || uploading}>

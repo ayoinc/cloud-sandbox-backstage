@@ -1,51 +1,34 @@
+# Build context for the multi-stage Dockerfile: sources are built inside the image,
+# so only host build output, dependencies and local/secret files are excluded.
 .git
 .github
-.gitignore
 .yarn/cache
 .yarn/install-state.gz
 node_modules
-packages/*/node_modules
-plugins/*/node_modules
+**/node_modules
+dist-types
+packages/*/dist
+plugins/*/dist
+*.tsbuildinfo
 
-# Local config files
+# Local config and secrets
 *.local.yaml
 .env
 .env.*
 !.env.example
 
-# Documentation
-*.md
-!README.md
-
-# IDE
-.idea
-.vscode
-*.swp
-*.swo
-
-# Test files
-*.test.ts
-*.test.tsx
-*.spec.ts
-*.spec.tsx
-__tests__
-__mocks__
+# Generated output
+techdocs-output
+**/site
 coverage
 playwright-report
 test-results
-
-# Build artifacts
 *.log
-*.tsbuildinfo
-dist
+backups
 
-# Development files
+# Editor / tooling
+.idea
+.vscode
+*.swp
+.devbox
 .eslintcache
-.eslintrc.js
-.prettierignore
-.prettierrc
-playwright.config.ts
-
-# Docker development files
-docker-compose.dev.yaml
-Dockerfile.dev

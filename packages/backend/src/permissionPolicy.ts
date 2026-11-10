@@ -9,12 +9,14 @@ import {
 import {
   PermissionPolicy,
   PolicyQuery,
+  PolicyQueryUser,
 } from '@backstage/plugin-permission-node';
 import { policyExtensionPoint } from '@backstage/plugin-permission-node/alpha';
-import { BackstageIdentityResponse } from '@backstage/plugin-auth-node';
-import { catalogServiceRef } from '@backstage/plugin-catalog-node/alpha';
-import type { CatalogApi } from '@backstage/catalog-client';
-import type { LoggerService } from '@backstage/backend-plugin-api';
+import {
+  catalogServiceRef,
+  type CatalogService,
+} from '@backstage/plugin-catalog-node';
+import type { AuthService, LoggerService } from '@backstage/backend-plugin-api';
 
 /**
  * =============================================================================
@@ -55,16 +57,22 @@ const EDITOR_GROUPS = ['editors', 'developers', 'platform-editors'];
 
 class GitHubOrgPermissionPolicy implements PermissionPolicy {
   private logger: LoggerService;
-  private catalog: CatalogApi;
+  private catalog: CatalogService;
+  private auth: AuthService;
   private groupMembershipCache: Map<
     string,
     { groups: string[]; timestamp: number }
   > = new Map();
   private cacheTTL = 5 * 60 * 1000; // 5 minutes cache
 
-  constructor(logger: LoggerService, catalog: CatalogApi) {
+  constructor(
+    logger: LoggerService,
+    catalog: CatalogService,
+    auth: AuthService,
+  ) {
     this.logger = logger;
     this.catalog = catalog;
+    this.auth = auth;
   }
 
   /**
@@ -87,9 +95,11 @@ class GitHubOrgPermissionPolicy implements PermissionPolicy {
 
       const [, namespace, name] = match;
 
-      // Fetch the user entity from the catalog
+      // Fetch the user entity from the catalog using this plugin's own service credentials
+      const credentials = await this.auth.getOwnServiceCredentials();
       const userEntity = await this.catalog.getEntityByRef(
         `user:${namespace}/${name}`,
+        { credentials },
       );
 
       if (!userEntity) {
@@ -121,9 +131,10 @@ class GitHubOrgPermissionPolicy implements PermissionPolicy {
       // Also check for groups that have this user as a member
       // This handles the reverse relationship (group.members contains user)
       try {
-        const groupEntities = await this.catalog.getEntities({
-          filter: { kind: 'Group' },
-        });
+        const groupEntities = await this.catalog.getEntities(
+          { filter: { kind: 'Group' } },
+          { credentials },
+        );
 
         for (const group of groupEntities.items) {
           const members = (group.spec as any)?.members || [];
@@ -226,9 +237,12 @@ class GitHubOrgPermissionPolicy implements PermissionPolicy {
 
   async handle(
     request: PolicyQuery,
-    user?: BackstageIdentityResponse,
+    user?: PolicyQueryUser,
   ): Promise<PolicyDecision> {
-    const userEntityRef = user?.identity?.userEntityRef;
+    const userEntityRef =
+      user && this.auth.isPrincipal(user.credentials, 'user')
+        ? user.credentials.principal.userEntityRef
+        : undefined;
     const permissionName = request.permission.name;
     const role = await this.getUserRole(userEntityRef);
 
@@ -302,9 +316,10 @@ export default createBackendModule({
       deps: {
         policy: policyExtensionPoint,
         logger: coreServices.logger,
+        auth: coreServices.auth,
         catalog: catalogServiceRef,
       },
-      async init({ policy, logger, catalog }) {
+      async init({ policy, logger, auth, catalog }) {
         logger.info('Initializing GitHub organization-based permission policy');
         logger.info(
           'Users are granted access based on their GitHub org team membership:',
@@ -319,9 +334,7 @@ export default createBackendModule({
         );
         logger.info('  - All authenticated users: Read-only access (viewer)');
         logger.info('Group membership is now resolved via catalog lookup');
-        policy.setPolicy(
-          new GitHubOrgPermissionPolicy(logger, catalog as CatalogApi),
-        );
+        policy.setPolicy(new GitHubOrgPermissionPolicy(logger, catalog, auth));
       },
     });
   },

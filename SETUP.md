@@ -39,8 +39,8 @@ This guide provides comprehensive instructions for setting up the Cloud Sandbox 
 
 | Component | Version | Notes           |
 | --------- | ------- | --------------- |
-| Node.js   | 22.x    | LTS recommended |
-| Yarn      | 4.4.1   | Via Corepack    |
+| Node.js   | 24.x    | Active LTS; 22.x also supported |
+| Yarn      | 4.13.0  | Bundled via `yarnPath`          |
 | Python    | 3.11+   | For TechDocs    |
 | D2        | 0.6+    | For diagrams    |
 
@@ -121,7 +121,7 @@ devbox shell
 
 This will:
 
-- Download and install Node.js 22, Yarn 4, Python 3.12, D2, Git, and other tools
+- Download and install Node.js 24, Yarn 4, Python 3.12, D2, Git, and other tools
 - Set up environment variables
 - Display available commands
 
@@ -132,8 +132,8 @@ You should see:
 ║     Cloud Sandbox Backstage - Development Environment        ║
 ╚══════════════════════════════════════════════════════════════╝
 
-  Node.js:  v22.14.0
-  Yarn:     4.4.1
+  Node.js:  v24.x
+  Yarn:     4.13.0
   Python:   3.12.12
   D2:       v0.7.1
 

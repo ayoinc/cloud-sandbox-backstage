@@ -1,0 +1,79 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "cloud-sandbox",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-10",
+  // Served only on the custom domain: no workers.dev or preview URLs.
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [
+    { "pattern": "backstage.intellidevops.me", "custom_domain": true }
+  ],
+  "observability": {
+    "enabled": true,
+    "traces": { "enabled": true }
+  },
+  // The Backstage front end, built by `yarn workspace app build`.
+  // The Worker runs first for pages and /api so it can inject runtime config;
+  // hashed files under /static are served straight from the edge.
+  "assets": {
+    "directory": "../packages/app/dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/*", "!/static/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cloud-sandbox",
+      "database_id": "2c3a463e-bd45-4d1c-9ab5-29502aff387d",
+      "migrations_dir": "migrations"
+    }
+  ],
+  // Built documentation, one copy of each site under sites/<siteId>/.
+  "r2_buckets": [
+    { "binding": "TECHDOCS", "bucket_name": "cloud-sandbox-techdocs" }
+  ],
+  // Nothing here identifies a person or an account. Who may sign in, and the
+  // OAuth client IDs, are kept with the secrets below.
+  "vars": {
+    // The GitHub repository this portal is deployed from, as owner/repo.
+    // Software templates run in its portal-scaffold.yml workflow, started
+    // on the branch or tag in PORTAL_REF.
+    "PORTAL_REPO": "ayoinc/cloud-sandbox-backstage",
+    "PORTAL_REF": "main",
+    // Guest sign-in lets anyone in without an account. Local development
+    // turns it on in .dev.vars.
+    "GUEST_AUTH_ENABLED": "false"
+  },
+  // No values are kept in this file for the names below. They are stored in
+  // Cloudflare: list them in .prod.vars (see .prod.vars.example) and deploy
+  // with `yarn workspace @internal/edge deploy`, or set one at a time with
+  // `wrangler secret put <NAME>`. Locally they come from .dev.vars.
+  //   SESSION_SECRET          signs user tokens and session cookies
+  //   GITHUB_CLIENT_ID        GitHub App client ID (sign-in only)
+  //   GITHUB_CLIENT_SECRET    GitHub App client secret
+  //   GITHUB_ALLOWED_USERS    GitHub logins allowed to sign in, comma-separated
+  //   GOOGLE_CLIENT_ID        Google OAuth client ID (sign-in only)
+  //   GOOGLE_CLIENT_SECRET    Google OAuth client secret
+  //   GOOGLE_ALLOWED_EMAILS   Google accounts allowed to sign in, comma-separated
+  //   GOOGLE_ALLOWED_DOMAINS  Google Workspace domains allowed to sign in
+  //   PIPELINE_TOKEN          what the GitHub Actions pipelines present to
+  //                           /api/pipeline (their PORTAL_PIPELINE_TOKEN secret)
+  //   PORTAL_GITHUB_TOKEN     GitHub token that starts the template workflow
+  //                           in PORTAL_REPO and reads Actions runs for the CI tab
+  "secrets": {
+    "required": [
+      "SESSION_SECRET",
+      "GITHUB_CLIENT_ID",
+      "GITHUB_CLIENT_SECRET",
+      "GITHUB_ALLOWED_USERS",
+      "GOOGLE_CLIENT_ID",
+      "GOOGLE_CLIENT_SECRET",
+      "GOOGLE_ALLOWED_EMAILS",
+      "GOOGLE_ALLOWED_DOMAINS",
+      "PIPELINE_TOKEN",
+      "PORTAL_GITHUB_TOKEN"
+    ]
+  }
+}

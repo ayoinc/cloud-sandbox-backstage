@@ -1,116 +1,97 @@
-# Base docker-compose file with common network and volume definitions
-# Use with: docker-compose -f docker-compose.yaml -f docker-compose.services.yaml up
+# Full Backstage stack: nginx -> Backstage (production image) + infrastructure services.
+#
+#   docker compose up -d --wait                                   # production-like
+#   docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up   # hot-reload dev
+#   docker compose -f docker-compose.yaml -f docker-compose.prod.yaml up -d --wait
+#
+# Infrastructure (postgres, redis, minio, minio-init, techdocs tool) lives in
+# docker-compose.services.yaml and is included here, so it can also run on its own.
+# Works with Docker Engine and with Apple `container` via the socktainer Docker context.
 
-x-common-env: &common-env
-  TZ: UTC
+name: backstage
 
-x-healthcheck-defaults: &healthcheck-defaults
-  interval: 30s
-  timeout: 10s
-  retries: 3
-  start_period: 40s
+include:
+  - docker-compose.services.yaml
 
-# JSON logging driver
-x-logging-json: &logging-json
+x-logging: &logging
   driver: json-file
   options:
     max-size: '10m'
     max-file: '3'
 
-networks:
-  backstage-network:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.28.0.0/16
-
-volumes:
-  postgres_data:
-    driver: local
-  redis_data:
-    driver: local
-  minio_data:
-    driver: local
-  techdocs_data:
-    driver: local
-
 services:
-  # Nginx reverse proxy - main entry point
+  # Reverse proxy - main entry point (http://localhost)
   nginx:
-    build:
-      context: ./docker/nginx
-      dockerfile: Dockerfile
-    container_name: backstage-nginx
+    image: nginx:1.30-alpine
     ports:
-      - '80:80'
+      - '${HTTP_PORT:-80}:80'
+    volumes:
+      - ./docker/nginx:/etc/nginx/conf.d:ro
     depends_on:
       backstage:
         condition: service_healthy
+      minio:
+        condition: service_healthy
     restart: unless-stopped
-    networks:
-      - backstage-network
-    logging:
-      <<: *logging-json
+    logging: *logging
     healthcheck:
-      <<: *healthcheck-defaults
-      test:
-        [
-          'CMD',
-          'wget',
-          '--no-verbose',
-          '--tries=1',
-          '--spider',
-          'http://127.0.0.1/health',
-        ]
-      start_period: 10s
+      test: ['CMD', 'wget', '-q', '--spider', 'http://127.0.0.1/health']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
 
-  # Backstage application
   backstage:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: backstage-app
+    image: backstage:local
     environment:
-      <<: *common-env
+      TZ: UTC
       NODE_ENV: production
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
-      POSTGRES_USER: backstage
+      POSTGRES_USER: ${POSTGRES_USER:-backstage}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-backstage}
+      POSTGRES_DB: ${POSTGRES_DB:-backstage}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       MINIO_HOST: minio
       MINIO_PORT: 9000
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-backstage}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-backstage123}
+      TECHDOCS_BUCKET: ${TECHDOCS_BUCKET:-techdocs}
       BRANDING_INITIAL_ADMIN: ${BRANDING_INITIAL_ADMIN:-}
       BRANDING_ADMIN_USERS: ${BRANDING_ADMIN_USERS:-}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
-      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
-      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
-      GITHUB_ORG: ${GITHUB_ORG}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      GITHUB_ORG: ${GITHUB_ORG:-}
       AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:-supersecret}
-      TECHDOCS_BUCKET: techdocs
       LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - '${BACKSTAGE_PORT:-7007}:7007'
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-      minio:
-        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     restart: unless-stopped
-    networks:
-      - backstage-network
-    logging:
-      <<: *logging-json
+    logging: *logging
+    # Explicit, because Apple `container` defaults every container to 1 GB.
+    deploy:
+      resources:
+        limits:
+          memory: 2g
     healthcheck:
-      <<: *healthcheck-defaults
       test:
-        [
-          'CMD',
-          'node',
-          '-e',
-          "require('http').get('http://localhost:7007/healthcheck', (r) => process.exit(r.statusCode === 200 ? 0 : 1))",
-        ]
-      start_period: 60s
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:7007/.backstage/health/v1/readiness').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 120s

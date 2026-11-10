@@ -23,5 +23,12 @@ test('App should render the welcome page', async ({ page }) => {
   await expect(enterButton).toBeVisible();
   await enterButton.click();
 
-  await expect(page.getByText('My Company Catalog')).toBeVisible();
+  await expect(page).toHaveURL(/\/catalog/);
+  const nav = page.getByRole('navigation', { name: 'sidebar nav' });
+  await expect(
+    nav.getByRole('link', { name: 'Components', exact: true }),
+  ).toBeVisible();
+  await expect(
+    nav.getByRole('link', { name: 'APIs', exact: true }),
+  ).toBeVisible();
 });

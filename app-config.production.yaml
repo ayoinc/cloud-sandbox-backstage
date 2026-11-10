@@ -9,11 +9,6 @@ organization:
   name: Platform Team
 
 backend:
-  # SECURITY WARNING: This disables HTTP-level auth to allow backend-to-backend
-  # service calls (e.g., permission policy querying the catalog).
-  # The permission policy still enforces access control at the application level.
-  auth:
-    dangerouslyDisableDefaultAuthPolicy: true
   baseUrl: http://localhost
   listen: ':7007'
   csp:
@@ -40,6 +35,9 @@ backend:
   cache:
     store: redis
     connection: redis://${REDIS_HOST}:${REDIS_PORT}
+    redis:
+      client:
+        namespace: backstage
 
 # GitHub integration
 integrations:

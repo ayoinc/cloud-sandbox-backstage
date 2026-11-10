@@ -75,7 +75,8 @@ export const BrandingProvider: React.FC<BrandingProviderProps> = ({
   const [isAdmin, setIsAdmin] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const baseUrl = '/api/branding-settings';
+  // plugin:// is resolved by fetchApi through the discovery API
+  const baseUrl = 'plugin://branding-settings';
 
   // Fetch current branding settings
   const refresh = useCallback(async () => {

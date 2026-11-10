@@ -1,4 +1,29 @@
-.PHONY: help build start stop restart logs clean dev prod shell test health devbox up down
+.PHONY: help up up-build down down-clean restart-full status \
+	infra-up infra-down infra-status \
+	devbox devbox-services devbox-services-stop devbox-dev devbox-build devbox-test devbox-lint \
+	dev dev-detached dev-logs dev-stop \
+	build start stop restart logs prod \
+	logs-backstage logs-postgres logs-redis logs-minio logs-nginx \
+	health shell shell-postgres shell-redis clean clean-volumes builder builder-reset \
+	techdocs techdocs-docker db-backup db-restore \
+	test test-all test-e2e lint typecheck format-check format setup install
+
+# Works with Docker Engine and with Apple `container` via the socktainer Docker context.
+COMPOSE       := docker compose
+COMPOSE_DEV   := docker compose -f docker-compose.yaml -f docker-compose.dev.yaml
+COMPOSE_PROD  := docker compose -f docker-compose.yaml -f docker-compose.prod.yaml
+COMPOSE_INFRA := docker compose -f docker-compose.services.yaml
+
+# Image builds run in a dedicated BuildKit container sized for the monorepo build
+# (Apple `container` gives each container 1 GB by default, which stalls `yarn install`).
+# Buildx keys builders by endpoint, so DOCKER_HOST is pinned to the active context's
+# endpoint for both `docker buildx` and `docker compose`.
+ifndef DOCKER_HOST
+DOCKER_HOST := $(shell docker context inspect --format '{{.Endpoints.docker.Host}}' 2>/dev/null)
+endif
+export DOCKER_HOST
+export BUILDX_BUILDER ?= backstage-builder
+BUILDER_MEMORY ?= 8g
 
 # Default target
 help:
@@ -6,10 +31,16 @@ help:
 	@echo "============================================="
 	@echo ""
 	@echo "🚀 Quick Start:"
-	@echo "  make up               - Start entire stack (recommended)"
-	@echo "  make down             - Stop entire stack (preserves data)"
+	@echo "  make up               - Build (if needed) and start the full stack, wait until healthy"
+	@echo "  make up-build         - Rebuild images, then start the full stack"
+	@echo "  make down             - Stop the full stack (preserves data)"
 	@echo "  make down-clean       - Stop and remove all data (DESTRUCTIVE)"
-	@echo "  make restart-full     - Full restart with proper sequencing"
+	@echo "  make restart-full     - Stop then start the full stack"
+	@echo ""
+	@echo "🧱 Infrastructure only (Postgres, Redis, MinIO):"
+	@echo "  make infra-up         - Start infrastructure services, wait until healthy"
+	@echo "  make infra-down       - Stop infrastructure services"
+	@echo "  make infra-status     - Show infrastructure service status"
 	@echo ""
 	@echo "🔧 Devbox Development:"
 	@echo "  make devbox           - Enter Devbox shell with all tools"
@@ -17,29 +48,26 @@ help:
 	@echo "  make devbox-dev       - Start Backstage via Devbox"
 	@echo ""
 	@echo "🐳 Docker Development:"
-	@echo "  make dev              - Start full Docker development environment"
+	@echo "  make dev              - Start containerised hot-reload development stack"
 	@echo "  make dev-logs         - View development logs"
 	@echo "  make dev-stop         - Stop development environment"
 	@echo ""
 	@echo "📦 Production (Docker):"
 	@echo "  make build            - Build all Docker images"
-	@echo "  make start            - Start all services (simple, may fail on cold start)"
+	@echo "  make start            - Start all services"
 	@echo "  make stop             - Stop all services"
 	@echo "  make restart          - Restart all services"
 	@echo "  make logs             - View all service logs"
-	@echo "  make prod             - Build and start in production mode"
+	@echo "  make prod             - Build and start with production overrides"
 	@echo ""
 	@echo "🔧 Maintenance:"
 	@echo "  make health           - Check health of all services"
 	@echo "  make status           - Show container status"
 	@echo "  make shell            - Open shell in backstage container"
-	@echo "  make clean            - Remove all containers and images"
+	@echo "  make clean            - Remove all containers and locally built images"
 	@echo "  make clean-volumes    - Remove all data volumes (DESTRUCTIVE)"
-	@echo ""
-	@echo "📊 Observability:"
-	@echo "  make logs-opensearch  - View OpenSearch indices"
-	@echo "  make logs-fluentd     - View Fluentd logs"
-	@echo "  make dashboards       - Open OpenSearch Dashboards"
+	@echo "  make builder          - Create the BuildKit builder used for image builds (8 GB)"
+	@echo "  make builder-reset    - Recreate the BuildKit builder (fixes 'structure needs cleaning')"
 	@echo ""
 	@echo "📚 TechDocs:"
 	@echo "  make techdocs         - Generate TechDocs locally (Devbox)"
@@ -60,31 +88,39 @@ help:
 # Quick Start (Recommended)
 # =============================================================================
 
-up:
+.env:
+	cp .env.example .env
+	@echo "Created .env from .env.example - please configure it!"
+
+up: .env builder
 	@echo "Starting Backstage Cloud Sandbox..."
-	@./scripts/stack-up.sh
+	$(COMPOSE) up -d --wait
 
-up-clean:
-	@echo "Starting Backstage Cloud Sandbox (clean)..."
-	@./scripts/stack-up.sh --clean
-
-up-build:
+up-build: .env builder
 	@echo "Starting Backstage Cloud Sandbox (rebuild)..."
-	@./scripts/stack-up.sh --build
+	$(COMPOSE) up -d --build --wait
 
 down:
 	@echo "Stopping Backstage Cloud Sandbox..."
-	@./scripts/stack-down.sh
+	$(COMPOSE) down --remove-orphans
 
 down-clean:
 	@echo "Stopping and removing all data..."
-	@./scripts/stack-down.sh --volumes
+	$(COMPOSE) down -v --remove-orphans
 
 restart-full: down up
 
 status:
-	@echo "Container Status:"
-	@docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" --filter "name=backstage"
+	$(COMPOSE) ps -a
+
+infra-up:
+	$(COMPOSE_INFRA) up -d --wait
+
+infra-down:
+	$(COMPOSE_INFRA) down --remove-orphans
+
+infra-status:
+	$(COMPOSE_INFRA) ps -a
 
 # =============================================================================
 # Devbox Development (Recommended)
@@ -123,94 +159,63 @@ devbox-lint:
 # Docker Development (Full Container Stack)
 # =============================================================================
 
-dev:
+dev: .env builder
 	@echo "Starting development environment (full Docker stack)..."
-	@if [ ! -f .env ]; then cp .env.example .env; fi
-	docker compose -f docker-compose.yaml -f docker-compose.services.yaml -f docker-compose.dev.yaml up --build
+	$(COMPOSE_DEV) up --build
 
-dev-detached:
+dev-detached: .env builder
 	@echo "Starting development environment (detached)..."
-	@if [ ! -f .env ]; then cp .env.example .env; fi
-	docker compose -f docker-compose.yaml -f docker-compose.services.yaml -f docker-compose.dev.yaml up -d --build
+	$(COMPOSE_DEV) up -d --build
 
 dev-logs:
-	docker compose -f docker-compose.yaml -f docker-compose.services.yaml -f docker-compose.dev.yaml logs -f
+	$(COMPOSE_DEV) logs -f
 
 dev-stop:
-	docker compose -f docker-compose.yaml -f docker-compose.services.yaml -f docker-compose.dev.yaml down
+	$(COMPOSE_DEV) down --remove-orphans
 
 # =============================================================================
 # Production (Docker)
 # =============================================================================
 
-build:
+build: builder
 	@echo "Building Docker images..."
-	docker compose -f docker-compose.yaml -f docker-compose.services.yaml build
+	$(COMPOSE) --profile tools build
 
-start:
+start: .env builder
 	@echo "Starting all services..."
-	@if [ ! -f .env ]; then cp .env.example .env; echo "Created .env from .env.example - please configure it!"; fi
-	docker compose -f docker-compose.yaml -f docker-compose.services.yaml up -d
+	$(COMPOSE) up -d --wait
 
 stop:
 	@echo "Stopping all services..."
-	docker compose -f docker-compose.yaml -f docker-compose.services.yaml down
+	$(COMPOSE) down --remove-orphans
 
 restart: stop start
 
 logs:
-	docker compose -f docker-compose.yaml -f docker-compose.services.yaml logs -f
+	$(COMPOSE) logs -f
 
-prod: build
+prod: .env build
 	@echo "Starting production environment..."
-	@if [ ! -f .env ]; then cp .env.example .env; echo "Created .env from .env.example - please configure it!"; fi
-	docker compose -f docker-compose.yaml -f docker-compose.services.yaml up -d
+	$(COMPOSE_PROD) up -d --wait
 
 # =============================================================================
 # Individual Service Logs
 # =============================================================================
 
 logs-backstage:
-	docker compose -f docker-compose.yaml -f docker-compose.services.yaml logs -f backstage
+	$(COMPOSE) logs -f backstage
 
 logs-postgres:
-	docker compose -f docker-compose.yaml -f docker-compose.services.yaml logs -f postgres
+	$(COMPOSE) logs -f postgres
 
 logs-redis:
-	docker compose -f docker-compose.yaml -f docker-compose.services.yaml logs -f redis
+	$(COMPOSE) logs -f redis
 
 logs-minio:
-	docker compose -f docker-compose.yaml -f docker-compose.services.yaml logs -f minio
+	$(COMPOSE) logs -f minio
 
 logs-nginx:
-	docker compose -f docker-compose.yaml -f docker-compose.services.yaml logs -f nginx
-
-# =============================================================================
-# Observability (OpenSearch Stack)
-# =============================================================================
-
-logs-opensearch:
-	@echo "OpenSearch Indices:"
-	@curl -s 'http://localhost:9200/_cat/indices?v&h=index,docs.count,store.size' 2>/dev/null || echo "OpenSearch not running"
-
-logs-fluentd:
-	docker compose -f docker-compose.yaml -f docker-compose.services.yaml logs -f fluentd
-
-logs-all-containers:
-	@echo "Log counts by container (last 24h):"
-	@curl -s 'http://localhost:9200/backstage-*,nginx-*,infrastructure-*/_search' \
-		-H "Content-Type: application/json" \
-		-d '{"size":0,"aggs":{"by_container":{"terms":{"field":"container_name","size":20}}}}' 2>/dev/null \
-		| jq -r '.aggregations.by_container.buckets[] | "\(.key): \(.doc_count) logs"' 2>/dev/null \
-		|| echo "OpenSearch not running"
-
-dashboards:
-	@echo "Opening OpenSearch Dashboards..."
-	@open http://localhost:5601 2>/dev/null || xdg-open http://localhost:5601 2>/dev/null || echo "Visit: http://localhost:5601"
-
-opensearch-setup:
-	@echo "Running OpenSearch setup (creates dashboards, visualizations)..."
-	docker compose -f docker-compose.yaml -f docker-compose.services.yaml up opensearch-setup
+	$(COMPOSE) logs -f nginx
 
 # =============================================================================
 # Maintenance
@@ -223,47 +228,47 @@ health:
 	@curl -sf http://localhost/health && echo " OK" || echo " FAILED"
 	@echo ""
 	@echo "Backstage:"
-	@curl -sf http://localhost:7007/healthcheck && echo " OK" || echo " FAILED"
+	@curl -sf http://localhost:7007/.backstage/health/v1/readiness && echo " OK" || echo " FAILED"
 	@echo ""
 	@echo "PostgreSQL:"
-	@docker compose -f docker-compose.yaml -f docker-compose.services.yaml exec -T postgres pg_isready -U backstage && echo " OK" || echo " FAILED"
+	@$(COMPOSE) exec -T postgres pg_isready -U backstage && echo " OK" || echo " FAILED"
 	@echo ""
 	@echo "Redis:"
-	@docker compose -f docker-compose.yaml -f docker-compose.services.yaml exec -T redis redis-cli ping && echo " OK" || echo " FAILED"
+	@$(COMPOSE) exec -T redis redis-cli ping && echo " OK" || echo " FAILED"
 	@echo ""
 	@echo "MinIO:"
 	@curl -sf http://localhost:9000/minio/health/live && echo " OK" || echo " FAILED"
-	@echo ""
-	@echo "OpenSearch:"
-	@curl -sf http://localhost:9200/_cluster/health && echo " OK" || echo " FAILED"
-	@echo ""
-	@echo "Fluentd:"
-	@curl -sf http://localhost:24220/api/plugins.json > /dev/null && echo " OK" || echo " FAILED"
-	@echo ""
-	@echo "OpenSearch Dashboards:"
-	@curl -sf http://localhost:5601/api/status > /dev/null && echo " OK" || echo " FAILED"
 
 shell:
-	docker compose -f docker-compose.yaml -f docker-compose.services.yaml exec backstage /bin/sh
+	$(COMPOSE) exec backstage /bin/sh
 
 shell-postgres:
-	docker compose -f docker-compose.yaml -f docker-compose.services.yaml exec postgres psql -U backstage -d backstage
+	$(COMPOSE) exec postgres psql -U backstage -d backstage
 
 shell-redis:
-	docker compose -f docker-compose.yaml -f docker-compose.services.yaml exec redis redis-cli
+	$(COMPOSE) exec redis redis-cli
 
 clean:
 	@echo "Removing containers and images..."
-	docker compose -f docker-compose.yaml -f docker-compose.services.yaml down --rmi local --remove-orphans
-	docker compose -f docker-compose.services-only.yaml down --rmi local --remove-orphans 2>/dev/null || true
+	$(COMPOSE) --profile tools down --rmi local --remove-orphans
 	@echo "Done!"
 
 clean-volumes:
 	@echo "WARNING: This will delete all data volumes!"
 	@read -p "Are you sure? [y/N] " confirm && [ "$$confirm" = "y" ] || exit 1
-	docker compose -f docker-compose.yaml -f docker-compose.services.yaml down -v --remove-orphans
-	docker compose -f docker-compose.services-only.yaml down -v --remove-orphans 2>/dev/null || true
+	$(COMPOSE_DEV) --profile tools down -v --remove-orphans
 	@echo "All volumes removed!"
+
+builder:
+	@docker buildx inspect $(BUILDX_BUILDER) >/dev/null 2>&1 || \
+		docker buildx create --name $(BUILDX_BUILDER) --driver docker-container \
+			--driver-opt memory=$(BUILDER_MEMORY) --bootstrap
+
+# Apple `container` stores BuildKit state on an ext4 volume image that can become
+# corrupt ("structure needs cleaning"); recreating the builder and its state fixes it.
+builder-reset:
+	-docker buildx rm $(BUILDX_BUILDER)
+	$(MAKE) builder
 
 # =============================================================================
 # TechDocs
@@ -271,17 +276,12 @@ clean-volumes:
 
 techdocs:
 	@echo "Generating TechDocs (requires Devbox or local mkdocs)..."
-	@for dir in catalog/*/; do \
-		if [ -f "$${dir}mkdocs.yml" ]; then \
-			echo "Building TechDocs for $${dir}"; \
-			(cd "$${dir}" && mkdocs build -d ../../techdocs-output/$$(basename $${dir})); \
-		fi; \
-	done
-	@echo "TechDocs generation complete!"
+	./docker/build-techdocs.sh techdocs-output
 
-techdocs-docker:
+techdocs-docker: builder
 	@echo "Generating TechDocs via Docker..."
-	docker compose -f docker-compose.yaml -f docker-compose.services.yaml run --rm techdocs
+	@mkdir -p techdocs-output
+	$(COMPOSE) run --rm --build techdocs
 
 # =============================================================================
 # Database
@@ -290,14 +290,14 @@ techdocs-docker:
 db-backup:
 	@echo "Backing up PostgreSQL database..."
 	@mkdir -p backups
-	docker compose -f docker-compose.yaml -f docker-compose.services.yaml exec -T postgres pg_dump -U backstage backstage > backups/backstage_$$(date +%Y%m%d_%H%M%S).sql
+	$(COMPOSE) exec -T postgres pg_dump -U backstage backstage > backups/backstage_$$(date +%Y%m%d_%H%M%S).sql
 	@echo "Backup saved to backups/"
 
 db-restore:
 	@echo "Restoring PostgreSQL database from latest backup..."
 	@LATEST=$$(ls -t backups/*.sql 2>/dev/null | head -1); \
 	if [ -z "$$LATEST" ]; then echo "No backups found!"; exit 1; fi; \
-	docker compose -f docker-compose.yaml -f docker-compose.services.yaml exec -T postgres psql -U backstage -d backstage < $$LATEST
+	$(COMPOSE) exec -T postgres psql -U backstage -d backstage < $$LATEST
 	@echo "Database restored!"
 
 # =============================================================================

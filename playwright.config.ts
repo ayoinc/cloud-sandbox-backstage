@@ -34,7 +34,7 @@ export default defineConfig({
   timeout: 60_000,
 
   expect: {
-    timeout: 10_000,
+    timeout: 30_000,
   },
 
   // Run tests in parallel

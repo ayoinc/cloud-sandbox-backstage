@@ -1,0 +1,10 @@
+# Ignore file for the host-build image (packages/backend/Dockerfile, `yarn build-image`).
+# BuildKit uses this instead of the root .dockerignore, which serves the multi-stage build.
+.git
+.yarn/cache
+.yarn/install-state.gz
+node_modules
+packages/*/src
+packages/*/node_modules
+plugins
+*.local.yaml

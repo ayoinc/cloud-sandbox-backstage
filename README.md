@@ -41,7 +41,7 @@ A fully-featured [Backstage](https://backstage.io) developer portal configured f
 
 - Docker and Docker Compose
 - **For Devbox (Recommended):** [Devbox](https://www.jetify.com/devbox/) (automatically installs Node.js, Yarn, Python, D2, etc.)
-- **For Manual Setup:** Node.js 22+, Yarn 4.4.1 (via Corepack)
+- **For Manual Setup:** Node.js 24 (22 supported), Yarn 4.13.0 (bundled)
 
 ### Development Modes
 
@@ -74,7 +74,7 @@ curl -fsSL https://get.jetify.com/devbox | bash
 git clone <repository-url>
 cd backstage
 
-# Enter Devbox shell (installs Node.js 22, Yarn 4, Python, D2, etc.)
+# Enter Devbox shell (installs Node.js 24, Yarn 4, Python, D2, etc.)
 devbox shell
 
 # Start Docker services (PostgreSQL, Redis, MinIO)
@@ -126,10 +126,10 @@ cp .env.example .env
 # Edit .env with your configuration
 
 # Start all services (PostgreSQL, Redis, MinIO, Backstage, Nginx)
-docker compose -f docker-compose.yaml -f docker-compose.services.yaml up -d
+docker compose up -d --wait
 
 # View logs
-docker compose -f docker-compose.yaml -f docker-compose.services.yaml logs -f backstage
+docker compose logs -f backstage
 
 # Access the portal
 open http://localhost
@@ -139,19 +139,19 @@ open http://localhost
 
 ```bash
 # Start full stack
-docker compose -f docker-compose.yaml -f docker-compose.services.yaml up -d
+docker compose up -d --wait
 
 # Stop full stack
-docker compose -f docker-compose.yaml -f docker-compose.services.yaml down
+docker compose down
 
 # Rebuild after code changes
-docker compose -f docker-compose.yaml -f docker-compose.services.yaml up -d --build backstage
+docker compose up -d --wait --build backstage
 
 # View logs
-docker compose -f docker-compose.yaml -f docker-compose.services.yaml logs -f
+docker compose logs -f
 
 # Check status
-docker compose -f docker-compose.yaml -f docker-compose.services.yaml ps
+docker compose ps
 ```
 
 ---
@@ -162,12 +162,13 @@ The Makefile provides convenient shortcuts for common operations:
 
 ```bash
 make help              # Show all available commands
-make up                # Start full Docker stack
+make up                # Start full Docker stack (waits until healthy)
 make down              # Stop full Docker stack
-make dev               # Start dev environment (services only)
+make dev               # Start containerised hot-reload dev stack
+make infra-up          # Start infrastructure services only
 make build             # Build Docker image
 make logs              # Tail logs
-make ps                # Show container status
+make status            # Show container status
 make devbox            # Enter Devbox shell
 make devbox-services   # Start services for Devbox mode
 ```
@@ -266,13 +267,166 @@ docker run -p 7007:7007 \
 
 The repository includes several compose files:
 
-| File                                | Purpose                                            |
-| ----------------------------------- | -------------------------------------------------- |
-| `docker-compose.yaml`               | Base configuration with networks and volumes       |
-| `docker-compose.services.yaml`      | Infrastructure services (PostgreSQL, Redis, MinIO) |
-| `docker-compose.services-only.yaml` | Services only for Devbox mode                      |
-| `docker-compose.dev.yaml`           | Development with hot reload                        |
-| `docker-compose.prod.yaml`          | Production configuration                           |
+| File                           | Purpose                                                                     |
+| ------------------------------ | --------------------------------------------------------------------------- |
+| `docker-compose.yaml`          | Full stack: nginx + Backstage; includes `docker-compose.services.yaml`      |
+| `docker-compose.services.yaml` | Infrastructure only (PostgreSQL 18, Redis 8, MinIO + bucket init); Devbox   |
+| `docker-compose.dev.yaml`      | Override: hot-reload `yarn start` from the bind-mounted source (`make dev`) |
+| `docker-compose.prod.yaml`     | Override: restart policies, resource limits, only nginx published           |
+
+The stack runs on Docker Engine and on Apple `container` through the
+[socktainer](https://github.com/socktainer/socktainer) Docker context. Image builds
+use a dedicated BuildKit builder with 8 GB of memory (Apple `container` gives each
+container 1 GB by default, which stalls `yarn install`): the `make` targets create
+and select it automatically. For plain `docker compose build`, run `make builder` once
+and `export BUILDX_BUILDER=backstage-builder`. If a build fails with
+`structure needs cleaning`, the builder's state volume is corrupt: run
+`make builder-reset` and build again.
+
+## Cloudflare Workers Deployment
+
+`edge/` runs the portal on Cloudflare without Docker or a server: a Worker serves
+the built front end and answers the Backstage REST calls it makes from a D1
+database and an R2 bucket. The Backstage Node backend cannot run on Workers (it
+needs about 850 MB of memory against a 128 MB limit), so the work that needs it
+runs in GitHub Actions, on a real Backstage backend, and the results are pushed
+to the Worker:
+
+| In the portal                                                 | Where the work happens                                 |
+| ------------------------------------------------------------- | ------------------------------------------------------ |
+| Catalog browsing, entity pages, relations graph, API explorer | `portal-sync` processes the catalog, the Worker reads  |
+| TechDocs pages                                                | `portal-sync` builds them with mkdocs, R2 stores them  |
+| Search over catalog entities and documentation                | `portal-sync` builds the index, the Worker searches it |
+| Creating from templates                                       | `portal-scaffold` runs the template steps              |
+| CI/CD tab (GitHub Actions runs of a component)                | The Worker reads them from GitHub                      |
+| GitHub and Google sign-in, user settings (stars, theme)       | The Worker                                             |
+
+Not available: live notifications, catalog import, and the branding and
+ownership admin pages.
+
+### The pipelines
+
+Both workflows start the **pipeline backend**
+(`packages/backend/src/pipeline.ts`, configured by `app-config.pipeline.yaml`):
+a Backstage backend with only the catalog, the scaffolder and its action
+modules. It reads the catalog rules and locations from `app-config.yaml`, so it
+processes the same entity files as the main backend. The scripts that drive it
+are in `edge/scripts/pipeline`, and they talk to the Worker only through its
+token-protected `/api/pipeline` endpoints. GitHub Actions holds no Cloudflare
+credentials.
+
+**`portal-sync.yml`** runs on a push to the default branch that changes the
+catalog, the templates or the pipeline itself, and on demand. It
+
+1. processes every catalog location, plus the locations of repositories created
+   from templates, and waits until the catalog has settled;
+2. builds the documentation of every entity with a `backstage.io/techdocs-ref`
+   annotation, each distinct docs directory once, cloning other repositories
+   as needed;
+3. uploads the documentation files that changed and replaces the catalog, the
+   search index and the entity-to-documentation mapping in one commit, so the
+   portal never shows half a catalog;
+4. writes the counts to the job summary.
+
+The sync fails, and leaves the portal as it was, when an entity file of this
+repository does not process. A documentation site that does not build is
+reported and skipped, and keeps serving its last good build.
+
+**`portal-scaffold.yml`** is started by the Worker when a user creates
+something from a template. It runs the template in the real scaffolder, sends
+every log line and the result back to the portal as they happen, hands the
+catalog file of the new repository to the portal, and then runs the sync so
+the new component and its documentation appear.
+
+Set these in the GitHub repository (Settings > Secrets and variables > Actions):
+
+| Name                    | Kind     | Value                                                                                                                                 |
+| ----------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `PORTAL_URL`            | Variable | Address of the portal, e.g. `https://portal.example.com`                                                                              |
+| `PORTAL_PIPELINE_TOKEN` | Secret   | The same value as the Worker's `PIPELINE_TOKEN` secret                                                                                |
+| `PORTAL_GITHUB_TOKEN`   | Secret   | A GitHub token that can read this repository, and create repositories and push workflow files for the owners the templates publish to |
+
+Each workflow stops at its first step with a clear message when one is missing.
+
+### Deploying
+
+```bash
+# One-time: create the database and the documentation bucket, and put the
+# database id in edge/wrangler.jsonc
+yarn workspace @internal/edge wrangler d1 create cloud-sandbox
+yarn workspace @internal/edge wrangler r2 bucket create cloud-sandbox-techdocs
+
+# One-time: list who may sign in and the OAuth client IDs
+cp edge/.prod.vars.example edge/.prod.vars
+
+# Each release: build the app, migrate, deploy
+yarn workspace app build --config ../../app-config.yaml
+yarn workspace @internal/edge db:migrate:remote
+yarn workspace @internal/edge deploy
+
+# Then fill it: run the "Portal sync" workflow, in GitHub or with
+gh workflow run portal-sync.yml
+```
+
+The Worker is served only on the custom domain set under `routes` in
+`edge/wrangler.jsonc`; the workers.dev address is turned off. That file holds
+only what is safe to publish: the domain, the database id, and the repository
+and branch whose workflows the portal starts (`PORTAL_REPO`, `PORTAL_REF`).
+Guest sign-in is off in the deployment and on for local development
+(`.dev.vars`).
+
+Everything else is stored in Cloudflare and never committed. `edge/.prod.vars`
+(ignored by Git) lists the GitHub and Google client IDs and who may sign in
+(`GITHUB_CLIENT_ID`, `GITHUB_ALLOWED_USERS`, `GOOGLE_CLIENT_ID`,
+`GOOGLE_ALLOWED_EMAILS`, `GOOGLE_ALLOWED_DOMAINS`); the deploy uploads them.
+Nobody outside those lists can sign in.
+
+Five more values are set once with `wrangler secret put <NAME>`:
+`SESSION_SECRET` (signs user tokens and session cookies), `GITHUB_CLIENT_SECRET`,
+`GOOGLE_CLIENT_SECRET`, `PIPELINE_TOKEN` (what the pipelines must present;
+generate it with `openssl rand -hex 32`) and `PORTAL_GITHUB_TOKEN` (starts the
+`portal-scaffold` workflow and reads workflow runs for the CI/CD tab).
+`node scripts/create-github-app.mjs <portal URL>` creates the GitHub App and
+stores its secret; the Google client is created in the Google Cloud console
+with the redirect URI `<portal URL>/api/auth/google/handler/frame`.
+
+### Local development
+
+The sync builds documentation with the TechDocs toolchain, so `mkdocs` and `d2`
+must be on the `PATH`, in the versions the root `Dockerfile` pins:
+
+```bash
+python3 -m venv .venv-techdocs && . .venv-techdocs/bin/activate
+pip install $(node edge/scripts/pipeline/toolchain.mjs pip)
+# D2: https://d2lang.com/tour/install, version:
+node edge/scripts/pipeline/toolchain.mjs d2
+```
+
+```bash
+# The Worker on http://localhost:8787 (copy edge/.dev.vars.example first)
+yarn workspace @internal/edge db:migrate:local
+yarn workspace @internal/edge dev
+
+# In another terminal: fill it from this checkout. The token is read from
+# edge/.dev.vars.
+PORTAL_URL=http://localhost:8787 yarn workspace @internal/edge catalog:sync
+
+# Check that the Worker answers catalog requests exactly like the backend
+yarn workspace @internal/edge verify
+```
+
+`catalog:sync` reads the entity files from the checkout; in GitHub Actions it
+reads them from the repository on GitHub instead, so that entities link to
+their source. It keeps the pipeline backend's SQLite files in
+`edge/.wrangler/pipeline` (`PIPELINE_DATA_DIR`). `verify` starts that backend
+again on those files, sends the same catalog requests to it and to the Worker,
+and reports any difference in the answers. It signs in to the Worker as a
+guest, so point `EDGE_URL` at a local `yarn dev` Worker.
+
+A template run can be tried the same way, with
+`yarn workspace @internal/edge template:run` and the variables listed at the
+top of `edge/scripts/pipeline/run-template.mjs`. To start the pipeline backend
+by hand, see the top of `app-config.pipeline.yaml`.
 
 ## Troubleshooting
 
@@ -309,11 +463,11 @@ lsof -i :5432
 
 ```bash
 # Check logs for the specific container
-docker compose -f docker-compose.yaml -f docker-compose.services.yaml logs backstage
+docker compose logs backstage
 
 # Rebuild from scratch
-docker compose -f docker-compose.yaml -f docker-compose.services.yaml down -v
-docker compose -f docker-compose.yaml -f docker-compose.services.yaml up -d --build
+docker compose down -v
+docker compose up -d --wait --build
 ```
 
 ### Database Issues
@@ -322,7 +476,7 @@ docker compose -f docker-compose.yaml -f docker-compose.services.yaml up -d --bu
 
 ```bash
 # Stop services and remove volumes
-docker compose -f docker-compose.yaml -f docker-compose.services.yaml down -v
+docker compose down -v
 
 # Or in Devbox mode:
 devbox run reset

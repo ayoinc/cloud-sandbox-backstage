@@ -1,0 +1,3 @@
+# Not served by the Cloudflare Worker (see edge/wrangler.jsonc)
+*.map
+index.html.tmpl

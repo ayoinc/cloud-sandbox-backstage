@@ -1,127 +1,129 @@
-# Supporting services for Backstage
-# Use with: docker-compose -f docker-compose.yaml -f docker-compose.services.yaml up
+# Infrastructure services for Backstage: PostgreSQL, Redis, MinIO (+ bucket init)
+# and the on-demand TechDocs generator.
+#
+# Standalone (Backstage runs natively, e.g. via Devbox):
+#   docker compose -f docker-compose.services.yaml up -d --wait
+# Full stack: docker-compose.yaml includes this file, so just run `docker compose up -d --wait`.
+#
+# Works with Docker Engine and with Apple `container` via the socktainer Docker context.
+
+name: backstage
 
 services:
-  # PostgreSQL Database
+  # PostgreSQL 18. Since 18 the image keeps data in /var/lib/postgresql/<major>/docker,
+  # so the volume is mounted at /var/lib/postgresql (enables `pg_upgrade --link` later).
   postgres:
-    image: postgres:15-alpine
-    container_name: backstage-postgres
+    image: postgres:18-alpine
     environment:
-      POSTGRES_USER: backstage
+      POSTGRES_USER: ${POSTGRES_USER:-backstage}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-backstage}
-      POSTGRES_DB: backstage
-      PGDATA: /var/lib/postgresql/data/pgdata
+      POSTGRES_DB: ${POSTGRES_DB:-backstage}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - postgres_data:/var/lib/postgresql
+      - ./docker/postgres:/docker-entrypoint-initdb.d:ro
     ports:
-      - '5432:5432'
+      - '${POSTGRES_PORT:-5432}:5432'
     restart: unless-stopped
-    networks:
-      - backstage-network
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U backstage']
-      interval: 10s
+      test:
+        ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
       start_period: 10s
 
-  # Redis Cache
+  # Redis 8 used purely as the Backstage cache: bounded memory, no persistence.
   redis:
-    image: redis:7-alpine
-    container_name: backstage-redis
-    command: redis-server --appendonly yes
-    volumes:
-      - redis_data:/data
+    image: redis:8.10-alpine
+    command:
+      - redis-server
+      - --save
+      - ''
+      - --appendonly
+      - 'no'
+      - --maxmemory
+      - 256mb
+      - --maxmemory-policy
+      - allkeys-lru
     ports:
-      - '6379:6379'
+      - '${REDIS_PORT:-6379}:6379'
     restart: unless-stopped
-    networks:
-      - backstage-network
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
-      interval: 10s
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
       start_period: 5s
 
-  # MinIO Object Storage (S3-compatible)
+  # MinIO (S3-compatible) for TechDocs and branding assets.
+  # MinIO no longer publishes images on Docker Hub/Quay; Chainguard builds it from source.
+  # Chainguard's free tier only publishes `latest`/`latest-dev`; `-dev` adds the shell and
+  # wget needed by the healthcheck.
   minio:
-    image: minio/minio:latest
-    container_name: backstage-minio
-    command: server /data --console-address ":9001"
+    image: cgr.dev/chainguard/minio:latest-dev
+    command: ['server', '/data', '--console-address', ':9001']
     environment:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-backstage}
       MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-backstage123}
     volumes:
       - minio_data:/data
     ports:
-      - '9000:9000'
-      - '9001:9001'
+      - '${MINIO_PORT:-9000}:9000'
+      - '${MINIO_CONSOLE_PORT:-9001}:9001'
     restart: unless-stopped
-    networks:
-      - backstage-network
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
+      test:
+        [
+          'CMD',
+          'wget',
+          '-q',
+          '--spider',
+          'http://127.0.0.1:9000/minio/health/live',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
 
-  # MinIO initialization (creates buckets)
+  # One-shot bucket initialisation (idempotent).
   minio-init:
-    image: minio/mc:latest
-    container_name: backstage-minio-init
+    image: cgr.dev/chainguard/minio-client:latest-dev
     depends_on:
       minio:
         condition: service_healthy
     environment:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-backstage}
       MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-backstage123}
-    entrypoint: >
-      /bin/sh -c "
-      mc alias set local http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD};
-      mc mb --ignore-existing local/techdocs;
-      mc mb --ignore-existing local/scaffolder;
-      mc mb --ignore-existing local/backstage-assets;
-      mc anonymous set download local/techdocs;
-      mc anonymous set download local/backstage-assets;
-      echo 'MinIO buckets initialized successfully';
-      exit 0;
-      "
-    networks:
-      - backstage-network
+      TECHDOCS_BUCKET: ${TECHDOCS_BUCKET:-techdocs}
+      BRANDING_BUCKET: ${BRANDING_BUCKET:-backstage-assets}
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"
+        mc mb --ignore-existing "local/$${TECHDOCS_BUCKET}" local/scaffolder "local/$${BRANDING_BUCKET}"
+        mc anonymous set download "local/$${TECHDOCS_BUCKET}"
+        mc anonymous set download "local/$${BRANDING_BUCKET}"
+        echo 'MinIO buckets initialised'
+    restart: 'no'
 
-  # TechDocs Generator (on-demand)
+  # On-demand TechDocs generator (`make techdocs-docker`): builds every catalog/template
+  # mkdocs site into ./techdocs-output using the same toolchain as the Backstage image.
   techdocs:
     build:
-      context: ./docker/techdocs
+      context: .
       dockerfile: Dockerfile
-    container_name: backstage-techdocs
+      target: toolchain
+    image: backstage-toolchain:local
+    working_dir: /src
     volumes:
-      - techdocs_data:/content
-      - ./catalog:/catalog:ro
-      - ./templates:/templates:ro
-    environment:
-      MINIO_HOST: minio
-      MINIO_PORT: 9000
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-backstage}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-backstage123}
-    networks:
-      - backstage-network
+      - ./catalog:/src/catalog:ro
+      - ./templates:/src/templates:ro
+      - ./techdocs-output:/out
+    entrypoint: ['/usr/local/bin/build-techdocs', '/out']
     profiles:
       - tools
 
 volumes:
   postgres_data:
-    driver: local
-  redis_data:
-    driver: local
   minio_data:
-    driver: local
-  techdocs_data:
-    driver: local
-
-networks:
-  backstage-network:
-    driver: bridge

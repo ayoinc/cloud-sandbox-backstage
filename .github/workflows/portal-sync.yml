@@ -1,0 +1,117 @@
+# =============================================================================
+# Portal Sync Workflow
+# =============================================================================
+# Rebuilds what the Cloudflare portal serves: processes the catalog with a real
+# Backstage backend, builds the TechDocs sites with mkdocs, and pushes both to
+# the portal's /api/pipeline endpoints (edge/scripts/pipeline/sync-catalog.mjs).
+#
+# Repository configuration (Settings > Secrets and variables > Actions):
+#   vars.PORTAL_URL                address of the portal
+#   secrets.PORTAL_PIPELINE_TOKEN  the Worker's PIPELINE_TOKEN secret
+#   secrets.PORTAL_GITHUB_TOKEN    reads this repository and the repositories
+#                                  created from templates
+# =============================================================================
+
+name: Portal sync
+
+on:
+  push:
+    paths:
+      - 'catalog/**'
+      - 'templates/**'
+      - 'app-config.yaml'
+      - 'app-config.pipeline.yaml'
+      - 'packages/backend/src/pipeline.ts'
+      - 'edge/scripts/pipeline/**'
+      # The TechDocs tool versions are read from the Dockerfile
+      - 'Dockerfile'
+      - '.github/workflows/portal-sync.yml'
+  workflow_dispatch:
+  workflow_call:
+    secrets:
+      PORTAL_PIPELINE_TOKEN:
+        required: true
+      PORTAL_GITHUB_TOKEN:
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '24'
+  PYTHON_VERSION: '3.13'
+
+jobs:
+  sync:
+    name: Sync catalog and documentation
+    # Pushes count only on the default branch, whatever it is called. A manual
+    # run, or one started by the portal, syncs the branch it was started on.
+    if: github.event_name != 'push' || github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # One sync at a time, across every workflow that runs this job: two of
+    # them interleaving would stage rows into each other's catalog. A waiting
+    # sync is replaced by a newer one, which carries the same changes.
+    concurrency:
+      group: portal-sync
+      cancel-in-progress: false
+    steps:
+      - name: Check configuration
+        env:
+          PORTAL_URL: ${{ vars.PORTAL_URL }}
+          PORTAL_PIPELINE_TOKEN: ${{ secrets.PORTAL_PIPELINE_TOKEN }}
+          PORTAL_GITHUB_TOKEN: ${{ secrets.PORTAL_GITHUB_TOKEN }}
+        run: |
+          missing=""
+          [ -n "$PORTAL_URL" ] || missing="$missing vars.PORTAL_URL"
+          [ -n "$PORTAL_PIPELINE_TOKEN" ] || missing="$missing secrets.PORTAL_PIPELINE_TOKEN"
+          [ -n "$PORTAL_GITHUB_TOKEN" ] || missing="$missing secrets.PORTAL_GITHUB_TOKEN"
+          if [ -n "$missing" ]; then
+            echo "::error::Not configured for this repository:$missing. See 'Cloudflare Workers Deployment' in the README."
+            exit 1
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Documentation from other repositories is built here: leave no
+          # token behind for it to find.
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'yarn'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install the TechDocs toolchain
+        run: |
+          # The versions pinned in the Dockerfile, so both build the same way
+          pip install $(node edge/scripts/pipeline/toolchain.mjs pip)
+          d2_version=$(node edge/scripts/pipeline/toolchain.mjs d2)
+          curl --fail --silent --show-error --location \
+            --output "$RUNNER_TEMP/d2.tar.gz" \
+            "https://github.com/terrastruct/d2/releases/download/${d2_version}/d2-${d2_version}-linux-amd64.tar.gz"
+          tar -xzf "$RUNNER_TEMP/d2.tar.gz" -C "$RUNNER_TEMP"
+          sudo install "$RUNNER_TEMP/d2-${d2_version}/bin/d2" /usr/local/bin/d2
+          mkdocs --version
+          d2 --version
+
+      - name: Sync the portal
+        env:
+          PORTAL_URL: ${{ vars.PORTAL_URL }}
+          PORTAL_PIPELINE_TOKEN: ${{ secrets.PORTAL_PIPELINE_TOKEN }}
+          PORTAL_GITHUB_TOKEN: ${{ secrets.PORTAL_GITHUB_TOKEN }}
+        # Writes the counts to the job summary itself
+        run: yarn workspace @internal/edge catalog:sync

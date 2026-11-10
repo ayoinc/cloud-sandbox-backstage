@@ -1,17 +1,15 @@
-# Production override - optimized settings
-# Use with: docker-compose -f docker-compose.yaml -f docker-compose.services.yaml -f docker-compose.prod.yaml up -d
+# Production override: restart always, resource limits, larger log retention and
+# only nginx exposed on the host.
+#
+#   docker compose -f docker-compose.yaml -f docker-compose.prod.yaml up -d --wait
 
 services:
   nginx:
     restart: always
-    logging:
-      driver: json-file
-      options:
-        max-size: '10m'
-        max-file: '3'
 
   backstage:
     restart: always
+    ports: !reset []
     deploy:
       resources:
         limits:
@@ -28,35 +26,27 @@ services:
 
   postgres:
     restart: always
+    ports: !reset []
     deploy:
       resources:
         limits:
           cpus: '1'
           memory: 1G
-    logging:
-      driver: json-file
-      options:
-        max-size: '20m'
-        max-file: '3'
-    # Remove port exposure in production
-    ports: []
 
   redis:
     restart: always
+    ports: !reset []
     deploy:
       resources:
         limits:
           cpus: '0.5'
           memory: 512M
-    # Remove port exposure in production
-    ports: []
 
   minio:
     restart: always
+    ports: !reset []
     deploy:
       resources:
         limits:
           cpus: '1'
           memory: 1G
-    # Remove port exposure in production
-    ports: []

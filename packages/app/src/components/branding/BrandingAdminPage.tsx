@@ -14,8 +14,8 @@ export const BrandingAdminPage: FC = () => {
     <BrandingProvider>
       <Page themeId="tool">
         <Header
-          title="Branding Settings"
-          subtitle="Customize your Backstage instance"
+          title="Branding settings"
+          subtitle="Change the logo, name and colour of the Cloud Sandbox portal"
         />
         <Content>
           <Grid container spacing={3}>

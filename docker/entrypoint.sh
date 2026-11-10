@@ -1,55 +1,34 @@
-#!/bin/bash
-set -e
+#!/bin/sh
+# Publishes the TechDocs sites pre-built into the image to the object store, then
+# starts the Backstage backend.
+set -eu
 
-echo "Starting Backstage entrypoint..."
+TECHDOCS_DIR=/app/techdocs-output
 
-# Upload pre-built TechDocs to MinIO using mc (MinIO client)
-upload_techdocs_to_minio() {
-    echo "Uploading pre-built TechDocs to MinIO..."
-    
-    # Wait for MinIO to be ready
-    echo "Waiting for MinIO to be ready..."
-    until curl -sf "http://${MINIO_HOST:-minio}:${MINIO_PORT:-9000}/minio/health/ready" > /dev/null 2>&1; do
-        echo "MinIO not ready, waiting..."
-        sleep 2
-    done
-    echo "MinIO is ready"
-    
-    # Configure mc alias
-    mc alias set myminio "http://${MINIO_HOST:-minio}:${MINIO_PORT:-9000}" "${MINIO_ACCESS_KEY:-backstage}" "${MINIO_SECRET_KEY:-backstage123}" --api S3v4 2>/dev/null || true
-    
-    # Upload terraform-modules TechDocs
-    if [ -d "/app/techdocs-output/terraform-modules" ]; then
-        echo "Uploading TechDocs for terraform-modules..."
-        mc cp --recursive /app/techdocs-output/terraform-modules/ myminio/${TECHDOCS_BUCKET:-techdocs}/default/component/terraform-modules/ 2>/dev/null || echo "Warning: Failed to upload terraform-modules TechDocs"
-    fi
-    
-    # Upload any other component TechDocs
-    for dir in /app/techdocs-output/*/; do
-        if [ -d "$dir" ]; then
-            name=$(basename "$dir")
-            if [ "$name" != "terraform-modules" ]; then
-                echo "Uploading TechDocs for ${name}..."
-                # Try as component first, then template
-                mc cp --recursive "$dir" myminio/${TECHDOCS_BUCKET:-techdocs}/default/component/${name}/ 2>/dev/null || \
-                mc cp --recursive "$dir" myminio/${TECHDOCS_BUCKET:-techdocs}/default/template/${name}/ 2>/dev/null || \
-                echo "Warning: Failed to upload ${name} TechDocs"
-            fi
-        fi
-    done
-    
-    echo "TechDocs upload complete"
+publish_techdocs() {
+  endpoint="http://${MINIO_HOST:-minio}:${MINIO_PORT:-9000}"
+  bucket="${TECHDOCS_BUCKET:-techdocs}"
+
+  mc alias set techdocs "$endpoint" "${MINIO_ACCESS_KEY:-backstage}" "${MINIO_SECRET_KEY:-backstage123}" >/dev/null
+
+  echo "Waiting for object storage at ${endpoint}..."
+  until mc ready techdocs >/dev/null 2>&1; do
+    sleep 2
+  done
+
+  for dir in "$TECHDOCS_DIR"/*/; do
+    [ -d "$dir" ] || continue
+    name=$(basename "$dir")
+    echo "Publishing TechDocs for ${name}"
+    mc mirror --overwrite --quiet "$dir" "techdocs/${bucket}/default/component/${name}" ||
+      echo "WARN: failed to publish TechDocs for ${name}" >&2
+  done
 }
 
-# Check if mc is available and techdocs-output exists
-if command -v mc &> /dev/null && [ -d "/app/techdocs-output" ]; then
-    upload_techdocs_to_minio
-elif [ -d "/app/techdocs-output" ]; then
-    echo "MinIO client (mc) not available, skipping TechDocs upload"
+if [ -d "$TECHDOCS_DIR" ] && [ -n "$(ls -A "$TECHDOCS_DIR")" ]; then
+  publish_techdocs
 else
-    echo "No pre-built TechDocs found"
+  echo "No pre-built TechDocs found"
 fi
 
-# Start Backstage
-echo "Starting Backstage..."
 exec node packages/backend --config app-config.yaml --config app-config.production.yaml

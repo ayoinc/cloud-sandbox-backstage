@@ -1,0 +1,55 @@
+/*
+ * Backstage UI 0.19 compatibility aliases.
+ *
+ * The brand theme sets only current BUI tokens (accent, positive, negative,
+ * warning, announcement families and fg-positive/negative/announcement).
+ * BUI 0.19 components still read some deprecated tokens (Button, RadioGroup,
+ * Slider and ToggleButton read --bui-bg-solid / --bui-fg-solid; Toast and
+ * Alert read --bui-fg-success / --bui-fg-danger / --bui-fg-info and the
+ * status background, foreground-on-background and border tokens). BUI declares
+ * those with fixed stock colours, so without these aliases those components
+ * would ignore the brand.
+ *
+ * Each alias points at its documented replacement (see the
+ * @backstage/eslint-plugin no-deprecated-bui-tokens migration guide) and is
+ * redeclared wherever the current tokens are re-scoped (theme mode roots and
+ * toasts) so it always resolves against the local value.
+ *
+ * Delete this file once @backstage/ui components stop reading these tokens.
+ */
+/* Same layer order as @backstage/ui, so load order cannot invert precedence. */
+@layer tokens, base, components, theme, utilities;
+
+@layer theme {
+  :root,
+  [data-theme-mode='light'],
+  [data-theme-mode='dark'],
+  [class*='Toast_toast__'] {
+    --bui-bg-solid: var(--bui-accent-bg);
+    --bui-bg-solid-hover: var(--bui-accent-bg-hover);
+    --bui-bg-solid-pressed: var(--bui-accent-bg-hover);
+    --bui-bg-solid-disabled: var(--bui-accent-bg-disabled);
+    --bui-fg-solid: var(--bui-accent-fg);
+    --bui-fg-solid-disabled: var(--bui-accent-fg-disabled);
+
+    --bui-fg-success: var(--bui-fg-positive);
+    --bui-fg-danger: var(--bui-fg-negative);
+    --bui-fg-info: var(--bui-fg-announcement);
+
+    --bui-bg-success: var(--bui-positive-bg-subdued);
+    --bui-fg-success-on-bg: var(--bui-positive-fg-subdued);
+    --bui-border-success: var(--bui-positive-border);
+
+    --bui-bg-danger: var(--bui-negative-bg-subdued);
+    --bui-fg-danger-on-bg: var(--bui-negative-fg-subdued);
+    --bui-border-danger: var(--bui-negative-border);
+
+    --bui-bg-warning: var(--bui-warning-bg-subdued);
+    --bui-fg-warning-on-bg: var(--bui-warning-fg-subdued);
+    --bui-border-warning: var(--bui-warning-border);
+
+    --bui-bg-info: var(--bui-announcement-bg-subdued);
+    --bui-fg-info-on-bg: var(--bui-announcement-fg-subdued);
+    --bui-border-info: var(--bui-announcement-border);
+  }
+}

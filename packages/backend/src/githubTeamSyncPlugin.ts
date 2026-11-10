@@ -2,7 +2,7 @@ import {
   createBackendPlugin,
   coreServices,
 } from '@backstage/backend-plugin-api';
-import { catalogServiceRef } from '@backstage/plugin-catalog-node/alpha';
+import { catalogServiceRef } from '@backstage/plugin-catalog-node';
 import { Octokit } from '@octokit/rest';
 import { Knex } from 'knex';
 
@@ -63,9 +63,10 @@ export const githubTeamSyncPlugin = createBackendPlugin({
         config: coreServices.rootConfig,
         scheduler: coreServices.scheduler,
         catalog: catalogServiceRef,
+        auth: coreServices.auth,
         database: coreServices.database,
       },
-      async init({ logger, config, scheduler, catalog, database }) {
+      async init({ logger, config, scheduler, catalog, auth, database }) {
         // Get GitHub token from integrations config or environment
         let githubToken: string | undefined;
         try {
@@ -179,9 +180,10 @@ export const githubTeamSyncPlugin = createBackendPlugin({
         > {
           const groups = new Map<string, BackstageGroup>();
           try {
-            const entities = await catalog.getEntities({
-              filter: { kind: 'Group' },
-            });
+            const entities = await catalog.getEntities(
+              { filter: { kind: 'Group' } },
+              { credentials: await auth.getOwnServiceCredentials() },
+            );
 
             for (const entity of entities.items) {
               const name = entity.metadata.name;
