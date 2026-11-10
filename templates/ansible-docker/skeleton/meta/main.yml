@@ -3,7 +3,9 @@
 # Generated for: ${{ values.name }}
 
 galaxy_info:
-  role_name: ${{ values.name }}
+  # Galaxy allows only lower-case letters, digits and underscores in both
+  role_name: ${{ values.name | lower | replace('-', '_') }}
+  namespace: ${{ values.destination.owner | lower | replace('-', '_') }}
   author: ${{ values.owner }}
   description: ${{ values.description }}
   company: ''
