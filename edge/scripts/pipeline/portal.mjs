@@ -4,7 +4,23 @@ import { setTimeout as sleep } from 'node:timers/promises';
 const RETRY_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
 const RETRY_DELAYS_MS = [500, 2000, 5000];
 
+// Node's fetch calls itself "node". In front of a deployed portal, Cloudflare
+// answers that name, coming from a GitHub Actions runner, with a challenge
+// page instead of passing the request to the Worker. The curl call in
+// portal-scaffold.yml sends the same name.
+const USER_AGENT = 'cloud-sandbox-portal-pipeline';
+
 async function failure(response, method, path) {
+  if (response.headers.get('cf-mitigated') === 'challenge') {
+    return Object.assign(
+      new Error(
+        `Cloudflare challenged ${method} ${path} (ray ${response.headers.get(
+          'cf-ray',
+        )}) before it reached the portal. Check the domain's bot and security settings.`,
+      ),
+      { status: response.status },
+    );
+  }
   const text = await response.text();
   let message = text.slice(0, 500);
   try {
@@ -42,6 +58,7 @@ export async function portalRequest(
       response = await fetch(`${portal.url}${path}`, {
         method,
         headers: {
+          'user-agent': USER_AGENT,
           authorization: `Bearer ${portal.token}`,
           ...(json !== undefined && { 'content-type': 'application/json' }),
           ...(contentType && { 'content-type': contentType }),

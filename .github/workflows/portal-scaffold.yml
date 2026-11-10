@@ -127,7 +127,9 @@ jobs:
               }
             ]
           }' > "$RUNNER_TEMP/events.json"
+          # Named like the pipeline scripts: Cloudflare challenges plain "curl"
           curl --fail-with-body --silent --show-error --retry 3 \
+            --user-agent cloud-sandbox-portal-pipeline \
             --request POST \
             --header "Authorization: Bearer $PORTAL_PIPELINE_TOKEN" \
             --header 'Content-Type: application/json' \
