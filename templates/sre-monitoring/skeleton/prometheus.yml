@@ -6,6 +6,7 @@ global:
   evaluation_interval: 15s
   external_labels:
     monitor: '${{ values.name }}'
+    target_type: '${{ values.targetType }}'
 
 alerting:
   alertmanagers:

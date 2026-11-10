@@ -62,4 +62,6 @@ app-layer -> data-layer
 ## Related Documentation
 
 - [Components](components.md) - Detailed component documentation
+{%- if values.includeApiDocs %}
 - [API Reference](../api/index.md) - API documentation
+{%- endif %}

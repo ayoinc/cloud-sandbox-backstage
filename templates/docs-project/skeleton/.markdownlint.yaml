@@ -1,0 +1,4 @@
+# markdownlint configuration: https://github.com/DavidAnson/markdownlint
+
+# Prose and tables are not hard-wrapped.
+MD013: false

@@ -1,0 +1,10 @@
+{
+  "values": {
+    "name": "sample-hugo-site",
+    "description": "Marketing site for the payments platform",
+    "owner": "group:default/platform-team",
+    "hugoTheme": "ananke",
+    "baseUrl": "https://example.com/",
+    "repoUrl": "github.com?owner=example-org&repo=sample-hugo-site"
+  }
+}

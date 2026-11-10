@@ -1,5 +1,5 @@
-site_name: ${{ values.name }}
-site_description: ${{ values.description }}
+site_name: ${{ values.name | dump }}
+site_description: ${{ values.description | dump }}
 
 nav:
   - Home: index.md
@@ -17,10 +17,13 @@ nav:
       - Deployment: procedures/deployment.md
       - Rollback: procedures/rollback.md
       - Scaling: procedures/scaling.md
-  - Templates: templates/index.md
+{%- if values.includeTemplates %}
+  - Templates: runbook-templates.md
+{%- endif %}
 
 plugins:
   - techdocs-core
+  - d2
 
 markdown_extensions:
   - admonition
@@ -29,3 +32,9 @@ markdown_extensions:
       permalink: true
   - pymdownx.details
   - pymdownx.superfences
+
+validation:
+  links:
+    not_found: warn
+    anchors: warn
+    unrecognized_links: warn

@@ -188,7 +188,9 @@ This documentation template includes:
 
 ### MkDocs Theme Features
 
-{% if values.theme == "material" %}
+TechDocs renders these pages with its own Material theme. The standalone site built from `mkdocs.standalone.yml` uses the `${{ values.theme }}` theme.
+
+{% if values.theme == "material" -%}
 Using the **Material for MkDocs** theme provides:
 
 - Dark/light mode toggle
@@ -199,8 +201,7 @@ Using the **Material for MkDocs** theme provides:
 - Content tabs
 - Admonitions (callouts)
 - Code annotations
-
-{% else %}
+{%- else -%}
 Using the **Read the Docs** theme provides:
 
 - Classic documentation look
@@ -208,7 +209,7 @@ Using the **Read the Docs** theme provides:
 - Sidebar navigation
 - Search functionality
 - Mobile responsive design
-{% endif %}
+{%- endif %}
 
 ---
 
@@ -280,8 +281,8 @@ To preview documentation locally:
 git clone <repository-url>
 cd ${{ values.name }}
 
-# Install MkDocs and dependencies
-pip install mkdocs mkdocs-material mkdocs-techdocs-core
+# Install MkDocs with the TechDocs and D2 plugins (D2 itself: https://d2lang.com/)
+pip install mkdocs-techdocs-core==1.7.1 mkdocs-d2-plugin==1.7.0
 
 # Start local server
 mkdocs serve
@@ -542,33 +543,31 @@ push -> lint -> build -> link_check -> publish
 
 | Stage | Description | Trigger |
 | --- | --- | --- |
-| **Lint** | Check markdown formatting | All pushes |
-| **Build** | Compile documentation | All pushes |
-| **Link Check** | Verify internal/external links | All pushes |
-| **Publish** | Deploy to TechDocs | Main branch only |
+| **Lint** | Check markdown formatting with markdownlint | All pushes and pull requests |
+| **Build** | Compile documentation, including D2 diagrams, with `mkdocs build --strict` | All pushes and pull requests |
+| **Link Check** | Verify links between files in the repository | All pushes and pull requests |
+| **External Link Check** | Verify links to other sites | Weekly and on demand |
+| **Publish** | TechDocs in Backstage builds and publishes the documentation | Main branch only |
 
 ### Running Locally
 
 ```bash
-# Install development dependencies
-pip install -r requirements-dev.txt
+# Install MkDocs with the TechDocs and D2 plugins
+pip install mkdocs-techdocs-core==1.7.1 mkdocs-d2-plugin==1.7.0
 
 # Lint markdown files
-markdownlint docs/
+npx markdownlint-cli2 "**/*.md"
 
-# Build documentation
-mkdocs build
-
-# Check for broken links
-linkchecker site/
+# Build documentation; fails on broken links and diagrams
+mkdocs build --strict
 
 # Serve for preview
 mkdocs serve
 ```
 
 ---
+{%- if values.includeApiDocs %}
 
-{% if values.includeApiDocs %}
 ## API Documentation
 
 This project includes API documentation. See the [API Reference](api/index.md) for:
@@ -609,10 +608,9 @@ techdocs: TechDocs {
 
 openapi -> generator -> docs -> techdocs
 ```
+{%- endif %}
+{%- if values.includeChangelog %}
 
-{% endif %}
-
-{% if values.includeChangelog %}
 ## Changelog
 
 This project maintains a changelog to track all notable changes.
@@ -630,9 +628,8 @@ We follow [Keep a Changelog](https://keepachangelog.com/) format:
 | **Fixed** | Bug fixes |
 | **Security** | Security updates |
 
-See [CHANGELOG.md](../CHANGELOG.md) for the complete history.
-
-{% endif %}
+See the [Changelog](changelog.md) for the complete history.
+{%- endif %}
 
 ---
 
@@ -645,12 +642,13 @@ See [CHANGELOG.md](../CHANGELOG.md) for the complete history.
 **Problem**: `mkdocs build` fails with errors.
 
 **Solutions**:
+
 ```bash
 # Check Python version
 python --version  # Should be 3.8+
 
 # Reinstall dependencies
-pip install --upgrade mkdocs mkdocs-material mkdocs-techdocs-core
+pip install --upgrade mkdocs-techdocs-core==1.7.1 mkdocs-d2-plugin==1.7.0
 
 # Validate mkdocs.yml
 mkdocs build --strict
@@ -675,15 +673,17 @@ nav:
 **Problem**: Links to other pages return 404.
 
 **Solutions**:
+
 - Use relative paths: `[Link](../other-page.md)`
 - Don't include `.md` extension in some configurations
-- Run link checker: `linkchecker site/`
+- Build with `mkdocs build --strict`, which fails on links to pages or anchors that do not exist
 
 #### TechDocs Not Updating
 
 **Problem**: Changes don't appear in Backstage TechDocs.
 
 **Solutions**:
+
 1. Verify the documentation build succeeded in CI
 2. Check that TechDocs is configured to rebuild
 3. Refresh the TechDocs cache in Backstage
@@ -694,6 +694,7 @@ nav:
 **Problem**: Search returns no results.
 
 **Solutions**:
+
 - Ensure `search` plugin is enabled in `mkdocs.yml`
 - Rebuild the documentation
 - Clear browser cache
@@ -714,7 +715,7 @@ nav:
 | **Progressive Disclosure** | Start simple, add complexity |
 | **Use Visuals** | Diagrams explain complex concepts |
 
-### Documentation Structure
+### Structuring Content
 
 ```d2
 direction: down
@@ -758,7 +759,7 @@ guides -> explanation
 
 ### Markdown Tips
 
-```markdown
+````markdown
 # Use proper heading hierarchy
 ## H2 for main sections
 ### H3 for subsections
@@ -778,10 +779,11 @@ def example():
 ```
 
 # Use tables for structured data
+
 | Column 1 | Column 2 |
 | --- | --- |
 | Value 1 | Value 2 |
-```
+````
 
 ---
 
@@ -799,7 +801,7 @@ If you need assistance:
 | Channel | Use Case |
 | --- | --- |
 | Slack: #documentation | Quick questions |
-| Email: docs@company.com | Detailed requests |
+| Email: <docs@example.com> | Detailed requests |
 | GitHub Issues | Bug reports, feature requests |
 
 ---
@@ -808,9 +810,9 @@ If you need assistance:
 
 | Template | Description |
 | --- | --- |
-| [docs-adr](/docs/default/template/docs-adr) | Architecture Decision Records |
-| [docs-runbook](/docs/default/template/docs-runbook) | Operational runbooks |
-| [docs-d2-guide](/docs/default/template/docs-d2-guide) | D2 diagramming documentation |
+| `docs-adr` | Architecture Decision Records |
+| `docs-runbook` | Operational runbooks |
+| `docs-d2-guide` | D2 diagramming documentation |
 
 ---
 
@@ -830,5 +832,4 @@ If you need assistance:
 | Field | Value |
 | --- | --- |
 | Documentation Version | 1.0.0 |
-| Last Updated | {{ date }} |
 | Owner | ${{ values.owner }} |

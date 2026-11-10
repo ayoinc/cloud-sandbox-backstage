@@ -1,6 +1,6 @@
 ---
 title: 'Welcome to ${{ values.name }}'
-description: '${{ values.description }}'
+description: ${{ values.description | dump }}
 ---
 
 # Welcome

@@ -1,0 +1,58 @@
+baseURL = ${{ values.baseUrl | dump }}
+{% if values.hugoTheme == 'minimal' -%}
+languageCode = "en-us"
+{%- else -%}
+locale = "en-us"
+{%- endif %}
+title = ${{ values.name | dump }}
+
+# The theme is a Hugo Module pinned in go.mod. Hugo downloads it on the first
+# build; update it with "hugo mod get -u".
+[module]
+  [[module.imports]]
+{%- if values.hugoTheme == 'ananke' %}
+    path = "github.com/gohugo-ananke/ananke/v2"
+{%- elif values.hugoTheme == 'papermod' %}
+    path = "github.com/adityatelange/hugo-PaperMod"
+{%- elif values.hugoTheme == 'terminal' %}
+    path = "github.com/panr/hugo-theme-terminal/v4"
+{%- elif values.hugoTheme == 'minimal' %}
+    path = "github.com/calintat/minimal"
+{%- endif %}
+
+[params]
+  description = ${{ values.description | dump }}
+  author = ${{ values.owner | dump }}
+
+[markup]
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = true
+  [markup.highlight]
+    style = "monokai"
+
+[menu]
+  [[menu.main]]
+    identifier = "home"
+    name = "Home"
+    pageRef = "/"
+    weight = 1
+  [[menu.main]]
+    identifier = "posts"
+    name = "Posts"
+    pageRef = "/posts"
+    weight = 2
+  [[menu.main]]
+    identifier = "about"
+    name = "About"
+    pageRef = "/about"
+    weight = 3
+  [[menu.main]]
+    identifier = "contact"
+    name = "Contact"
+    pageRef = "/contact"
+    weight = 4
+
+[sitemap]
+  changefreq = "weekly"
+  priority = 0.5

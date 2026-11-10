@@ -603,7 +603,7 @@ docker: Docker {
 }
 
 kubernetes: Kubernetes {
-  icon: https://icons.terrastruct.com/dev%2Fkubernetes.svg
+  icon: https://icons.terrastruct.com/azure%2F_Companies%2FKubernetes.svg
 }
 ```
 
@@ -956,8 +956,8 @@ deploy_prod.deploy_prod -> deploy_prod.smoke -> deploy_prod.monitor
 D2 diagrams are rendered in TechDocs using the `mkdocs-d2` plugin. The configuration is specified in `mkdocs.yml`:
 
 ```yaml
-site_name: ${{ values.name }}
-site_description: ${{ values.description }}
+site_name: ${{ values.name | dump }}
+site_description: ${{ values.description | dump }}
 
 nav:
   - Home: index.md

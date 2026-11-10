@@ -109,7 +109,7 @@ You should create an ADR when:
 | Owner | `${{ values.owner }}` |
 | ADR Format | `${{ values.adrFormat }}` |
 | Example ADRs Included | `${{ values.includeExamples }}` |
-| Categories | {% for category in values.categories %}`{{ category }}`{% if not loop.last %}, {% endif %}{% endfor %} |
+| Categories | {% for category in values.categories %}`${{ category }}`{% if not loop.last %}, {% endif %}{% endfor %} |
 
 ### ADR Format Comparison
 
@@ -293,7 +293,9 @@ accepted -> superseded: "Replaced by New ADR"
 | # | Title | Status | Date |
 | --- | --- | --- | --- |
 | [001](adrs/001-use-adrs.md) | Use ADRs for Architecture Decisions | Accepted | 2024-01-01 |
+{%- if values.includeExamples %}
 | [002](adrs/002-example-decision.md) | Example Decision | Proposed | 2024-01-15 |
+{%- endif %}
 
 ---
 
@@ -301,36 +303,36 @@ accepted -> superseded: "Replaced by New ADR"
 
 Organize your ADRs using these categories to improve discoverability:
 
-{% for category in values.categories %}
-### {{ category | capitalize }}
+{% for category in values.categories -%}
+### ${{ category | capitalize }}
 
-ADRs related to {{ category }} decisions. Examples include:
+ADRs related to ${{ category }} decisions. Examples include:
 
-{% if category == "architecture" %}
+{% if category == "architecture" -%}
 - System design patterns
 - Service boundaries and responsibilities
 - Communication patterns (sync vs async)
 - API design principles
-{% elif category == "security" %}
+{%- elif category == "security" -%}
 - Authentication and authorization approaches
 - Data encryption strategies
 - Security protocols and standards
 - Access control patterns
-{% elif category == "infrastructure" %}
+{%- elif category == "infrastructure" -%}
 - Cloud provider selection
 - Deployment strategies
 - Container orchestration
 - Network architecture
-{% elif category == "data" %}
+{%- elif category == "data" -%}
 - Database selection and design
 - Data modeling approaches
 - Data retention and archival
 - Data migration strategies
-{% else %}
-- Decisions related to {{ category }}
-{% endif %}
+{%- else -%}
+- Decisions related to ${{ category }}
+{%- endif %}
 
-{% endfor %}
+{% endfor -%}
 
 ---
 
@@ -509,50 +511,18 @@ techdocs -> search: "Index"
 
 ### CI/CD Integration
 
-Consider adding these automations to your workflow:
+Every push and pull request runs the `ADR Validation` workflow in `.github/workflows/adr.yaml`:
 
-```yaml
-# .github/workflows/adr-check.yaml
-name: ADR Validation
+| Job | What it checks |
+| --- | --- |
+| **Validate ADRs** | Runs `scripts/validate-adrs.sh`: file names follow `NNN-short-title.md`, every ADR has the `##` sections of `docs/templates/adr-template.md`, the status is a known value, and the ADR is listed in `docs/adrs/index.md` |
+| **Build Documentation** | Builds the site with `mkdocs build --strict`, including the D2 diagrams, the same way TechDocs does |
 
-on:
-  pull_request:
-    paths:
-      - 'docs/adrs/*.md'
+Run the same checks locally before opening a pull request:
 
-jobs:
-  validate:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Check ADR format
-        run: |
-          for file in docs/adrs/*.md; do
-            if [[ $(basename "$file") =~ ^[0-9]{3}- ]]; then
-              echo "Valid: $file"
-            else
-              echo "Invalid format: $file"
-              exit 1
-            fi
-          done
-
-      - name: Validate required sections
-        run: |
-          for file in docs/adrs/*.md; do
-            if ! grep -q "## Status" "$file"; then
-              echo "Missing Status section: $file"
-              exit 1
-            fi
-            if ! grep -q "## Context" "$file"; then
-              echo "Missing Context section: $file"
-              exit 1
-            fi
-            if ! grep -q "## Decision" "$file"; then
-              echo "Missing Decision section: $file"
-              exit 1
-            fi
-          done
+```bash
+bash scripts/validate-adrs.sh
+mkdocs build --strict
 ```
 
 ---
@@ -620,11 +590,13 @@ jobs:
 
 ## Related Templates
 
+These templates are available from the portal's Create page:
+
 | Template | Description |
 | --- | --- |
-| [docs-project](/docs/default/template/docs-project) | Comprehensive project documentation |
-| [docs-runbook](/docs/default/template/docs-runbook) | Operational runbooks for incident response |
-| [docs-d2-guide](/docs/default/template/docs-d2-guide) | Documentation with D2 diagrams |
+| `docs-project` | Comprehensive project documentation |
+| `docs-runbook` | Operational runbooks for incident response |
+| `docs-d2-guide` | Documentation with D2 diagrams |
 
 ---
 

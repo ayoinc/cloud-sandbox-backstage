@@ -1,5 +1,5 @@
-site_name: ${{ values.name }}
-site_description: ${{ values.description }}
+site_name: ${{ values.name | dump }}
+site_description: ${{ values.description | dump }}
 
 nav:
   - Home: index.md
@@ -7,14 +7,23 @@ nav:
   - ADRs:
       - Overview: adrs/index.md
       - '001 - Use ADRs': adrs/001-use-adrs.md
+{%- if values.includeExamples %}
       - '002 - Example Decision': adrs/002-example-decision.md
+{%- endif %}
   - Templates: templates.md
 
 plugins:
   - techdocs-core
+  - d2
 
 markdown_extensions:
   - admonition
   - toc:
       permalink: true
   - tables
+
+validation:
+  links:
+    not_found: warn
+    anchors: warn
+    unrecognized_links: warn

@@ -1,0 +1,12 @@
+{
+  "values": {
+    "name": "sample-project-docs",
+    "description": "Documentation for the payments platform",
+    "owner": "group:default/platform-team",
+    "docType": "project",
+    "includeApiDocs": true,
+    "includeChangelog": true,
+    "theme": "material",
+    "repoUrl": "github.com?owner=example-org&repo=sample-project-docs"
+  }
+}

@@ -13,7 +13,7 @@ This section provides templates for creating new runbooks.
 
 Use this template for incident response runbooks:
 
-```markdown
+````markdown
 # [Incident Name]
 
 ## Summary
@@ -44,12 +44,12 @@ Brief description of the incident type and what this runbook addresses.
 
 Description of what to do.
 
-\`\`\`bash
+```bash
 
 # Command to run
 
 command --with-options
-\`\`\`
+```
 
 What to look for in the output.
 
@@ -63,11 +63,11 @@ What to look for in the output.
 
 When to use this option.
 
-\`\`\`bash
+```bash
 
 # Resolution command
 
-\`\`\`
+```
 
 ### Option 2: [Name]
 
@@ -77,11 +77,11 @@ When to use this option.
 
 How to confirm the issue is resolved.
 
-\`\`\`bash
+```bash
 
 # Verification command
 
-\`\`\`
+```
 
 ## Escalation
 
@@ -90,13 +90,13 @@ When to escalate and to whom.
 ## Prevention
 
 Steps to prevent recurrence.
-```
+````
 
 ## Procedure Template
 
 Use this template for operational procedures:
 
-```markdown
+````markdown
 # [Procedure Name]
 
 ## Summary
@@ -119,11 +119,11 @@ Brief description of the procedure and when to use it.
 
 Description of what to do.
 
-\`\`\`bash
+```bash
 
 # Command
 
-\`\`\`
+```
 
 Expected outcome.
 
@@ -147,7 +147,7 @@ Common issues and their solutions.
 ## Rollback
 
 How to undo the procedure if needed.
-```
+````
 
 ## Best Practices
 

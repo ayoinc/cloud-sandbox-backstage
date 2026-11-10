@@ -1,0 +1,11 @@
+{
+  "values": {
+    "name": "sample-adrs",
+    "description": "Architecture decision records for the payments platform",
+    "owner": "group:default/platform-team",
+    "adrFormat": "madr",
+    "includeExamples": true,
+    "categories": ["architecture", "security", "infrastructure", "data"],
+    "repoUrl": "github.com?owner=example-org&repo=sample-adrs"
+  }
+}

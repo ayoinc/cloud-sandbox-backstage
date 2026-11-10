@@ -27,7 +27,7 @@ We will use Architecture Decision Records (ADRs) to document significant archite
 Each ADR will:
 
 1. Be stored in the `docs/adrs/` directory
-2. Follow the MADR (Markdown Architectural Decision Records) format
+2. Follow the {% if values.adrFormat == 'nygard' %}Nygard format (status, context, decision, consequences){% elif values.adrFormat == 'custom' %}sections defined in `docs/templates/adr-template.md`{% else %}MADR (Markdown Architectural Decision Records) format{% endif %}
 3. Be numbered sequentially (001, 002, etc.)
 4. Be reviewed through pull requests
 5. Never be deleted, only deprecated or superseded

@@ -40,7 +40,7 @@ Start the application:
 
 Open your browser and navigate to:
 
-```
+```text
 http://localhost:3000
 ```
 

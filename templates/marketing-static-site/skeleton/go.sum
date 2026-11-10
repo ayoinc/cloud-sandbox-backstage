@@ -1,0 +1,13 @@
+{% if values.hugoTheme == 'ananke' -%}
+github.com/gohugo-ananke/ananke/v2 v2.19.1 h1:XOJIl98expCuWU6ZkEIQMJYuMPUHVPuDUUyQcIp30r0=
+github.com/gohugo-ananke/ananke/v2 v2.19.1/go.mod h1:HLy3O8WIkY0EmkMryllP6ilZVvAWz1XsLnfYLuD7dvE=
+{%- elif values.hugoTheme == 'papermod' -%}
+github.com/adityatelange/hugo-PaperMod v0.0.0-20261025062351-118119693d8b h1:gsFyQeTf015uBSPY3vjTv4Y8qRHxgHKtmQgdtPACC9A=
+github.com/adityatelange/hugo-PaperMod v0.0.0-20261025062351-118119693d8b/go.mod h1:sp5WH671pzcVNpWKveBQKlBfu6T9uvcBI/4B3BSojKw=
+{%- elif values.hugoTheme == 'terminal' -%}
+github.com/panr/hugo-theme-terminal/v4 v4.2.6 h1:2/ymFPBnirshgKWg7oxLC+hEIlrSjli3NbJqSKtx8JE=
+github.com/panr/hugo-theme-terminal/v4 v4.2.6/go.mod h1:W0sFodm5ipL5gjRqOFjg4zD+euoQ8hCtyDDtqSpihxM=
+{%- elif values.hugoTheme == 'minimal' -%}
+github.com/calintat/minimal v0.0.0-20210103220336-987f270dfee3 h1:JHnBhRE6pzNJPIpctf9iUqfUzWTNOEzUTlMorRet4Nc=
+github.com/calintat/minimal v0.0.0-20210103220336-987f270dfee3/go.mod h1:DcAXbWg74unipQb+Kgvv+jns9U2l9v+DM0DPCLjlE7E=
+{%- endif %}

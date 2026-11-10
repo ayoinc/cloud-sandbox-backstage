@@ -69,5 +69,5 @@ Brief description of this alternative.
 
 ## References
 
-- [Relevant documentation or resource]()
+- [Relevant documentation or resource](https://adr.github.io/)
 - [Related ADR if applicable](001-use-adrs.md)

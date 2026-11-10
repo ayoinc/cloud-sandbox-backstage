@@ -1,0 +1,8 @@
+# Hugo build output
+public/
+resources/_gen/
+.hugo_build.lock
+
+# MkDocs build output and the D2 plugin cache
+site/
+.cache/

@@ -6,10 +6,10 @@ providers:
   - name: '${{ values.name }}'
     orgId: 1
     folder: '${{ values.name }}'
-    folderUid: ''
+    folderUid: '${{ values.name }}'
     type: file
     disableDeletion: false
     updateIntervalSeconds: 30
     allowUiUpdates: true
     options:
-      path: /etc/grafana/provisioning/dashboards/files
+      path: /etc/dashboards

@@ -29,5 +29,5 @@ What becomes easier or more difficult to do because of this change?
 ## Index
 
 | ADR | Title | Status | Date |
-|-----|-------|--------|------|
+| --- | --- | --- | --- |
 | [ADR-0001](0001-initial-architecture.md) | Initial Architecture | Accepted | YYYY-MM-DD |

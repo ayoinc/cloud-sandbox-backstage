@@ -23,7 +23,8 @@ spec:
         name:
           title: Site Name
           type: string
-          description: Name for your Hugo site
+          description: Name for your Hugo site (lowercase letters, digits and hyphens)
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
           ui:autofocus: true
         description:
           title: Description
@@ -54,7 +55,8 @@ spec:
         baseUrl:
           title: Base URL
           type: string
-          description: Base URL for the site
+          description: Base URL for the site (GitHub Pages deployments use the Pages address instead)
+          format: uri
           default: https://example.com/
 
     - title: Repository Configuration

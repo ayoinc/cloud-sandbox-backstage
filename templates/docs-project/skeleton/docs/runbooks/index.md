@@ -37,6 +37,5 @@ Steps to rollback if something goes wrong.
 ## Index
 
 | Runbook | Description | Last Updated |
-|---------|-------------|--------------|
+| --- | --- | --- |
 | [Deployment](deployment.md) | Standard deployment procedure | YYYY-MM-DD |
-| [Incident Response](incident-response.md) | Incident handling | YYYY-MM-DD |

@@ -19,6 +19,7 @@ spec:
     - title: Project Information
       required:
         - name
+        - description
         - owner
       properties:
         name:
@@ -42,11 +43,14 @@ spec:
               kind: Group
 
     - title: Runbook Configuration
+      required:
+        - serviceName
       properties:
         serviceName:
           title: Service Name
           type: string
-          description: Name of the service these runbooks cover
+          description: Name of the service these runbooks cover, as it is deployed (lowercase letters, digits and hyphens)
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
         environment:
           title: Environments
           type: array
@@ -69,7 +73,7 @@ spec:
         includeTemplates:
           title: Include Templates
           type: boolean
-          description: Include runbook templates
+          description: Include a page of templates for new incident runbooks and procedures
           default: true
 
     - title: Repository Configuration
@@ -98,6 +102,15 @@ spec:
           environment: ${{ parameters.environment }}
           oncallTool: ${{ parameters.oncallTool }}
           includeTemplates: ${{ parameters.includeTemplates }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: remove-templates
+      name: Remove Runbook Templates
+      if: ${{ not parameters.includeTemplates }}
+      action: fs:delete
+      input:
+        files:
+          - docs/runbook-templates.md
 
     - id: publish
       name: Publish to GitHub

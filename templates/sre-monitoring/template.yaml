@@ -24,10 +24,10 @@ spec:
         name:
           title: Name
           type: string
-          description: Unique name for this monitoring stack
+          description: Unique name for this monitoring stack (lowercase letters, digits and hyphens, at most 31 characters)
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          maxLength: 31
           ui:autofocus: true
-          ui:options:
-            rows: 5
         description:
           title: Description
           type: string
@@ -81,20 +81,24 @@ spec:
         slackWebhook:
           title: Slack Webhook URL
           type: string
-          description: Slack webhook for alert notifications (optional)
+          description: Slack webhook for alert notifications (optional). It is written to alertmanager.yml in the new repository.
         pagerdutyKey:
           title: PagerDuty Integration Key
           type: string
-          description: PagerDuty integration key for critical alerts (optional)
+          description: PagerDuty integration key for critical alerts (optional). It is written to alertmanager.yml in the new repository.
         criticalThreshold:
           title: Critical Alert Threshold (%)
           type: number
           description: Threshold percentage for critical alerts
+          minimum: 1
+          maximum: 100
           default: 90
         warningThreshold:
           title: Warning Alert Threshold (%)
           type: number
           description: Threshold percentage for warning alerts
+          minimum: 1
+          maximum: 100
           default: 75
 
     - title: Repository Configuration

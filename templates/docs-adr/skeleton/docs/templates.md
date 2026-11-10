@@ -2,9 +2,11 @@
 
 This page provides templates for creating Architecture Decision Records.
 
-## MADR Template (Recommended)
+This repository uses the {% if values.adrFormat == 'nygard' %}Nygard{% elif values.adrFormat == 'custom' %}custom{% else %}MADR{% endif %} format. `docs/templates/adr-template.md` is the template to copy for a new ADR, and `scripts/validate-adrs.sh` requires every ADR to contain each `##` section of that file.
 
-We use the Markdown Architectural Decision Records (MADR) format.
+## MADR Template
+
+The Markdown Architectural Decision Records (MADR) format, with an alternatives section:
 
 ```markdown
 # ADR NNN: Title
@@ -182,7 +184,7 @@ High-level implementation guidance.
 
 ## Usage Tips
 
-1. **Start simple**: Use the MADR template for most decisions
-2. **Add detail when needed**: Use the extended template for complex decisions
-3. **Be consistent**: Use the same template across your organization
+1. **Start simple**: Keep to the sections of `docs/templates/adr-template.md` for most decisions
+2. **Add detail when needed**: Borrow sections from the extended template for complex decisions
+3. **Be consistent**: To change the format for every ADR, edit `docs/templates/adr-template.md`; validation follows it
 4. **Focus on clarity**: The template is a guide, not a constraint

@@ -2,7 +2,7 @@ apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: ${{ values.name }}
-  description: ${{ values.description }}
+  description: ${{ values.description | dump }}
   annotations:
     backstage.io/techdocs-ref: dir:.
     github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
@@ -14,13 +14,13 @@ metadata:
     - grafana
     - ${{ values.targetType }}
   links:
-    - url: ${{ values.prometheusUrl }}
+    - url: ${{ values.prometheusUrl | dump }}
       title: Prometheus
       icon: dashboard
-    - url: ${{ values.grafanaUrl }}
+    - url: ${{ values.grafanaUrl | dump }}
       title: Grafana
       icon: dashboard
-    - url: ${{ values.alertmanagerUrl }}
+    - url: ${{ values.alertmanagerUrl | dump }}
       title: Alertmanager
       icon: alert
 spec:

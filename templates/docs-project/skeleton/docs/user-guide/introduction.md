@@ -21,7 +21,7 @@ This guide is intended for:
 ### For Experienced Users
 
 - Jump directly to [Configuration](configuration.md)
-- Review [Advanced Features](features.md#advanced)
+- Review [Advanced Features](features.md#advanced-features)
 
 ## Support
 
@@ -36,5 +36,5 @@ If you encounter issues:
 We value your feedback! Please submit suggestions through:
 
 - GitHub Issues
-- Email: support@example.com
+- Email: <support@example.com>
 - Slack: #${{ values.name }}-support

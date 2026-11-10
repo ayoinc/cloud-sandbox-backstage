@@ -23,7 +23,8 @@ spec:
         name:
           title: Page Name
           type: string
-          description: Name for the landing page
+          description: Name for the landing page (lowercase letters, digits and hyphens)
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
           ui:autofocus: true
         description:
           title: Description
@@ -50,6 +51,7 @@ spec:
           title: Primary Color
           type: string
           description: Primary brand color (hex)
+          pattern: '^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$'
           default: '#0066cc'
         tagline:
           title: Tagline

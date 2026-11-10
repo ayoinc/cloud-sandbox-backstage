@@ -25,12 +25,12 @@ Each runbook follows this structure:
 
 ## Key Dashboards
 
-| Dashboard      | Purpose                  | Link     |
-| -------------- | ------------------------ | -------- |
-| Service Health | Overall service status   | [Link]() |
-| Infrastructure | Server/container metrics | [Link]() |
-| Logs           | Centralized logging      | [Link]() |
-| Alerts         | Alert history            | [Link]() |
+| Dashboard | Purpose | Link |
+| --- | --- | --- |
+| Service Health | Overall service status | [Grafana](https://grafana.example.com/d/${{ values.serviceName }}) |
+| Infrastructure | Server/container metrics | [Grafana](https://grafana.example.com/d/${{ values.serviceName }}-infrastructure) |
+| Logs | Centralized logging | [Grafana](https://grafana.example.com/d/${{ values.serviceName }}-logs) |
+| Alerts | Alert history | [Grafana](https://grafana.example.com/d/${{ values.serviceName }}-alerts) |
 
 ## Access Requirements
 

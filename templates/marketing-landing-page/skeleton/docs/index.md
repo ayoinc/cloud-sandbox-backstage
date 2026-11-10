@@ -109,7 +109,9 @@ ${{ values.name }}/
 ├── js/
 │   └── main.js             # JavaScript for interactivity
 ├── images/                 # Image assets directory
-│   └── .gitkeep
+│   └── favicon.svg
+├── scripts/
+│   └── build-site.sh       # Collects the published files into _site/
 ├── docs/
 │   └── index.md            # This documentation
 ├── .github/
@@ -139,8 +141,10 @@ This repository includes a GitHub Actions pipeline that validates and deploys th
 
 ### Pipeline Features
 
-- **HTML Validation**: Checks for broken links and HTML issues
-- **Automatic Deployment**: Deploys to GitHub Pages on push to `main`
+- **HTML Validation**: Checks the assembled site for broken links and HTML and CSS issues
+- **Security Scan**: Scans the repository for misconfigurations and committed secrets
+- **Documentation Build**: Builds this documentation with `mkdocs build --strict`
+- **Automatic Deployment**: Deploys to GitHub Pages on push to `main` once GitHub Pages is enabled; until then the deploy job is skipped
 - **Environment URL**: Provides deployment URL in GitHub environment
 
 ### Pipeline Workflow
@@ -222,7 +226,9 @@ pr -> validate -> merge -> build -> deploy -> live
 
 1. Navigate to **Settings > Pages**
 2. Under "Build and deployment", select **GitHub Actions** as the source
-3. The workflow will handle deployment automatically
+3. Run the **Deploy Landing Page** workflow from the **Actions** tab, or push to `main`
+
+GitHub Pages is off for a new repository. The pipeline detects this and skips the deploy job instead of failing, so validation still passes before Pages is enabled.
 
 #### Required Permissions
 
@@ -691,13 +697,14 @@ The default form uses browser validation but needs a backend handler. Options:
 
 ## Related Templates
 
-| Template                                                                  | Description                          |
-| ------------------------------------------------------------------------- | ------------------------------------ |
-| [nextjs-landing-page](/docs/default/template/nextjs-landing-page)         | Next.js landing page with React      |
-| [gatsby-marketing-site](/docs/default/template/gatsby-marketing-site)     | Gatsby static site generator         |
-| [react-spa](/docs/default/template/react-spa)                             | React single-page application        |
-| [documentation-site](/docs/default/template/documentation-site)           | MkDocs documentation website         |
-| [static-website-s3](/docs/default/template/static-website-s3)             | AWS S3 + CloudFront hosting          |
+These templates are available from the portal's Create page:
+
+| Template | Description |
+| --- | --- |
+| `hugo-static-site-template` | Hugo static website |
+| `app-nextjs` | Next.js application |
+| `aws-cloudfront-distribution` | AWS CloudFront distribution for static hosting |
+| `azure-static-web-app` | Azure Static Web Apps |
 
 ---
 

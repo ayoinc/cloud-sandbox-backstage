@@ -1,0 +1,57 @@
+openapi: 3.0.3
+info:
+  title: ${{ values.name | dump }}
+  description: ${{ values.description | dump }}
+  version: 1.0.0
+servers:
+  - url: https://api.example.com/v1
+    description: Production
+  - url: https://staging.api.example.com/v1
+    description: Staging
+security:
+  - bearerAuth: []
+paths:
+  /health:
+    get:
+      summary: Report whether the service is ready to serve requests
+      operationId: getHealth
+      security: []
+      responses:
+        '200':
+          description: The service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+        '500':
+          description: The service failed to process the request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    Health:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          example: ok
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          example: not_found
+        message:
+          type: string
+          example: The requested resource does not exist

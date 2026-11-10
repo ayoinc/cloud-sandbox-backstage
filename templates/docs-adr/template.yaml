@@ -18,6 +18,7 @@ spec:
     - title: Project Information
       required:
         - name
+        - description
         - owner
       properties:
         name:
@@ -52,9 +53,9 @@ spec:
             - custom
           default: madr
         includeExamples:
-          title: Include Example ADRs
+          title: Include Example ADR
           type: boolean
-          description: Include sample ADRs to get started
+          description: Include a worked example ADR (002) next to the initial 'Use ADRs' record
           default: true
         categories:
           title: Categories
@@ -93,6 +94,15 @@ spec:
           adrFormat: ${{ parameters.adrFormat }}
           includeExamples: ${{ parameters.includeExamples }}
           categories: ${{ parameters.categories }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: remove-example
+      name: Remove Example ADR
+      if: ${{ not parameters.includeExamples }}
+      action: fs:delete
+      input:
+        files:
+          - docs/adrs/002-example-decision.md
 
     - id: publish
       name: Publish to GitHub

@@ -31,35 +31,49 @@ route:
       group_wait: 5m
       repeat_interval: 24h
 
+# Notification settings below come from the values entered when this stack
+# was created. The Slack webhook URL and PagerDuty key are credentials: to keep
+# them out of the repository, mount them as files and use "api_url_file" and
+# "service_key_file" instead.
 receivers:
   - name: 'default-receiver'
-    # Add your default notification config here
+{%- if values.slackWebhook %}
+    slack_configs:
+      - api_url: ${{ values.slackWebhook | dump }}
+        channel: '#alerts'
+        send_resolved: true
+{%- endif %}
 
   - name: 'critical-receiver'
-    # Slack notification for critical alerts
-    # slack_configs:
-    #   - api_url: '${{ values.slackWebhook }}'
-    #     channel: '#alerts-critical'
-    #     title: '{{ template "slack.default.title" . }}'
-    #     text: '{{ template "slack.default.text" . }}'
-    #     send_resolved: true
-    
-    # PagerDuty for critical alerts
-    # pagerduty_configs:
-    #   - service_key: '${{ values.pagerdutyKey }}'
-    #     severity: critical
+{%- if values.slackWebhook %}
+    slack_configs:
+      - api_url: ${{ values.slackWebhook | dump }}
+        channel: '#alerts-critical'
+        title: '{{ template "slack.default.title" . }}'
+        text: '{{ template "slack.default.text" . }}'
+        send_resolved: true
+{%- endif %}
+{%- if values.pagerdutyKey %}
+    pagerduty_configs:
+      - service_key: ${{ values.pagerdutyKey | dump }}
+        severity: critical
+{%- endif %}
 
   - name: 'warning-receiver'
-    # slack_configs:
-    #   - api_url: '${{ values.slackWebhook }}'
-    #     channel: '#alerts-warning'
-    #     send_resolved: true
+{%- if values.slackWebhook %}
+    slack_configs:
+      - api_url: ${{ values.slackWebhook | dump }}
+        channel: '#alerts-warning'
+        send_resolved: true
+{%- endif %}
 
   - name: 'info-receiver'
-    # slack_configs:
-    #   - api_url: '${{ values.slackWebhook }}'
-    #     channel: '#alerts-info'
-    #     send_resolved: false
+{%- if values.slackWebhook %}
+    slack_configs:
+      - api_url: ${{ values.slackWebhook | dump }}
+        channel: '#alerts-info'
+        send_resolved: false
+{%- endif %}
 
 inhibit_rules:
   # If a critical alert is firing, inhibit warnings for the same alertname

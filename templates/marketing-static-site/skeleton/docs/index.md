@@ -41,7 +41,7 @@ repo: GitHub Repository {
   }
 
   config: Config {
-    label: "config.toml\nTheme Settings"
+    label: "hugo.toml\nTheme Settings"
     style.fill: "#FFF3E0"
     style.stroke: "#FF9800"
   }
@@ -110,29 +110,18 @@ ${{ values.name }}/
 │       └── hugo.yaml           # CI/CD pipeline configuration
 ├── content/
 │   ├── _index.md               # Homepage content
-│   ├── about/
-│   │   └── index.md            # About page
-│   ├── contact/
-│   │   └── index.md            # Contact page
+│   ├── about.md                # About page
+│   ├── contact.md              # Contact page
 │   └── posts/                  # Blog posts directory
-│       └── *.md
+│       └── hello-world.md
 ├── static/
-│   ├── css/
-│   │   └── style.css           # Custom styles
-│   ├── js/
-│   │   └── main.js             # Custom JavaScript
-│   └── images/                 # Image assets
-├── layouts/                    # Custom layout overrides
-│   ├── partials/
-│   │   ├── header.html
-│   │   └── footer.html
-│   └── _default/
-│       └── baseof.html
-├── themes/
-│   └── ${{ values.hugoTheme }}/ # Hugo theme (git submodule)
+│   └── css/
+│       └── style.css           # Custom styles
 ├── docs/
 │   └── index.md                # TechDocs documentation
-├── config.toml                 # Hugo configuration
+├── hugo.toml                   # Hugo configuration
+├── go.mod                      # Pins the theme module version
+├── go.sum                      # Checksums of the theme module
 ├── catalog-info.yaml           # Backstage component definition
 ├── mkdocs.yml                  # TechDocs configuration
 └── README.md                   # Project readme
@@ -142,9 +131,8 @@ ${{ values.name }}/
 | ------------------- | ------------------------------------------------ |
 | `content/`          | Markdown content files for pages and posts       |
 | `static/`           | Static assets (CSS, JS, images)                  |
-| `layouts/`          | Custom HTML templates and overrides              |
-| `themes/`           | Hugo theme files                                 |
-| `config.toml`       | Site configuration and settings                  |
+| `hugo.toml`         | Site configuration and settings                  |
+| `go.mod`, `go.sum`  | Version and checksums of the theme module        |
 | `catalog-info.yaml` | Backstage service catalog metadata               |
 
 ---
@@ -153,10 +141,11 @@ ${{ values.name }}/
 
 This repository includes an automated GitHub Actions pipeline for building and deploying the static site:
 
-- **Build Stage**: Hugo extended version builds and minifies assets
-- **Deploy Stage**: Automatic deployment to GitHub Pages on main branch
+- **Build Stage**: Hugo extended {% if values.hugoTheme == 'minimal' %}0.128.2{% else %}0.169.0{% endif %} downloads the theme module, then builds and minifies the site
+- **Security Scan**: Scans the repository for misconfigurations and committed secrets
+- **Documentation Build**: Builds this documentation with `mkdocs build --strict`
+- **Deploy Stage**: Automatic deployment to GitHub Pages on main branch once GitHub Pages is enabled; until then the deploy job is skipped
 - **Preview**: Pull request builds for testing before merge
-- **Artifact Upload**: Build outputs preserved for deployment
 
 ### Pipeline Workflow
 
@@ -178,13 +167,13 @@ push: Push to Main {
 checkout: Checkout {
   style.fill: "#F5F5F5"
   style.stroke: "#616161"
-  label: "Clone Repo\nFetch Submodules"
+  label: "Clone Repo\nSetup Go"
 }
 
 setup: Setup Hugo {
   style.fill: "#FFF3E0"
   style.stroke: "#FF9800"
-  label: "Hugo Extended\nLatest Version"
+  label: "Hugo Extended\nPinned Version"
 }
 
 build: Build {
@@ -230,7 +219,7 @@ check -> deploy: Yes
 
 ### 1. Hugo Installation
 
-Hugo Extended is required for SCSS/SASS processing and advanced features.
+Hugo Extended is required for SCSS/SASS processing and advanced features. The pipeline builds with Hugo {% if values.hugoTheme == 'minimal' %}0.128.2{% else %}0.169.0{% endif %}; use the same version locally.
 
 #### macOS
 
@@ -249,8 +238,8 @@ hugo version
 sudo snap install hugo --channel=extended
 
 # Or download from GitHub releases
-wget https://github.com/gohugoio/hugo/releases/download/v0.120.0/hugo_extended_0.120.0_linux-amd64.deb
-sudo dpkg -i hugo_extended_0.120.0_linux-amd64.deb
+wget https://github.com/gohugoio/hugo/releases/download/v{% if values.hugoTheme == 'minimal' %}0.128.2{% else %}0.169.0{% endif %}/hugo_extended_{% if values.hugoTheme == 'minimal' %}0.128.2{% else %}0.169.0{% endif %}_linux-amd64.deb
+sudo dpkg -i hugo_extended_{% if values.hugoTheme == 'minimal' %}0.128.2{% else %}0.169.0{% endif %}_linux-amd64.deb
 ```
 
 #### Windows
@@ -265,21 +254,20 @@ scoop install hugo-extended
 
 ### 2. Git
 
-Git is required for cloning the repository and managing theme submodules.
+Git is required for cloning the repository.
 
 ```bash
 # Verify Git installation
 git --version
 ```
 
-### 3. Node.js (Optional)
+### 3. Go
 
-Required only if using themes with npm dependencies or build tools.
+The theme is a [Hugo Module](https://gohugo.io/hugo-modules/), which Hugo downloads with the Go toolchain on the first build.
 
 ```bash
-# Check Node.js version (v18+ recommended)
-node --version
-npm --version
+# Check Go version (1.21+)
+go version
 ```
 
 ### 4. GitHub Repository Setup
@@ -291,14 +279,9 @@ npm --version
    - **Source**: GitHub Actions
 3. Save changes
 
-#### Repository Permissions
+GitHub Pages is off for a new repository. The pipeline detects this and skips the deploy job instead of failing, so the build still passes before Pages is enabled. After enabling Pages, run the **Hugo CI/CD** workflow from the **Actions** tab or push to `main`.
 
-Ensure GitHub Actions has write permissions:
-
-1. Go to **Settings > Actions > General**
-2. Under **Workflow permissions**, select:
-   - **Read and write permissions**
-3. Check **Allow GitHub Actions to create and approve pull requests** (optional)
+The deployed site is built for the address GitHub Pages serves it from, which overrides `baseURL` in `hugo.toml`.
 
 ---
 
@@ -307,14 +290,11 @@ Ensure GitHub Actions has write permissions:
 ### Local Development
 
 ```bash
-# Clone the repository with submodules
-git clone --recurse-submodules https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}.git
+# Clone the repository
+git clone https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}.git
 cd ${{ values.destination.repo }}
 
-# If you already cloned without submodules
-git submodule update --init --recursive
-
-# Start the development server
+# Start the development server (downloads the theme module on first run)
 hugo server -D
 
 # Site will be available at http://localhost:1313
@@ -372,7 +352,7 @@ gh-pages -d public
 hugo new about/index.md
 
 # Create a new blog post
-hugo new posts/my-first-post.md
+hugo new content posts/my-first-post.md
 
 # Create content in a specific section
 hugo new products/product-name.md
@@ -467,13 +447,16 @@ func main() {
 
 ### Configuration Options
 
-Edit `config.toml` to customize the site:
+Edit `hugo.toml` to customize the site:
 
 ```toml
 baseURL = "${{ values.baseUrl }}"
 languageCode = "en-us"
 title = "${{ values.name }}"
-theme = "${{ values.hugoTheme }}"
+
+[module]
+  [[module.imports]]
+    path = "{% if values.hugoTheme == 'ananke' %}github.com/gohugo-ananke/ananke/v2{% elif values.hugoTheme == 'papermod' %}github.com/adityatelange/hugo-PaperMod{% elif values.hugoTheme == 'terminal' %}github.com/panr/hugo-theme-terminal/v4{% else %}github.com/calintat/minimal{% endif %}"
 
 [params]
   description = "${{ values.description }}"
@@ -549,7 +532,7 @@ layouts/
 
 ### Menu Configuration
 
-Configure navigation menus in `config.toml`:
+Configure navigation menus in `hugo.toml`:
 
 ```toml
 [menu]
@@ -591,20 +574,25 @@ Configure navigation menus in `config.toml`:
 
 ### Build Errors
 
-**Error: Theme not found**
+**Error: Theme module not found**
 
 ```
-Error: module "themes/${{ values.hugoTheme }}" not found
+Error: failed to load modules: module "{% if values.hugoTheme == 'ananke' %}github.com/gohugo-ananke/ananke/v2{% elif values.hugoTheme == 'papermod' %}github.com/adityatelange/hugo-PaperMod{% elif values.hugoTheme == 'terminal' %}github.com/panr/hugo-theme-terminal/v4{% else %}github.com/calintat/minimal{% endif %}" not found
 ```
 
 **Resolution:**
 
-```bash
-# Initialize/update git submodules
-git submodule update --init --recursive
+The `${{ values.hugoTheme }}` theme is the Hugo Module `{% if values.hugoTheme == 'ananke' %}github.com/gohugo-ananke/ananke/v2{% elif values.hugoTheme == 'papermod' %}github.com/adityatelange/hugo-PaperMod{% elif values.hugoTheme == 'terminal' %}github.com/panr/hugo-theme-terminal/v4{% else %}github.com/calintat/minimal{% endif %}`, pinned in `go.mod`. Hugo needs Go and network access to download it:
 
-# Or add theme manually
-git submodule add https://github.com/theme-author/${{ values.hugoTheme }}.git themes/${{ values.hugoTheme }}
+```bash
+# Check that Go is installed
+go version
+
+# Download the modules listed in go.mod
+hugo mod get
+
+# Update the theme to its latest version
+hugo mod get -u
 ```
 
 ---
@@ -622,7 +610,7 @@ Ensure you have Hugo Extended installed:
 ```bash
 # Check Hugo version (should show "extended")
 hugo version
-# hugo v0.120.0+extended linux/amd64 ...
+# hugo v{% if values.hugoTheme == 'minimal' %}0.128.2{% else %}0.169.0{% endif %}+extended linux/amd64 ...
 
 # If not extended, reinstall
 brew install hugo  # macOS
@@ -680,7 +668,7 @@ hugo server --disableFastRender
 
 **Resolution:**
 
-1. Verify `baseURL` in `config.toml` matches your GitHub Pages URL
+1. Verify `baseURL` in `hugo.toml` matches your site URL (GitHub Pages deployments use the Pages address automatically)
 2. Check that paths use relative URLs or correct base path
 3. Ensure `public/` directory was uploaded correctly
 
@@ -726,14 +714,14 @@ draft: false  # Changed from true
 
 ## Related Templates
 
-| Template                                                              | Description                          |
-| --------------------------------------------------------------------- | ------------------------------------ |
-| [react-spa](/docs/default/template/react-spa)                         | React Single Page Application        |
-| [nextjs-website](/docs/default/template/nextjs-website)               | Next.js website with SSR/SSG         |
-| [gatsby-blog](/docs/default/template/gatsby-blog)                     | Gatsby static blog                   |
-| [jekyll-docs](/docs/default/template/jekyll-docs)                     | Jekyll documentation site            |
-| [aws-cloudfront-s3](/docs/default/template/aws-cloudfront-s3)         | S3 + CloudFront static hosting       |
-| [azure-static-web-app](/docs/default/template/azure-static-web-app)   | Azure Static Web Apps                |
+These templates are available from the portal's Create page:
+
+| Template | Description |
+| --- | --- |
+| `landing-page-template` | Marketing landing page in plain HTML, CSS and JavaScript |
+| `app-nextjs` | Next.js application |
+| `aws-cloudfront-distribution` | AWS CloudFront distribution for static hosting |
+| `azure-static-web-app` | Azure Static Web Apps |
 
 ---
 
@@ -741,7 +729,7 @@ draft: false  # Changed from true
 
 - [Hugo Documentation](https://gohugo.io/documentation/)
 - [Hugo Themes](https://themes.gohugo.io/)
-- [${{ values.hugoTheme }} Theme Documentation](https://themes.gohugo.io/themes/${{ values.hugoTheme }}/)
+- [${{ values.hugoTheme }} Theme Source]({% if values.hugoTheme == 'ananke' %}https://github.com/theNewDynamic/gohugo-theme-ananke{% elif values.hugoTheme == 'papermod' %}https://github.com/adityatelange/hugo-PaperMod{% elif values.hugoTheme == 'terminal' %}https://github.com/panr/hugo-theme-terminal{% else %}https://github.com/calintat/minimal{% endif %})
 - [GitHub Pages Documentation](https://docs.github.com/en/pages)
 - [GitHub Actions for Hugo](https://github.com/peaceiris/actions-hugo)
 - [Backstage TechDocs](https://backstage.io/docs/features/techdocs/)

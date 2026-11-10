@@ -1,0 +1,16 @@
+{
+  "values": {
+    "name": "sample-monitoring",
+    "description": "Monitoring stack for the payments platform",
+    "owner": "group:default/platform-team",
+    "targetType": "application",
+    "prometheusUrl": "http://prometheus:9090",
+    "grafanaUrl": "http://grafana:3000",
+    "alertmanagerUrl": "http://alertmanager:9093",
+    "slackWebhook": "",
+    "pagerdutyKey": "",
+    "criticalThreshold": 90,
+    "warningThreshold": 75,
+    "repoUrl": "github.com?owner=example-org&repo=sample-monitoring"
+  }
+}

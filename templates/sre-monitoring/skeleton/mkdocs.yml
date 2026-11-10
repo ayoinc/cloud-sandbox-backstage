@@ -1,5 +1,5 @@
-site_name: ${{ values.name }}
-site_description: ${{ values.description }}
+site_name: ${{ values.name | dump }}
+site_description: ${{ values.description | dump }}
 
 nav:
   - Home: index.md
@@ -9,6 +9,7 @@ nav:
 
 plugins:
   - techdocs-core
+  - d2
 
 markdown_extensions:
   - admonition
@@ -17,3 +18,9 @@ markdown_extensions:
   - pymdownx.tabbed:
       alternate_style: true
   - tables
+
+validation:
+  links:
+    not_found: warn
+    anchors: warn
+    unrecognized_links: warn

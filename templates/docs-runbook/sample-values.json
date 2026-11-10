@@ -1,0 +1,12 @@
+{
+  "values": {
+    "name": "sample-runbooks",
+    "description": "Operational runbooks for the payments API",
+    "owner": "group:default/platform-team",
+    "serviceName": "payments-api",
+    "environment": ["production", "staging"],
+    "oncallTool": "pagerduty",
+    "includeTemplates": true,
+    "repoUrl": "github.com?owner=example-org&repo=sample-runbooks"
+  }
+}

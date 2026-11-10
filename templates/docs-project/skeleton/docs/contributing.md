@@ -4,7 +4,7 @@ Thank you for your interest in contributing to ${{ values.name }}!
 
 ## Code of Conduct
 
-Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md).
+Be respectful and constructive in issues, reviews and discussions. Contributions are reviewed by ${{ values.owner }}.
 
 ## How to Contribute
 
@@ -22,9 +22,11 @@ Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md).
 
 1. Fork the repository
 2. Create a feature branch:
+
    ```bash
    git checkout -b feature/my-feature
    ```
+
 3. Make your changes
 4. Write/update tests
 5. Update documentation
@@ -68,7 +70,7 @@ npm run dev
 
 Follow conventional commits:
 
-```
+```text
 type(scope): description
 
 [optional body]

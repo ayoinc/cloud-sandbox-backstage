@@ -18,6 +18,7 @@ spec:
     - title: Project Information
       required:
         - name
+        - description
         - owner
       properties:
         name:
@@ -54,17 +55,17 @@ spec:
         includeApiDocs:
           title: Include API Documentation
           type: boolean
-          description: Add OpenAPI/Swagger documentation section
+          description: Add an API reference page and an OpenAPI specification
           default: false
         includeChangelog:
           title: Include Changelog
           type: boolean
-          description: Add changelog tracking
+          description: Add a changelog page in Keep a Changelog format
           default: true
         theme:
           title: Theme
           type: string
-          description: MkDocs theme
+          description: MkDocs theme of the standalone site (TechDocs always uses its own theme)
           enum:
             - material
             - readthedocs
@@ -96,6 +97,24 @@ spec:
           includeApiDocs: ${{ parameters.includeApiDocs }}
           includeChangelog: ${{ parameters.includeChangelog }}
           theme: ${{ parameters.theme }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: remove-api-docs
+      name: Remove API Documentation
+      if: ${{ not parameters.includeApiDocs }}
+      action: fs:delete
+      input:
+        files:
+          - docs/api/index.md
+          - docs/api/openapi.yaml
+
+    - id: remove-changelog
+      name: Remove Changelog
+      if: ${{ not parameters.includeChangelog }}
+      action: fs:delete
+      input:
+        files:
+          - docs/changelog.md
 
     - id: publish
       name: Publish to GitHub

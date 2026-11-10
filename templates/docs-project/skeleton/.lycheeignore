@@ -1,0 +1,3 @@
+# Placeholder addresses used in examples; they are not meant to resolve.
+^https?://localhost
+^https?://([a-z0-9-]+\.)?example\.(com|org)

@@ -1,5 +1,5 @@
-site_name: ${{ values.name }}
-site_description: ${{ values.description }}
+site_name: ${{ values.name | dump }}
+site_description: ${{ values.description | dump }}
 
 nav:
   - Home: index.md
@@ -10,3 +10,9 @@ plugins:
   - techdocs-core
   - d2:
       theme: 4
+
+validation:
+  links:
+    not_found: warn
+    anchors: warn
+    unrecognized_links: warn

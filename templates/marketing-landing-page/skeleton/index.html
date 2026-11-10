@@ -3,14 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="${{ values.description }}" />
-    <title>${{ values.companyName }} - ${{ values.tagline }}</title>
+    <meta name="description" content="${{ values.description | escape }}" />
+    <title>${{ values.companyName | escape }} - ${{ values.tagline | escape }}</title>
+    <link rel="icon" href="images/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="css/style.css" />
   </head>
   <body>
     <header class="header">
       <nav class="nav container">
-        <a href="#" class="logo">${{ values.companyName }}</a>
+        <a href="#" class="logo">${{ values.companyName | escape }}</a>
         <ul class="nav-menu">
           <li><a href="#features">Features</a></li>
           <li><a href="#about">About</a></li>
@@ -28,8 +29,8 @@
     <main>
       <section class="hero">
         <div class="container">
-          <h1>${{ values.tagline }}</h1>
-          <p>${{ values.description }}</p>
+          <h1>${{ values.tagline | escape }}</h1>
+          <p>${{ values.description | escape }}</p>
           <div class="hero-buttons">
             <a href="#cta" class="btn btn-primary btn-large">Get Started</a>
             <a href="#features" class="btn btn-secondary btn-large"
@@ -45,7 +46,7 @@
           <div class="features-grid">
             <div class="feature-card">
               <div class="feature-icon">1</div>
-              <h3>Fast & Reliable</h3>
+              <h3>Fast &amp; Reliable</h3>
               <p>
                 Built for speed and reliability, ensuring your business runs
                 smoothly.
@@ -98,7 +99,7 @@
 
     <footer class="footer">
       <div class="container">
-        <p>&copy; 2024 ${{ values.companyName }}. All rights reserved.</p>
+        <p>&copy; ${{ values.companyName | escape }}. All rights reserved.</p>
       </div>
     </footer>
 

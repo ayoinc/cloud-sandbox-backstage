@@ -1,8 +1,6 @@
 # Docker Compose for local monitoring stack development
 # Generated for: ${{ values.name }}
 
-version: '3.8'
-
 services:
   prometheus:
     image: prom/prometheus:v2.48.0
@@ -45,7 +43,7 @@ services:
       - "3000:3000"
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./dashboards:/etc/grafana/provisioning/dashboards/files:ro
+      - ./dashboards:/etc/dashboards:ro
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
     environment:
       - GF_SECURITY_ADMIN_USER=admin

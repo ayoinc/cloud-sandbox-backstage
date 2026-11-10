@@ -33,7 +33,7 @@ Description of the second core feature.
 
 Description of the third core feature.
 
-## Advanced Features {#advanced}
+## Advanced Features
 
 ### Advanced Feature 1
 

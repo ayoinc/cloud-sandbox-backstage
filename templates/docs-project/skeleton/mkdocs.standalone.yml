@@ -1,0 +1,8 @@
+# Builds the same pages as a standalone site with the theme set in mkdocs.yml,
+# for hosting outside Backstage. The techdocs-core plugin is left out because
+# it replaces the theme with the TechDocs one.
+INHERIT: mkdocs.yml
+
+plugins:
+  - search
+  - d2

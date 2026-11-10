@@ -62,11 +62,11 @@ Configuration can also be set via environment variables:
 | `logging.level`  | string | `info`  | Log level     |
 | `logging.format` | string | `json`  | Output format |
 
-## Troubleshooting {#troubleshooting}
+## Troubleshooting
 
 ### Common Configuration Issues
 
-**Issue: Configuration file not found**
+#### Issue: Configuration file not found
 
 ```bash
 Error: Could not find config.yaml
@@ -78,7 +78,7 @@ Solution: Create a config file or specify the path:
 <command> --config /path/to/config.yaml
 ```
 
-**Issue: Invalid configuration value**
+#### Issue: Invalid configuration value
 
 ```bash
 Error: Invalid value for 'server.port'

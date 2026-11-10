@@ -1,0 +1,4 @@
+# Assembled site, MkDocs build output and the D2 plugin cache
+_site/
+site/
+.cache/

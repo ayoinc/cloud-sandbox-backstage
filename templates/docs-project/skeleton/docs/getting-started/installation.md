@@ -58,7 +58,7 @@ Verify the installation was successful:
 
 ### Common Issues
 
-**Issue: Installation fails with permission error**
+#### Issue: Installation fails with permission error
 
 Solution:
 
@@ -66,7 +66,7 @@ Solution:
 sudo chown -R $(whoami) ~/.npm
 ```
 
-**Issue: Missing dependencies**
+#### Issue: Missing dependencies
 
 Solution:
 

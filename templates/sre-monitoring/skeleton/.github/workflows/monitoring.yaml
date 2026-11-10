@@ -5,38 +5,31 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
-  security-events: write
 
 env:
-  PROMETHEUS_VERSION: '2.48.0'
+  D2_VERSION: '0.9.0'
 
 jobs:
   security:
     name: Security Scan
     runs-on: ubuntu-latest
-    continue-on-error: true
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Run Trivy config scanner
-        uses: aquasecurity/trivy-action@0.28.0
+      - name: Scan for misconfigurations and committed secrets
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
-          scan-type: 'config'
-          scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-          severity: 'CRITICAL,HIGH,MEDIUM'
-
-      - name: Upload Trivy SARIF to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: trivy-results.sarif
-          category: trivy
+          scan-type: fs
+          scan-ref: .
+          scanners: misconfig,secret
+          severity: CRITICAL,HIGH
+          exit-code: '1'
 
   validate:
     name: Validate Configuration
@@ -45,34 +38,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download promtool
-        run: |
-          wget -q https://github.com/prometheus/prometheus/releases/download/v${{ env.PROMETHEUS_VERSION }}/prometheus-${{ env.PROMETHEUS_VERSION }}.linux-amd64.tar.gz
-          tar xzf prometheus-${{ env.PROMETHEUS_VERSION }}.linux-amd64.tar.gz
-          sudo mv prometheus-${{ env.PROMETHEUS_VERSION }}.linux-amd64/promtool /usr/local/bin/
-
-      - name: Validate Prometheus rules
-        run: |
-          for file in alerts/*.yaml alerts/*.yml; do
-            if [ -f "$file" ]; then
-              echo "Validating: $file"
-              promtool check rules "$file"
-            fi
-          done
-
-      - name: Validate Prometheus config
-        run: |
-          if [ -f "prometheus.yml" ]; then
-            promtool check config prometheus.yml
-          fi
-
-      - name: Validate Alertmanager config
-        run: |
-          wget -q https://github.com/prometheus/alertmanager/releases/download/v0.26.0/alertmanager-0.26.0.linux-amd64.tar.gz
-          tar xzf alertmanager-0.26.0.linux-amd64.tar.gz
-          if [ -f "alertmanager.yml" ]; then
-            ./alertmanager-0.26.0.linux-amd64/amtool check-config alertmanager.yml
-          fi
+      - name: Validate Compose file, Prometheus and Alertmanager configuration
+        run: bash scripts/validate-config.sh
 
   lint-dashboards:
     name: Lint Grafana Dashboards
@@ -81,30 +48,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Validate JSON syntax
-        run: |
-          for file in dashboards/*.json; do
-            if [ -f "$file" ]; then
-              echo "Validating JSON: $file"
-              python3 -m json.tool "$file" > /dev/null
-            fi
-          done
-
-      - name: Check dashboard structure
-        run: |
-          for file in dashboards/*.json; do
-            if [ -f "$file" ]; then
-              echo "Checking dashboard structure: $file"
-              # Check for required fields
-              jq -e '.title' "$file" > /dev/null || (echo "Missing title in $file" && exit 1)
-              jq -e '.panels' "$file" > /dev/null || (echo "Missing panels in $file" && exit 1)
-            fi
-          done
+      - name: Validate dashboard JSON and structure
+        run: bash scripts/validate-dashboards.sh
 
   test-stack:
     name: Test Monitoring Stack
@@ -115,69 +60,88 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Start monitoring stack
-        run: |
-          docker-compose up -d
-          sleep 30
+        run: docker compose up -d
 
-      - name: Check Prometheus health
-        run: |
-          curl -sf http://localhost:9090/-/healthy || exit 1
-          echo "Prometheus is healthy"
+      - name: Check services, rules, data sources and dashboards
+        run: bash scripts/smoke-test.sh
 
-      - name: Check Alertmanager health
+      # Runs the import that the deploy job performs, against the local Grafana.
+      - name: Import dashboards through the Grafana API
         run: |
-          curl -sf http://localhost:9093/-/healthy || exit 1
-          echo "Alertmanager is healthy"
+          service_account="$(curl -sf -u admin:admin -H 'Content-Type: application/json' \
+            -d '{"name": "ci-import", "role": "Admin"}' http://localhost:3000/api/serviceaccounts | jq -r '.id')"
+          GRAFANA_API_KEY="$(curl -sf -u admin:admin -H 'Content-Type: application/json' \
+            -d '{"name": "ci-import"}' "http://localhost:3000/api/serviceaccounts/$service_account/tokens" | jq -r '.key')"
+          echo "::add-mask::$GRAFANA_API_KEY"
+          export GRAFANA_API_KEY
+          GRAFANA_URL=http://localhost:3000 bash scripts/import-dashboards.sh
 
-      - name: Check Grafana health
-        run: |
-          curl -sf http://localhost:3000/api/health || exit 1
-          echo "Grafana is healthy"
-
-      - name: Verify rules loaded
-        run: |
-          rules=$(curl -s http://localhost:9090/api/v1/rules | jq '.data.groups | length')
-          if [ "$rules" -eq 0 ]; then
-            echo "Warning: No alert rules loaded"
-          else
-            echo "Loaded $rules rule groups"
-          fi
+      - name: Show service logs
+        if: failure()
+        run: docker compose logs --tail 100
 
       - name: Cleanup
         if: always()
-        run: docker-compose down -v
+        run: docker compose down -v
+
+  docs:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install MkDocs with the TechDocs and D2 plugins
+        run: pip install mkdocs-techdocs-core==1.7.1 mkdocs-d2-plugin==1.7.0
+
+      - name: Install D2
+        run: |
+          curl -fsSL "https://github.com/terrastruct/d2/releases/download/v${D2_VERSION}/d2-v${D2_VERSION}-linux-amd64.tar.gz" | tar -xz -C "$RUNNER_TEMP"
+          sudo install "$RUNNER_TEMP/d2-v${D2_VERSION}/bin/d2" /usr/local/bin/d2
+
+      - name: Build documentation
+        run: mkdocs build --strict
+
+  deploy-config:
+    name: Check Deployment Configuration
+    # Dashboards are deployed to the Grafana instance named by the GRAFANA_URL
+    # and GRAFANA_API_KEY repository secrets. Without them the deploy job is
+    # skipped.
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      grafana: {% raw %}${{ steps.check.outputs.grafana }}{% endraw %}
+    steps:
+      - name: Check for Grafana credentials
+        id: check
+        env:
+          GRAFANA_URL: {% raw %}${{ secrets.GRAFANA_URL }}{% endraw %}
+          GRAFANA_API_KEY: {% raw %}${{ secrets.GRAFANA_API_KEY }}{% endraw %}
+        run: |
+          if [ -n "$GRAFANA_URL" ] && [ -n "$GRAFANA_API_KEY" ]; then
+            echo "grafana=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "grafana=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::The GRAFANA_URL and GRAFANA_API_KEY secrets are not set, so dashboards are not deployed."
+          fi
 
   deploy:
-    name: Deploy Monitoring
+    name: Deploy Dashboards
     runs-on: ubuntu-latest
-    needs: [test-stack]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [test-stack, deploy-config]
+    if: needs.deploy-config.outputs.grafana == 'true'
     environment: production
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure kubectl
-        run: |
-          echo "Configure kubectl for your cluster"
-          # Example:
-          # echo "${{ secrets.KUBECONFIG }}" | base64 -d > kubeconfig
-          # export KUBECONFIG=kubeconfig
-
-      - name: Apply Prometheus rules
-        run: |
-          echo "Applying Prometheus rules to cluster..."
-          # Example for Prometheus Operator:
-          # kubectl apply -f alerts/
-
       - name: Import Grafana dashboards
         env:
-          GRAFANA_API_KEY: ${{ secrets.GRAFANA_API_KEY }}
-          GRAFANA_URL: ${{ secrets.GRAFANA_URL }}
-        run: |
-          if [ -n "$GRAFANA_API_KEY" ] && [ -n "$GRAFANA_URL" ]; then
-            chmod +x scripts/import-dashboards.sh
-            ./scripts/import-dashboards.sh
-          else
-            echo "Skipping dashboard import - credentials not configured"
-          fi
+          GRAFANA_URL: {% raw %}${{ secrets.GRAFANA_URL }}{% endraw %}
+          GRAFANA_API_KEY: {% raw %}${{ secrets.GRAFANA_API_KEY }}{% endraw %}
+        run: bash scripts/import-dashboards.sh

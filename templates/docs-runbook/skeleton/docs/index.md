@@ -82,7 +82,7 @@ runbook -> resolution: "Resolves"
 | Service Name | `${{ values.serviceName }}` |
 | Owner | `${{ values.owner }}` |
 | On-Call Tool | `${{ values.oncallTool }}` |
-| Environments | {% for env in values.environment %}{{ env }}{% if not loop.last %}, {% endif %}{% endfor %} |
+| Environments | {% for env in values.environment %}${{ env }}{% if not loop.last %}, {% endif %}{% endfor %} |
 | Templates Included | `${{ values.includeTemplates }}` |
 
 ---
@@ -94,7 +94,9 @@ runbook -> resolution: "Resolves"
 | [Incidents](incidents/index.md) | Response procedures for common incidents | During active incidents |
 | [Procedures](procedures/index.md) | Standard operational procedures | Routine operations |
 | [On-Call Guide](getting-started/oncall-guide.md) | Guide for on-call engineers | Starting on-call rotation |
-| [Templates](templates/index.md) | Runbook templates | Creating new runbooks |
+{%- if values.includeTemplates %}
+| [Templates](runbook-templates.md) | Runbook templates | Creating new runbooks |
+{%- endif %}
 
 ---
 
@@ -175,17 +177,17 @@ service -> monitoring: "Observability"
 
 ### Environments
 
-{% for env in values.environment %}
-#### {{ env | capitalize }}
+{% for env in values.environment -%}
+#### ${{ env | capitalize }}
 
 | Property | Value |
 | --- | --- |
-| Environment | `{{ env }}` |
-| Namespace | `${{ values.serviceName }}-{{ env }}` |
+| Environment | `${{ env }}` |
+| Namespace | `${{ values.serviceName }}-${{ env }}` |
 | Replicas | {% if env == "production" %}3{% elif env == "staging" %}2{% else %}1{% endif %} |
-| Dashboard | [Grafana](https://grafana.example.com/d/${{ values.serviceName }}-{{ env }}) |
+| Dashboard | [Grafana](https://grafana.example.com/d/${{ values.serviceName }}-${{ env }}) |
 
-{% endfor %}
+{% endfor -%}
 
 ---
 
@@ -203,7 +205,7 @@ service -> monitoring: "Observability"
 
 Access the current on-call schedule:
 
-{% if values.oncallTool == "pagerduty" %}
+{% if values.oncallTool == "pagerduty" -%}
 ```bash
 # View current on-call
 curl -H "Authorization: Token token=YOUR_API_KEY" \
@@ -211,7 +213,7 @@ curl -H "Authorization: Token token=YOUR_API_KEY" \
 
 # Or visit: https://yourcompany.pagerduty.com/schedules
 ```
-{% elif values.oncallTool == "opsgenie" %}
+{%- elif values.oncallTool == "opsgenie" -%}
 ```bash
 # View current on-call
 curl -H "Authorization: GenieKey YOUR_API_KEY" \
@@ -219,14 +221,14 @@ curl -H "Authorization: GenieKey YOUR_API_KEY" \
 
 # Or visit: https://yourcompany.app.opsgenie.com/teams
 ```
-{% elif values.oncallTool == "victorops" %}
+{%- elif values.oncallTool == "victorops" -%}
 ```bash
 # View current on-call in VictorOps dashboard
 # https://portal.victorops.com/
 ```
-{% else %}
+{%- else -%}
 Contact the team lead directly or check the team calendar.
-{% endif %}
+{%- endif %}
 
 ---
 
@@ -704,24 +706,25 @@ To add or update a runbook:
 1. **Create the file** in the appropriate directory:
    - Incident runbook: `docs/incidents/`
    - Procedure: `docs/procedures/`
-   - Template: `docs/templates/`
 
-2. **Use the template** from `docs/templates/`
+2. **Use the template**{% if values.includeTemplates %} from the [Templates](runbook-templates.md) page{% else %} of an existing runbook in the same directory{% endif %}
 
-3. **Required sections** for incident runbooks:
+3. **Required sections** for incident runbooks, checked by `scripts/validate-runbooks.sh`:
    - Summary
    - Symptoms
    - Impact
-   - Immediate Actions
    - Investigation Steps
    - Resolution Steps
    - Verification
-   - Communication
    - Escalation
 
-4. **Test all commands** before submitting
+4. **List the runbook** in the `index.md` of its directory and in the `nav` of `mkdocs.yml`
 
-5. **Submit a pull request** for review
+5. **Test all commands** before submitting
+
+6. **Run the checks** with `bash scripts/validate-runbooks.sh` and `mkdocs build --strict`
+
+7. **Submit a pull request** for review
 
 ### Runbook Quality Checklist
 
@@ -739,9 +742,9 @@ To add or update a runbook:
 
 | Template | Description |
 | --- | --- |
-| [docs-adr](/docs/default/template/docs-adr) | Architecture Decision Records |
-| [docs-project](/docs/default/template/docs-project) | Project documentation |
-| [docs-d2-guide](/docs/default/template/docs-d2-guide) | D2 diagramming documentation |
+| `docs-adr` | Architecture Decision Records |
+| `docs-project` | Project documentation |
+| `docs-d2-guide` | D2 diagramming documentation |
 
 ---
 
@@ -751,13 +754,13 @@ To add or update a runbook:
 - [Incident Management Best Practices](https://response.pagerduty.com/)
 - [Postmortem Culture](https://sre.google/sre-book/postmortem-culture/)
 - [Backstage TechDocs](https://backstage.io/docs/features/techdocs/)
-{% if values.oncallTool == "pagerduty" %}
+{%- if values.oncallTool == "pagerduty" %}
 - [PagerDuty Documentation](https://support.pagerduty.com/)
-{% elif values.oncallTool == "opsgenie" %}
+{%- elif values.oncallTool == "opsgenie" %}
 - [OpsGenie Documentation](https://docs.opsgenie.com/)
-{% elif values.oncallTool == "victorops" %}
+{%- elif values.oncallTool == "victorops" %}
 - [VictorOps Documentation](https://help.victorops.com/)
-{% endif %}
+{%- endif %}
 
 ---
 
@@ -768,5 +771,4 @@ This documentation is maintained by ${{ values.owner }}.
 | Field | Value |
 | --- | --- |
 | Version | 1.0.0 |
-| Last Updated | {{ date }} |
 | Review Frequency | Monthly |

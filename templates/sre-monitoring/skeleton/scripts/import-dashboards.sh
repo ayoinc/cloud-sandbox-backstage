@@ -1,73 +1,76 @@
-#!/bin/bash
-# Import Grafana dashboards via API
-# Generated for: ${{ values.name }}
+#!/usr/bin/env bash
+# Imports every dashboard in dashboards/ into a Grafana folder through the
+# Grafana HTTP API, replacing earlier versions of the same dashboards.
+#
+#   GRAFANA_URL      Base URL of Grafana
+#   GRAFANA_API_KEY  Service account token allowed to edit dashboards
+#   DASHBOARD_DIR    Directory with dashboard JSON files (default: dashboards)
+set -euo pipefail
+shopt -s nullglob
 
-set -e
+cd "$(dirname "$0")/.."
 
 GRAFANA_URL="${GRAFANA_URL:-${{ values.grafanaUrl }}}"
+GRAFANA_URL="${GRAFANA_URL%/}"
 GRAFANA_API_KEY="${GRAFANA_API_KEY:-}"
-DASHBOARD_DIR="${DASHBOARD_DIR:-./dashboards}"
+DASHBOARD_DIR="${DASHBOARD_DIR:-dashboards}"
+FOLDER_UID="${{ values.name }}"
+FOLDER_TITLE="${{ values.name }}"
 
 if [ -z "$GRAFANA_API_KEY" ]; then
-    echo "Error: GRAFANA_API_KEY environment variable is required"
-    exit 1
+  echo "Error: GRAFANA_API_KEY environment variable is required" >&2
+  exit 1
 fi
+
+# grafana <method> <path> [json body]: prints the response body, then the
+# HTTP status on a line of its own.
+grafana() {
+  local method="$1" path="$2" body="${3:-}"
+  local args=(-sS -X "$method" -w '\n%{http_code}'
+    -H "Authorization: Bearer $GRAFANA_API_KEY"
+    -H "Content-Type: application/json")
+  if [ -n "$body" ]; then
+    args+=(--data-binary "$body")
+  fi
+  curl "${args[@]}" "$GRAFANA_URL$path"
+}
 
 echo "Importing dashboards to Grafana at $GRAFANA_URL"
 
-# Create or get folder ID
-FOLDER_NAME="${{ values.name }}"
-FOLDER_RESPONSE=$(curl -s -X POST \
-    -H "Authorization: Bearer $GRAFANA_API_KEY" \
-    -H "Content-Type: application/json" \
-    -d "{\"title\": \"$FOLDER_NAME\"}" \
-    "$GRAFANA_URL/api/folders" 2>/dev/null || true)
-
-FOLDER_ID=$(echo "$FOLDER_RESPONSE" | jq -r '.id // empty')
-
-if [ -z "$FOLDER_ID" ]; then
-    # Folder might already exist, try to get it
-    FOLDER_RESPONSE=$(curl -s \
-        -H "Authorization: Bearer $GRAFANA_API_KEY" \
-        "$GRAFANA_URL/api/folders")
-    FOLDER_ID=$(echo "$FOLDER_RESPONSE" | jq -r ".[] | select(.title==\"$FOLDER_NAME\") | .id")
+response="$(grafana GET "/api/folders/$FOLDER_UID")"
+status="${response##*$'\n'}"
+if [ "$status" = "404" ]; then
+  payload="$(jq -n --arg uid "$FOLDER_UID" --arg title "$FOLDER_TITLE" '{uid: $uid, title: $title}')"
+  response="$(grafana POST /api/folders "$payload")"
+  status="${response##*$'\n'}"
 fi
+if [ "$status" != "200" ]; then
+  echo "Error: could not find or create folder '$FOLDER_TITLE' (HTTP $status)" >&2
+  echo "${response%$'\n'*}" >&2
+  exit 1
+fi
+echo "Using folder: $FOLDER_TITLE"
 
-echo "Using folder ID: $FOLDER_ID"
-
-# Import each dashboard
+failures=0
+imported=0
 for dashboard_file in "$DASHBOARD_DIR"/*.json; do
-    if [ -f "$dashboard_file" ]; then
-        dashboard_name=$(basename "$dashboard_file" .json)
-        echo "Importing dashboard: $dashboard_name"
-        
-        # Prepare the import payload
-        dashboard_json=$(cat "$dashboard_file")
-        import_payload=$(jq -n \
-            --argjson dashboard "$dashboard_json" \
-            --argjson folderId "$FOLDER_ID" \
-            '{
-                dashboard: $dashboard,
-                folderId: $folderId,
-                overwrite: true,
-                message: "Imported via automation"
-            }')
-        
-        # Import the dashboard
-        response=$(curl -s -X POST \
-            -H "Authorization: Bearer $GRAFANA_API_KEY" \
-            -H "Content-Type: application/json" \
-            -d "$import_payload" \
-            "$GRAFANA_URL/api/dashboards/db")
-        
-        status=$(echo "$response" | jq -r '.status // "success"')
-        if [ "$status" = "success" ] || [ -z "$status" ]; then
-            echo "  Successfully imported: $dashboard_name"
-        else
-            echo "  Failed to import: $dashboard_name"
-            echo "  Response: $response"
-        fi
-    fi
+  dashboard_name="$(basename "$dashboard_file" .json)"
+  payload="$(jq -n --slurpfile dashboard "$dashboard_file" --arg folderUid "$FOLDER_UID" \
+    '{dashboard: ($dashboard[0] | .id = null), folderUid: $folderUid, overwrite: true, message: "Imported by scripts/import-dashboards.sh"}')"
+  response="$(grafana POST /api/dashboards/db "$payload")"
+  status="${response##*$'\n'}"
+  if [ "$status" = "200" ]; then
+    echo "  Imported: $dashboard_name"
+    imported=$((imported + 1))
+  else
+    echo "  Failed to import: $dashboard_name (HTTP $status)" >&2
+    echo "  ${response%$'\n'*}" >&2
+    failures=$((failures + 1))
+  fi
 done
 
-echo "Dashboard import complete!"
+if [ "$failures" -gt 0 ]; then
+  echo "$failures dashboard(s) could not be imported" >&2
+  exit 1
+fi
+echo "Imported $imported dashboard(s)"

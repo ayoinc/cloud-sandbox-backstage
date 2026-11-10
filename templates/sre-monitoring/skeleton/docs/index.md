@@ -231,7 +231,7 @@ This repository includes a comprehensive GitHub Actions pipeline that validates 
 | Validate           | PR, Push           | Prometheus rules and config validation         |
 | Lint Dashboards    | PR, Push           | JSON syntax and structure validation           |
 | Test Stack         | PR, Push           | Spin up full stack and health checks           |
-| Deploy             | Push to main       | Deploy rules and dashboards to production      |
+| Deploy             | Push to main       | Import dashboards into Grafana (needs secrets) |
 
 ### Pipeline Workflow
 
@@ -272,7 +272,7 @@ review: Review {
 deploy: Deploy {
   style.fill: "#FFCDD2"
   style.stroke: "#D32F2F"
-  label: "Apply rules\nImport dashboards"
+  label: "Import dashboards\ninto Grafana"
 }
 
 pr -> validate
@@ -350,15 +350,12 @@ kubectl config set-context --current --namespace=monitoring
 
 ### 5. GitHub Repository Secrets
 
-Configure these secrets in **Settings > Secrets and variables > Actions**:
+The pipeline validates and tests the stack without any secrets. To have it import the dashboards into your Grafana from `main`, configure these secrets in **Settings > Secrets and variables > Actions**; until both are set the deploy job is skipped:
 
-| Secret             | Description                                    | Required |
-| ------------------ | ---------------------------------------------- | -------- |
-| `KUBECONFIG`       | Base64-encoded kubeconfig for cluster access   | Yes      |
-| `GRAFANA_API_KEY`  | API key for Grafana dashboard provisioning     | Optional |
-| `GRAFANA_URL`      | Grafana instance URL for API access            | Optional |
-| `SLACK_WEBHOOK`    | Slack webhook URL for alert notifications      | Optional |
-| `PAGERDUTY_KEY`    | PagerDuty service key for escalations          | Optional |
+| Secret             | Description                                               |
+| ------------------ | --------------------------------------------------------- |
+| `GRAFANA_URL`      | Base URL of the Grafana instance                          |
+| `GRAFANA_API_KEY`  | Grafana service account token allowed to edit dashboards  |
 
 ### 6. Local Development Requirements
 
@@ -383,13 +380,13 @@ git clone <repository-url>
 cd ${{ values.name }}
 
 # Start the monitoring stack
-docker-compose up -d
+docker compose up -d
 
 # View logs
-docker-compose logs -f
+docker compose logs -f
 
 # Check service status
-docker-compose ps
+docker compose ps
 ```
 
 Access the services:
@@ -835,7 +832,7 @@ curl -s http://localhost:9090/api/v1/label/__name__/values | jq '. | length'
 
 ```bash
 # Check Grafana logs
-docker-compose logs grafana | tail -100
+docker compose logs grafana | tail -100
 
 # Verify datasource connectivity
 curl -u admin:admin http://localhost:3000/api/datasources
@@ -895,15 +892,15 @@ curl http://localhost:9093/api/v2/silences | jq '.[] | select(.status.state == "
 
 ```bash
 # Check all container statuses
-docker-compose ps
+docker compose ps
 
 # View specific service logs
-docker-compose logs prometheus
-docker-compose logs grafana
-docker-compose logs alertmanager
+docker compose logs prometheus
+docker compose logs grafana
+docker compose logs alertmanager
 
 # Restart specific service
-docker-compose restart prometheus
+docker compose restart prometheus
 ```
 
 ---
@@ -967,7 +964,9 @@ ${{ values.name }}/
 │           └── datasources.yaml # Datasource provisioning config
 ├── scripts/
 │   ├── import-dashboards.sh     # Dashboard import script
-│   └── validate-rules.sh        # Rule validation script
+│   ├── smoke-test.sh            # Checks a running stack
+│   ├── validate-config.sh       # Configuration and rule validation script
+│   └── validate-dashboards.sh   # Dashboard validation script
 ├── docs/
 │   ├── index.md                 # This documentation
 │   ├── alerts.md                # Alert documentation
@@ -984,15 +983,14 @@ ${{ values.name }}/
 
 ## Related Templates
 
-| Template                                                        | Description                                    |
-| --------------------------------------------------------------- | ---------------------------------------------- |
-| [aws-eks](/docs/default/template/aws-eks)                       | Amazon EKS Kubernetes cluster                  |
-| [gcp-gke](/docs/default/template/gcp-gke)                       | Google Kubernetes Engine cluster               |
-| [azure-aks](/docs/default/template/azure-aks)                   | Azure Kubernetes Service cluster               |
-| [sre-oncall](/docs/default/template/sre-oncall)                 | On-call rotation and escalation policies       |
-| [sre-slo](/docs/default/template/sre-slo)                       | SLO definitions and error budget tracking      |
-| [logging-stack](/docs/default/template/logging-stack)           | ELK/Loki logging infrastructure                |
-| [tracing-stack](/docs/default/template/tracing-stack)           | Jaeger/Tempo distributed tracing               |
+These templates are available from the portal's Create page:
+
+| Template | Description |
+| --- | --- |
+| `aws-eks-cluster` | Amazon EKS Kubernetes cluster |
+| `gcp-gke-cluster` | Google Kubernetes Engine cluster |
+| `azure-aks-cluster` | Azure Kubernetes Service cluster |
+| `docs-runbook` | Operational runbooks for incident response |
 
 ---
 

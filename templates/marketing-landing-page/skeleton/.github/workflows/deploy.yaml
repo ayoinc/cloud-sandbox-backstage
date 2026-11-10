@@ -5,81 +5,125 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
-  security-events: write
-  pages: write
-  id-token: write
+
+env:
+  D2_VERSION: '0.9.0'
+
+concurrency:
+  group: {% raw %}pages-${{ github.ref }}{% endraw %}
+  cancel-in-progress: false
 
 jobs:
   validate:
+    name: Validate HTML
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Validate HTML
+      - name: Assemble site
+        run: bash scripts/build-site.sh
+
+      - name: Validate HTML, CSS and links
         uses: anishathalye/proof-html@v2
         with:
-          directory: ./
+          directory: ./_site
 
   security:
     name: Security Scan
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Scan for misconfigurations and committed secrets
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
-          node-version: '20'
+          scan-type: fs
+          scan-ref: .
+          scanners: misconfig,secret
+          severity: CRITICAL,HIGH
+          exit-code: '1'
 
-      - name: Run npm audit (if package.json exists)
+  docs:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install MkDocs with the TechDocs and D2 plugins
+        run: pip install mkdocs-techdocs-core==1.7.1 mkdocs-d2-plugin==1.7.0
+
+      - name: Install D2
         run: |
-          if [ -f package.json ]; then
-            npm audit --audit-level=high || true
+          curl -fsSL "https://github.com/terrastruct/d2/releases/download/v${D2_VERSION}/d2-v${D2_VERSION}-linux-amd64.tar.gz" | tar -xz -C "$RUNNER_TEMP"
+          sudo install "$RUNNER_TEMP/d2-v${D2_VERSION}/bin/d2" /usr/local/bin/d2
+
+      - name: Build documentation
+        run: mkdocs build --strict
+
+  pages:
+    name: Check GitHub Pages
+    # Deployment needs GitHub Pages switched on with "GitHub Actions" as its
+    # source (Settings > Pages). Until then the deploy job is skipped.
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: read
+    outputs:
+      enabled: {% raw %}${{ steps.pages.outputs.enabled }}{% endraw %}
+    steps:
+      - name: Read the GitHub Pages configuration
+        id: pages
+        env:
+          GH_TOKEN: {% raw %}${{ github.token }}{% endraw %}
+          REPOSITORY: {% raw %}${{ github.repository }}{% endraw %}
+        run: |
+          build_type="$(gh api "repos/$REPOSITORY/pages" --jq '.build_type' 2>/dev/null || true)"
+          if [ "$build_type" = "workflow" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::GitHub Pages is not enabled with the GitHub Actions source, so the site is not deployed. Enable it under Settings > Pages and run this workflow again."
           fi
-        continue-on-error: true
-
-      - name: Run Trivy filesystem scanner
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-        continue-on-error: true
-
-      - name: Upload Trivy results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: 'trivy-results.sarif'
-          category: 'trivy'
-        continue-on-error: true
 
   deploy:
+    name: Deploy to GitHub Pages
     runs-on: ubuntu-latest
-    needs: [validate, security]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [validate, security, pages]
+    if: needs.pages.outputs.enabled == 'true'
     permissions:
       pages: write
       id-token: write
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: {% raw %}${{ steps.deployment.outputs.page_url }}{% endraw %}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Assemble site
+        run: bash scripts/build-site.sh
 
       - name: Setup Pages
-        uses: actions/configure-pages@v3
+        uses: actions/configure-pages@v6
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v2
+        uses: actions/upload-pages-artifact@v5
         with:
-          path: '.'
+          path: ./_site
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v2
+        uses: actions/deploy-pages@v5
