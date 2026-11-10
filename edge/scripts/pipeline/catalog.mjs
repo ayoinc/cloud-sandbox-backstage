@@ -11,6 +11,8 @@ const POLL_MS = 1000;
 const STABLE_POLLS = 5;
 const SETTLE_TIMEOUT_MS = 10 * 60_000;
 const PROGRESS_EVERY_MS = 10_000;
+// How long a file the catalog was asked to read again is given to arrive.
+const REREAD_TIMEOUT_MS = 30_000;
 
 /** The Location entity the catalog creates for a configured location. */
 const locationEntityRef = ({ type, target }) =>
@@ -122,6 +124,33 @@ export async function waitForCatalog(dataDir, locations) {
           `  catalog: ${state.entities} of ${state.discovered} entities ready, ${unread.length} locations still to read`,
         );
       }
+      await sleep(POLL_MS);
+    }
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * Waits until none of the entities has a processing error any more, or until
+ * it is clear the errors are staying. Call it after asking the catalog to
+ * refresh them; `waitForCatalog` then covers whatever they bring in.
+ */
+export async function waitForReread(dataDir, entityRefs) {
+  const db = openCatalog(dataDir);
+  try {
+    const stillFailing = db
+      .prepare(
+        `SELECT COUNT(*) FROM refresh_state
+          WHERE errors IS NOT NULL AND errors NOT IN ('', '[]')
+            AND entity_ref IN (SELECT value FROM json_each(?))`,
+      )
+      .pluck();
+    const deadline = Date.now() + REREAD_TIMEOUT_MS;
+    while (
+      stillFailing.get(JSON.stringify(entityRefs)) > 0 &&
+      Date.now() < deadline
+    ) {
       await sleep(POLL_MS);
     }
   } finally {

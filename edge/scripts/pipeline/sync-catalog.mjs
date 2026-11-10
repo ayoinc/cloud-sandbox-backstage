@@ -26,6 +26,7 @@ import {
   readCatalog,
   readProcessingErrors,
   waitForCatalog,
+  waitForReread,
 } from './catalog.mjs';
 import { portalRequest } from './portal.mjs';
 import { dataDirFor, readSettings } from './settings.mjs';
@@ -41,6 +42,7 @@ import {
 const MAX_ROWS_PER_REQUEST = 500;
 const MAX_ROW_BYTES_PER_REQUEST = 399_000;
 const PUSH_ATTEMPTS = 3;
+const REREAD_ATTEMPTS = 2;
 
 const seconds = ms => `${(ms / 1000).toFixed(1)} s`;
 
@@ -170,6 +172,34 @@ async function sync(portal, { github, githubToken }, dataDir) {
   let errors;
   try {
     settleMs = await waitForCatalog(dataDir, locations);
+    // Every file is fetched over the network, and now and then a connection
+    // drops. Ask for what failed again before calling the catalog broken. A
+    // file that is not there is not going to appear.
+    for (let attempt = 1; attempt <= REREAD_ATTEMPTS; attempt++) {
+      const { configured, registered: fromRegistered } = readProcessingErrors(
+        dataDir,
+        registered,
+      );
+      const failed = [...configured, ...fromRegistered]
+        .filter(
+          ({ messages }) => !messages.some(m => m.startsWith('NotFoundError')),
+        )
+        .map(({ entityRef }) => entityRef);
+      if (failed.length === 0) {
+        break;
+      }
+      console.log(
+        `Reading ${failed.length} entities again after an error (attempt ${attempt} of ${REREAD_ATTEMPTS})`,
+      );
+      for (const entityRef of failed) {
+        await backendRequest(backend, '/api/catalog/refresh', {
+          method: 'POST',
+          json: { entityRef },
+        });
+      }
+      await waitForReread(dataDir, failed);
+      settleMs += await waitForCatalog(dataDir, locations);
+    }
     actions = await backendRequest(backend, '/api/scaffolder/v2/actions');
     catalog = readCatalog(dataDir);
     errors = readProcessingErrors(dataDir, registered);
