@@ -311,9 +311,22 @@ Both workflows start the **pipeline backend**
 a Backstage backend with only the catalog, the scaffolder and its action
 modules. It reads the catalog rules and locations from `app-config.yaml`, so it
 processes the same entity files as the main backend. The scripts that drive it
-are in `edge/scripts/pipeline`, and they talk to the Worker only through its
-token-protected `/api/pipeline` endpoints. GitHub Actions holds no Cloudflare
-credentials.
+are in `edge/scripts/pipeline`, and they write to the portal only through the
+Worker's token-protected `/api/pipeline` endpoints.
+
+For the deployed portal those endpoints are not called over the internet:
+Cloudflare answers a GitHub Actions runner at the portal's public address with
+a challenge page. The scripts start the same Worker on the runner with
+`wrangler dev` (`edge/wrangler.pipeline.jsonc`), with its database and bucket
+bindings marked `remote`, so the code runs on the runner and the data is the
+deployed data, reached through Cloudflare's API. The token that local Worker
+accepts is made for each run.
+
+The repository is public, so the workflows are closed to it: none starts on a
+pull request, an issue or a comment, and every job checks that the run was
+started by the repository owner. Keep both when adding a workflow. In the
+repository settings, Actions > General > "Approval for running fork pull
+request workflows" is set to require approval for all external contributors.
 
 **`portal-sync.yml`** runs on a push to the default branch that changes the
 catalog, the templates or the pipeline itself, and on demand. It
@@ -340,11 +353,11 @@ the new component and its documentation appear.
 
 Set these in the GitHub repository (Settings > Secrets and variables > Actions):
 
-| Name                    | Kind     | Value                                                                                                                                 |
-| ----------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `PORTAL_URL`            | Variable | Address of the portal, e.g. `https://portal.example.com`                                                                              |
-| `PORTAL_PIPELINE_TOKEN` | Secret   | The same value as the Worker's `PIPELINE_TOKEN` secret                                                                                |
-| `PORTAL_GITHUB_TOKEN`   | Secret   | A GitHub token that can read this repository, and create repositories and push workflow files for the owners the templates publish to |
+| Name                    | Kind   | Value                                                                                                                                 |
+| ----------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN`  | Secret | A Cloudflare API token for the portal's account with Edit on D1, Workers R2 Storage and Workers Scripts                               |
+| `CLOUDFLARE_ACCOUNT_ID` | Secret | The id of that account (not confidential; a secret so that logs mask it)                                                              |
+| `PORTAL_GITHUB_TOKEN`   | Secret | A GitHub token that can read this repository, and create repositories and push workflow files for the owners the templates publish to |
 
 Each workflow stops at its first step with a clear message when one is missing.
 
@@ -383,9 +396,10 @@ Nobody outside those lists can sign in.
 
 Five more values are set once with `wrangler secret put <NAME>`:
 `SESSION_SECRET` (signs user tokens and session cookies), `GITHUB_CLIENT_SECRET`,
-`GOOGLE_CLIENT_SECRET`, `PIPELINE_TOKEN` (what the pipelines must present;
-generate it with `openssl rand -hex 32`) and `PORTAL_GITHUB_TOKEN` (starts the
-`portal-scaffold` workflow and reads workflow runs for the CI/CD tab).
+`GOOGLE_CLIENT_SECRET`, `PIPELINE_TOKEN` (guards `/api/pipeline` on the public
+address, which nothing needs to call: generate it with `openssl rand -hex 32`
+and keep no copy) and `PORTAL_GITHUB_TOKEN` (starts the `portal-scaffold`
+workflow and reads workflow runs for the CI/CD tab).
 `node scripts/create-github-app.mjs <portal URL>` creates the GitHub App and
 stores its secret; the Google client is created in the Google Cloud console
 with the redirect URI `<portal URL>/api/auth/google/handler/frame`.
@@ -414,6 +428,10 @@ PORTAL_URL=http://localhost:8787 yarn workspace @internal/edge catalog:sync
 # Check that the Worker answers catalog requests exactly like the backend
 yarn workspace @internal/edge verify
 ```
+
+To update the deployed portal from your machine instead, leave `PORTAL_URL`
+unset and set `CLOUDFLARE_API_TOKEN` (and `CLOUDFLARE_ACCOUNT_ID`), as the
+workflows do. `PORTAL_URL` wins when both are set.
 
 `catalog:sync` reads the entity files from the checkout; in GitHub Actions it
 reads them from the repository on GitHub instead, so that entities link to

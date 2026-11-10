@@ -129,14 +129,13 @@ export function backendLogTail(dataDir) {
   return readBackendLog(dataDir).trimEnd().split('\n').slice(-40).join('\n');
 }
 
-async function assertPortFree(port) {
+/** Fails when the port is taken; `variable` is what changes the port. */
+export async function assertPortFree(port, variable) {
   await new Promise((free, busy) => {
     const probe = createServer();
     probe.once('error', () =>
       busy(
-        new Error(
-          `Port ${port} is in use. Set PIPELINE_BACKEND_PORT to a free port.`,
-        ),
+        new Error(`Port ${port} is in use. Set ${variable} to a free port.`),
       ),
     );
     probe.listen(port, '127.0.0.1', () => probe.close(free));
@@ -154,7 +153,7 @@ async function assertPortFree(port) {
  */
 export async function startBackend({ dataDir, githubToken }) {
   const port = Number(process.env.PIPELINE_BACKEND_PORT || 7107);
-  await assertPortFree(port);
+  await assertPortFree(port, 'PIPELINE_BACKEND_PORT');
 
   const token = randomBytes(24).toString('base64url');
   const log = openSync(join(dataDir, BACKEND_LOG), 'w');

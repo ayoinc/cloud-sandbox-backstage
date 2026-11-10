@@ -6,7 +6,8 @@
 // Backstage catalog and scaffolder), waits for it to process every entity
 // file, builds the documentation with mkdocs, and pushes all of it to the
 // portal's /api/pipeline endpoints. The portal swaps the new catalog in with
-// one commit, so readers never see half of it.
+// one commit, so readers never see half of it. For the deployed portal those
+// endpoints are served by a Worker started on this machine: see bridge.mjs.
 //
 //   yarn workspace @internal/edge catalog:sync
 //
@@ -20,6 +21,7 @@ import {
   startBackend,
   writeRunConfig,
 } from './backend.mjs';
+import { connectPortal } from './bridge.mjs';
 import {
   readCatalog,
   readProcessingErrors,
@@ -139,16 +141,13 @@ const listErrors = failures =>
     )
     .join('\n');
 
-async function main() {
+async function sync(portal, { github, githubToken }, dataDir) {
   const started = Date.now();
-  const { portal, github, githubToken } = readSettings();
-  const dataDir = dataDirFor('pipeline');
   // In GitHub Actions these lines become annotations on the run.
   const warn = message =>
     console.warn(github ? `::warning::${message}` : `Warning: ${message}`);
 
-  console.log(`Syncing the catalog to ${portal.url}`);
-  await assertDocsToolchain();
+  console.log(`Syncing the catalog to ${portal.name}`);
   const { items: registered } = await portalRequest(
     portal,
     'GET',
@@ -311,7 +310,7 @@ async function main() {
     ['Total time', seconds(Date.now() - started)],
   ];
   console.log(
-    `\nSynced to ${portal.url}\n${summary
+    `\nSynced to ${portal.name}\n${summary
       .map(([label, value]) => `  ${label}: ${value}`)
       .join('\n')}`,
   );
@@ -340,7 +339,20 @@ async function main() {
   }
 }
 
-// Leave through process.exit so the handler that stops the backend runs.
+async function main() {
+  const settings = readSettings();
+  const dataDir = dataDirFor('pipeline');
+  await assertDocsToolchain();
+  const portal = await connectPortal(settings, dataDir);
+  try {
+    await sync(portal, settings, dataDir);
+  } finally {
+    await portal.stop();
+  }
+}
+
+// Leave through process.exit so the handlers that stop the backend and the
+// portal Worker run.
 process.once('SIGINT', () => process.exit(130));
 process.once('SIGTERM', () => process.exit(143));
 

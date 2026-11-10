@@ -20,6 +20,7 @@ import {
   writeRunConfig,
 } from './backend.mjs';
 import { readProcessingErrors, waitForCatalog } from './catalog.mjs';
+import { connectPortal } from './bridge.mjs';
 import { portalRequest } from './portal.mjs';
 import { dataDirFor, readSettings } from './settings.mjs';
 
@@ -27,15 +28,22 @@ import { dataDirFor, readSettings } from './settings.mjs';
 const MAX_EVENTS_PER_REQUEST = 500;
 const MAX_EVENT_BYTES_PER_REQUEST = 1_000_000;
 
-const { portal, github, githubToken, runUrl } = readSettings();
+const settings = readSettings();
+const { github, githubToken, runUrl } = settings;
 const dataDir = dataDirFor('pipeline-scaffold');
+// Set once the portal can be called: see connectPortal.
+let portal;
 const taskId = process.env.PORTAL_TASK_ID;
 const templateRef = process.env.PORTAL_TEMPLATE_REF;
 const createdBy = process.env.PORTAL_CREATED_BY;
 
 // Values that must never leave this machine, even if a template step or an
 // error message happens to contain one.
-const secrets = [portal.token, githubToken].filter(Boolean);
+const secrets = [
+  settings.portal?.token,
+  settings.cloudflare?.apiToken,
+  githubToken,
+].filter(Boolean);
 const redact = text =>
   secrets.reduce((result, secret) => result.replaceAll(secret, '***'), text);
 
@@ -187,6 +195,9 @@ async function run() {
   if (!taskId || !templateRef) {
     throw new Error('PORTAL_TASK_ID and PORTAL_TEMPLATE_REF must be set.');
   }
+  // Before anything that can fail: only then can the task be told why.
+  portal = await connectPortal(settings, dataDir);
+  secrets.push(portal.token);
   const values = taskValues();
 
   console.log(
@@ -292,14 +303,26 @@ async function run() {
   }
 }
 
+/** Stops the portal Worker, if this script started one, and ends. */
+async function leave(code) {
+  await portal?.stop();
+  process.exit(code);
+}
+
 async function fail(message, detail) {
   console.error(redact(`\nTemplate run failed: ${detail ?? message}`));
+  if (!portal) {
+    console.error(
+      'The portal was never reached, so its task was not told about the failure.',
+    );
+    process.exit(1);
+  }
   try {
     await reportFailure(redact(message));
   } catch (error) {
     console.error(`The failure could not be reported: ${error.message}`);
   }
-  process.exit(1);
+  await leave(1);
 }
 
 for (const signal of ['SIGINT', 'SIGTERM']) {
@@ -313,7 +336,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
 try {
   const status = await run();
   console.log(`\nTemplate run ended with status: ${status}`);
-  process.exit(status === 'completed' ? 0 : 1);
+  await leave(status === 'completed' ? 0 : 1);
 } catch (error) {
   // The first line is for the user; the rest (backend output) stays here.
   await fail(

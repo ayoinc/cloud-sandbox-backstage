@@ -7,6 +7,9 @@
 # (edge/scripts/pipeline/run-template.mjs). A sync follows, so the new
 # component and its documentation appear in the portal.
 #
+# Only the portal starts it, acting as the repository owner; a run started by
+# anyone else does nothing.
+#
 # Repository configuration: see portal-sync.yml. Here PORTAL_GITHUB_TOKEN must
 # also be allowed to create repositories and push workflow files for the
 # owners the templates publish to.
@@ -49,25 +52,26 @@ env:
 jobs:
   run:
     name: Run the template
+    if: github.actor == github.repository_owner
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - name: Check configuration
         env:
-          PORTAL_URL: ${{ vars.PORTAL_URL }}
-          PORTAL_PIPELINE_TOKEN: ${{ secrets.PORTAL_PIPELINE_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           PORTAL_GITHUB_TOKEN: ${{ secrets.PORTAL_GITHUB_TOKEN }}
           PORTAL_TASK_ID: ${{ inputs.task_id }}
         run: |
           missing=""
-          [ -n "$PORTAL_URL" ] || missing="$missing vars.PORTAL_URL"
-          [ -n "$PORTAL_PIPELINE_TOKEN" ] || missing="$missing secrets.PORTAL_PIPELINE_TOKEN"
+          [ -n "$CLOUDFLARE_API_TOKEN" ] || missing="$missing secrets.CLOUDFLARE_API_TOKEN"
+          [ -n "$CLOUDFLARE_ACCOUNT_ID" ] || missing="$missing secrets.CLOUDFLARE_ACCOUNT_ID"
           [ -n "$PORTAL_GITHUB_TOKEN" ] || missing="$missing secrets.PORTAL_GITHUB_TOKEN"
           if [ -n "$missing" ]; then
             echo "::error::Not configured for this repository:$missing. See 'Cloudflare Workers Deployment' in the README."
             exit 1
           fi
-          # The id becomes part of a URL
+          # The id is put into a URL and, if the run cannot start, into SQL
           if ! printf '%s' "$PORTAL_TASK_ID" | grep -Eq '^[A-Za-z0-9-]+$'; then
             echo "::error::task_id is not a task id."
             exit 1
@@ -93,8 +97,8 @@ jobs:
       - name: Run the template
         id: template
         env:
-          PORTAL_URL: ${{ vars.PORTAL_URL }}
-          PORTAL_PIPELINE_TOKEN: ${{ secrets.PORTAL_PIPELINE_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           PORTAL_GITHUB_TOKEN: ${{ secrets.PORTAL_GITHUB_TOKEN }}
           PORTAL_TASK_ID: ${{ inputs.task_id }}
           PORTAL_TEMPLATE_REF: ${{ inputs.template_ref }}
@@ -104,42 +108,38 @@ jobs:
 
       # The script reports its own failures. This covers a run that broke
       # before the script started, so the user is not left watching a task
-      # that never ends.
+      # that never ends. Nothing is installed at that point, so the task is
+      # ended with SQL: the same two events and status that appendTaskEvents
+      # in edge/src/scaffolder.ts writes for a failed run.
       - name: Tell the portal the run could not start
         if: ${{ always() && steps.template.outcome != 'success' && steps.template.outcome != 'failure' && steps.template.outcome != 'cancelled' }}
         env:
-          PORTAL_URL: ${{ vars.PORTAL_URL }}
-          PORTAL_PIPELINE_TOKEN: ${{ secrets.PORTAL_PIPELINE_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           PORTAL_TASK_ID: ${{ inputs.task_id }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
+          # Checked again here: this step also runs when the first one failed
+          if ! printf '%s' "$PORTAL_TASK_ID" | grep -Eq '^[A-Za-z0-9-]+$'; then
+            echo "::error::task_id is not a task id."
+            exit 1
+          fi
           message="The template was not run: the GitHub Actions run stopped while it was being set up. See $RUN_URL"
-          jq --null-input --arg message "$message" --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{
-            events: [
-              { type: "log", body: { message: $message }, createdAt: $now },
-              {
-                type: "completion",
-                body: {
-                  message: "Run completed with status: failed",
-                  error: { name: "Error", message: $message }
-                },
-                createdAt: $now
-              }
-            ]
-          }' > "$RUNNER_TEMP/events.json"
-          # Named like the pipeline scripts: Cloudflare challenges plain "curl"
-          curl --fail-with-body --silent --show-error --retry 3 \
-            --user-agent cloud-sandbox-portal-pipeline \
-            --request POST \
-            --header "Authorization: Bearer $PORTAL_PIPELINE_TOKEN" \
-            --header 'Content-Type: application/json' \
-            --data "@$RUNNER_TEMP/events.json" \
-            "$PORTAL_URL/api/pipeline/tasks/$PORTAL_TASK_ID/events"
+          now="strftime('%Y-%m-%dT%H:%M:%fZ', 'now')"
+          open="FROM tasks WHERE id = '$PORTAL_TASK_ID' AND status = 'open'"
+          npx --yes wrangler@4 d1 execute cloud-sandbox --remote --command "
+            INSERT INTO task_events (task_id, event_type, body, created_at)
+              SELECT id, 'log', json_object('message', '$message'), $now $open;
+            INSERT INTO task_events (task_id, event_type, body, created_at)
+              SELECT id, 'completion', json_object('message', 'Run completed with status: failed', 'error', json_object('name', 'Error', 'message', '$message')), $now $open;
+            UPDATE tasks SET status = 'failed', last_heartbeat_at = $now WHERE id = '$PORTAL_TASK_ID' AND status = 'open';
+          "
 
   sync:
     name: Sync the portal
     needs: run
     uses: ./.github/workflows/portal-sync.yml
     secrets:
-      PORTAL_PIPELINE_TOKEN: ${{ secrets.PORTAL_PIPELINE_TOKEN }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       PORTAL_GITHUB_TOKEN: ${{ secrets.PORTAL_GITHUB_TOKEN }}

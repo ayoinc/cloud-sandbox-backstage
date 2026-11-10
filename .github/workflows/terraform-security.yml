@@ -1,10 +1,10 @@
 name: Terraform Security
 
+# The repository is public: nothing a pull request, issue or fork does starts
+# a run, and a pushed run must have been started by the repository owner.
 on:
   push:
     branches: [main]
-    paths: ['catalog/terraform-modules/**/*.tf']
-  pull_request:
     paths: ['catalog/terraform-modules/**/*.tf']
   schedule:
     - cron: '0 6 * * 1' # Weekly Monday 6am
@@ -12,6 +12,7 @@ on:
 jobs:
   security:
     name: Security Scan
+    if: github.event_name == 'schedule' || github.actor == github.repository_owner
     runs-on: ubuntu-latest
     permissions:
       contents: read

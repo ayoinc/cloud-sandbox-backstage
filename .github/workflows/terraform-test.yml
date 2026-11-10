@@ -1,14 +1,10 @@
 name: Terraform Test
 
+# The repository is public: nothing a pull request, issue or fork does starts
+# a run, and every run must have been started by the repository owner.
 on:
   push:
     branches: [main, develop]
-    paths:
-      [
-        'catalog/terraform-modules/**/*.tf',
-        'catalog/terraform-modules/**/*.tftest.hcl',
-      ]
-  pull_request:
     paths:
       [
         'catalog/terraform-modules/**/*.tf',
@@ -18,6 +14,7 @@ on:
 jobs:
   test:
     name: Test ${{ matrix.provider }}
+    if: github.actor == github.repository_owner
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -61,6 +58,7 @@ jobs:
 
   test-shared:
     name: Test Shared Modules
+    if: github.actor == github.repository_owner
     runs-on: ubuntu-latest
 
     steps:

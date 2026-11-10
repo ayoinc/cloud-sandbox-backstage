@@ -1,0 +1,30 @@
+{
+  // The portal Worker as the pipelines run it: the same code, started on the
+  // machine running the pipeline with `wrangler dev`, reading and writing the
+  // deployed database and bucket through Cloudflare's API ("remote": true).
+  //
+  // Pipeline scripts then call /api/pipeline on localhost, so nothing they
+  // send passes through the portal's public address, where Cloudflare
+  // challenges automated clients. See edge/scripts/pipeline/bridge.mjs.
+  //
+  // Never deployed. Keep the two bindings the same as in wrangler.jsonc.
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "cloud-sandbox-pipeline",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-10",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cloud-sandbox",
+      "database_id": "2c3a463e-bd45-4d1c-9ab5-29502aff387d",
+      "remote": true
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "TECHDOCS",
+      "bucket_name": "cloud-sandbox-techdocs",
+      "remote": true
+    }
+  ]
+}

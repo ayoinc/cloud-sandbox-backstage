@@ -11,10 +11,10 @@
 #
 name: 'CodeQL Advanced'
 
+# The repository is public: nothing a pull request, issue or fork does starts
+# a run, and a pushed run must have been started by the repository owner.
 on:
   push:
-    branches: ['master']
-  pull_request:
     branches: ['master']
   schedule:
     - cron: '16 20 * * 6'
@@ -22,6 +22,7 @@ on:
 jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
+    if: github.event_name == 'schedule' || github.actor == github.repository_owner
     # Runner size impacts CodeQL analysis time. To learn more, please see:
     #   - https://gh.io/recommended-hardware-resources-for-running-codeql
     #   - https://gh.io/supported-runners-and-hardware-resources

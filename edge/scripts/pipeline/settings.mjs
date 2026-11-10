@@ -32,12 +32,23 @@ function localWorkerToken(portalUrl) {
 /**
  * Reads the settings and then removes the tokens from this process's
  * environment. The programs the scripts start (mkdocs, d2, git) run content
- * from other repositories and must not inherit them; the one that needs a
- * token, the pipeline backend, is handed it explicitly.
+ * from other repositories and must not inherit them; the ones that need a
+ * token, the pipeline backend and the portal Worker, are handed it explicitly.
  *
- *   PORTAL_URL             where the portal runs, e.g. http://localhost:8787
- *   PORTAL_PIPELINE_TOKEN  the Worker's PIPELINE_TOKEN (for a local Worker it
- *                          is read from edge/.dev.vars when not set)
+ * Which portal, one of:
+ *
+ *   PORTAL_URL             a portal that can be called directly: a Worker
+ *                          running locally, e.g. http://localhost:8787
+ *   PORTAL_PIPELINE_TOKEN  its PIPELINE_TOKEN (for a local Worker it is read
+ *                          from edge/.dev.vars when not set)
+ *
+ *   CLOUDFLARE_API_TOKEN   the deployed portal, reached through Cloudflare's
+ *                          API (see bridge.mjs). The token must be allowed to
+ *                          edit D1, R2 and Workers scripts.
+ *   CLOUDFLARE_ACCOUNT_ID  the account, when the token can see several
+ *
+ * And for both:
+ *
  *   PORTAL_GITHUB_TOKEN    reads catalog files and documentation in private
  *                          repositories, creates repositories from templates
  *
@@ -47,24 +58,33 @@ function localWorkerToken(portalUrl) {
 export function readSettings() {
   const env = process.env;
   const portalUrl = (env.PORTAL_URL ?? '').replace(/\/+$/, '');
-  if (!portalUrl) {
+  const cloudflareToken = env.CLOUDFLARE_API_TOKEN || undefined;
+  if (!portalUrl && !cloudflareToken) {
     throw new Error(
-      'PORTAL_URL is not set. It is the address of the portal, for example http://localhost:8787.',
+      'Neither PORTAL_URL nor CLOUDFLARE_API_TOKEN is set. Set PORTAL_URL to a portal running locally, for example http://localhost:8787, or CLOUDFLARE_API_TOKEN to update the deployed portal.',
     );
   }
-  const portalToken = env.PORTAL_PIPELINE_TOKEN || localWorkerToken(portalUrl);
-  if (!portalToken) {
+  const portalToken =
+    portalUrl && (env.PORTAL_PIPELINE_TOKEN || localWorkerToken(portalUrl));
+  if (portalUrl && !portalToken) {
     throw new Error(
       'PORTAL_PIPELINE_TOKEN is not set. It must equal the PIPELINE_TOKEN secret of the Worker at PORTAL_URL.',
     );
   }
   const githubToken = env.PORTAL_GITHUB_TOKEN || undefined;
+  const accountId = env.CLOUDFLARE_ACCOUNT_ID || undefined;
   delete env.PORTAL_PIPELINE_TOKEN;
   delete env.PORTAL_GITHUB_TOKEN;
+  delete env.CLOUDFLARE_API_TOKEN;
 
   const serverUrl = env.GITHUB_SERVER_URL || 'https://github.com';
   return {
-    portal: { url: portalUrl, token: portalToken },
+    // PORTAL_URL wins: a developer pointing at a local Worker must never
+    // write to the deployed one because a Cloudflare token is also set.
+    portal: portalUrl ? { url: portalUrl, token: portalToken } : undefined,
+    cloudflare: portalUrl
+      ? undefined
+      : { apiToken: cloudflareToken, accountId },
     githubToken,
     // Set when running in GitHub Actions: the repository these files are in.
     github:

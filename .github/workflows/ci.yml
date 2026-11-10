@@ -1,7 +1,9 @@
 # =============================================================================
 # Continuous Integration Workflow
 # =============================================================================
-# Runs on every push and pull request to validate the codebase
+# Runs on pushes to the main branch to validate the codebase. The repository
+# is public: nothing a pull request, issue or fork does starts a run, and every
+# run must have been started by the repository owner.
 #
 # Jobs:
 # - build: Install dependencies and compile TypeScript
@@ -15,8 +17,6 @@ name: CI
 
 on:
   push:
-    branches: [main, master]
-  pull_request:
     branches: [main, master]
 
 # Cancel in-progress runs for the same branch
@@ -33,6 +33,7 @@ jobs:
   # ===========================================================================
   build:
     name: Build
+    if: github.actor == github.repository_owner
     runs-on: ubuntu-latest
     outputs:
       build_duration: ${{ steps.build_time.outputs.duration }}
@@ -169,6 +170,7 @@ jobs:
   # ===========================================================================
   lint:
     name: Lint
+    if: github.actor == github.repository_owner
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -288,9 +290,13 @@ jobs:
     name: CI Summary
     runs-on: ubuntu-latest
     needs: [build, test, lint, docker]
-    if: always()
+    if: always() && github.actor == github.repository_owner
     steps:
       - name: Generate CI Summary
+        env:
+          # Never written into the script itself: a commit message is text
+          # its author chose, and would be run as shell.
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message || 'N/A' }}
         run: |
           echo "# CI Pipeline Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -301,7 +307,7 @@ jobs:
           echo "| Repository | \`${{ github.repository }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Branch | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Commit Message | ${{ github.event.head_commit.message || 'N/A' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit Message | $(printf '%s' "$COMMIT_MESSAGE" | head -n 1) |" >> $GITHUB_STEP_SUMMARY
           echo "| Triggered By | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Event | ${{ github.event_name }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Workflow Run | [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> $GITHUB_STEP_SUMMARY

@@ -58,8 +58,9 @@
   //   GOOGLE_CLIENT_SECRET    Google OAuth client secret
   //   GOOGLE_ALLOWED_EMAILS   Google accounts allowed to sign in, comma-separated
   //   GOOGLE_ALLOWED_DOMAINS  Google Workspace domains allowed to sign in
-  //   PIPELINE_TOKEN          what the GitHub Actions pipelines present to
-  //                           /api/pipeline (their PORTAL_PIPELINE_TOKEN secret)
+  //   PIPELINE_TOKEN          guards /api/pipeline on the public address. The
+  //                           pipelines do not use it: they run this Worker
+  //                           themselves (wrangler.pipeline.jsonc)
   //   PORTAL_GITHUB_TOKEN     GitHub token that starts the template workflow
   //                           in PORTAL_REPO and reads Actions runs for the CI tab
   "secrets": {
