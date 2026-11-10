@@ -1,7 +1,8 @@
 """
-Superset Import/Export Scripts
+Superset asset scripts.
 
 Usage:
-    python scripts/import.py  # Import all assets to Superset
-    python scripts/export.py  # Export all assets from Superset
+    python -m scripts.validate   # Check the asset files (no Superset needed)
+    python -m scripts.import     # Import all assets into Superset
+    python -m scripts.export     # Export the dashboard from Superset
 """

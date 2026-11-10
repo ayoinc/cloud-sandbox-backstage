@@ -2,9 +2,9 @@
 
 ## Prerequisites
 
-- Node.js 18 or higher
+- Node.js 22 or higher
 - npm or yarn
-- Access to the target application
+- Access to the target application (not needed for `npm run test:demo`)
 
 ## Installation
 
@@ -29,6 +29,11 @@
 ### Run all tests
 ```bash
 npm test
+```
+
+### Run all tests against the bundled demo app
+```bash
+npm run test:demo
 ```
 
 ### Run with UI mode (interactive)

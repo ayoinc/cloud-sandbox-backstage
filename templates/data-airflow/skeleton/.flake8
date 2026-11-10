@@ -1,0 +1,5 @@
+[flake8]
+max-line-length = 100
+# Black formats slices with spaces around ':' (E203).
+extend-ignore = E203
+exclude = .git,.venv,venv,__pycache__,logs

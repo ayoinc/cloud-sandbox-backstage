@@ -1,3 +1,10 @@
+{%- set required = {
+  'snowflake': ['SNOWFLAKE_ACCOUNT', 'SNOWFLAKE_USER', 'SNOWFLAKE_PASSWORD', 'SNOWFLAKE_ROLE', 'SNOWFLAKE_DATABASE', 'SNOWFLAKE_WAREHOUSE'],
+  'bigquery': ['BIGQUERY_PROJECT', 'BIGQUERY_KEYFILE_JSON'],
+  'redshift': ['REDSHIFT_HOST', 'REDSHIFT_USER', 'REDSHIFT_PASSWORD', 'REDSHIFT_DATABASE'],
+  'postgres': ['POSTGRES_HOST', 'POSTGRES_USER', 'POSTGRES_PASSWORD', 'POSTGRES_DATABASE'],
+  'databricks': ['DATABRICKS_HOST', 'DATABRICKS_HTTP_PATH', 'DATABRICKS_TOKEN']
+}[values.warehouse] -%}
 name: dbt CI
 
 on:
@@ -7,103 +14,108 @@ on:
     branches: [main]
 
 env:
-  DBT_VERSION: '${{ values.dbtVersion }}'
-  DBT_PROFILES_DIR: ${{ github.workspace }}
+  PYTHON_VERSION: '3.12'
+  DBT_PROFILES_DIR: {% raw %}${{ github.workspace }}{% endraw %}
+  # Local DuckDB target; needs no warehouse and no credentials.
+  DBT_TARGET: ci
 
 permissions:
   contents: read
-  security-events: write
-
+{% raw %}
 jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
-          python-version: '3.11'
+          python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
+          cache-dependency-path: requirements*.txt
 
-      - name: Install sqlfluff
-        run: |
-          pip install sqlfluff sqlfluff-templater-dbt
+      - name: Install dbt and sqlfluff
+        run: pip install -r requirements-ci.txt
+
+      - name: Install dbt packages
+        run: dbt deps
 
       - name: Lint SQL
-        run: sqlfluff lint models/ --dialect ${{ values.warehouse }}
+        run: sqlfluff lint models/ tests/
 
   security:
     name: Security Scan
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
-          python-version: '3.11'
+          python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
+          cache-dependency-path: requirements*.txt
 
-      - name: Install dbt
-        run: |
-          pip install dbt-${{ values.warehouse }}==${{ env.DBT_VERSION }}.*
+      - name: Install dbt with the warehouse adapter
+        run: pip install -r requirements.txt
 
-      - name: Run pip-audit
+      # Advisories against dbt's dependencies are fixed by moving to a newer dbt or
+      # adapter release, not in this repository, so they are reported and not enforced.
+      - name: Audit installed dependencies (report only)
         run: |
           pip install pip-audit
-          pip-audit --format=json --output=pip-audit-results.json || true
-        continue-on-error: true
-
-      - name: Run Bandit security linter
-        run: |
-          pip install bandit
-          bandit -r . -f sarif -o bandit-results.sarif --exclude ./.venv || true
-        continue-on-error: true
+          if ! pip-audit --local --desc off --format markdown > pip-audit.md; then
+            echo "::warning title=pip-audit::Installed dependencies have known vulnerabilities; see the job summary."
+          fi
+          {
+            echo "## pip-audit"
+            cat pip-audit.md
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run Trivy filesystem scanner
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: 'fs'
           scan-ref: '.'
+          scanners: 'vuln,secret,misconfig'
+          severity: 'CRITICAL,HIGH'
           format: 'sarif'
           output: 'trivy-results.sarif'
-        continue-on-error: true
+          exit-code: '1'
 
       - name: Upload Trivy results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        if: always() && hashFiles('trivy-results.sarif') != ''
+        # Code scanning is not available on private repositories without GitHub Advanced Security.
+        continue-on-error: true
         with:
           sarif_file: 'trivy-results.sarif'
           category: 'trivy'
-        continue-on-error: true
-
-      - name: Upload Bandit results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: 'bandit-results.sarif'
-          category: 'bandit'
-        continue-on-error: true
 
   test:
     name: Test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: lint
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
-          python-version: '3.11'
+          python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
+          cache-dependency-path: requirements*.txt
 
       - name: Install dbt
-        run: |
-          pip install dbt-${{ values.warehouse }}==${{ env.DBT_VERSION }}.*
+        run: pip install -r requirements-ci.txt
 
       - name: Install dbt packages
         run: dbt deps
@@ -111,68 +123,113 @@ jobs:
       - name: Verify dbt project
         run: dbt parse
 
-      - name: Run dbt compile
-        run: dbt compile --target development
-        env:
-          # Add your warehouse-specific environment variables
-          DBT_TARGET: development
+      - name: Load sample source data
+        run: dbt seed
+
+      - name: Build and test models on DuckDB
+        run: dbt build --exclude resource_type:seed
 
   docs:
     name: Generate Docs
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: test
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
-          python-version: '3.11'
+          python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
+          cache-dependency-path: requirements*.txt
 
       - name: Install dbt
-        run: |
-          pip install dbt-${{ values.warehouse }}==${{ env.DBT_VERSION }}.*
+        run: pip install -r requirements-ci.txt
 
       - name: Install dbt packages
         run: dbt deps
+
+      - name: Build models on DuckDB
+        run: |
+          dbt seed
+          dbt run
 
       - name: Generate docs
         run: dbt docs generate
 
       - name: Upload docs artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dbt-docs
-          path: target/
+          path: |
+            target/index.html
+            target/manifest.json
+            target/catalog.json
+
+  warehouse:
+    name: Resolve Warehouse Credentials
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+{% endraw %}    environment: ${{ values.environment }}
+    outputs:
+      configured: {% raw %}${{ steps.resolve.outputs.configured }}{% endraw %}
+    steps:
+      - name: Check for warehouse credentials
+        id: resolve
+        env:
+          REQUIRED: ${{ required | join(' ') }}
+{%- for name in required %}
+          ${{ name }}: ${{ '$' }}{{ secrets.${{ name }} }}
+{%- endfor %}
+{% raw %}        run: |
+          missing=""
+          for name in $REQUIRED; do
+            if [ -z "${!name}" ]; then
+              missing="$missing $name"
+            fi
+          done
+          if [ -z "$missing" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "Deployment skipped: these secrets are not set:$missing" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
-    needs: [test, security]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    environment: ${{ values.environment }}
-    steps:
-      - uses: actions/checkout@v4
+    timeout-minutes: 60
+    needs: [test, security, warehouse]
+    if: needs.warehouse.outputs.configured == 'true'
+{% endraw %}    environment: ${{ values.environment }}
+    env:
+      DBT_TARGET: ${{ values.environment }}
+{%- for name in required %}
+      ${{ name }}: ${{ '$' }}{{ secrets.${{ name }} }}
+{%- endfor %}
+{% raw %}    steps:
+      - uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
-          python-version: '3.11'
+          python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
+          cache-dependency-path: requirements*.txt
 
       - name: Install dbt
-        run: |
-          pip install dbt-${{ values.warehouse }}==${{ env.DBT_VERSION }}.*
+        run: pip install -r requirements.txt
 
       - name: Install dbt packages
         run: dbt deps
-
-      - name: Run dbt
+{% endraw %}
+{%- if values.warehouse == 'bigquery' %}
+      - name: Write the service account key file
         run: |
-          dbt run --target ${{ values.environment }}
-          dbt test --target ${{ values.environment }}
-        env:
-          # Add your warehouse-specific environment variables
-          DBT_TARGET: ${{ values.environment }}
+          printf '%s' "$BIGQUERY_KEYFILE_JSON" > "$RUNNER_TEMP/gcp-keyfile.json"
+          echo "BIGQUERY_KEYFILE=$RUNNER_TEMP/gcp-keyfile.json" >> "$GITHUB_ENV"
+{% endif %}
+      - name: Run and test models
+        run: dbt build

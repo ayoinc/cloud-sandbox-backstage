@@ -7,7 +7,7 @@ ${{ values.description }}
 This Playwright end-to-end testing project provides a production-ready testing framework with:
 
 - **Page Object Model (POM)** for maintainable and reusable test code
-- **Multi-browser support**: {% for browser in values.browsers %}{{ browser }}{% if not loop.last %}, {% endif %}{% endfor %}
+- **Multi-browser support**: ${{ values.browsers | join(', ') }}
 - **Parallel execution** with ${{ values.parallelWorkers }} workers for faster test runs
 - **CI/CD integration** with GitHub Actions for automated testing
 - **Built-in reporting** with HTML reports, traces, and screenshots
@@ -92,7 +92,7 @@ browsers -> reports: generates
 | Project Name      | `${{ values.name }}`                                                                     |
 | Base URL          | `${{ values.baseUrl }}`                                                                  |
 | Parallel Workers  | ${{ values.parallelWorkers }}                                                            |
-| Browsers          | {% for browser in values.browsers %}{{ browser }}{% if not loop.last %}, {% endif %}{% endfor %} |
+| Browsers          | ${{ values.browsers | join(', ') }} |
 | Tracing           | ${{ values.enableTracing }}                                                              |
 | Screenshots       | ${{ values.enableScreenshots }}                                                          |
 | Test Directory    | `./tests`                                                                                |
@@ -138,10 +138,13 @@ ${{ values.name }}/
 This repository includes a comprehensive GitHub Actions pipeline with:
 
 - **Automatic Test Runs**: Triggered on push and pull requests to `main`
+- **Bundled Demo App**: CI starts `demo-app/server.js` and runs the suite against it, so the pipeline passes on a new repository with nothing configured
 - **Multi-Browser Testing**: Full test suite runs across all configured browsers
 - **Smoke Tests**: Quick validation on pull requests using `@smoke` tagged tests
+- **Target Environment**: Once a `BASE_URL` variable or secret is set, the suite also runs against that environment
+- **Type Check**: `tsc --noEmit` runs before the tests
+- **Security Scan**: Trivy scans the repository for vulnerabilities, secrets and misconfiguration
 - **Artifact Storage**: Test reports and failure artifacts retained for debugging
-- **Environment Variables**: Configurable base URL via secrets
 
 ### Pipeline Workflow
 
@@ -164,13 +167,13 @@ checkout: Checkout {
 setup: Setup {
   style.fill: "#E8F5E9"
   style.stroke: "#388E3C"
-  label: "Node.js 20\nnpm ci"
+  label: "Node.js 24\nnpm ci"
 }
 
 browsers: Install Browsers {
   style.fill: "#FFF3E0"
   style.stroke: "#FF9800"
-  label: "Chromium\nFirefox\nWebKit"
+  label: "${{ values.browsers | join('\\n') }}"
 }
 
 test: Run Tests {
@@ -198,10 +201,12 @@ result -> report: always
 
 ### Workflow Jobs
 
-| Job           | Trigger          | Description                                  | Timeout |
-| ------------- | ---------------- | -------------------------------------------- | ------- |
-| `test`        | Push/PR to main  | Full test suite across all browsers          | 30 min  |
-| `smoke-tests` | Pull Request     | Quick `@smoke` tagged tests on Chromium only | 15 min  |
+| Job            | Trigger                           | Description                                             | Timeout |
+| -------------- | --------------------------------- | ------------------------------------------------------- | ------- |
+| `security`     | Push/PR to main                   | Trivy scan (fails on HIGH and CRITICAL findings)        | 15 min  |
+| `test`         | Push/PR to main                   | Type check and full suite against the bundled demo app  | 30 min  |
+| `smoke-tests`  | Pull Request                      | Quick `@smoke` tagged tests on one browser              | 15 min  |
+| `target-tests` | Push to main, manual run          | Full suite against `BASE_URL`; skipped when it is unset | 30 min  |
 
 ### Artifacts
 
@@ -210,6 +215,8 @@ result -> report: always
 | `playwright-report`| Always    | 30 days   | HTML test report with results         |
 | `test-results`     | On Failure| 7 days    | Screenshots, videos, traces           |
 | `smoke-test-report`| On Failure| 7 days    | Smoke test HTML report                |
+| `playwright-report-target` | Always | 30 days | HTML report of the target environment run |
+| `test-results-target` | On Failure | 7 days | Screenshots, videos, traces of the target environment run |
 
 ---
 
@@ -217,15 +224,15 @@ result -> report: always
 
 ### 1. Node.js
 
-Node.js 18.0.0 or higher is required.
+Node.js 22.0.0 or higher is required.
 
 ```bash
 # Check Node.js version
 node --version
 
 # Install Node.js via nvm (recommended)
-nvm install 20
-nvm use 20
+nvm install 24
+nvm use 24
 ```
 
 ### 2. Playwright Browsers
@@ -247,17 +254,19 @@ npx playwright install webkit
 | Variable   | Description                          | Default                |
 | ---------- | ------------------------------------ | ---------------------- |
 | `BASE_URL` | Target application URL               | `${{ values.baseUrl }}`|
+| `USE_DEMO_APP` | Set to `1` to start the bundled demo app and test against it (`npm run test:demo`) | Unset |
 | `CI`       | Enables CI-specific behavior         | Auto-detected          |
 
 ### 4. GitHub Repository Setup (for CI/CD)
 
-#### Required Secrets
+#### Optional Variables
 
-Configure in **Settings > Secrets and variables > Actions**:
+Nothing has to be configured for the pipeline to pass. To also test a deployed
+environment, configure in **Settings > Secrets and variables > Actions**:
 
-| Secret     | Description                  | Required |
-| ---------- | ---------------------------- | -------- |
-| `BASE_URL` | Target application URL       | Optional |
+| Variable or secret | Description                                               | Required |
+| ------------------ | --------------------------------------------------------- | -------- |
+| `BASE_URL`         | Target application URL; enables the `target-tests` job    | Optional |
 
 ---
 
@@ -624,7 +633,7 @@ The included workflow (`.github/workflows/playwright.yaml`) runs tests on:
 ```yaml
 # Override base URL via secrets
 env:
-  BASE_URL: ${{ secrets.BASE_URL || 'https://staging.example.com' }}
+  BASE_URL: {% raw %}${{ vars.BASE_URL || 'https://staging.example.com' }}{% endraw %}
 ```
 
 ### Parallel Execution
@@ -649,7 +658,7 @@ jobs:
       matrix:
         shard: [1, 2, 3, 4]
     steps:
-      - run: npx playwright test --shard=${{ matrix.shard }}/4
+      - run: npx playwright test --shard={% raw %}${{ matrix.shard }}{% endraw %}/4
 ```
 
 ### Integrating with Other CI Systems

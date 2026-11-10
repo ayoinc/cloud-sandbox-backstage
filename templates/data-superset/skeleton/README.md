@@ -4,41 +4,57 @@ ${{ values.description }}
 
 ## Overview
 
-Apache Superset deployment for data exploration and visualization.
+Apache Superset dashboard, charts, datasets and database connection kept as
+JSON, with scripts to validate them and to import them into Superset.
 
 ## Getting Started
 
 ```bash
-docker-compose up -d
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements-dev.txt
+
+# Check the asset files (no Superset needed)
+python -m scripts.validate
+pytest
 ```
-
-Access at [http://localhost:8088](http://localhost:8088)
-
-Default credentials: admin/admin
 
 ## Project Structure
 
 ```
-├── docker-compose.yml    # Container config
-├── superset_config.py    # Superset settings
-├── requirements.txt      # Python dependencies
-└── dashboards/           # Exported dashboards
+├── dashboards/           # Dashboard definitions
+├── charts/               # Chart definitions
+├── datasets/             # Dataset definitions
+├── databases/            # Database connection (${{ values.dataSource }})
+├── scripts/
+│   ├── validate.py       # Validate assets
+│   ├── import.py         # Import assets into Superset
+│   └── export.py         # Export the dashboard from Superset
+└── tests/                # Tests for validation and import
 ```
 
-## Configuration
+## Importing and Exporting
 
-Edit `superset_config.py` for:
-- Database connections
-- Authentication
-- Caching
-- Feature flags
+```bash
+export SUPERSET_URL=http://localhost:8088
+export SUPERSET_USERNAME=admin
+export SUPERSET_PASSWORD=admin
+# SQLAlchemy URI of the data source; needed to create the database connection
+export SUPERSET_DATABASE_URI=postgresql://user:password@host:5432/database
 
-## Connecting Databases
+python -m scripts.import
+python -m scripts.export
+```
 
-1. Go to Data > Databases
-2. Click "+ Database"
-3. Select database type
-4. Enter connection string
+Connection strings are never stored in `databases/`; the validation rejects
+files that contain credentials.
+
+## Pipeline
+
+`.github/workflows/superset.yaml` validates the assets, runs the tests and
+lints the scripts on every push and pull request. On `main` it also imports the
+assets into Superset once `SUPERSET_URL`, `SUPERSET_USERNAME` and
+`SUPERSET_PASSWORD` are set as repository secrets; until then the deployment is
+skipped.
 
 ## License
 

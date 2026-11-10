@@ -8,27 +8,30 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Rate, Counter } from 'k6/metrics';
-import { config } from './lib/config.js';
+import { config, thresholds } from './lib/config.js';
 
 const errorRate = new Rate('error_rate');
 const requestCounter = new Counter('total_requests');
 
+// Time spent at load (override with -e SOAK_DURATION=<time>)
+const soakDuration = __ENV.SOAK_DURATION || '4h';
+
 export const options = {
   stages: [
-    { duration: '5m', target: 100 },    // Ramp up
-    { duration: '4h', target: 100 },    // Stay at load for 4 hours
+    { duration: '5m', target: config.vus },            // Ramp up
+    { duration: soakDuration, target: config.vus },    // Stay at load
     { duration: '5m', target: 0 },      // Ramp down
   ],
-  thresholds: {
+  thresholds: thresholds({
     http_req_duration: ['p(95)<500', 'p(99)<1500'],
     http_req_failed: ['rate<0.01'],
     error_rate: ['rate<0.01'],
-  },
+  }),
 };
 
 export function setup() {
   console.log(`Starting soak test against ${config.baseUrl}`);
-  console.log('This test will run for approximately 4 hours');
+  console.log(`This test stays at load for ${soakDuration}`);
   return { startTime: new Date().toISOString() };
 }
 

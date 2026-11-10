@@ -1,4 +1,4 @@
-{% raw %}
+{%- set browsers = values.browsers if values.browsers and values.browsers.length else ['chromium'] -%}
 name: Playwright Tests
 
 on:
@@ -7,35 +7,48 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Target URL (empty: BASE_URL variable or secret, then ${{ values.baseUrl }})'
+        required: false
+        type: string
 
 permissions:
   contents: read
-  security-events: write
 
 env:
-  BASE_URL: ${{ values.baseUrl }}
-
+  NODE_VERSION: '24'
+  BROWSERS: ${{ browsers | join(' ') }}
+  DEFAULT_BASE_URL: ${{ values.baseUrl }}
+{% raw %}
 jobs:
   security:
     name: Security Scan
     runs-on: ubuntu-latest
-    continue-on-error: true
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Run Trivy filesystem scanner
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: 'fs'
           scan-ref: '.'
+          scanners: 'vuln,secret,misconfig'
+          severity: 'CRITICAL,HIGH'
           format: 'sarif'
           output: 'trivy-results.sarif'
-          severity: 'CRITICAL,HIGH,MEDIUM'
+          exit-code: '1'
 
       - name: Upload Trivy SARIF to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        if: always() && hashFiles('trivy-results.sarif') != ''
+        # Code scanning is not available on private repositories without GitHub Advanced Security.
+        continue-on-error: true
         with:
           sarif_file: trivy-results.sarif
           category: trivy
@@ -47,28 +60,30 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps
+      - name: Type check
+        run: npm run typecheck
 
-      - name: Run Playwright tests
-        run: npx playwright test
-        env:
-          CI: true
-          BASE_URL: ${{ secrets.BASE_URL || env.BASE_URL }}
+      - name: Install Playwright browsers
+        run: |
+          read -ra browsers <<< "$BROWSERS"
+          npx playwright install --with-deps "${browsers[@]}"
+
+      - name: Run Playwright tests against the bundled demo app
+        run: npm run test:demo
 
       - name: Upload test report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: playwright-report
@@ -76,7 +91,7 @@ jobs:
           retention-days: 30
 
       - name: Upload test results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: test-results
@@ -91,30 +106,95 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
       - name: Install Playwright browsers
-        run: npx playwright install chromium --with-deps
+        run: npx playwright install --with-deps "${BROWSERS%% *}"
 
       - name: Run smoke tests
-        run: npx playwright test --grep @smoke --project=chromium
-        env:
-          CI: true
+        run: npm run test:demo -- --grep @smoke --project="${BROWSERS%% *}"
 
       - name: Upload smoke test report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: smoke-test-report
           path: playwright-report/
+          retention-days: 7
+
+  target:
+    name: Resolve Target Environment
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    outputs:
+      configured: ${{ steps.resolve.outputs.configured }}
+    steps:
+      # A manual run falls back to the URL the project was created with; a push
+      # only tests an environment that was configured on the repository.
+      - name: Check for a target URL
+        id: resolve
+        env:
+          BASE_URL: ${{ inputs.base_url || vars.BASE_URL || secrets.BASE_URL || (github.event_name == 'workflow_dispatch' && env.DEFAULT_BASE_URL) || '' }}
+        run: |
+          if [ -n "$BASE_URL" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "No BASE_URL variable or secret is set: tests against a deployed environment are skipped." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  target-tests:
+    name: Run Tests Against Target Environment
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [test, target]
+    if: needs.target.outputs.configured == 'true'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: |
+          read -ra browsers <<< "$BROWSERS"
+          npx playwright install --with-deps "${browsers[@]}"
+
+      - name: Run Playwright tests
+        run: npx playwright test
+        env:
+          BASE_URL: ${{ inputs.base_url || vars.BASE_URL || secrets.BASE_URL || env.DEFAULT_BASE_URL }}
+
+      - name: Upload test report
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: playwright-report-target
+          path: playwright-report/
+          retention-days: 30
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: test-results-target
+          path: test-results/
           retention-days: 7
 {% endraw %}

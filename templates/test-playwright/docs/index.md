@@ -38,7 +38,7 @@ Playwright is a modern browser automation framework that enables reliable end-to
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 22+
 - npm or yarn
 
 ### Installation

@@ -104,6 +104,7 @@ spec:
           virtualUsers: ${{ parameters.virtualUsers }}
           duration: ${{ parameters.duration }}
           thresholds: ${{ parameters.thresholds }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
 
     - id: publish
       name: Publish to GitHub

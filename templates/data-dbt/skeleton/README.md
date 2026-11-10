@@ -9,10 +9,18 @@ dbt (data build tool) project for data transformation and modeling.
 ## Getting Started
 
 ```bash
-pip install dbt-core dbt-postgres  # or dbt-snowflake, dbt-bigquery
+python -m venv venv && source venv/bin/activate
+pip install -r requirements-ci.txt
+export DBT_PROFILES_DIR=$(pwd)
+
+# Build and test on a local DuckDB database; no warehouse needed
 dbt deps
-dbt run
+dbt seed
+dbt build --exclude resource_type:seed
 ```
+
+To run against ${{ values.warehouse }}, install `requirements.txt`, set the
+environment variables named in `profiles.yml` and pass `--target ${{ values.environment }}`.
 
 ## Project Structure
 
@@ -21,11 +29,19 @@ dbt run
 │   ├── staging/      # Raw data transformations
 │   ├── intermediate/ # Business logic
 │   └── marts/        # Final tables
-├── seeds/            # CSV data files
+├── seeds/            # Sample source data for the ci target
 ├── tests/            # Data tests
 ├── macros/           # Jinja macros
+├── profiles.yml      # Connection profiles (no credentials)
 └── dbt_project.yml   # Project config
 ```
+
+## Pipeline
+
+`.github/workflows/dbt.yaml` lints the SQL with sqlfluff and builds and tests
+the models on DuckDB on every push and pull request, with no secrets. The
+deploy job runs `dbt build` on ${{ values.warehouse }} and is skipped until the warehouse
+secrets are set. See `docs/index.md`.
 
 ## Commands
 
@@ -37,7 +53,7 @@ dbt run
 
 ## Configuration
 
-Edit `dbt_project.yml` and `profiles.yml`.
+Edit `dbt_project.yml` and `profiles.yml`. Connection values are read from environment variables; never commit credentials.
 
 ## License
 

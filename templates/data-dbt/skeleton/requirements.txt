@@ -1,0 +1,3 @@
+# dbt and the adapter of the ${{ values.warehouse }} warehouse
+dbt-core~=${{ values.dbtVersion }}.0
+dbt-${{ values.warehouse }}

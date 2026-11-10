@@ -14,7 +14,7 @@ final as (
         id,
         -- Add your dimension attributes here
         created_at as first_seen_at,
-        current_timestamp() as dbt_updated_at
+        {{ dbt.current_timestamp() }} as dbt_updated_at
     from source
 )
 

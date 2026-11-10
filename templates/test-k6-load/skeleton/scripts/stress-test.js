@@ -7,26 +7,26 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Rate } from 'k6/metrics';
-import { config } from './lib/config.js';
+import { config, thresholds } from './lib/config.js';
 
 const errorRate = new Rate('error_rate');
 
 export const options = {
   stages: [
-    { duration: '2m', target: 100 },   // Below normal load
-    { duration: '5m', target: 100 },   // Stay at normal
-    { duration: '2m', target: 200 },   // Normal load
-    { duration: '5m', target: 200 },   // Stay at normal
-    { duration: '2m', target: 300 },   // Around breaking point
-    { duration: '5m', target: 300 },   // Stay at breaking point
-    { duration: '2m', target: 400 },   // Beyond breaking point
-    { duration: '5m', target: 400 },   // Stay beyond breaking point
+    { duration: '2m', target: config.vus },      // Normal load
+    { duration: '5m', target: config.vus },      // Stay at normal
+    { duration: '2m', target: config.vus * 2 },  // Above normal load
+    { duration: '5m', target: config.vus * 2 },  // Stay above normal
+    { duration: '2m', target: config.vus * 3 },  // Around breaking point
+    { duration: '5m', target: config.vus * 3 },  // Stay at breaking point
+    { duration: '2m', target: config.vus * 4 },  // Beyond breaking point
+    { duration: '5m', target: config.vus * 4 },  // Stay beyond breaking point
     { duration: '5m', target: 0 },     // Recovery stage
   ],
-  thresholds: {
+  thresholds: thresholds({
     http_req_duration: ['p(99)<3000'],  // More lenient for stress test
     error_rate: ['rate<0.50'],          // Allow higher error rate to find breaking point
-  },
+  }),
 };
 
 export function setup() {

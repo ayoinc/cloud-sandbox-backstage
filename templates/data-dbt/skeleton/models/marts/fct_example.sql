@@ -16,7 +16,7 @@ final as (
         updated_at,
         days_since_creation,
         -- Add your fact table columns here
-        current_timestamp() as dbt_updated_at
+        {{ dbt.current_timestamp() }} as dbt_updated_at
     from processed
 )
 

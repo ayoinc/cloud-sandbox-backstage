@@ -16,7 +16,8 @@ processed as (
         created_at,
         updated_at,
         -- Example: Add derived columns
-        datediff('day', created_at, updated_at) as days_since_creation
+        -- The macro expands to the warehouse's date arithmetic, which exceeds the line limit.
+        {{ dbt.datediff("created_at", "updated_at", "day") }} as days_since_creation -- noqa: LT05
     from staged
 )
 

@@ -1,0 +1,13 @@
+{
+  "values": {
+    "name": "sample-load-tests",
+    "description": "Load tests for the sample storefront API",
+    "owner": "group:default/platform-team",
+    "baseUrl": "http://localhost:3000",
+    "testType": "load",
+    "virtualUsers": 50,
+    "duration": "5m",
+    "thresholds": true,
+    "repoUrl": "github.com?owner=example-org&repo=sample-load-tests"
+  }
+}

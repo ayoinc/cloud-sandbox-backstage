@@ -7,29 +7,32 @@ on:
     branches: [main]
 
 env:
-  PYTHON_VERSION: '3.11'
+  PYTHON_VERSION: '3.12'
+  # Pins every dependency to the set tested with this Airflow release; keep in step with requirements.txt.
+  PIP_CONSTRAINT: https://raw.githubusercontent.com/apache/airflow/constraints-3.4.0/constraints-3.12.txt
+  AIRFLOW__CORE__LOAD_EXAMPLES: 'False'
+  DAG_ID: ${{ values.name }}
 
 permissions:
   contents: read
-  security-events: write
-
+{% raw %}
 jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
+          cache-dependency-path: requirements*.txt
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install black flake8 isort mypy
+        run: pip install -r requirements-dev.txt
 
       - name: Check formatting with Black
         run: black --check .
@@ -38,150 +41,187 @@ jobs:
         run: isort --check-only .
 
       - name: Lint with flake8
-        run: flake8 dags/ tests/ --max-line-length=100
+        run: flake8 dags/ tests/
 
       - name: Type check with mypy
-        run: mypy dags/ --ignore-missing-imports
+        run: mypy dags/
 
   test:
     name: Test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: lint
+    env:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
+          cache-dependency-path: requirements*.txt
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Initialize Airflow
-        run: |
-          export AIRFLOW_HOME=$(pwd)
-          airflow db init
+        run: pip install -r requirements-dev.txt
 
       - name: Run tests
-        run: pytest tests/ -v --cov=dags --cov-report=xml
+        run: |
+          export AIRFLOW_HOME="$RUNNER_TEMP/airflow"
+          pytest tests/ -v --cov=dags --cov-report=xml --cov-report=term-missing
 
-      - name: Upload coverage
-        uses: codecov/codecov-action@v3
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage
+          path: coverage.xml
+          retention-days: 14
+
+      - name: Upload coverage to Codecov
+        if: env.CODECOV_TOKEN != ''
+        uses: codecov/codecov-action@v7
         with:
           files: ./coverage.xml
-          fail_ci_if_error: false
+          token: ${{ env.CODECOV_TOKEN }}
 
   security:
     name: Security Scan
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
+          cache-dependency-path: requirements*.txt
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Run pip-audit
-        run: |
-          pip install pip-audit
-          pip-audit --format=json --output=pip-audit-results.json || true
-        continue-on-error: true
+        run: pip install -r requirements-dev.txt
 
       - name: Run Bandit security linter
+        run: bandit -r dags/
+
+      - name: Write Bandit SARIF report
+        if: always()
+        run: bandit -r dags/ -f sarif -o bandit-results.sarif --exit-zero
+
+      # Advisories against the release's pinned dependency set are fixed by moving to a
+      # newer Airflow release, not in this repository, so they are reported and not enforced.
+      - name: Audit installed dependencies (report only)
         run: |
-          pip install bandit
-          bandit -r dags/ -f sarif -o bandit-results.sarif || true
-        continue-on-error: true
+          if ! pip-audit --local --desc off --format markdown > pip-audit.md; then
+            echo "::warning title=pip-audit::Installed dependencies have known vulnerabilities; see the job summary."
+          fi
+          {
+            echo "## pip-audit"
+            cat pip-audit.md
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run Trivy filesystem scanner
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: 'fs'
           scan-ref: '.'
+          scanners: 'vuln,secret,misconfig'
+          severity: 'CRITICAL,HIGH'
           format: 'sarif'
           output: 'trivy-results.sarif'
-        continue-on-error: true
+          exit-code: '1'
 
       - name: Upload Trivy results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        if: always() && hashFiles('trivy-results.sarif') != ''
+        # Code scanning is not available on private repositories without GitHub Advanced Security.
+        continue-on-error: true
         with:
           sarif_file: 'trivy-results.sarif'
           category: 'trivy'
-        continue-on-error: true
 
       - name: Upload Bandit results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        if: always() && hashFiles('bandit-results.sarif') != ''
+        # Code scanning is not available on private repositories without GitHub Advanced Security.
+        continue-on-error: true
         with:
           sarif_file: 'bandit-results.sarif'
           category: 'bandit'
-        continue-on-error: true
 
   dag-validation:
     name: DAG Validation
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: lint
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
+          cache-dependency-path: requirements*.txt
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install apache-airflow
+        run: pip install -r requirements.txt
 
       - name: Initialize Airflow
         run: |
-          export AIRFLOW_HOME=$(pwd)
-          airflow db init
+          {
+            echo "AIRFLOW_HOME=$RUNNER_TEMP/airflow"
+            echo "AIRFLOW__CORE__DAGS_FOLDER=$GITHUB_WORKSPACE/dags"
+          } >> "$GITHUB_ENV"
+          AIRFLOW_HOME="$RUNNER_TEMP/airflow" airflow db migrate
 
-      - name: Validate DAGs
+      - name: Check DAG imports
         run: |
-          export AIRFLOW_HOME=$(pwd)
-          python -c "
-          from airflow.models import DagBag
-          dag_bag = DagBag(dag_folder='dags', include_examples=False)
-          if dag_bag.import_errors:
-              print('DAG Import Errors:')
-              for dag_id, error in dag_bag.import_errors.items():
-                  print(f'  {dag_id}: {error}')
-              exit(1)
-          print(f'Successfully validated {len(dag_bag.dags)} DAGs')
-          "
+          python - <<'PY'
+          import sys
+
+          from airflow.dag_processing.dagbag import DagBag
+
+          dag_bag = DagBag(dag_folder="dags")
+          for path, error in dag_bag.import_errors.items():
+              print(f"::error file={path}::{error.strip().splitlines()[-1]}")
+          if dag_bag.import_errors or not dag_bag.dags:
+              sys.exit("DAG import failed or the dags folder defines no DAG")
+          print(f"Successfully validated {len(dag_bag.dags)} DAGs")
+          PY
+
+      - name: Run the DAG once
+        run: airflow dags test "$DAG_ID" 2024-01-01
 
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: [test, dag-validation, security]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    environment: production
-    steps:
-      - uses: actions/checkout@v4
+    # Runs once the repository variables AIRFLOW_DAGS_BUCKET, AWS_ROLE_ARN and AWS_REGION are set.
+    if: >-
+      github.ref == 'refs/heads/main' && github.event_name == 'push' &&
+      vars.AIRFLOW_DAGS_BUCKET != '' && vars.AWS_ROLE_ARN != '' && vars.AWS_REGION != ''
+    permissions:
+      contents: read
+      id-token: write
+{% endraw %}    environment: ${{ values.environment }}
+{% raw %}    steps:
+      - uses: actions/checkout@v7
 
-      - name: Deploy DAGs
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Sync DAGs to the Airflow DAGs bucket
+        env:
+          DAGS_BUCKET: ${{ vars.AIRFLOW_DAGS_BUCKET }}
         run: |
-          echo "Deploying DAGs to Airflow..."
-          # TODO: Add deployment logic
-          # Options:
-          # - Sync to S3/GCS for managed Airflow
-          # - Push to Airflow DAGs repository
-          # - Trigger Airflow API sync
-          echo "Deployment complete!"
+          aws s3 sync dags/ "s3://${DAGS_BUCKET#s3://}/dags/" --delete --exclude "*__pycache__*"
+{% endraw %}

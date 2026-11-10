@@ -1,0 +1,10 @@
+target/
+dbt_packages/
+logs/
+.venv/
+venv/
+.user.yml
+*.duckdb
+*.duckdb.wal
+gcp-keyfile.json
+site/

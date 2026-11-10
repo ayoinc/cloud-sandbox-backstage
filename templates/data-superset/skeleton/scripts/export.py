@@ -1,78 +1,56 @@
 #!/usr/bin/env python3
 """
-Export Superset assets to JSON files.
+Export the dashboard definition from Superset into dashboards/.
+
+Environment:
+    SUPERSET_URL, SUPERSET_USERNAME, SUPERSET_PASSWORD   Superset account
+    DASHBOARD_SLUG   Dashboard to export (default: ${{ values.name }})
 """
 
 import json
 import os
-import requests
-from pathlib import Path
+import sys
+
+from scripts.assets import ROOT
+from scripts.client import SupersetClient, SupersetError
+
+DEFAULT_SLUG = "${{ values.name }}"
 
 
-def get_superset_session():
-    """Create authenticated session with Superset."""
-    base_url = os.getenv('SUPERSET_URL', 'http://localhost:8088')
-    username = os.getenv('SUPERSET_USERNAME', 'admin')
-    password = os.getenv('SUPERSET_PASSWORD', 'admin')
-    
-    session = requests.Session()
-    
-    # Get CSRF token
-    response = session.get(f"{base_url}/api/v1/security/csrf_token/")
-    csrf_token = response.json()['result']
-    session.headers['X-CSRFToken'] = csrf_token
-    
-    # Login
-    login_payload = {
-        'username': username,
-        'password': password,
-        'provider': 'db'
+def export_dashboard(client, slug, root=ROOT):
+    """Write the dashboard with the given slug to dashboards/<slug>.json."""
+    print(f"Exporting dashboard: {slug}")
+    found = client.find("dashboard", "slug", slug)
+    if not found:
+        raise SupersetError(f"Dashboard not found: {slug}")
+    dashboard = client.request("GET", f"/api/v1/dashboard/{found['id']}")["result"]
+    charts = client.request("GET", f"/api/v1/dashboard/{found['id']}/charts")["result"]
+    exported = {
+        "dashboard_title": dashboard["dashboard_title"],
+        "description": dashboard.get("description") or "",
+        "slug": dashboard["slug"],
+        "position_json": json.loads(dashboard.get("position_json") or "{}"),
+        "metadata": json.loads(dashboard.get("json_metadata") or "{}"),
+        "charts": sorted(chart["slice_name"] for chart in charts),
     }
-    session.post(f"{base_url}/api/v1/security/login", json=login_payload)
-    
-    return session, base_url
-
-
-def export_dashboards(session, base_url, dashboard_slug):
-    """Export dashboard and related assets."""
-    print(f"Exporting dashboard: {dashboard_slug}")
-    
-    # Get dashboard
-    response = session.get(f"{base_url}/api/v1/dashboard/?q=(filters:!((col:slug,opr:eq,value:{dashboard_slug})))")
-    if response.status_code != 200:
-        print(f"  Error fetching dashboard: {response.text}")
-        return
-    
-    dashboards = response.json().get('result', [])
-    if not dashboards:
-        print(f"  Dashboard not found: {dashboard_slug}")
-        return
-    
-    dashboard = dashboards[0]
-    dashboard_id = dashboard['id']
-    
-    # Export dashboard
-    response = session.get(f"{base_url}/api/v1/dashboard/export/?q=[{dashboard_id}]")
-    if response.status_code == 200:
-        Path('dashboards').mkdir(exist_ok=True)
-        with open(f"dashboards/{dashboard_slug}.json", 'w') as f:
-            json.dump(response.json(), f, indent=2)
-        print(f"  Exported to dashboards/{dashboard_slug}.json")
-    else:
-        print(f"  Error exporting: {response.text}")
+    target = root / "dashboards" / f"{slug}.json"
+    target.parent.mkdir(exist_ok=True)
+    target.write_text(json.dumps(exported, indent=2) + "\n", encoding="utf-8")
+    print(f"  Exported to {target.relative_to(root)}")
+    return target
 
 
 def main():
-    dashboard_slug = os.getenv('DASHBOARD_SLUG', '${{ values.name }}')
-    
-    print("Connecting to Superset...")
-    session, base_url = get_superset_session()
-    
-    print("\nExporting assets...")
-    export_dashboards(session, base_url, dashboard_slug)
-    
-    print("\nExport complete!")
+    try:
+        print("Connecting to Superset...")
+        client = SupersetClient.from_env()
+        export_dashboard(client, os.getenv("DASHBOARD_SLUG", DEFAULT_SLUG))
+    except SupersetError as error:
+        print(f"ERROR {error}", file=sys.stderr)
+        return 1
+    print("Export complete")
+    return 0
 
 
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    sys.exit(main())

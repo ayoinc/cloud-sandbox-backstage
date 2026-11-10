@@ -142,9 +142,12 @@ This repository includes a GitHub Actions pipeline for validating and deploying 
 ### Pipeline Features
 
 - **JSON Validation**: Validates all dashboard, chart, and dataset JSON files
-- **Python Linting**: Black, isort, and flake8 for import/export scripts
-- **Automated Deployment**: Auto-imports to Superset on merge to main
-- **Environment Protection**: Deployment requires environment approval
+- **Asset Validation**: `python -m scripts.validate` checks required fields and that dashboards, charts, datasets and databases reference each other correctly
+- **Tests**: pytest runs the validation and import tests; no Superset instance is needed
+- **Python Linting**: Black, isort, and flake8 for the scripts and tests
+- **Security Scan**: Trivy scans the repository for vulnerabilities, secrets and misconfiguration
+- **Automated Deployment**: Imports to Superset on merge to main once the Superset secrets are set; skipped until then, so the pipeline passes on a new repository
+- **Environment Protection**: Deployment runs in the `${{ values.environment }}` GitHub environment
 
 ### Pipeline Workflow
 
@@ -205,9 +208,8 @@ review -> merge -> deploy -> superset
 
 | Trigger         | Actions                                     |
 | --------------- | ------------------------------------------- |
-| Pull Request    | JSON validation, Python linting             |
-| Push to `main`  | Validation, linting, deploy to ${{ values.environment }} |
-| Manual Dispatch | Full pipeline with environment selection    |
+| Pull Request    | Security scan, asset validation, tests, Python linting |
+| Push to `main`  | The same, then deploy to ${{ values.environment }} when the Superset secrets are set |
 
 ---
 
@@ -273,7 +275,7 @@ Ensure network connectivity and credentials for your data source:
 python --version  # Should be 3.11 or higher
 
 # Install required packages
-pip install requests python-dotenv
+pip install -r requirements-dev.txt
 
 # For local development with Superset CLI
 pip install apache-superset
@@ -281,13 +283,15 @@ pip install apache-superset
 
 ### 4. GitHub Repository Secrets
 
-Configure these secrets in **Settings > Secrets and variables > Actions**:
+Nothing has to be configured for validation, tests and linting. The deployment
+is skipped until these are set in **Settings > Secrets and variables > Actions**:
 
-| Secret              | Description                          | Example                        |
-| ------------------- | ------------------------------------ | ------------------------------ |
-| `SUPERSET_URL`      | Superset instance URL                | `https://superset.example.com` |
-| `SUPERSET_USERNAME` | Admin username for API access        | `admin`                        |
-| `SUPERSET_PASSWORD` | Admin password for API access        | `********`                     |
+| Secret                  | Description                          | Example                        |
+| ----------------------- | ------------------------------------ | ------------------------------ |
+| `SUPERSET_URL`          | Superset instance URL (secret or variable) | `https://superset.example.com` |
+| `SUPERSET_USERNAME`     | Admin username for API access        | `admin`                        |
+| `SUPERSET_PASSWORD`     | Admin password for API access        | `********`                     |
+| `SUPERSET_DATABASE_URI` | SQLAlchemy URI of the ${{ values.dataSource }} data source; needed to create the database connection | `********` |
 
 ---
 
@@ -307,7 +311,11 @@ python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
+
+# Check the asset files (no Superset needed)
+python -m scripts.validate
+pytest
 ```
 
 #### Environment Configuration
@@ -319,6 +327,7 @@ Create a `.env` file for local development:
 SUPERSET_URL=http://localhost:8088
 SUPERSET_USERNAME=admin
 SUPERSET_PASSWORD=admin
+SUPERSET_DATABASE_URI=postgresql://user:password@host:5432/database
 ```
 
 #### Import Dashboard
@@ -328,20 +337,17 @@ SUPERSET_PASSWORD=admin
 export $(cat .env | xargs)
 
 # Import all assets to Superset
-python scripts/import.py
-
-# Import specific dashboard
-python scripts/import.py --dashboard dashboards/${{ values.name }}.json
+python -m scripts.import
 ```
 
 #### Export Dashboard
 
 ```bash
 # Export current dashboard state from Superset
-python scripts/export.py
+python -m scripts.export
 
-# Export specific dashboard by ID
-python scripts/export.py --dashboard-id 1
+# Export another dashboard by slug
+DASHBOARD_SLUG=other-dashboard python -m scripts.export
 ```
 
 ### Accessing the Dashboard
@@ -354,7 +360,7 @@ python scripts/export.py --dashboard-id 1
 ### Development Workflow
 
 1. **Make changes in Superset UI** - Create or modify charts and dashboards visually
-2. **Export changes** - Run `python scripts/export.py` to save changes to JSON files
+2. **Export changes** - Run `python -m scripts.export` to save changes to JSON files
 3. **Review changes** - Use `git diff` to review what changed
 4. **Commit and push** - `git add . && git commit -m "Update dashboard" && git push`
 5. **Create PR** - Open a pull request for code review
@@ -370,8 +376,9 @@ Create or modify the database connection in `databases/${{ values.dataSource }}.
 
 ```json
 {
-  "database_name": "${{ values.dataSource }}-${{ values.environment }}",
-  "sqlalchemy_uri": "{{ SQLALCHEMY_URI }}",
+  "database_name": "${{ values.name }}_${{ values.environment }}",
+  "engine": "${{ values.dataSource }}",
+  "sqlalchemy_uri": "",
   "expose_in_sqllab": true,
   "allow_ctas": false,
   "allow_cvas": false,
@@ -493,7 +500,7 @@ Implement row-level security for data isolation:
 {
     "filter_type": "Regular",
     "tables": ["sales_data"],
-    "clause": "region = '{{ current_user.region }}'",
+    "clause": "region = '{% raw %}{{ current_user.region }}{% endraw %}'",
     "roles": ["Sales Team"]
 }
 ```
@@ -525,9 +532,14 @@ Implement row-level security for data isolation:
 ├── databases/
 │   └── ${{ values.dataSource }}.json  # Database connections
 ├── scripts/
-│   ├── __init__.py
+│   ├── assets.py               # Loads the asset files
+│   ├── client.py               # Superset REST API client
+│   ├── validate.py             # Validate assets without Superset
 │   ├── import.py               # Import assets to Superset
-│   └── export.py               # Export assets from Superset
+│   └── export.py               # Export the dashboard from Superset
+├── tests/                      # Tests for validation and import
+├── requirements.txt            # Runtime dependencies
+├── requirements-dev.txt        # Linters and test tools
 ├── docs/
 │   └── index.md                # This documentation
 ├── catalog-info.yaml           # Backstage catalog metadata
@@ -628,8 +640,8 @@ black --check: would reformat scripts/import.py
 **Resolution:**
 ```bash
 # Auto-format code
-black scripts/
-isort scripts/
+black scripts/ tests/
+isort scripts/ tests/
 ```
 
 ---

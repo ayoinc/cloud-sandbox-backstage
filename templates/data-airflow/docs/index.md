@@ -108,7 +108,7 @@ pip install -r requirements.txt
 The template includes the following Airflow version:
 
 ```
-apache-airflow>=2.7.0
+apache-airflow==3.4.0
 ```
 
 For production use, consider:
@@ -180,16 +180,16 @@ When creating a project from this template, the following parameters can be cust
 
 ```python
 # Every 15 minutes
-schedule_interval = "*/15 * * * *"
+schedule = "*/15 * * * *"
 
 # Every 2 hours
-schedule_interval = "0 */2 * * *"
+schedule = "0 */2 * * *"
 
 # Monday-Friday at 9 AM and 5 PM
-schedule_interval = "0 9,17 * * 1-5"
+schedule = "0 9,17 * * 1-5"
 
 # Last day of every month at 11 PM
-schedule_interval = "0 23 28-31 * *"
+schedule = "0 23 28-31 * *"
 ```
 
 ### Repository Configuration
@@ -212,7 +212,7 @@ Example usage in DAG template:
 ```python
 with DAG(
     dag_id='{{ values.name }}',
-    schedule_interval='{{ values.schedule }}',
+    schedule='{{ values.schedule }}',
     start_date=datetime.strptime('{{ values.startDate }}', '%Y-%m-%d'),
     catchup={{ values.catchup }},
     max_active_runs={{ values.maxActiveRuns }},
@@ -274,7 +274,7 @@ def task_function(**context):
 
 with DAG(
     dag_id='example_dag',
-    schedule_interval='@daily',
+    schedule='@daily',
     # ... other configurations
 ) as dag:
 
@@ -369,7 +369,7 @@ Python package dependencies with version constraints:
 
 ```
 # Core Airflow
-apache-airflow>=2.7.0
+apache-airflow==3.4.0
 
 # Database
 psycopg2-binary>=2.9.0
@@ -557,7 +557,7 @@ with DAG(
     dag_id='customer-etl-daily',
     default_args=default_args,
     description='Daily ETL pipeline for customer data processing',
-    schedule_interval='0 2 * * *',  # Run at 2 AM daily
+    schedule='0 2 * * *',  # Run at 2 AM daily
     start_date=datetime(2024, 1, 1),
     catchup=False,
     max_active_runs=1,
@@ -958,7 +958,7 @@ def test_dag_loaded(dag_bag):
 def test_dag_schedule(dag_bag):
     """Test that DAG has the correct schedule."""
     dag = dag_bag.get_dag('customer-etl-daily')
-    assert dag.schedule_interval == '0 2 * * *'
+    assert dag.schedule == '0 2 * * *'
 
 def test_dag_default_args(dag_bag):
     """Test that DAG has correct default arguments."""
@@ -1238,7 +1238,7 @@ services:
       retries: 5
 
   airflow-init:
-    image: apache/airflow:2.7.0
+    image: apache/airflow:3.4.0
     depends_on:
       postgres:
         condition: service_healthy
@@ -1263,7 +1263,7 @@ services:
       ]
 
   airflow-webserver:
-    image: apache/airflow:2.7.0
+    image: apache/airflow:3.4.0
     restart: always
     depends_on:
       - airflow-init
@@ -1279,7 +1279,7 @@ services:
     command: airflow webserver
 
   airflow-scheduler:
-    image: apache/airflow:2.7.0
+    image: apache/airflow:3.4.0
     restart: always
     depends_on:
       - airflow-init

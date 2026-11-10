@@ -16,7 +16,10 @@ npx playwright install
 ## Running Tests
 
 ```bash
-# Run all tests
+# Run all tests against the bundled demo app (no application needed)
+npm run test:demo
+
+# Run all tests against BASE_URL (default: ${{ values.baseUrl }})
 npx playwright test
 
 # Run specific test
@@ -35,9 +38,18 @@ npx playwright test --debug
 ├── tests/
 │   ├── example.spec.ts
 │   └── fixtures/
+├── pages/                  # Page objects
+├── demo-app/server.js      # Small site the pipeline tests against
 ├── playwright.config.ts
 └── package.json
 ```
+
+## Pipeline
+
+`.github/workflows/playwright.yaml` type-checks the project and runs the suite
+against the bundled demo app on every push and pull request, so it passes on a
+new repository with nothing configured. Set a `BASE_URL` repository variable to
+also run the suite against a deployed environment. See `docs/ci-cd.md`.
 
 ## Writing Tests
 

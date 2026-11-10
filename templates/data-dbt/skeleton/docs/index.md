@@ -124,12 +124,15 @@ ${{ values.name }}/
 │   └── utils.sql
 ├── tests/                    # Custom data tests
 │   └── assert_*.sql          # SQL-based assertions
-├── seeds/                    # Static reference data (CSV)
+├── seeds/                    # Sample source data for the ci target (CSV)
 ├── snapshots/                # SCD Type 2 historical tracking
 ├── analyses/                 # Ad-hoc analytical queries
 ├── dbt_project.yml           # Project configuration
 ├── packages.yml              # dbt package dependencies
-├── profiles.yml.example      # Connection profile template
+├── profiles.yml              # Connection profiles (values come from environment variables)
+├── requirements.txt          # dbt and the ${{ values.warehouse }} adapter
+├── requirements-ci.txt       # dbt with DuckDB and sqlfluff, used by the pipeline
+├── .sqlfluff                 # SQL lint configuration
 └── .github/workflows/        # CI/CD pipeline
     └── dbt.yaml
 ```
@@ -146,12 +149,15 @@ ${{ values.name }}/
 
 ## CI/CD Pipeline
 
-This repository includes a comprehensive GitHub Actions pipeline with four stages:
+This repository includes a GitHub Actions pipeline. It needs no secrets to
+pass: models are built and tested on a local DuckDB database (the `ci` target),
+with the `example_table` seed standing in for the raw source.
 
-- **Lint**: SQL linting with sqlfluff
-- **Test**: dbt project validation and compilation
-- **Docs**: Auto-generate documentation on main branch
-- **Deploy**: Run models in target environment
+- **Lint**: SQL linting with sqlfluff (dbt templater)
+- **Security**: Trivy scan of the repository and a pip-audit report of the installed dbt packages
+- **Test**: `dbt parse`, then `dbt seed` and `dbt build` (models and data tests) on DuckDB
+- **Docs**: Generate documentation on main branch and upload it as an artifact
+- **Deploy**: `dbt build` in the `${{ values.environment }}` target on ${{ values.warehouse }}; skipped until the warehouse secrets are set
 
 ### Pipeline Workflow
 
@@ -173,7 +179,7 @@ lint: Lint {
 test: Test {
   style.fill: "#E8F5E9"
   style.stroke: "#388E3C"
-  label: "dbt parse\ndbt compile"
+  label: "dbt parse\ndbt build\n(DuckDB)"
 }
 
 docs: Generate Docs {
@@ -185,7 +191,7 @@ docs: Generate Docs {
 deploy: Deploy {
   style.fill: "#FFCDD2"
   style.stroke: "#D32F2F"
-  label: "dbt run\ndbt test"
+  label: "dbt build\n(${{ values.warehouse }})"
 }
 
 main: Main Branch {
@@ -204,8 +210,8 @@ main -> deploy
 
 | Trigger             | Actions                         |
 | ------------------- | ------------------------------- |
-| Pull Request        | Lint, Test (compile only)       |
-| Push to main        | Lint, Test, Docs, Deploy        |
+| Pull Request        | Lint, Security, Test            |
+| Push to main        | Lint, Security, Test, Docs, Deploy (when the warehouse secrets are set) |
 
 ---
 
@@ -213,11 +219,11 @@ main -> deploy
 
 ### 1. Python Environment
 
-dbt requires Python 3.8 or higher:
+dbt requires Python 3.10 or higher:
 
 ```bash
 # Check Python version
-python --version  # Should be 3.8+
+python --version  # Should be 3.10+
 
 # Create virtual environment (recommended)
 python -m venv venv
@@ -230,55 +236,68 @@ source venv/bin/activate  # Linux/macOS
 Install dbt with the appropriate adapter for your data warehouse:
 
 ```bash
-# For ${{ values.warehouse }}
-pip install dbt-${{ values.warehouse }}==${{ values.dbtVersion }}.*
+# dbt ${{ values.dbtVersion }} with the ${{ values.warehouse }} adapter
+pip install -r requirements.txt
 
-# Common adapters:
-# pip install dbt-snowflake==1.7.*
-# pip install dbt-bigquery==1.7.*
-# pip install dbt-redshift==1.7.*
-# pip install dbt-postgres==1.7.*
-# pip install dbt-databricks==1.7.*
+# dbt with DuckDB and sqlfluff, to build and lint without a warehouse
+pip install -r requirements-ci.txt
 ```
 
 ### 3. Database Connection
 
-Configure your connection credentials based on your warehouse:
+`profiles.yml` reads every connection value from environment variables. The
+targets `development`, `staging` and `production` connect to ${{ values.warehouse }}:
 
-#### Snowflake
-
+{% if values.warehouse == 'snowflake' -%}
 ```bash
 export SNOWFLAKE_ACCOUNT="your_account"
 export SNOWFLAKE_USER="your_username"
 export SNOWFLAKE_PASSWORD="your_password"
-# or use SSO/key-pair authentication
+export SNOWFLAKE_ROLE="your_role"
+export SNOWFLAKE_DATABASE="your_database"
+export SNOWFLAKE_WAREHOUSE="your_warehouse"
 ```
-
-#### BigQuery
-
+{%- elif values.warehouse == 'bigquery' -%}
 ```bash
-export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"
-# or use gcloud auth application-default login
+export BIGQUERY_PROJECT="your-gcp-project"
+export BIGQUERY_KEYFILE="/path/to/service-account.json"
 ```
-
-#### Redshift
-
+{%- elif values.warehouse == 'redshift' -%}
 ```bash
 export REDSHIFT_HOST="your-cluster.region.redshift.amazonaws.com"
 export REDSHIFT_USER="your_username"
 export REDSHIFT_PASSWORD="your_password"
+export REDSHIFT_DATABASE="your_database"
 ```
+{%- elif values.warehouse == 'postgres' -%}
+```bash
+export POSTGRES_HOST="your-host"
+export POSTGRES_USER="your_username"
+export POSTGRES_PASSWORD="your_password"
+export POSTGRES_DATABASE="your_database"
+```
+{%- elif values.warehouse == 'databricks' -%}
+```bash
+export DATABRICKS_HOST="your-workspace.cloud.databricks.com"
+export DATABRICKS_HTTP_PATH="/sql/1.0/warehouses/your_warehouse_id"
+export DATABRICKS_TOKEN="your_token"
+```
+{%- endif %}
+
+Select the target with `DBT_TARGET` (default `ci`) or `--target`, and the schema
+with `DBT_SCHEMA`. The `ci` target is a DuckDB file under `target/` and needs no
+credentials.
 
 ### 4. GitHub Repository Setup (for CI/CD)
 
-#### Required Secrets
+#### Secrets for Deployment
 
-Configure in **Settings > Secrets and variables > Actions**:
-
-| Secret                | Description                              |
-| --------------------- | ---------------------------------------- |
-| `DBT_TARGET`          | Target environment for dbt               |
-| Warehouse credentials | Database-specific connection secrets     |
+Nothing has to be configured for lint, test and docs. The deploy job is skipped
+until the secrets with the same names as the environment variables above are
+set in **Settings > Secrets and variables > Actions** (repository secrets, or
+secrets of the `${{ values.environment }}` environment).
+{%- if values.warehouse == 'bigquery' %} For BigQuery set `BIGQUERY_PROJECT` and
+`BIGQUERY_KEYFILE_JSON` (the content of the service account key file).{% endif %}
 
 #### GitHub Environments
 
@@ -305,12 +324,11 @@ cd ${{ values.name }}
 python -m venv venv
 source venv/bin/activate
 
-# Install dbt
-pip install dbt-${{ values.warehouse }}==${{ values.dbtVersion }}.*
+# Install dbt (DuckDB adapter and sqlfluff included)
+pip install -r requirements-ci.txt
 
-# Configure profiles.yml
-cp profiles.yml.example ~/.dbt/profiles.yml
-# Edit ~/.dbt/profiles.yml with your credentials
+# The project uses the profiles.yml in the repository
+export DBT_PROFILES_DIR=$(pwd)
 
 # Install dbt packages
 dbt deps
@@ -423,7 +441,7 @@ sources:
         columns:
           - name: id
             description: Primary key
-            tests:
+            data_tests:
               - unique
               - not_null
 ```
@@ -464,7 +482,7 @@ processed as (
         id,
         created_at,
         updated_at,
-        datediff('day', created_at, updated_at) as days_since_creation
+        {{ dbt.datediff("created_at", "updated_at", "day") }} as days_since_creation
     from staged
 )
 
@@ -506,14 +524,14 @@ models:
     columns:
       - name: id
         description: Primary key
-        tests:
+        data_tests:
           - unique
           - not_null
       - name: created_at
-        tests:
+        data_tests:
           - not_null
       - name: days_since_creation
-        tests:
+        data_tests:
           - not_null
           - dbt_expectations.expect_column_values_to_be_between:
               min_value: 0
@@ -528,10 +546,10 @@ Create SQL-based tests in `tests/` directory:
 -- tests/assert_fct_dim_integrity.sql
 -- Test that all IDs in fct_example exist in dim_example
 select
-    f.id
-from {{ ref('fct_example') }} f
-left join {{ ref('dim_example') }} d on f.id = d.id
-where d.id is null
+    fct.id
+from {{ ref('fct_example') }} as fct
+left join {{ ref('dim_example') }} as dim on fct.id = dim.id
+where dim.id is null
 ```
 
 ### Running Tests
@@ -635,13 +653,13 @@ models:
 Create reusable documentation in `models/docs.md`:
 
 ```markdown
-{% docs days_since_creation %}
+{% raw %}{% docs days_since_creation %}
 The number of days elapsed between the record creation date
 and the most recent update. Used to measure record age and
 identify stale data.
 
-**Calculation**: `datediff('day', created_at, updated_at)`
-{% enddocs %}
+**Calculation**: `dbt.datediff("created_at", "updated_at", "day")`
+{% enddocs %}{% endraw %}
 ```
 
 Reference in YAML:
@@ -666,7 +684,7 @@ Runtime Error: Database Error
 
 **Resolution:**
 
-1. Verify credentials in `~/.dbt/profiles.yml`
+1. Verify the environment variables read by `profiles.yml`
 2. Test connection: `dbt debug`
 3. Check network access (VPN, firewall, IP allowlist)
 4. Verify database/schema permissions
@@ -788,5 +806,5 @@ ERROR: Could not find profile named 'profile_name'
 - [dbt Style Guide](https://github.com/dbt-labs/corp/blob/main/dbt_style_guide.md)
 - [sqlfluff Documentation](https://docs.sqlfluff.com/)
 - [dbt_utils Package](https://hub.getdbt.com/dbt-labs/dbt_utils/latest/)
-- [dbt_expectations Package](https://hub.getdbt.com/calogica/dbt_expectations/latest/)
+- [dbt_expectations Package](https://hub.getdbt.com/metaplane/dbt_expectations/latest/)
 - [Analytics Engineering Guide](https://www.getdbt.com/analytics-engineering/)

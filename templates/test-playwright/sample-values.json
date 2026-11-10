@@ -1,0 +1,13 @@
+{
+  "values": {
+    "name": "sample-e2e-tests",
+    "description": "End-to-end tests for the sample storefront",
+    "owner": "group:default/platform-team",
+    "baseUrl": "http://localhost:3000",
+    "browsers": ["chromium", "firefox"],
+    "parallelWorkers": 4,
+    "enableTracing": true,
+    "enableScreenshots": true,
+    "repoUrl": "github.com?owner=example-org&repo=sample-e2e-tests"
+  }
+}

@@ -1,0 +1,16 @@
+[sqlfluff]
+templater = dbt
+# The models are compiled for the ci target, which is DuckDB.
+dialect = duckdb
+max_line_length = 100
+
+[sqlfluff:templater:dbt]
+project_dir = .
+profiles_dir = .
+target = ci
+
+[sqlfluff:rules:capitalisation.keywords]
+capitalisation_policy = lower
+
+[sqlfluff:rules:capitalisation.functions]
+extended_capitalisation_policy = lower

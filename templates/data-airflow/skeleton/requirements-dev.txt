@@ -1,0 +1,16 @@
+-r requirements.txt
+
+# Testing
+pytest
+pytest-cov
+
+# Linting and formatting
+# Black's version comes from the Airflow constraints file.
+black
+flake8==7.5.0
+isort==9.0.2
+mypy==2.4.1
+
+# Security
+bandit[sarif]==1.9.4
+pip-audit

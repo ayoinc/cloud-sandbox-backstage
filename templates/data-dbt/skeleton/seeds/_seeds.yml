@@ -1,0 +1,10 @@
+version: 2
+
+seeds:
+  - name: example_table
+    description: Sample rows standing in for the raw example_table source in the ci target
+    config:
+      column_types:
+        id: integer
+        created_at: timestamp
+        updated_at: timestamp

@@ -1,0 +1,13 @@
+{
+  "values": {
+    "name": "sample-sales-etl",
+    "description": "Daily extract, transform and load of sales orders into the warehouse",
+    "owner": "group:default/platform-team",
+    "environment": "development",
+    "schedule": "@daily",
+    "startDate": "2024-01-01",
+    "catchup": false,
+    "maxActiveRuns": 1,
+    "repoUrl": "github.com?owner=example-org&repo=sample-sales-etl"
+  }
+}

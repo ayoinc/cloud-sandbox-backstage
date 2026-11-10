@@ -107,6 +107,7 @@ spec:
           parallelWorkers: ${{ parameters.parallelWorkers }}
           enableTracing: ${{ parameters.enableTracing }}
           enableScreenshots: ${{ parameters.enableScreenshots }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
 
     - id: publish
       name: Publish to GitHub

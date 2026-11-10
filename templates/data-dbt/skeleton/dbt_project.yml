@@ -2,6 +2,8 @@ name: '${{ values.name }}'
 version: '1.0.0'
 config-version: 2
 
+require-dbt-version: ['>=${{ values.dbtVersion }}.0', '<2.0.0']
+
 profile: '${{ values.name }}'
 
 model-paths: ['models']
@@ -17,3 +19,8 @@ clean-targets:
 
 vars:
   environment: '${{ values.environment }}'
+
+seeds:
+  ${{ values.name }}:
+    # The seed is sample data that stands in for the raw source in the ci target.
+    +enabled: "{{ target.name == 'ci' }}"

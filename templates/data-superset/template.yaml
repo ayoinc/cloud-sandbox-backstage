@@ -90,6 +90,7 @@ spec:
           owner: ${{ parameters.owner }}
           environment: ${{ parameters.environment }}
           dataSource: ${{ parameters.dataSource }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
 
     - id: publish
       name: Publish to GitHub

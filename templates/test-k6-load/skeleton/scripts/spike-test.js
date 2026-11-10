@@ -7,24 +7,24 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Rate } from 'k6/metrics';
-import { config } from './lib/config.js';
+import { config, thresholds } from './lib/config.js';
 
 const errorRate = new Rate('error_rate');
 
 export const options = {
   stages: [
-    { duration: '10s', target: 100 },   // Ramp up to normal load
-    { duration: '1m', target: 100 },    // Stay at normal
-    { duration: '10s', target: 1400 },  // SPIKE to 14x normal!
-    { duration: '3m', target: 1400 },   // Stay at spike load
-    { duration: '10s', target: 100 },   // Scale back to normal
-    { duration: '3m', target: 100 },    // Recovery period
+    { duration: '10s', target: config.vus },       // Ramp up to normal load
+    { duration: '1m', target: config.vus },        // Stay at normal
+    { duration: '10s', target: config.vus * 14 },  // SPIKE to 14x normal!
+    { duration: '3m', target: config.vus * 14 },   // Stay at spike load
+    { duration: '10s', target: config.vus },       // Scale back to normal
+    { duration: '3m', target: config.vus },        // Recovery period
     { duration: '10s', target: 0 },     // Ramp down to 0
   ],
-  thresholds: {
+  thresholds: thresholds({
     http_req_duration: ['p(99)<5000'],  // Very lenient during spike
     http_req_failed: ['rate<0.30'],     // Allow some failures during spike
-  },
+  }),
 };
 
 export function setup() {

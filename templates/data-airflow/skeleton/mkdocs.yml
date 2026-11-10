@@ -1,12 +1,8 @@
 site_name: ${{ values.name }}
-site_description: ${{ values.description }}
+site_description: ${{ (values.description or "") | dump }}
 
 nav:
   - Home: index.md
-  - DAG Structure: dag-structure.md
-  - Configuration: configuration.md
-  - Testing: testing.md
-  - Deployment: deployment.md
 
 plugins:
   - techdocs-core

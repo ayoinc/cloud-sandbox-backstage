@@ -1,24 +1,28 @@
 {
   "name": "${{ values.name }}",
   "version": "1.0.0",
-  "description": "${{ values.description }}",
+  "private": true,
+  "description": ${{ (values.description or '') | dump }},
   "scripts": {
     "test": "playwright test",
+    "test:demo": "USE_DEMO_APP=1 playwright test",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug",
     "test:chromium": "playwright test --project=chromium",
     "test:firefox": "playwright test --project=firefox",
     "test:webkit": "playwright test --project=webkit",
+    "typecheck": "tsc --noEmit",
+    "demo": "node demo-app/server.js",
     "report": "playwright show-report",
     "codegen": "playwright codegen"
   },
   "devDependencies": {
-    "@playwright/test": "^1.40.0",
-    "@types/node": "^20.10.0",
-    "typescript": "^5.3.0"
+    "@playwright/test": "^1.65.0",
+    "@types/node": "^24.0.0",
+    "typescript": "^7.0.2"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.0.0"
   }
 }

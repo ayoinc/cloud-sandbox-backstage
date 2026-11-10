@@ -3,12 +3,13 @@
  * 
  * This script performs load testing against the target application.
  * Default configuration: ${{ values.virtualUsers }} VUs for ${{ values.duration }}
+ * (override with -e VUS=<n> -e DURATION=<time>)
  */
 
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Rate, Trend } from 'k6/metrics';
-import { config } from './lib/config.js';
+import { config, thresholds } from './lib/config.js';
 
 // Custom metrics
 const errorRate = new Rate('error_rate');
@@ -17,15 +18,15 @@ const apiDuration = new Trend('api_duration');
 // Test configuration
 export const options = {
   stages: [
-    { duration: '1m', target: Math.floor(${{ values.virtualUsers }} / 2) },  // Ramp up
-    { duration: '${{ values.duration }}', target: ${{ values.virtualUsers }} },  // Stay at peak
+    { duration: '1m', target: Math.ceil(config.vus / 2) },  // Ramp up
+    { duration: config.duration, target: config.vus },  // Stay at peak
     { duration: '1m', target: 0 },   // Ramp down
   ],
-  thresholds: {
+  thresholds: thresholds({
     http_req_duration: ['p(95)<500', 'p(99)<1500'],
     http_req_failed: ['rate<0.01'],
     error_rate: ['rate<0.05'],
-  },
+  }),
 };
 
 // Setup function (runs once at the start)
@@ -42,7 +43,7 @@ export function setup() {
 }
 
 // Main test function (runs repeatedly for each VU)
-export default function(data) {
+export default function() {
   // GET request to homepage
   const homeResponse = http.get(config.baseUrl);
   
@@ -55,7 +56,7 @@ export default function(data) {
   apiDuration.add(homeResponse.timings.duration);
 
   // GET request to API endpoint (if exists)
-  const apiResponse = http.get(`${config.baseUrl}/api/health`, {
+  const apiResponse = http.get(`${config.baseUrl}${config.endpoints.health}`, {
     tags: { name: 'health_check' },
   });
   

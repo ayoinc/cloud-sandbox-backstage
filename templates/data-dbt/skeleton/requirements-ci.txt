@@ -1,0 +1,5 @@
+# dbt with the DuckDB adapter of the ci target, and the SQL linter
+dbt-core~=${{ values.dbtVersion }}.0
+dbt-duckdb
+sqlfluff>=4.5,<5
+sqlfluff-templater-dbt>=4.5,<5

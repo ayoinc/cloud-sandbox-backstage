@@ -1,11 +1,8 @@
 site_name: ${{ values.name }}
-site_description: ${{ values.description }}
+site_description: ${{ (values.description or "") | dump }}
 
 nav:
   - Home: index.md
-  - Dashboards: dashboards.md
-  - Datasets: datasets.md
-  - Development: development.md
 
 plugins:
   - techdocs-core

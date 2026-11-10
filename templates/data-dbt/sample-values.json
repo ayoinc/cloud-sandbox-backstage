@@ -1,0 +1,11 @@
+{
+  "values": {
+    "name": "sample_sales_models",
+    "description": "Sales reporting models for the analytics warehouse",
+    "owner": "group:default/platform-team",
+    "environment": "development",
+    "warehouse": "snowflake",
+    "dbtVersion": "1.12",
+    "repoUrl": "github.com?owner=example-org&repo=sample-sales-models"
+  }
+}

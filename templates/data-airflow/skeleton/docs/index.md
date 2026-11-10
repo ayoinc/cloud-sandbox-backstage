@@ -116,7 +116,7 @@ workers -> metadata: Report status
 | Argument              | Value           | Description                        |
 | --------------------- | --------------- | ---------------------------------- |
 | `depends_on_past`     | `False`         | Tasks don't wait for prior runs    |
-| `email_on_failure`    | `True`          | Send alerts on task failure        |
+| `owner`               | `${{ values.owner }}` | Owner shown in the Airflow UI |
 | `retries`             | `3`             | Number of retry attempts           |
 | `retry_delay`         | `5 minutes`     | Wait time between retries          |
 | `execution_timeout`   | `2 hours`       | Maximum task execution time        |
@@ -200,17 +200,18 @@ ${{ values.name }}/
 │   └── workflows/
 │       └── airflow.yaml          # CI/CD pipeline
 ├── dags/
-│   ├── ${{ values.name }}_dag.py # Main DAG definition
+│   ├── ${{ values.name | replace("-", "_") }}_dag.py # Main DAG definition
 │   └── utils/
 │       └── __init__.py           # Shared utilities
 ├── tests/
 │   ├── __init__.py
-│   └── test_dag.py               # DAG unit tests
-├── plugins/                      # Custom operators/hooks/sensors
+│   ├── test_dag.py               # DAG integrity tests
+│   └── test_utils.py             # Utility tests
 ├── docs/
 │   └── index.md                  # This documentation
-├── requirements.txt              # Python dependencies
-├── pyproject.toml                # Project configuration
+├── requirements.txt              # Pinned Airflow release
+├── requirements-dev.txt          # Test, lint and security tools
+├── pyproject.toml                # Tool configuration
 ├── mkdocs.yml                    # Documentation config
 └── catalog-info.yaml             # Backstage catalog metadata
 ```
@@ -225,9 +226,22 @@ This repository includes a comprehensive GitHub Actions pipeline for continuous 
 
 - **Linting**: Code formatting with Black, import ordering with isort
 - **Static Analysis**: Type checking with mypy, linting with flake8
-- **Testing**: Unit tests with pytest and coverage reporting
-- **DAG Validation**: Airflow DagBag import validation
-- **Deployment**: Automated deployment to production environment
+- **Testing**: DAG integrity and unit tests with pytest and coverage reporting
+- **DAG Validation**: Airflow DagBag import validation, then one full run of the DAG with `airflow dags test`
+- **Security**: Bandit on the DAG code, Trivy on the repository, and a pip-audit report of the installed dependencies
+- **Deployment**: Sync of `dags/` to the Airflow DAGs bucket once the deployment variables are set
+
+The pipeline needs no secrets or variables to pass. The deploy job is skipped
+until these repository variables exist (**Settings > Secrets and variables >
+Actions > Variables**):
+
+| Variable              | Description                                                      |
+| --------------------- | ---------------------------------------------------------------- |
+| `AIRFLOW_DAGS_BUCKET` | S3 bucket the Airflow environment reads DAGs from (for example Amazon MWAA) |
+| `AWS_ROLE_ARN`        | IAM role the pipeline assumes through GitHub OIDC                |
+| `AWS_REGION`          | Region of the bucket                                             |
+
+Coverage is also sent to Codecov when a `CODECOV_TOKEN` secret is set.
 
 ### Pipeline Workflow
 
@@ -281,10 +295,10 @@ validate -> deploy
 
 ### Pipeline Stages
 
-| Stage          | Trigger                | Jobs Run                               |
-| -------------- | ---------------------- | -------------------------------------- |
-| Pull Request   | PR to `main`           | Lint, Test, DAG Validation             |
-| Push to Main   | Merge to `main`        | Lint, Test, DAG Validation, Deploy     |
+| Stage          | Trigger                | Jobs Run                                         |
+| -------------- | ---------------------- | ------------------------------------------------ |
+| Pull Request   | PR to `main`           | Lint, Test, Security Scan, DAG Validation        |
+| Push to Main   | Merge to `main`        | The same, then Deploy when it is configured      |
 
 ---
 
@@ -311,15 +325,12 @@ Install Airflow with constraints to ensure compatibility:
 
 ```bash
 # Set Airflow version
-AIRFLOW_VERSION=2.7.0
+AIRFLOW_VERSION=3.4.0
 PYTHON_VERSION="$(python --version | cut -d " " -f 2 | cut -d "." -f 1-2)"
-CONSTRAINT_URL="https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt"
+export PIP_CONSTRAINT="https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt"
 
-# Install Airflow
-pip install "apache-airflow==${AIRFLOW_VERSION}" --constraint "${CONSTRAINT_URL}"
-
-# Or simply install from requirements.txt
-pip install -r requirements.txt
+# Install Airflow and the development tools
+pip install -r requirements-dev.txt
 ```
 
 ### 3. Docker (Optional)
@@ -335,16 +346,16 @@ docker --version
 docker-compose --version
 
 # Run Airflow with Docker Compose
-curl -LfO 'https://airflow.apache.org/docs/apache-airflow/2.7.0/docker-compose.yaml'
-docker-compose up -d
+curl -LfO 'https://airflow.apache.org/docs/apache-airflow/3.4.0/docker-compose.yaml'
+docker compose up -d
 ```
 
 ### 4. Development Tools
 
-Install linting and testing tools:
+The linting, testing and security tools are part of `requirements-dev.txt`:
 
 ```bash
-pip install black flake8 isort mypy pytest pytest-cov
+pip install -r requirements-dev.txt
 ```
 
 ---
@@ -364,27 +375,17 @@ cd ${{ values.name }}
 python -m venv venv
 source venv/bin/activate
 
-# Install dependencies
-pip install -r requirements.txt
+# Install dependencies with the Airflow constraints
+export PIP_CONSTRAINT="https://raw.githubusercontent.com/apache/airflow/constraints-3.4.0/constraints-3.12.txt"
+pip install -r requirements-dev.txt
 
-# Initialize Airflow database
-export AIRFLOW_HOME=$(pwd)
-airflow db init
+# Start Airflow (database, API server, scheduler and DAG processor in one process)
+export AIRFLOW_HOME=$(pwd)/.airflow
+export AIRFLOW__CORE__DAGS_FOLDER=$(pwd)/dags
+export AIRFLOW__CORE__LOAD_EXAMPLES=False
+airflow standalone
 
-# Create admin user
-airflow users create \
-  --username admin \
-  --password admin \
-  --firstname Admin \
-  --lastname User \
-  --role Admin \
-  --email admin@example.com
-
-# Start Airflow services (in separate terminals or background)
-airflow webserver --port 8080 &
-airflow scheduler &
-
-# Access the UI
+# Access the UI (the admin password is printed by `airflow standalone`)
 open http://localhost:8080
 ```
 
@@ -394,7 +395,7 @@ open http://localhost:8080
 | ---------------- | ------------------------------ | --------------- |
 | `AIRFLOW_HOME`   | Airflow configuration directory | `~/airflow`    |
 | `AIRFLOW__CORE__DAGS_FOLDER` | DAGs directory    | `$AIRFLOW_HOME/dags` |
-| `AIRFLOW__CORE__EXECUTOR` | Executor type        | `SequentialExecutor` |
+| `AIRFLOW__CORE__EXECUTOR` | Executor type        | `LocalExecutor` |
 | `AIRFLOW__DATABASE__SQL_ALCHEMY_CONN` | Database URL | SQLite (local) |
 
 ### Testing DAGs
@@ -419,16 +420,23 @@ pytest tests/test_dag.py::test_dag_loaded -v
 
 ```bash
 # Check for import errors
-export AIRFLOW_HOME=$(pwd)
 python -c "
-from airflow.models import DagBag
-dag_bag = DagBag(dag_folder='dags', include_examples=False)
+from airflow.dag_processing.dagbag import DagBag
+dag_bag = DagBag(dag_folder='dags')
 if dag_bag.import_errors:
     for dag_id, error in dag_bag.import_errors.items():
         print(f'Error in {dag_id}: {error}')
     exit(1)
 print(f'Successfully validated {len(dag_bag.dags)} DAGs')
 "
+```
+
+#### Run the Whole DAG Once
+
+```bash
+export AIRFLOW__CORE__DAGS_FOLDER=$(pwd)/dags
+airflow db migrate
+airflow dags test ${{ values.name }} 2024-01-01
 ```
 
 #### Test Individual Tasks
@@ -448,10 +456,11 @@ airflow tasks test ${{ values.name }} transform 2024-01-01 --verbose
 ### Basic ETL Pattern (Current Implementation)
 
 ```python
-from datetime import datetime, timedelta
-from airflow import DAG
-from airflow.operators.python import PythonOperator
-from airflow.operators.empty import EmptyOperator
+from datetime import datetime, timedelta, timezone
+
+from airflow.providers.standard.operators.empty import EmptyOperator
+from airflow.providers.standard.operators.python import PythonOperator
+from airflow.sdk import DAG
 
 default_args = {
     'owner': '${{ values.owner }}',
@@ -462,9 +471,9 @@ default_args = {
 with DAG(
     dag_id='${{ values.name }}',
     default_args=default_args,
-    schedule_interval='${{ values.schedule }}',
-    start_date=datetime.strptime('${{ values.startDate }}', '%Y-%m-%d'),
-    catchup=${{ values.catchup }},
+    schedule='${{ values.schedule }}',
+    start_date=datetime.strptime('${{ values.startDate }}', '%Y-%m-%d').replace(tzinfo=timezone.utc),
+    catchup=${{ "True" if values.catchup else "False" }},
 ) as dag:
     
     start = EmptyOperator(task_id='start')
@@ -490,7 +499,7 @@ with DAG(
 ### Parallel Processing Pattern
 
 ```python
-from airflow.operators.python import PythonOperator
+from airflow.providers.standard.operators.python import PythonOperator
 
 with DAG(...) as dag:
     
@@ -507,7 +516,7 @@ with DAG(...) as dag:
 ### Branching Pattern
 
 ```python
-from airflow.operators.python import BranchPythonOperator
+from airflow.providers.standard.operators.python import BranchPythonOperator
 
 def choose_branch(**context):
     if context['params'].get('full_refresh'):
@@ -527,13 +536,13 @@ with DAG(...) as dag:
     branch >> [full_load, incremental_load]
 ```
 
-### TaskFlow API (Airflow 2.0+)
+### TaskFlow API
 
 ```python
-from airflow.decorators import dag, task
+from airflow.sdk import dag, task
 
-@dag(schedule_interval='${{ values.schedule }}', start_date=datetime(2024, 1, 1))
-def ${{ values.name }}_taskflow():
+@dag(schedule='${{ values.schedule }}', start_date=datetime(2024, 1, 1))
+def ${{ values.name | replace("-", "_") }}_taskflow():
     
     @task
     def extract():
@@ -552,7 +561,7 @@ def ${{ values.name }}_taskflow():
     transformed = transform(raw_data)
     load(transformed)
 
-dag = ${{ values.name }}_taskflow()
+dag = ${{ values.name | replace("-", "_") }}_taskflow()
 ```
 
 ---
@@ -635,10 +644,10 @@ airflow variables delete 'environment'
 #### In DAG Code
 
 ```python
-from airflow.models import Variable
+from airflow.sdk import Variable
 
 # Get simple variable
-env = Variable.get('environment', default_var='dev')
+env = Variable.get('environment', default='dev')
 
 # Get JSON variable
 config = Variable.get('config', deserialize_json=True)
@@ -768,7 +777,7 @@ with DAG(..., sla_miss_callback=sla_alert) as dag:
 **Resolution**:
 1. Check for import errors:
    ```bash
-   python dags/${{ values.name }}_dag.py
+   python dags/${{ values.name | replace("-", "_") }}_dag.py
    ```
 2. Verify DAG folder configuration:
    ```bash
@@ -860,7 +869,7 @@ airflow dags trigger ${{ values.name }}
 airflow config list
 
 # Validate DAG syntax
-python -c "from dags.${{ values.name }}_dag import dag; print(dag)"
+python -c "from dags.${{ values.name | replace("-", "_") }}_dag import dag; print(dag)"
 ```
 
 ---

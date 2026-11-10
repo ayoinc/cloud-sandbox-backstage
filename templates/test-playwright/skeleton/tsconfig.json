@@ -1,20 +1,19 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "commonjs",
-    "moduleResolution": "node",
+    "module": "preserve",
+    "moduleResolution": "bundler",
     "strict": true,
+    "noEmit": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "outDir": "./dist",
-    "rootDir": ".",
-    "baseUrl": ".",
+    "types": ["node"],
     "paths": {
-      "@pages/*": ["pages/*"],
-      "@fixtures/*": ["tests/fixtures/*"]
+      "@pages/*": ["./pages/*"],
+      "@fixtures/*": ["./tests/fixtures/*"]
     }
   },
   "include": ["**/*.ts"],
-  "exclude": ["node_modules", "dist", "playwright-report", "test-results"]
+  "exclude": ["node_modules", "playwright-report", "test-results"]
 }

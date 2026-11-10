@@ -1,5 +1,6 @@
 {
   "database_name": "${{ values.name }}_${{ values.environment }}",
+  "engine": "${{ values.dataSource }}",
   "sqlalchemy_uri": "",
   "extra": {
     "metadata_params": {},

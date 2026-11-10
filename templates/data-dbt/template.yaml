@@ -69,10 +69,10 @@ spec:
           title: dbt Version
           type: string
           enum:
-            - '1.7'
-            - '1.6'
-            - '1.5'
-          default: '1.7'
+            - '1.12'
+            - '1.11'
+            - '1.10'
+          default: '1.12'
 
     - title: Repository Configuration
       required:
@@ -92,6 +92,11 @@ spec:
       action: fetch:template
       input:
         url: ./skeleton
+        copyWithoutTemplating:
+          - models/**/*.sql
+          - macros/**
+          - tests/**
+          - seeds/**
         values:
           name: ${{ parameters.name }}
           description: ${{ parameters.description }}
@@ -99,6 +104,7 @@ spec:
           environment: ${{ parameters.environment }}
           warehouse: ${{ parameters.warehouse }}
           dbtVersion: ${{ parameters.dbtVersion }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
 
     - id: publish
       name: Publish to GitHub

@@ -2,57 +2,56 @@
 
 ## GitHub Actions
 
-This project includes a GitHub Actions workflow for automated load testing.
+This project includes a GitHub Actions workflow, `.github/workflows/k6.yaml`.
+It passes on a new repository with nothing configured.
 
 ### Workflow Triggers
 
 The workflow runs on:
+
+- Push and pull requests to `main` (validation and smoke tests)
 - Manual trigger (workflow_dispatch)
-- Scheduled runs (configurable)
-- Pull requests (smoke tests only)
+- Weekly schedule, Monday 06:00 UTC
 
-### Pipeline Overview
+### Jobs
 
-1. **Install**: Set up k6
-2. **Run Tests**: Execute load tests against target environment
-3. **Report**: Upload results and metrics
+| Job          | Runs on               | What it does                                                                  |
+| ------------ | --------------------- | ----------------------------------------------------------------------------- |
+| `security`   | Push, pull request    | Trivy scan; fails on HIGH and CRITICAL findings                               |
+| `smoke-test` | Every trigger         | `k6 inspect` on every script, then a 15 second, 5 VU run of each against the bundled test target |
+| `load-test`  | Manual, schedule      | The full test against a deployed environment, when one is set                 |
 
-## Environment Variables
+### The bundled test target
 
-Configure these secrets in your GitHub repository:
+`test-target/server.js` is a small HTTP server that answers the endpoints the
+scripts call. The `smoke-test` job starts it inside the job, so the scripts
+always have something to run against. To do the same locally:
 
-| Secret | Description |
-|--------|-------------|
-| `BASE_URL` | Target application URL |
-| `K6_CLOUD_TOKEN` | (Optional) k6 Cloud API token |
+```bash
+node test-target/server.js &
+k6 run --vus 5 --duration 15s -e BASE_URL=http://127.0.0.1:3000 scripts/load-test.js
+```
+
+### Load testing a deployed environment
+
+Set `BASE_URL` as a repository variable (or secret) in
+**Settings > Secrets and variables > Actions**. The weekly run then executes
+the `${{ values.testType or "load" }}` test against it. Without it the scheduled load test is skipped.
+
+A manual run takes the test type, virtual users, duration and target URL as
+inputs. When the URL input is empty it uses `BASE_URL`, then the URL the project
+was created with (`${{ values.baseUrl }}`).
 
 ## Running in CI
 
-The workflow automatically:
+The `load-test` job:
+
 - Installs k6
-- Runs the specified test scenario
-- Outputs results to JSON
-- Uploads artifacts
+- Runs the selected test scenario
+- Writes results to `results.json` and uploads it as the `k6-results` artifact
+- Adds the run parameters to the job summary
 
-### Customizing the Pipeline
-
-Edit `.github/workflows/k6.yaml` to:
-- Change test scenarios
-- Adjust virtual user counts
-- Configure different environments
-- Set up Grafana Cloud k6 integration
-
-## Local CI Simulation
-
-Test the CI configuration locally:
-
-```bash
-# Run with CI-like settings
-k6 run --out json=results.json scripts/load-test.js
-
-# Check threshold results
-echo $?  # 0 = pass, non-zero = fail
-```
+A crossed threshold makes k6 exit non-zero, which fails the job.
 
 ## Integration with Monitoring
 
@@ -60,17 +59,10 @@ echo $?  # 0 = pass, non-zero = fail
 
 ```bash
 # Set up cloud integration
-k6 login cloud --token <your-token>
+k6 cloud login --token <your-token>
 
 # Run with cloud output
-k6 cloud scripts/load-test.js
-```
-
-### InfluxDB + Grafana
-
-```bash
-# Output to InfluxDB
-k6 run --out influxdb=http://localhost:8086/k6 scripts/load-test.js
+k6 cloud run scripts/load-test.js
 ```
 
 ### Prometheus
@@ -80,12 +72,6 @@ k6 run --out influxdb=http://localhost:8086/k6 scripts/load-test.js
 k6 run --out experimental-prometheus-rw scripts/load-test.js
 ```
 
-## Artifacts
-
-The following artifacts are uploaded:
-- `k6-results.json`: Raw test results
-- `k6-summary.txt`: Human-readable summary
-
 ## Notifications
 
 Add Slack notifications for test results:
@@ -93,10 +79,12 @@ Add Slack notifications for test results:
 ```yaml
 - name: Notify Slack
   if: failure()
-  uses: slackapi/slack-github-action@v1
+  uses: slackapi/slack-github-action@v2
   with:
+    webhook: {% raw %}${{ secrets.SLACK_WEBHOOK_URL }}{% endraw %}
+    webhook-type: incoming-webhook
     payload: |
       {
-        "text": "Load test failed! Check results at ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        "text": "Load test failed! Check results at {% raw %}${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}{% endraw %}"
       }
 ```

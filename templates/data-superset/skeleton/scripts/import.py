@@ -1,122 +1,140 @@
 #!/usr/bin/env python3
 """
-Import Superset assets from JSON files.
+Import the Superset assets of this repository into a Superset instance.
+
+Environment:
+    SUPERSET_URL, SUPERSET_USERNAME, SUPERSET_PASSWORD   Superset account
+    SUPERSET_DATABASE_URI   SQLAlchemy URI of the data source; required the
+                            first time, when the database connection is created
 """
 
 import json
 import os
-import requests
-from pathlib import Path
+import sys
+
+from scripts.assets import load_assets
+from scripts.client import SupersetClient, SupersetError
 
 
-def get_superset_session():
-    """Create authenticated session with Superset."""
-    base_url = os.getenv('SUPERSET_URL', 'http://localhost:8088')
-    username = os.getenv('SUPERSET_USERNAME', 'admin')
-    password = os.getenv('SUPERSET_PASSWORD', 'admin')
-    
-    session = requests.Session()
-    
-    # Get CSRF token
-    response = session.get(f"{base_url}/api/v1/security/csrf_token/")
-    csrf_token = response.json()['result']
-    session.headers['X-CSRFToken'] = csrf_token
-    
-    # Login
-    login_payload = {
-        'username': username,
-        'password': password,
-        'provider': 'db'
-    }
-    session.post(f"{base_url}/api/v1/security/login", json=login_payload)
-    
-    return session, base_url
+def import_databases(client, databases):
+    """Create or update database connections. Returns {database name: id}."""
+    ids = {}
+    uri = os.getenv("SUPERSET_DATABASE_URI", "")
+    for config in databases.values():
+        name = config["database_name"]
+        print(f"Importing database: {name}")
+        payload = {
+            "database_name": name,
+            "expose_in_sqllab": config.get("expose_in_sqllab", True),
+            "allow_ctas": config.get("allow_ctas", False),
+            "allow_cvas": config.get("allow_cvas", False),
+            "allow_dml": config.get("allow_dml", False),
+            "extra": json.dumps(config.get("extra", {})),
+        }
+        if uri:
+            payload["sqlalchemy_uri"] = uri
+        elif not client.find("database", "database_name", name):
+            raise SupersetError(
+                f"Database '{name}' does not exist yet: set SUPERSET_DATABASE_URI "
+                "to its SQLAlchemy URI to create it"
+            )
+        ids[name] = client.upsert("database", "database_name", name, payload)
+    return ids
 
 
-def import_databases(session, base_url):
-    """Import database connections."""
-    db_dir = Path('databases')
-    if not db_dir.exists():
-        return
-    
-    for db_file in db_dir.glob('*.json'):
-        with open(db_file) as f:
-            config = json.load(f)
-        
-        print(f"Importing database: {config['database_name']}")
-        response = session.post(f"{base_url}/api/v1/database/", json=config)
-        if response.status_code in [200, 201]:
-            print(f"  Success: {db_file.name}")
+def import_datasets(client, datasets, database_ids):
+    """Create or update datasets. Returns {table name: id}."""
+    ids = {}
+    for config in datasets.values():
+        name = config["table_name"]
+        print(f"Importing dataset: {name}")
+        existing = client.find("dataset", "table_name", name)
+        if existing:
+            dataset_id = existing["id"]
         else:
-            print(f"  Error: {response.text}")
+            created = client.request(
+                "POST",
+                "/api/v1/dataset/",
+                json={
+                    "database": database_ids[config["database_name"]],
+                    "schema": config.get("schema"),
+                    "table_name": name,
+                    "sql": config.get("sql"),
+                },
+            )
+            dataset_id = created["id"]
+        client.request(
+            "PUT",
+            f"/api/v1/dataset/{dataset_id}",
+            params={"override_columns": "true"},
+            json={
+                "columns": config.get("columns", []),
+                "metrics": config.get("metrics", []),
+            },
+        )
+        ids[name] = dataset_id
+    return ids
 
 
-def import_datasets(session, base_url):
-    """Import datasets/tables."""
-    dataset_dir = Path('datasets')
-    if not dataset_dir.exists():
-        return
-    
-    for ds_file in dataset_dir.glob('*.json'):
-        with open(ds_file) as f:
-            config = json.load(f)
-        
-        print(f"Importing dataset: {config['table_name']}")
-        response = session.post(f"{base_url}/api/v1/dataset/", json=config)
-        if response.status_code in [200, 201]:
-            print(f"  Success: {ds_file.name}")
-        else:
-            print(f"  Error: {response.text}")
+def import_charts(client, charts, dataset_ids):
+    """Create or update charts. Returns {chart name: id}."""
+    ids = {}
+    for config in charts.values():
+        name = config["slice_name"]
+        print(f"Importing chart: {name}")
+        dataset_id = dataset_ids[config["datasource_name"]]
+        params = dict(config.get("params", {}))
+        params["datasource"] = f"{dataset_id}__table"
+        payload = {
+            "slice_name": name,
+            "viz_type": config["viz_type"],
+            "datasource_id": dataset_id,
+            "datasource_type": "table",
+            "params": json.dumps(params),
+        }
+        ids[name] = client.upsert("chart", "slice_name", name, payload)
+    return ids
 
 
-def import_charts(session, base_url):
-    """Import chart configurations."""
-    chart_dir = Path('charts')
-    if not chart_dir.exists():
-        return
-    
-    for chart_file in chart_dir.glob('*.json'):
-        with open(chart_file) as f:
-            config = json.load(f)
-        
-        print(f"Importing chart: {config['slice_name']}")
-        response = session.post(f"{base_url}/api/v1/chart/", json=config)
-        if response.status_code in [200, 201]:
-            print(f"  Success: {chart_file.name}")
-        else:
-            print(f"  Error: {response.text}")
+def import_dashboards(client, dashboards, chart_ids):
+    """Create or update dashboards and attach their charts."""
+    for config in dashboards.values():
+        title = config["dashboard_title"]
+        print(f"Importing dashboard: {title}")
+        payload = {
+            "dashboard_title": title,
+            "slug": config["slug"],
+            "position_json": json.dumps(config.get("position_json", {})),
+            "json_metadata": json.dumps(config.get("metadata", {})),
+        }
+        dashboard_id = client.upsert("dashboard", "slug", config["slug"], payload)
+        for chart in config.get("charts", []):
+            client.request(
+                "PUT",
+                f"/api/v1/chart/{chart_ids[chart]}",
+                json={"dashboards": [dashboard_id]},
+            )
 
 
-def import_dashboards(session, base_url):
-    """Import dashboard configurations."""
-    dashboard_dir = Path('dashboards')
-    if not dashboard_dir.exists():
-        return
-    
-    for dash_file in dashboard_dir.glob('*.json'):
-        with open(dash_file) as f:
-            config = json.load(f)
-        
-        print(f"Importing dashboard: {config['dashboard_title']}")
-        response = session.post(f"{base_url}/api/v1/dashboard/", json=config)
-        if response.status_code in [200, 201]:
-            print(f"  Success: {dash_file.name}")
-        else:
-            print(f"  Error: {response.text}")
+def run(client, assets):
+    database_ids = import_databases(client, assets["databases"])
+    dataset_ids = import_datasets(client, assets["datasets"], database_ids)
+    chart_ids = import_charts(client, assets["charts"], dataset_ids)
+    import_dashboards(client, assets["dashboards"], chart_ids)
 
 
 def main():
-    print("Connecting to Superset...")
-    session, base_url = get_superset_session()
-    
-    print("\nImporting assets...")
-    import_databases(session, base_url)
-    import_datasets(session, base_url)
-    import_charts(session, base_url)
-    import_dashboards(session, base_url)
-    
-    print("\nImport complete!")
+    try:
+        print("Connecting to Superset...")
+        client = SupersetClient.from_env()
+        print("Importing assets...")
+        run(client, load_assets())
+    except SupersetError as error:
+        print(f"ERROR {error}", file=sys.stderr)
+        return 1
+    print("Import complete")
+    return 0
 
 
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    sys.exit(main())

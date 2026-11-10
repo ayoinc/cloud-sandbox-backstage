@@ -4,66 +4,75 @@ Tests for ${{ values.name }} DAG.
 Run with: pytest tests/ -v
 """
 
+from pathlib import Path
+
 import pytest
-from datetime import datetime
-from airflow.models import DagBag
+from airflow.dag_processing.dagbag import DagBag
+
+DAGS_FOLDER = Path(__file__).resolve().parent.parent / "dags"
+DAG_ID = "${{ values.name }}"
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def dag_bag():
     """Load DAGs from the dags folder."""
-    return DagBag(dag_folder='dags', include_examples=False)
+    return DagBag(dag_folder=str(DAGS_FOLDER))
+
+
+@pytest.fixture(scope="module")
+def dag(dag_bag):
+    """The DAG under test."""
+    return dag_bag.dags[DAG_ID]
+
+
+def test_no_import_errors(dag_bag):
+    """Test that every file in the dags folder imports cleanly."""
+    assert dag_bag.import_errors == {}
 
 
 def test_dag_loaded(dag_bag):
-    """Test that DAG is loaded without errors."""
-    dag = dag_bag.get_dag(dag_id='${{ values.name }}')
-    assert dag is not None
-    assert len(dag_bag.import_errors) == 0
+    """Test that DAG is loaded."""
+    assert DAG_ID in dag_bag.dags
 
 
-def test_dag_has_correct_schedule(dag_bag):
-    """Test that DAG has the correct schedule interval."""
-    dag = dag_bag.get_dag(dag_id='${{ values.name }}')
-    assert dag.schedule_interval == '${{ values.schedule }}'
+def test_dag_has_correct_schedule(dag):
+    """Test that DAG has the correct schedule."""
+    assert dag.schedule == "${{ values.schedule }}"
 
 
-def test_dag_has_correct_owner(dag_bag):
+def test_dag_has_correct_owner(dag):
     """Test that DAG has the correct owner."""
-    dag = dag_bag.get_dag(dag_id='${{ values.name }}')
-    assert dag.default_args['owner'] == '${{ values.owner }}'
+    assert dag.default_args["owner"] == "${{ values.owner }}"
 
 
-def test_dag_has_required_tasks(dag_bag):
+def test_dag_has_required_tasks(dag):
     """Test that DAG has all required tasks."""
-    dag = dag_bag.get_dag(dag_id='${{ values.name }}')
-    required_tasks = ['start', 'extract', 'transform', 'load', 'validate', 'end']
+    required_tasks = ["start", "extract", "transform", "load", "validate", "end"]
     task_ids = [task.task_id for task in dag.tasks]
     for task in required_tasks:
         assert task in task_ids, f"Missing required task: {task}"
 
 
-def test_dag_task_dependencies(dag_bag):
+def test_dag_task_dependencies(dag):
     """Test that DAG tasks have correct dependencies."""
-    dag = dag_bag.get_dag(dag_id='${{ values.name }}')
-    
-    extract_task = dag.get_task('extract')
-    assert 'start' in [t.task_id for t in extract_task.upstream_list]
-    
-    transform_task = dag.get_task('transform')
-    assert 'extract' in [t.task_id for t in transform_task.upstream_list]
-    
-    load_task = dag.get_task('load')
-    assert 'transform' in [t.task_id for t in load_task.upstream_list]
+    assert dag.get_task("extract").upstream_task_ids == {"start"}
+    assert dag.get_task("transform").upstream_task_ids == {"extract"}
+    assert dag.get_task("load").upstream_task_ids == {"transform"}
+    assert dag.get_task("validate").upstream_task_ids == {"load"}
+    assert dag.get_task("end").upstream_task_ids == {"validate"}
 
 
-def test_dag_catchup_setting(dag_bag):
+def test_dag_catchup_setting(dag):
     """Test that DAG has correct catchup setting."""
-    dag = dag_bag.get_dag(dag_id='${{ values.name }}')
-    assert dag.catchup == ${{ values.catchup }}
+    assert dag.catchup is ${{ "True" if values.catchup else "False" }}
 
 
-def test_dag_max_active_runs(dag_bag):
+def test_dag_max_active_runs(dag):
     """Test that DAG has correct max_active_runs setting."""
-    dag = dag_bag.get_dag(dag_id='${{ values.name }}')
-    assert dag.max_active_runs == ${{ values.maxActiveRuns }}
+    assert dag.max_active_runs == ${{ values.maxActiveRuns or 1 }}
+
+
+def test_tasks_have_retries(dag):
+    """Test that every task retries before failing."""
+    for task in dag.tasks:
+        assert task.retries >= 1, f"Task {task.task_id} has no retries"

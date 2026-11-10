@@ -70,6 +70,7 @@ spec:
           title: Start Date
           type: string
           default: '2024-01-01'
+          pattern: '^\d{4}-\d{2}-\d{2}$'
           description: DAG start date (YYYY-MM-DD)
         catchup:
           title: Enable Catchup
@@ -110,6 +111,7 @@ spec:
           startDate: ${{ parameters.startDate }}
           catchup: ${{ parameters.catchup }}
           maxActiveRuns: ${{ parameters.maxActiveRuns }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
 
     - id: publish
       name: Publish to GitHub

@@ -1,0 +1,10 @@
+{
+  "values": {
+    "name": "sample-sales-dashboard",
+    "description": "Sales performance dashboard for the commercial team",
+    "owner": "group:default/platform-team",
+    "environment": "development",
+    "dataSource": "postgresql",
+    "repoUrl": "github.com?owner=example-org&repo=sample-sales-dashboard"
+  }
+}

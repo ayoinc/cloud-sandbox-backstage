@@ -120,6 +120,8 @@ metrics.custom -> metrics.output
 │   └── lib/                   # Shared utilities
 │       ├── config.js          # Centralized configuration
 │       └── helpers.js         # Helper functions
+├── test-target/
+│   └── server.js              # Small HTTP target for smoke runs
 ├── data/                      # Test data files
 │   └── users.json             # Sample user data for tests
 ├── docs/                      # Documentation (TechDocs)
@@ -150,9 +152,11 @@ metrics.custom -> metrics.output
 
 This repository includes a GitHub Actions workflow for automated performance testing with:
 
+- **Script Validation**: `k6 inspect` on every script, on every push and pull request
+- **Smoke Tests**: Every script runs for 15 seconds with 5 VUs against the bundled test target (`test-target/server.js`), so the pipeline passes on a new repository with nothing configured
+- **Security Scan**: Trivy scans the repository for vulnerabilities, secrets and misconfiguration
 - **Manual Dispatch**: Run any test type on-demand with custom parameters
-- **Scheduled Runs**: Weekly load tests for baseline monitoring
-- **PR Smoke Tests**: Quick validation on pull requests
+- **Scheduled Runs**: Weekly `${{ values.testType or "load" }}` test for baseline monitoring, once a `BASE_URL` variable or secret is set
 - **Artifact Storage**: Test results preserved for 30 days
 - **Summary Reports**: GitHub Actions summary with key metrics
 
@@ -227,9 +231,9 @@ collect -> report.summary
 
 | Trigger           | Behavior                                              |
 | ----------------- | ----------------------------------------------------- |
-| `workflow_dispatch` | Manual run with configurable test type, VUs, duration |
-| `schedule`        | Weekly run every Monday at 6 AM UTC                   |
-| `pull_request`    | Smoke test with 5 VUs for 30 seconds                  |
+| `push`, `pull_request` | Script validation, smoke tests against the bundled test target, security scan |
+| `workflow_dispatch` | Manual run with configurable test type, VUs, duration and target URL |
+| `schedule`        | Weekly run every Monday at 6 AM UTC; skipped until `BASE_URL` is set |
 
 ---
 
@@ -271,19 +275,19 @@ docker pull grafana/k6
 
 ```bash
 k6 version
-# Output: k6 v0.47.0 (or newer)
+# Output: k6 v1.0.0 (or newer)
 ```
 
 ### 3. GitHub Repository Setup (for CI/CD)
 
-#### Optional Secrets
+#### Optional Variables
 
-Configure in **Settings > Secrets and variables > Actions**:
+Nothing has to be configured for the pipeline to pass. Configure in
+**Settings > Secrets and variables > Actions**:
 
-| Secret       | Description                              | Required |
-| ------------ | ---------------------------------------- | -------- |
-| `BASE_URL`   | Override target URL for CI runs          | No       |
-| `K6_CLOUD_TOKEN` | k6 Cloud API token for cloud runs    | No       |
+| Variable or secret | Description                                                        | Required |
+| ------------------ | ------------------------------------------------------------------ | -------- |
+| `BASE_URL`         | Target URL of the scheduled and manual load test runs              | No       |
 
 ---
 
@@ -359,6 +363,7 @@ docker run --rm \
    - **test_type**: `load`, `stress`, `spike`, or `soak`
    - **virtual_users**: Number of concurrent users
    - **duration**: Test duration (e.g., `5m`, `1h`)
+   - **base_url**: Target URL (empty: `BASE_URL`, then `${{ values.baseUrl }}`)
 5. Click **Run workflow**
 
 ---
