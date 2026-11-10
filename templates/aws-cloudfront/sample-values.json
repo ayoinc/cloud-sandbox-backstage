@@ -1,0 +1,17 @@
+{
+  "values": {
+    "name": "sample-cdn",
+    "description": "CDN for the team's \"sample\" web app: static assets",
+    "owner": "group:default/platform-team",
+    "environment": "development",
+    "region": "us-east-1",
+    "origin_domain_name": "sample-assets.s3.us-east-1.amazonaws.com",
+    "price_class": "PriceClass_100",
+    "default_ttl": 86400,
+    "viewer_protocol_policy": "redirect-to-https",
+    "enable_compression": true,
+    "custom_domain": "cdn.example.com",
+    "acm_certificate_arn": "arn:aws:acm:us-east-1:123456789012:certificate/11111111-2222-3333-4444-555555555555",
+    "repoUrl": "github.com?owner=example-org&repo=sample-cdn"
+  }
+}

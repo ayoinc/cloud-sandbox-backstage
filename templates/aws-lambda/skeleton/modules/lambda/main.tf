@@ -9,6 +9,8 @@
 # Lambda Function
 # -----------------------------------------------------------------------------
 resource "aws_lambda_function" "this" {
+  # checkov:skip=CKV_AWS_272: Code signing needs a signing profile and signed artifacts, which this template does not create
+  # checkov:skip=CKV_AWS_173: Environment variables hold configuration, not secrets; set kms_key_arn to encrypt them with your own key
   function_name    = local.function_name
   description      = var.description
   role             = aws_iam_role.lambda.arn
@@ -18,6 +20,7 @@ resource "aws_lambda_function" "this" {
   timeout          = var.timeout
   filename         = var.filename
   source_code_hash = var.source_code_hash
+  kms_key_arn      = var.kms_key_arn
 
   # Optional: Use S3 instead of local file
   s3_bucket         = var.s3_bucket
@@ -64,11 +67,8 @@ resource "aws_lambda_function" "this" {
   }
 
   # Tracing configuration
-  dynamic "tracing_config" {
-    for_each = var.tracing_mode != null ? [1] : []
-    content {
-      mode = var.tracing_mode
-    }
+  tracing_config {
+    mode = var.tracing_mode
   }
 
   # Ephemeral storage
@@ -94,12 +94,6 @@ resource "aws_lambda_function" "this" {
     aws_cloudwatch_log_group.lambda,
   ]
 
-  lifecycle {
-    ignore_changes = [
-      # Ignore changes to qualified_arn as it changes with each publish
-      qualified_arn,
-    ]
-  }
 }
 
 # -----------------------------------------------------------------------------
@@ -141,9 +135,8 @@ resource "aws_iam_role_policy_attachment" "lambda_vpc" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
 
-# X-Ray tracing policy (if tracing enabled)
+# X-Ray tracing policy
 resource "aws_iam_role_policy_attachment" "lambda_xray" {
-  count      = var.tracing_mode != null ? 1 : 0
   role       = aws_iam_role.lambda.name
   policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
 }

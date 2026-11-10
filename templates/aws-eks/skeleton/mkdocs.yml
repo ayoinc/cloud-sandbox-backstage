@@ -1,5 +1,5 @@
 site_name: ${{ values.name }}
-site_description: AWS EKS Cluster - ${{ values.description }}
+site_description: ${{ ('AWS EKS Cluster - ' + (values.description or values.name)) | dump }}
 
 nav:
   - Home: index.md

@@ -82,7 +82,7 @@ internet -> vpc.igw
 
 | Setting            | Value                       |
 | ------------------ | --------------------------- |
-| VPC Name           | `${{ values.name }}`        |
+| VPC Name           | `${{ values.name }}-<environment>` |
 | CIDR Block         | `${{ values.vpc_cidr }}`    |
 | Region             | `${{ values.aws_region }}`  |
 | Availability Zones | ${{ values.azs }}           |
@@ -99,61 +99,30 @@ internet -> vpc.igw
 
 ## CI/CD Pipeline
 
-This repository includes a comprehensive GitHub Actions pipeline with:
+The workflow in `.github/workflows/terraform.yaml` runs on every push and pull
+request to `main`, once a week for drift detection, and on demand from the
+Actions tab.
 
-- **Validation**: Format checking, linting, Terraform validation
-- **Security Scanning**: tfsec, Checkov, Trivy for vulnerability detection
-- **Cost Estimation**: Infracost integration for cost visibility
-- **Multi-Environment**: Separate plans for dev, staging, and production
-- **Manual Approvals**: Required for apply and destroy operations
-- **Drift Detection**: Scheduled checks for configuration drift
+| Job           | Runs when                                   | What it does                                                         |
+| ------------- | ------------------------------------------- | -------------------------------------------------------------------- |
+| Settings      | Always                                      | Detects which secrets are configured and which environments to target |
+| Validate      | Always                                      | `terraform fmt -check`, `terraform init -backend=false`, `terraform validate`, TFLint |
+| Test          | After Validate                              | `terraform test` against a mocked AWS provider                        |
+| Security scan | After Validate                              | Trivy and Checkov; findings of medium severity or higher fail the job |
+| Cost estimate | Pull requests, `INFRACOST_API_KEY` set      | Posts an Infracost estimate on the pull request                       |
+| Plan          | `AWS_ROLE_ARN` and `TF_STATE_BUCKET` set    | Plans dev, staging and prod and stores each plan as an artifact       |
+| Apply         | Manual run with action `apply`              | Applies the plan of the chosen environment                            |
+| Destroy       | Manual run with action `destroy`            | Destroys the chosen environment after typing `DESTROY`                |
+| Drift         | Weekly schedule, AWS secrets set            | Warns when the deployed resources differ from the configuration       |
+| Summary       | Always                                      | Lists every job result and fails when a job failed                    |
 
-### Pipeline Workflow
+A new repository has no secrets, so only the jobs that need no cloud account
+run: Validate, Test and Security scan. Plan, Apply, Destroy and Drift start
+working once the secrets described under [Prerequisites](#prerequisites) exist.
 
-```d2
-direction: right
-
-pr: Pull Request {
-  shape: oval
-  style.fill: "#E3F2FD"
-  style.stroke: "#1976D2"
-}
-
-validate: Validate {
-  style.fill: "#E8F5E9"
-  style.stroke: "#388E3C"
-  label: "Format Check\nTFLint\nValidate"
-}
-
-security: Security {
-  style.fill: "#FFCDD2"
-  style.stroke: "#D32F2F"
-  label: "tfsec\nCheckov\nTrivy"
-}
-
-plan: Plan {
-  style.fill: "#E3F2FD"
-  style.stroke: "#1976D2"
-  label: "Generate Plan\nCost Estimate"
-}
-
-review: Review {
-  shape: diamond
-  style.fill: "#FFECB3"
-  style.stroke: "#FFA000"
-  label: "Manual\nApproval"
-}
-
-apply: Apply {
-  style.fill: "#E8F5E9"
-  style.stroke: "#388E3C"
-  label: "Deploy\nInfrastructure"
-}
-
-pr -> validate -> security -> plan -> review -> apply
-```
-
----
+Apply and Destroy run in the GitHub environments `dev`, `staging` and `prod`.
+Add required reviewers to an environment to make its deployments wait for
+approval.
 
 ## Prerequisites
 
@@ -241,7 +210,12 @@ Attach a policy with these permissions:
         "ec2:CreateTags",
         "ec2:DeleteTags",
         "ec2:DescribeTags",
-        "ec2:DescribeAvailabilityZones"
+        "ec2:DescribeAvailabilityZones",
+        "ec2:DescribeSecurityGroups",
+        "ec2:DescribeSecurityGroupRules",
+        "ec2:RevokeSecurityGroupIngress",
+        "ec2:RevokeSecurityGroupEgress",
+        "ec2:ModifySubnetAttribute"
       ],
       "Resource": "*"
     },
@@ -273,6 +247,27 @@ Attach a policy with these permissions:
         "logs:PutRetentionPolicy",
         "logs:TagLogGroup",
         "logs:ListTagsLogGroup"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "KMSKeyManagement",
+      "Effect": "Allow",
+      "Action": [
+        "kms:CreateKey",
+        "kms:CreateAlias",
+        "kms:DeleteAlias",
+        "kms:ListAliases",
+        "kms:DescribeKey",
+        "kms:GetKeyPolicy",
+        "kms:GetKeyRotationStatus",
+        "kms:ListResourceTags",
+        "kms:EnableKeyRotation",
+        "kms:PutKeyPolicy",
+        "kms:TagResource",
+        "kms:UntagResource",
+        "kms:ScheduleKeyDeletion",
+        "kms:CreateGrant"
       ],
       "Resource": "*"
     },
@@ -417,15 +412,23 @@ For `staging` and `prod` environments, you'll need approval from designated revi
 
 ## Security Scanning
 
-The pipeline includes three security scanning tools:
+The pipeline runs two scanners on every push and pull request:
 
 | Tool        | Purpose                                                   | Documentation                        |
 | ----------- | --------------------------------------------------------- | ------------------------------------ |
-| **tfsec**   | Static analysis for Terraform security misconfigurations  | [tfsec.dev](https://tfsec.dev)       |
+| **Trivy**   | Misconfiguration scanner for infrastructure as code       | [trivy.dev](https://trivy.dev)       |
 | **Checkov** | Policy-as-code for infrastructure security and compliance | [checkov.io](https://www.checkov.io) |
-| **Trivy**   | Comprehensive vulnerability scanner for IaC               | [trivy.dev](https://trivy.dev)       |
 
-Results are uploaded to the GitHub **Security** tab as SARIF reports.
+A finding fails the Security scan job. Fix the configuration, or, where the
+finding is an accepted design choice, add an inline exception next to the
+resource with the reason:
+
+```hcl
+resource "aws_s3_bucket" "example" {
+  # checkov:skip=CKV_AWS_144: Replication is not required for this data
+  # trivy:ignore:AVD-AWS-0089
+}
+```
 
 ### Common Security Findings
 
@@ -534,13 +537,9 @@ Error: error creating VPC: UnauthorizedOperation: You are not authorized to perf
 
 **Security scan failing**
 
-Set `soft_fail: true` in the workflow to allow warnings without blocking:
-
-```yaml
-- uses: aquasecurity/tfsec-action@v1.0.3
-  with:
-    soft_fail: true
-```
+Read the finding in the job log; it names the check and the resource. Fix the
+resource, or add an inline `checkov:skip` or `trivy:ignore` comment with the
+reason as described under [Security Scanning](#security-scanning).
 
 ---
 

@@ -219,9 +219,9 @@ The module automatically calculates subnet CIDRs using `cidrsubnet()`:
 
 The included GitHub Actions workflow provides:
 
-- **Pull Request**: Format check, validation, and plan
-- **Main Branch**: Automatic apply with environment-specific configurations
-- **Terraform State**: Configured for remote backend (S3 + DynamoDB)
+- **On every push and pull request**: Checks formatting, validates, lints with TFLint, runs `terraform test` against mocked providers and scans with Trivy and Checkov. This needs no configuration.
+- **With the `AWS_ROLE_ARN` and `TF_STATE_BUCKET` secrets**: Plans dev, staging and prod from the environment-specific tfvars files
+- **Manual run**: Applies or destroys one environment from the Actions tab
 
 ## Testing
 

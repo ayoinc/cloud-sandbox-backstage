@@ -2,9 +2,7 @@
 # AWS S3 - Development Environment Configuration
 # =============================================================================
 # Cost-optimized settings for development workloads.
-# - Basic encryption (AES256)
-# - Versioning disabled for cost savings
-# - No lifecycle rules
+# - Versioning, encryption and lifecycle rules as chosen at creation
 # - No access logging
 # =============================================================================
 
@@ -14,16 +12,17 @@
 name        = "${{ values.name }}"
 environment = "dev"
 org_prefix  = "${{ values.orgPrefix }}"
+region      = "${{ values.region }}"
 
 # -----------------------------------------------------------------------------
-# Versioning (disabled for dev)
+# Versioning
 # -----------------------------------------------------------------------------
-versioning_enabled = false
+versioning_enabled = ${{ values.versioning }}
 
 # -----------------------------------------------------------------------------
-# Encryption (AES256 for simplicity)
+# Encryption
 # -----------------------------------------------------------------------------
-encryption_type = "AES256"
+encryption_type = "${{ values.encryption }}"
 
 # -----------------------------------------------------------------------------
 # Public Access Block (always enabled)
@@ -34,9 +33,9 @@ ignore_public_acls      = true
 restrict_public_buckets = true
 
 # -----------------------------------------------------------------------------
-# Lifecycle Rules (disabled for dev)
+# Lifecycle Rules
 # -----------------------------------------------------------------------------
-lifecycle_enabled = false
+lifecycle_enabled = ${{ values.lifecycleEnabled }}
 
 # -----------------------------------------------------------------------------
 # Logging (disabled for dev)

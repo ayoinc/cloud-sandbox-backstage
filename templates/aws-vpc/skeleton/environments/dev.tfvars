@@ -14,8 +14,9 @@ vpc_cidr                 = "${{ values.vpc_cidr }}"
 availability_zones_count = ${{ values.azs }}
 
 # Feature Flags (cost-optimized for dev)
-enable_nat_gateway = false  # Disable NAT for cost savings in dev
-enable_flow_logs   = false  # Disable flow logs in dev
+# NAT gateways and flow logs are left out of dev to save cost
+enable_nat_gateway = false
+enable_flow_logs   = false
 
 # Tags
 tags = {

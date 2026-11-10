@@ -101,7 +101,7 @@ vpc: VPC {
   primary -> standby: sync {
     style.stroke-dash: 3
   }
-  public.app -> sg.primary: port ${{ values.port || "5432/3306" }}
+  public.app -> sg.primary: port {% if values.engine == "mysql" %}3306{% else %}5432{% endif %}
   public.bastion -> sg.primary: admin access
   sg -> secrets: credentials
   sg -> cloudwatch: monitoring
@@ -119,107 +119,52 @@ internet -> vpc.public.app: HTTPS
 | Instance Name          | `${{ values.name }}`                                             |
 | Engine                 | `${{ values.engine }}` version `${{ values.engineVersion }}`     |
 | Instance Class         | `${{ values.instanceClass }}`                                    |
-| Allocated Storage      | `${{ values.allocatedStorage }}` GB (autoscaling to `${{ values.maxAllocatedStorage || 100 }}` GB) |
-| Storage Type           | `${{ values.storageType || "gp3" }}`                             |
+| Allocated Storage      | `${{ values.allocatedStorage }}` GB (autoscaling to `${{ values.allocatedStorage * 2 }}` GB in dev, `${{ values.allocatedStorage * 3 }}` GB in staging, `${{ values.allocatedStorage * 5 }}` GB in prod) |
+| Storage Type           | `gp3`                             |
 | Multi-AZ               | `${{ values.multiAz }}`                                          |
 | Region                 | `${{ values.region }}`                                           |
 | Environment            | `${{ values.environment }}`                                      |
-| Backup Retention       | `${{ values.backupRetentionPeriod || 7 }}` days                  |
-| Performance Insights   | `${{ values.performanceInsightsEnabled || true }}`               |
+| Backup Retention       | 7 days (dev), 30 days (prod)                  |
+| Performance Insights   | Disabled in dev, enabled in prod               |
 | Encryption             | Enabled (at rest)                                                |
 
 ### Database Settings
 
 | Setting         | Value                                          |
 | --------------- | ---------------------------------------------- |
-| Database Name   | `${{ values.databaseName || "app" }}`          |
-| Master Username | `${{ values.masterUsername || "dbadmin" }}`    |
-| Port            | `${{ values.port || (values.engine == "mysql" ? "3306" : "5432") }}` |
-| Parameter Group | `${{ values.engineFamily || "postgres16" }}`   |
+| Database Name   | `${{ values.databaseName }}`          |
+| Master Username | `dbadmin`    |
+| Port            | `{% if values.engine == "mysql" %}3306{% else %}5432{% endif %}` |
+| Parameter Group | `${{ values.engineFamily }}`   |
 
 ---
 
 ## CI/CD Pipeline
 
-This repository includes a comprehensive GitHub Actions pipeline with:
+The workflow in `.github/workflows/terraform.yaml` runs on every push and pull
+request to `main`, once a week for drift detection, and on demand from the
+Actions tab.
 
-- **Preflight Checks**: AWS connectivity and IAM permission verification
-- **Validation**: Format checking, TFLint, Terraform validation
-- **Terraform Tests**: Automated testing with `terraform test`
-- **Security Scanning**: tfsec, Checkov, Trivy for vulnerability detection
-- **Cost Estimation**: Infracost integration for cost visibility
-- **Multi-Environment**: Separate plans for dev, staging, and production
-- **Manual Approvals**: Required for apply and destroy operations
-- **Drift Detection**: Scheduled checks for configuration drift
+| Job           | Runs when                                   | What it does                                                         |
+| ------------- | ------------------------------------------- | -------------------------------------------------------------------- |
+| Settings      | Always                                      | Detects which secrets are configured and which environments to target |
+| Validate      | Always                                      | `terraform fmt -check`, `terraform init -backend=false`, `terraform validate`, TFLint |
+| Test          | After Validate                              | `terraform test` against a mocked AWS provider                        |
+| Security scan | After Validate                              | Trivy and Checkov; findings of medium severity or higher fail the job |
+| Cost estimate | Pull requests, `INFRACOST_API_KEY` set      | Posts an Infracost estimate on the pull request                       |
+| Plan          | `AWS_ROLE_ARN` and `TF_STATE_BUCKET` set    | Plans dev, staging and prod and stores each plan as an artifact       |
+| Apply         | Manual run with action `apply`              | Applies the plan of the chosen environment                            |
+| Destroy       | Manual run with action `destroy`            | Destroys the chosen environment after typing `DESTROY`                |
+| Drift         | Weekly schedule, AWS secrets set            | Warns when the deployed resources differ from the configuration       |
+| Summary       | Always                                      | Lists every job result and fails when a job failed                    |
 
-### Pipeline Workflow
+A new repository has no secrets, so only the jobs that need no cloud account
+run: Validate, Test and Security scan. Plan, Apply, Destroy and Drift start
+working once the secrets described under [Prerequisites](#prerequisites) exist.
 
-```d2
-direction: right
-
-pr: Pull Request {
-  shape: oval
-  style.fill: "#E3F2FD"
-  style.stroke: "#1976D2"
-}
-
-preflight: Preflight {
-  style.fill: "#F3E5F5"
-  style.stroke: "#7B1FA2"
-  label: "AWS Auth\nPermissions\nState Backend"
-}
-
-validate: Validate {
-  style.fill: "#E8F5E9"
-  style.stroke: "#388E3C"
-  label: "Format Check\nTFLint\nValidate"
-}
-
-test: Test {
-  style.fill: "#E1F5FE"
-  style.stroke: "#0288D1"
-  label: "Terraform Test\nUnit Tests"
-}
-
-security: Security {
-  style.fill: "#FFCDD2"
-  style.stroke: "#D32F2F"
-  label: "tfsec\nCheckov\nTrivy"
-}
-
-cost: Cost {
-  style.fill: "#FFF9C4"
-  style.stroke: "#FBC02D"
-  label: "Infracost\nEstimate"
-}
-
-plan: Plan {
-  style.fill: "#E3F2FD"
-  style.stroke: "#1976D2"
-  label: "Generate Plan\nDev/Staging/Prod"
-}
-
-review: Review {
-  shape: diamond
-  style.fill: "#FFECB3"
-  style.stroke: "#FFA000"
-  label: "Manual\nApproval"
-}
-
-apply: Apply {
-  style.fill: "#E8F5E9"
-  style.stroke: "#388E3C"
-  label: "Deploy\nRDS Instance"
-}
-
-pr -> preflight -> validate -> test -> security
-security -> cost
-security -> plan
-cost -> plan
-plan -> review -> apply
-```
-
----
+Apply and Destroy run in the GitHub environments `dev`, `staging` and `prod`.
+Add required reviewers to an environment to make its deployments wait for
+approval.
 
 ## Prerequisites
 
@@ -369,7 +314,7 @@ Attach a policy with these permissions for RDS management:
         "iam:AttachRolePolicy",
         "iam:DetachRolePolicy"
       ],
-      "Resource": "arn:aws:iam::*:role/*-rds-monitoring-role"
+      "Resource": "arn:aws:iam::*:role/*-rds-monitoring"
     },
     {
       "Sid": "KMSForEncryption",
@@ -388,6 +333,27 @@ Attach a policy with these permissions for RDS management:
           "kms:ViaService": "rds.${{ values.region }}.amazonaws.com"
         }
       }
+    },
+    {
+      "Sid": "KMSKeyManagement",
+      "Effect": "Allow",
+      "Action": [
+        "kms:CreateKey",
+        "kms:CreateAlias",
+        "kms:DeleteAlias",
+        "kms:ListAliases",
+        "kms:DescribeKey",
+        "kms:GetKeyPolicy",
+        "kms:GetKeyRotationStatus",
+        "kms:ListResourceTags",
+        "kms:EnableKeyRotation",
+        "kms:PutKeyPolicy",
+        "kms:TagResource",
+        "kms:UntagResource",
+        "kms:ScheduleKeyDeletion",
+        "kms:CreateGrant"
+      ],
+      "Resource": "*"
     },
     {
       "Sid": "TerraformState",
@@ -608,36 +574,24 @@ For `staging` and `prod` environments, you'll need approval from designated revi
 
 ## Security Scanning
 
-The pipeline includes three security scanning tools:
+The pipeline runs two scanners on every push and pull request:
 
 | Tool        | Purpose                                                   | Documentation                        |
 | ----------- | --------------------------------------------------------- | ------------------------------------ |
-| **tfsec**   | Static analysis for Terraform security misconfigurations  | [tfsec.dev](https://tfsec.dev)       |
+| **Trivy**   | Misconfiguration scanner for infrastructure as code       | [trivy.dev](https://trivy.dev)       |
 | **Checkov** | Policy-as-code for infrastructure security and compliance | [checkov.io](https://www.checkov.io) |
-| **Trivy**   | Comprehensive vulnerability scanner for IaC               | [trivy.dev](https://trivy.dev)       |
 
-Results are uploaded to the GitHub **Security** tab as SARIF reports.
+A finding fails the Security scan job. Fix the configuration, or, where the
+finding is an accepted design choice, add an inline exception next to the
+resource with the reason:
 
-### RDS-Specific Security Checks
+```hcl
+resource "aws_s3_bucket" "example" {
+  # checkov:skip=CKV_AWS_144: Replication is not required for this data
+  # trivy:ignore:AVD-AWS-0089
+}
+```
 
-| Check                           | Status      | Description                                  |
-| ------------------------------- | ----------- | -------------------------------------------- |
-| Storage Encryption              | Enabled     | Data encrypted at rest using KMS             |
-| In-Transit Encryption           | Enforced    | SSL/TLS required for connections             |
-| Public Accessibility            | Disabled    | Instance not accessible from public internet |
-| Secrets Manager Integration     | Enabled     | Credentials stored securely                  |
-| Security Group Restrictions     | VPC-only    | Access limited to VPC CIDR                   |
-| Deletion Protection             | Configurable| Prevents accidental deletion                 |
-
-### Skipped Checks
-
-The following checks are skipped by default (configurable in workflow):
-
-| Check ID      | Reason                                         |
-| ------------- | ---------------------------------------------- |
-| `CKV_TF_1`    | Module source versioning (internal modules)    |
-| `CKV_AWS_161` | IAM authentication (using Secrets Manager)     |
-| `CKV_AWS_226` | Performance Insights (configurable per env)    |
 
 ---
 
@@ -826,13 +780,9 @@ Use a larger instance class (db.t3.medium or higher) for Multi-AZ deployments.
 
 **Security scan failing**
 
-Set `soft_fail: true` in the workflow to allow warnings without blocking:
-
-```yaml
-- uses: aquasecurity/tfsec-action@v1.0.3
-  with:
-    soft_fail: true
-```
+Read the finding in the job log; it names the check and the resource. Fix the
+resource, or add an inline `checkov:skip` or `trivy:ignore` comment with the
+reason as described under [Security Scanning](#security-scanning).
 
 ---
 
@@ -846,7 +796,7 @@ When `INFRACOST_API_KEY` is configured, the pipeline provides cost estimates.
 | ------------------------------------- | ------------------------------------- |
 | RDS Instance (${{ values.instanceClass }}) | Varies by instance class          |
 | Multi-AZ (if enabled)                 | ~2x compute cost                      |
-| Storage (${{ values.allocatedStorage }} GB ${{ values.storageType || "gp3" }}) | ~$0.08-0.10/GB |
+| Storage (${{ values.allocatedStorage }} GB gp3) | ~$0.08-0.10/GB |
 | Backup Storage                        | Free up to DB size, then $0.095/GB    |
 | Secrets Manager                       | ~$0.40/secret/month                   |
 | Enhanced Monitoring                   | CloudWatch Logs pricing               |

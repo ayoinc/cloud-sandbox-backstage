@@ -4,34 +4,15 @@
 # AWS and Kubernetes provider configuration with default tags.
 # =============================================================================
 
-terraform {
-  required_version = ">= 1.5.0"
-
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-    tls = {
-      source  = "hashicorp/tls"
-      version = "~> 4.0"
-    }
-    kubernetes = {
-      source  = "hashicorp/kubernetes"
-      version = "~> 2.0"
-    }
-  }
-}
-
 provider "aws" {
-  region = "${{ values.region | default('us-east-1') }}"
+  region = "${{ values.region }}"
 
   default_tags {
     tags = {
-      Project     = "${{ values.name }}"
-      Owner       = "${{ values.owner }}"
-      ManagedBy   = "terraform"
-      Repository  = "${{ values.repoUrl | default('') }}"
+      Project    = "${{ values.name }}"
+      Owner      = "${{ values.owner }}"
+      ManagedBy  = "terraform"
+      Repository = "${{ values.destination.owner }}/${{ values.destination.repo }}"
     }
   }
 }

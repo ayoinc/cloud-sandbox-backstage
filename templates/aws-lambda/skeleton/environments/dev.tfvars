@@ -7,18 +7,18 @@
 # Project Configuration
 name        = "${{ values.name }}"
 environment = "dev"
-description = "${{ values.description | default('Lambda function for ' + values.name) }}"
+description = ${{ (values.description or ('Lambda function for ' + values.name)) | dump | replace("${", "$${") | replace("%{", "%%{") }}
 
 # Runtime Configuration
-runtime = "${{ values.runtime | default('python3.12') }}"
-handler = "${{ values.handler | default('main.handler') }}"
+runtime = "${{ values.runtime }}"
+handler = "${{ values.handler }}"
 
 # Resource Configuration - Minimal for dev
-memory_size = 256
-timeout     = 30
+memory_size = ${{ values.memory_size }}
+timeout     = ${{ values.timeout }}
 
 # Architecture
-architectures = ["${{ values.architecture | default('x86_64') }}"]
+architectures = ["x86_64"]
 
 # Ephemeral storage
 ephemeral_storage_size = 512
@@ -38,8 +38,8 @@ create_alias = true
 # No function URL in dev by default
 create_function_url = false
 
-# No X-Ray tracing in dev
-tracing_mode = null
+# Trace only requests that an upstream service already sampled
+tracing_mode = "PassThrough"
 
 # No alarms in dev
 create_error_alarm    = false
@@ -54,7 +54,7 @@ environment_variables = {
 # Tags
 tags = {
   Project     = "${{ values.name }}"
-  Owner       = "${{ values.owner | default('platform-team') }}"
-  CostCenter  = "${{ values.cost_center | default('development') }}"
+  Owner       = "${{ values.owner }}"
+  CostCenter  = "development"
   Application = "${{ values.name }}"
 }

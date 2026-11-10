@@ -15,6 +15,39 @@ locals {
 }
 
 # -----------------------------------------------------------------------------
+# KMS key for storage, Performance Insights and the credentials secret
+# -----------------------------------------------------------------------------
+data "aws_caller_identity" "current" {}
+
+data "aws_partition" "current" {}
+
+resource "aws_kms_key" "this" {
+  description             = "Encryption key for the ${local.identifier} database"
+  deletion_window_in_days = 30
+  enable_key_rotation     = true
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "AccountAdministration"
+      Effect    = "Allow"
+      Principal = { AWS = "arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:root" }
+      Action    = "kms:*"
+      Resource  = "*"
+    }]
+  })
+
+  tags = merge(var.tags, {
+    Name = "${local.identifier}-rds"
+  })
+}
+
+resource "aws_kms_alias" "this" {
+  name          = "alias/${local.identifier}-rds"
+  target_key_id = aws_kms_key.this.key_id
+}
+
+# -----------------------------------------------------------------------------
 # Random Password for Master User
 # -----------------------------------------------------------------------------
 resource "random_password" "master" {
@@ -27,8 +60,10 @@ resource "random_password" "master" {
 # Secrets Manager - Store Database Credentials
 # -----------------------------------------------------------------------------
 resource "aws_secretsmanager_secret" "db_credentials" {
+  # checkov:skip=CKV2_AWS_57: Rotation needs a rotation function inside the VPC, which this template does not create
   name        = "${local.identifier}-db-credentials"
   description = "Database credentials for ${var.name}"
+  kms_key_id  = aws_kms_key.this.arn
 
   tags = merge(var.tags, {
     Name = "${local.identifier}-credentials"
@@ -63,14 +98,6 @@ resource "aws_security_group" "this" {
     cidr_blocks = [var.vpc_cidr_block]
   }
 
-  egress {
-    description = "Allow all outbound traffic"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
   tags = merge(var.tags, {
     Name = "${local.identifier}-rds-sg"
   })
@@ -94,6 +121,23 @@ resource "aws_db_subnet_group" "this" {
 resource "aws_db_parameter_group" "this" {
   name   = "${local.identifier}-params"
   family = var.engine_family
+
+  # Clients must connect over TLS.
+  dynamic "parameter" {
+    for_each = var.engine == "postgres" ? [1] : []
+    content {
+      name  = "rds.force_ssl"
+      value = "1"
+    }
+  }
+
+  dynamic "parameter" {
+    for_each = var.engine == "postgres" ? [] : [1]
+    content {
+      name  = "require_secure_transport"
+      value = "1"
+    }
+  }
 
   dynamic "parameter" {
     for_each = var.engine == "postgres" ? [1] : []
@@ -153,6 +197,8 @@ resource "aws_iam_role_policy_attachment" "monitoring" {
 # RDS Instance
 # -----------------------------------------------------------------------------
 resource "aws_db_instance" "this" {
+  # checkov:skip=CKV2_AWS_69: TLS is enforced by rds.force_ssl / require_secure_transport in the parameter group; Checkov does not follow the per-engine dynamic blocks
+  # checkov:skip=CKV_AWS_157: Multi-AZ is a choice made when the repository is created (multi_az in environments/*.tfvars)
   identifier = local.identifier
 
   # Engine Configuration
@@ -165,7 +211,7 @@ resource "aws_db_instance" "this" {
   max_allocated_storage = var.max_allocated_storage > 0 ? var.max_allocated_storage : null
   storage_type          = var.storage_type
   storage_encrypted     = var.storage_encrypted
-  kms_key_id            = var.kms_key_id
+  kms_key_id            = var.kms_key_id != null ? var.kms_key_id : aws_kms_key.this.arn
 
   # Database Configuration
   db_name  = var.database_name
@@ -179,14 +225,18 @@ resource "aws_db_instance" "this" {
   publicly_accessible    = var.publicly_accessible
   multi_az               = var.multi_az
 
+  iam_database_authentication_enabled = var.iam_database_authentication_enabled
+
   # Backup Configuration
   backup_retention_period = var.backup_retention_period
   backup_window           = var.backup_window
   maintenance_window      = var.maintenance_window
+  copy_tags_to_snapshot   = true
 
   # Monitoring Configuration
   performance_insights_enabled          = var.performance_insights_enabled
   performance_insights_retention_period = var.performance_insights_enabled ? var.performance_insights_retention_period : null
+  performance_insights_kms_key_id       = var.performance_insights_enabled ? aws_kms_key.this.arn : null
   monitoring_interval                   = var.monitoring_interval
   monitoring_role_arn                   = var.monitoring_interval > 0 ? aws_iam_role.monitoring[0].arn : null
   enabled_cloudwatch_logs_exports       = local.log_exports

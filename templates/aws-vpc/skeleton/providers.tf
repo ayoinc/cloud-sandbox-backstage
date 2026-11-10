@@ -4,17 +4,6 @@
 # This file contains the Terraform version constraints and AWS provider setup.
 # =============================================================================
 
-terraform {
-  required_version = ">= 1.6.0"
-
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-  }
-}
-
 # -----------------------------------------------------------------------------
 # AWS Provider
 # -----------------------------------------------------------------------------
@@ -30,7 +19,7 @@ provider "aws" {
       Environment = var.environment
       ManagedBy   = "terraform"
       Owner       = "${{ values.owner }}"
-      Repository  = "${{ values.repoUrl }}"
+      Repository  = "${{ values.destination.owner }}/${{ values.destination.repo }}"
     }
   }
 }

@@ -2,14 +2,14 @@
 
 ${{ values.description }}
 
-AWS S3 bucket infrastructure for the **${{ values.environment }}** environment in **${{ values.aws_region }}**.
+AWS S3 bucket infrastructure for the **${{ values.environment }}** environment in **${{ values.region }}**.
 
 ## Overview
 
 This S3 bucket provides enterprise-grade object storage with comprehensive security and lifecycle management:
 
 - **Server-side encryption** using ${{ values.encryption }} for data at rest
-- **Versioning** ${{ values.versioning | ternary("enabled for object recovery and protection", "disabled for this bucket") }}
+- **Versioning** {% if values.versioning %}enabled for object recovery and protection{% else %}disabled for this bucket{% endif %}
 - **Lifecycle policies** for automated storage class transitions and cost optimization
 - **Public access blocking** enabled by default for security compliance
 - **Access logging** for audit trails and security monitoring
@@ -91,8 +91,8 @@ bucket.storage.ia -> bucket.storage.glacier: "180 days"
 
 | Setting                 | Value                                  |
 | ----------------------- | -------------------------------------- |
-| Bucket Name             | `${{ values.org_prefix }}-${{ values.name }}-${{ values.environment }}` |
-| Region                  | `${{ values.aws_region }}`             |
+| Bucket Name             | `${{ values.orgPrefix }}-${{ values.name }}-${{ values.environment }}` |
+| Region                  | `${{ values.region }}`             |
 | Environment             | `${{ values.environment }}`            |
 | Versioning              | `${{ values.versioning }}`             |
 | Encryption              | `${{ values.encryption }}`             |
@@ -114,61 +114,30 @@ bucket.storage.ia -> bucket.storage.glacier: "180 days"
 
 ## CI/CD Pipeline
 
-This repository includes a comprehensive GitHub Actions pipeline with:
+The workflow in `.github/workflows/terraform.yaml` runs on every push and pull
+request to `main`, once a week for drift detection, and on demand from the
+Actions tab.
 
-- **Validation**: Format checking, linting, Terraform validation
-- **Security Scanning**: tfsec, Checkov, Trivy for vulnerability detection
-- **Cost Estimation**: Infracost integration for cost visibility
-- **Multi-Environment**: Separate plans for dev, staging, and production
-- **Manual Approvals**: Required for apply and destroy operations
-- **Drift Detection**: Scheduled checks for configuration drift
+| Job           | Runs when                                   | What it does                                                         |
+| ------------- | ------------------------------------------- | -------------------------------------------------------------------- |
+| Settings      | Always                                      | Detects which secrets are configured and which environments to target |
+| Validate      | Always                                      | `terraform fmt -check`, `terraform init -backend=false`, `terraform validate`, TFLint |
+| Test          | After Validate                              | `terraform test` against a mocked AWS provider                        |
+| Security scan | After Validate                              | Trivy and Checkov; findings of medium severity or higher fail the job |
+| Cost estimate | Pull requests, `INFRACOST_API_KEY` set      | Posts an Infracost estimate on the pull request                       |
+| Plan          | `AWS_ROLE_ARN` and `TF_STATE_BUCKET` set    | Plans dev, staging and prod and stores each plan as an artifact       |
+| Apply         | Manual run with action `apply`              | Applies the plan of the chosen environment                            |
+| Destroy       | Manual run with action `destroy`            | Destroys the chosen environment after typing `DESTROY`                |
+| Drift         | Weekly schedule, AWS secrets set            | Warns when the deployed resources differ from the configuration       |
+| Summary       | Always                                      | Lists every job result and fails when a job failed                    |
 
-### Pipeline Workflow
+A new repository has no secrets, so only the jobs that need no cloud account
+run: Validate, Test and Security scan. Plan, Apply, Destroy and Drift start
+working once the secrets described under [Prerequisites](#prerequisites) exist.
 
-```d2
-direction: right
-
-pr: Pull Request {
-  shape: oval
-  style.fill: "#E3F2FD"
-  style.stroke: "#1976D2"
-}
-
-validate: Validate {
-  style.fill: "#E8F5E9"
-  style.stroke: "#388E3C"
-  label: "Format Check\nTFLint\nValidate"
-}
-
-security: Security {
-  style.fill: "#FFCDD2"
-  style.stroke: "#D32F2F"
-  label: "tfsec\nCheckov\nTrivy"
-}
-
-plan: Plan {
-  style.fill: "#E3F2FD"
-  style.stroke: "#1976D2"
-  label: "Generate Plan\nCost Estimate"
-}
-
-review: Review {
-  shape: diamond
-  style.fill: "#FFECB3"
-  style.stroke: "#FFA000"
-  label: "Manual\nApproval"
-}
-
-apply: Apply {
-  style.fill: "#E8F5E9"
-  style.stroke: "#388E3C"
-  label: "Deploy\nS3 Bucket"
-}
-
-pr -> validate -> security -> plan -> review -> apply
-```
-
----
+Apply and Destroy run in the GitHub environments `dev`, `staging` and `prod`.
+Add required reviewers to an environment to make its deployments wait for
+approval.
 
 ## Prerequisites
 
@@ -251,7 +220,7 @@ Attach a policy with these permissions:
         "s3:PutBucketTagging"
       ],
       "Resource": [
-        "arn:aws:s3:::${{ values.org_prefix }}-${{ values.name }}-*"
+        "arn:aws:s3:::${{ values.orgPrefix }}-${{ values.name }}-*"
       ]
     },
     {
@@ -265,7 +234,7 @@ Attach a policy with these permissions:
         "s3:DeleteObjectVersion"
       ],
       "Resource": [
-        "arn:aws:s3:::${{ values.org_prefix }}-${{ values.name }}-*/*"
+        "arn:aws:s3:::${{ values.orgPrefix }}-${{ values.name }}-*/*"
       ]
     },
     {
@@ -280,7 +249,7 @@ Attach a policy with these permissions:
       "Resource": "*",
       "Condition": {
         "StringEquals": {
-          "kms:ViaService": "s3.${{ values.aws_region }}.amazonaws.com"
+          "kms:ViaService": "s3.${{ values.region }}.amazonaws.com"
         }
       }
     },
@@ -316,7 +285,7 @@ Attach a policy with these permissions:
 
 ```bash
 # Create S3 bucket for state
-aws s3 mb s3://your-terraform-state-bucket --region ${{ values.aws_region }}
+aws s3 mb s3://your-terraform-state-bucket --region ${{ values.region }}
 
 # Enable versioning
 aws s3api put-bucket-versioning \
@@ -357,7 +326,7 @@ Configure these in **Settings > Secrets and variables > Actions > Variables**:
 
 | Variable     | Description        | Default                    |
 | ------------ | ------------------ | -------------------------- |
-| `AWS_REGION` | Default AWS region | `${{ values.aws_region }}` |
+| `AWS_REGION` | Default AWS region | `${{ values.region }}` |
 
 #### GitHub Environments
 
@@ -402,24 +371,24 @@ terraform apply -var-file="environments/dev.tfvars"
 
 ```bash
 # List objects
-aws s3 ls s3://${{ values.org_prefix }}-${{ values.name }}-${{ values.environment }}/
+aws s3 ls s3://${{ values.orgPrefix }}-${{ values.name }}-${{ values.environment }}/
 
 # Upload a file
-aws s3 cp myfile.txt s3://${{ values.org_prefix }}-${{ values.name }}-${{ values.environment }}/
+aws s3 cp myfile.txt s3://${{ values.orgPrefix }}-${{ values.name }}-${{ values.environment }}/
 
 # Download a file
-aws s3 cp s3://${{ values.org_prefix }}-${{ values.name }}-${{ values.environment }}/myfile.txt ./
+aws s3 cp s3://${{ values.orgPrefix }}-${{ values.name }}-${{ values.environment }}/myfile.txt ./
 
 # Sync a directory
-aws s3 sync ./local-dir s3://${{ values.org_prefix }}-${{ values.name }}-${{ values.environment }}/remote-dir/
+aws s3 sync ./local-dir s3://${{ values.orgPrefix }}-${{ values.name }}-${{ values.environment }}/remote-dir/
 
 # List object versions (if versioning is enabled)
 aws s3api list-object-versions \
-  --bucket ${{ values.org_prefix }}-${{ values.name }}-${{ values.environment }}
+  --bucket ${{ values.orgPrefix }}-${{ values.name }}-${{ values.environment }}
 
 # Restore a previous version
 aws s3api get-object \
-  --bucket ${{ values.org_prefix }}-${{ values.name }}-${{ values.environment }} \
+  --bucket ${{ values.orgPrefix }}-${{ values.name }}-${{ values.environment }} \
   --key myfile.txt \
   --version-id <version-id> \
   restored-file.txt
@@ -431,7 +400,7 @@ To reference this bucket in other Terraform configurations:
 
 ```hcl
 data "aws_s3_bucket" "this" {
-  bucket = "${{ values.org_prefix }}-${{ values.name }}-${{ values.environment }}"
+  bucket = "${{ values.orgPrefix }}-${{ values.name }}-${{ values.environment }}"
 }
 
 # Use the bucket ARN
@@ -459,7 +428,7 @@ resource "aws_iam_policy" "s3_access" {
 import boto3
 
 s3 = boto3.client('s3')
-bucket_name = '${{ values.org_prefix }}-${{ values.name }}-${{ values.environment }}'
+bucket_name = '${{ values.orgPrefix }}-${{ values.name }}-${{ values.environment }}'
 
 # Upload file
 s3.upload_file('local-file.txt', bucket_name, 'remote-file.txt')
@@ -539,8 +508,8 @@ bucket_policy = jsonencode({
       Principal = "*"
       Action    = "s3:*"
       Resource = [
-        "arn:aws:s3:::${{ values.org_prefix }}-${{ values.name }}-${{ values.environment }}",
-        "arn:aws:s3:::${{ values.org_prefix }}-${{ values.name }}-${{ values.environment }}/*"
+        "arn:aws:s3:::${{ values.orgPrefix }}-${{ values.name }}-${{ values.environment }}",
+        "arn:aws:s3:::${{ values.orgPrefix }}-${{ values.name }}-${{ values.environment }}/*"
       ]
       Condition = {
         StringNotEquals = {
@@ -563,15 +532,23 @@ Configured with `BucketOwnerEnforced` to:
 
 ## Security Scanning
 
-The pipeline includes three security scanning tools:
+The pipeline runs two scanners on every push and pull request:
 
 | Tool        | Purpose                                                   | Documentation                        |
 | ----------- | --------------------------------------------------------- | ------------------------------------ |
-| **tfsec**   | Static analysis for Terraform security misconfigurations  | [tfsec.dev](https://tfsec.dev)       |
+| **Trivy**   | Misconfiguration scanner for infrastructure as code       | [trivy.dev](https://trivy.dev)       |
 | **Checkov** | Policy-as-code for infrastructure security and compliance | [checkov.io](https://www.checkov.io) |
-| **Trivy**   | Comprehensive vulnerability scanner for IaC               | [trivy.dev](https://trivy.dev)       |
 
-Results are uploaded to the GitHub **Security** tab as SARIF reports.
+A finding fails the Security scan job. Fix the configuration, or, where the
+finding is an accepted design choice, add an inline exception next to the
+resource with the reason:
+
+```hcl
+resource "aws_s3_bucket" "example" {
+  # checkov:skip=CKV_AWS_144: Replication is not required for this data
+  # trivy:ignore:AVD-AWS-0089
+}
+```
 
 ### Common Security Findings
 
@@ -701,7 +678,7 @@ Error: creating S3 Bucket: BucketAlreadyOwnedByYou
 
 1. Import the existing bucket into Terraform state:
    ```bash
-   terraform import module.s3.aws_s3_bucket.this ${{ values.org_prefix }}-${{ values.name }}-${{ values.environment }}
+   terraform import module.s3.aws_s3_bucket.this ${{ values.orgPrefix }}-${{ values.name }}-${{ values.environment }}
    ```
 
 ### Permission Issues
@@ -737,13 +714,9 @@ Error: error reading S3 Lifecycle Configuration: InvalidRequest
 
 **Security scan failing**
 
-Set `soft_fail: true` in the workflow to allow warnings without blocking:
-
-```yaml
-- uses: aquasecurity/tfsec-action@v1.0.3
-  with:
-    soft_fail: true
-```
+Read the finding in the job log; it names the check and the resource. Fix the
+resource, or add an inline `checkov:skip` or `trivy:ignore` comment with the
+reason as described under [Security Scanning](#security-scanning).
 
 ---
 

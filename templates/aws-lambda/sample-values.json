@@ -1,0 +1,14 @@
+{
+  "values": {
+    "name": "sample-function",
+    "description": "Processes the team's \"sample\" events: 50% of #1 queue",
+    "owner": "group:default/platform-team",
+    "aws_region": "eu-west-1",
+    "environment": "dev",
+    "runtime": "python3.12",
+    "handler": "main.handler",
+    "memory_size": 256,
+    "timeout": 30,
+    "repoUrl": "github.com?owner=example-org&repo=sample-function"
+  }
+}

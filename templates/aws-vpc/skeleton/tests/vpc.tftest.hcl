@@ -15,7 +15,7 @@
 variables {
   name                     = "test-vpc"
   vpc_cidr                 = "10.0.0.0/16"
-  environment              = "test"
+  environment              = "dev"
   availability_zones_count = 2
   enable_nat_gateway       = true
   enable_flow_logs         = true
@@ -25,15 +25,51 @@ variables {
 }
 
 # -----------------------------------------------------------------------------
-# Provider Configuration for Tests
+# Mock Provider - Prevents AWS API calls. Runs apply against the mock so that
+# computed attributes such as IDs have values.
 # -----------------------------------------------------------------------------
-provider "aws" {
-  region = "us-east-1"
+mock_provider "aws" {
+  mock_data "aws_availability_zones" {
+    defaults = {
+      names = ["us-east-1a", "us-east-1b", "us-east-1c"]
+    }
+  }
 
-  # Use mocked provider for plan-only tests
-  skip_credentials_validation = true
-  skip_metadata_api_check     = true
-  skip_requesting_account_id  = true
+  mock_data "aws_caller_identity" {
+    defaults = {
+      account_id = "123456789012"
+    }
+  }
+
+  mock_data "aws_partition" {
+    defaults = {
+      partition = "aws"
+    }
+  }
+
+  mock_data "aws_region" {
+    defaults = {
+      name = "us-east-1"
+    }
+  }
+
+  mock_resource "aws_iam_role" {
+    defaults = {
+      arn = "arn:aws:iam::123456789012:role/mock"
+    }
+  }
+
+  mock_resource "aws_kms_key" {
+    defaults = {
+      arn = "arn:aws:kms:us-east-1:123456789012:key/11111111-2222-3333-4444-555555555555"
+    }
+  }
+
+  mock_resource "aws_cloudwatch_log_group" {
+    defaults = {
+      arn = "arn:aws:logs:us-east-1:123456789012:log-group:/aws/vpc/mock/flow-logs"
+    }
+  }
 }
 
 # =============================================================================
@@ -41,7 +77,7 @@ provider "aws" {
 # =============================================================================
 
 run "vpc_configuration_is_valid" {
-  command = plan
+  command = apply
 
   assert {
     condition     = module.vpc.vpc_cidr_block == "10.0.0.0/16"
@@ -60,7 +96,7 @@ run "vpc_configuration_is_valid" {
 }
 
 run "public_subnets_configuration" {
-  command = plan
+  command = apply
 
   assert {
     condition     = length(output.public_subnet_ids) == 2
@@ -74,7 +110,7 @@ run "public_subnets_configuration" {
 }
 
 run "private_subnets_configuration" {
-  command = plan
+  command = apply
 
   assert {
     condition     = length(output.private_subnet_ids) == 2
@@ -88,7 +124,7 @@ run "private_subnets_configuration" {
 }
 
 run "nat_gateway_configuration" {
-  command = plan
+  command = apply
 
   assert {
     condition     = length(output.nat_gateway_ids) == 2
@@ -102,7 +138,7 @@ run "nat_gateway_configuration" {
 }
 
 run "internet_gateway_configuration" {
-  command = plan
+  command = apply
 
   assert {
     condition     = output.internet_gateway_id != null
@@ -111,7 +147,7 @@ run "internet_gateway_configuration" {
 }
 
 run "route_tables_configuration" {
-  command = plan
+  command = apply
 
   assert {
     condition     = output.public_route_table_id != null
@@ -129,7 +165,7 @@ run "route_tables_configuration" {
 # =============================================================================
 
 run "flow_logs_enabled" {
-  command = plan
+  command = apply
 
   assert {
     condition     = output.flow_log_id != null
@@ -147,7 +183,7 @@ run "flow_logs_enabled" {
 # =============================================================================
 
 run "vpc_cidr_is_valid_rfc1918" {
-  command = plan
+  command = apply
 
   # Validate CIDR is in private IP ranges (RFC 1918)
   assert {
@@ -157,7 +193,7 @@ run "vpc_cidr_is_valid_rfc1918" {
 }
 
 run "subnet_cidr_within_vpc" {
-  command = plan
+  command = apply
 
   # Ensure subnets are properly subdivided from VPC CIDR
   assert {
@@ -171,7 +207,7 @@ run "subnet_cidr_within_vpc" {
 # =============================================================================
 
 run "single_az_configuration" {
-  command = plan
+  command = apply
 
   variables {
     availability_zones_count = 1
@@ -193,7 +229,7 @@ run "single_az_configuration" {
 # =============================================================================
 
 run "three_az_configuration" {
-  command = plan
+  command = apply
 
   variables {
     availability_zones_count = 3
@@ -220,7 +256,7 @@ run "three_az_configuration" {
 # =============================================================================
 
 run "different_vpc_cidr" {
-  command = plan
+  command = apply
 
   variables {
     vpc_cidr = "172.16.0.0/16"
@@ -237,7 +273,7 @@ run "different_vpc_cidr" {
 # =============================================================================
 
 run "nat_gateway_disabled" {
-  command = plan
+  command = apply
 
   variables {
     enable_nat_gateway = false
@@ -254,7 +290,7 @@ run "nat_gateway_disabled" {
 # =============================================================================
 
 run "flow_logs_disabled" {
-  command = plan
+  command = apply
 
   variables {
     enable_flow_logs = false
@@ -276,7 +312,7 @@ run "flow_logs_disabled" {
 # =============================================================================
 
 run "outputs_are_populated" {
-  command = plan
+  command = apply
 
   assert {
     condition     = output.vpc_id != null
@@ -309,7 +345,7 @@ run "outputs_are_populated" {
 # =============================================================================
 
 run "dev_environment_configuration" {
-  command = plan
+  command = apply
 
   variables {
     name                     = "dev-vpc"
@@ -336,7 +372,7 @@ run "dev_environment_configuration" {
 # =============================================================================
 
 run "prod_environment_configuration" {
-  command = plan
+  command = apply
 
   variables {
     name                     = "prod-vpc"

@@ -1,8 +1,5 @@
+# The state lives in S3. The pipeline passes the bucket, key, region and lock
+# table with -backend-config; see .github/actions/terraform-init/action.yml.
 terraform {
-  backend "azurerm" {
-    resource_group_name  = "terraform-state-rg"
-    storage_account_name = "tfstate${{ values.name | replace('-', '') }}"
-    container_name       = "tfstate"
-    key                  = "${{ values.name }}.tfstate"
-  }
+  backend "s3" {}
 }

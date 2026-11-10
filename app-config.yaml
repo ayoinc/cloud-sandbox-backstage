@@ -413,6 +413,10 @@ catalog:
       target: ../../templates/aws-cloudfront/template.yaml
       rules:
         - allow: [Template]
+    - type: file
+      target: ../../templates/aws-full-infrastructure/template.yaml
+      rules:
+        - allow: [Template]
 
     # Azure Cloud Templates
     - type: file

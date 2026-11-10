@@ -1,0 +1,8 @@
+site_name: ${{ values.componentName }}
+site_description: AWS infrastructure stack of ${{ values.projectName }}
+
+nav:
+  - Home: index.md
+
+plugins:
+  - techdocs-core

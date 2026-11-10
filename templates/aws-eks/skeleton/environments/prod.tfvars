@@ -13,19 +13,23 @@ environment = "prod"
 
 # VPC Configuration (assumes VPC already exists)
 vpc_id             = "${{ values.vpcId }}"
-private_subnet_ids = ${{ values.privateSubnetIds | default('["subnet-placeholder-1", "subnet-placeholder-2", "subnet-placeholder-3"]') }}
+private_subnet_ids = ["${{ values.privateSubnetIds | join('", "') }}"]
 
 # Cluster Configuration
-kubernetes_version      = "${{ values.kubernetesVersion | default('1.31') }}"
+kubernetes_version      = "${{ values.kubernetesVersion }}"
 endpoint_private_access = true
-endpoint_public_access  = false  # Private only for production security
+endpoint_public_access  = false
+# To reach the API server from outside the VPC, enable the public endpoint for
+# known networks only:
+# endpoint_public_access = true
+# public_access_cidrs    = ["203.0.113.0/24"]
 
 # Node Group - Production Configuration
-node_instance_types = ["m5.large", "m5a.large", "m6i.large"]
-node_capacity_type  = "ON_DEMAND"  # Always ON_DEMAND for production
-node_desired_size   = 3
-node_min_size       = 3            # Higher minimum for HA
-node_max_size       = 10
+node_instance_types = ["${{ values.nodeInstanceType }}"]
+node_capacity_type  = "ON_DEMAND"
+node_desired_size   = ${{ values.nodeDesiredSize }}
+node_min_size       = ${{ values.nodeDesiredSize }}
+node_max_size       = ${{ values.nodeMaxSize }}
 node_disk_size      = 100
 
 # IRSA Roles

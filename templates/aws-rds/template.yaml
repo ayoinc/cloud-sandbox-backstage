@@ -152,12 +152,12 @@ spec:
       action: fetch:template
       input:
         url: ./skeleton
-        templateFileExtension: '.j2'
         cookiecutterCompat: false
         values:
           name: ${{ parameters.name }}
           description: ${{ parameters.description }}
           owner: ${{ parameters.owner }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
           environment: ${{ parameters.environment }}
           region: ${{ parameters.region }}
           vpcId: ${{ parameters.vpcId }}

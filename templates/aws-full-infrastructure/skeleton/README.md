@@ -1,117 +1,37 @@
-# {{ componentName }} - AWS Infrastructure
+# ${{ values.componentName }}
 
-{{ description }}
+${{ values.description or ('AWS infrastructure stack of ' + values.projectName) }}
 
-## Architecture Overview
+Terraform configuration of the **${{ values.environment }}** environment of
+**${{ values.projectName }}** in **${{ values.region }}**.
 
-![AWS Infrastructure Architecture](docs/diagrams/architecture.png)
+## Layout
 
-This diagram shows the complete AWS infrastructure stack deployed by this template.
+| File | Contents |
+| ---- | -------- |
+| `terraform.auto.tfvars.json` | The settings chosen when the repository was created |
+| `variables.tf`, `locals.tf`, `outputs.tf` | Inputs, naming and outputs |
+| `kms.tf` | Encryption key shared by the stack |
+| `networking.tf` | VPC, subnets, gateways, route tables, flow logs |
+| `compute.tf` | EC2 Auto Scaling group |
+| `containers.tf` | EKS cluster, node group, ECR repository |
+| `storage.tf` | S3 bucket, EFS file system |
+| `database.tf` | RDS for PostgreSQL, DynamoDB, ElastiCache |
+| `security.tf` | GuardDuty, IAM Access Analyzer, EBS encryption by default |
+| `monitoring.tf` | Alarm topic, log group, alarms, dashboard |
+| `analytics.tf` | Kinesis data stream, Glue catalog database |
+| `integration.tf` | SQS, SNS, EventBridge |
+| `ai_ml.tf` | SageMaker execution role and model registry |
+| `tests/` | Terraform tests that run against mocked providers |
 
-## Resources Included
+Each category is created only when its `enable_*` variable is `true`.
 
-| Category | Resources | Status |
-|----------|-----------|--------|
-| Networking | VPC, Subnets, IGW, NAT Gateway, Route Tables | {% if enable_networking %}✅ Enabled{% else %}❌ Disabled{% endif %} |
-| Compute | EC2 Instances, Auto Scaling Groups, Launch Templates | {% if enable_compute %}✅ Enabled{% else %}❌ Disabled{% endif %} |
-| Containers | EKS Cluster, Node Groups, ECR Registry, Fargate | {% if enable_containers %}✅ Enabled{% else %}❌ Disabled{% endif %} |
-| Storage | S3 Buckets, EFS File Systems, EBS Volumes | {% if enable_storage %}✅ Enabled{% else %}❌ Disabled{% endif %} |
-| Database | RDS (PostgreSQL/MySQL), DynamoDB, ElastiCache Redis | {% if enable_database %}✅ Enabled{% else %}❌ Disabled{% endif %} |
-| Security | IAM Roles, KMS Keys, Secrets Manager, GuardDuty | {% if enable_security %}✅ Enabled{% else %}❌ Disabled{% endif %} |
-| Monitoring | CloudWatch, X-Ray, Managed Prometheus | {% if enable_monitoring %}✅ Enabled{% else %}❌ Disabled{% endif %} |
+## Pipeline
 
-## Deployment
+`.github/workflows/terraform.yaml` validates, lints, tests and scans every push.
+Plan, apply, destroy and drift detection start once the `AWS_ROLE_ARN` and
+`TF_STATE_BUCKET` secrets exist. See [docs/index.md](docs/index.md).
 
-```bash
-# Initialize Terraform
-terraform init
+## Owner
 
-# Plan deployment
-terraform plan -var="environment={{ environment }}" -var="region={{ region }}" -out=tfplan
-
-# Apply infrastructure
-terraform apply tfplan
-```
-
-## Configuration
-
-**Environment:** {{ environment }}
-**Region:** {{ region }}
-**VPC CIDR:** {{ vpc_cidr }}
-
-{% if enable_containers %}
-### Kubernetes Configuration
-- **EKS Version:** {{ eks_version }}
-- **Node Instance Type:** {{ eks_node_group_instance_types[0] }}
-- **Desired Nodes:** {{ eks_desired_nodes }}
-- **Min/Max Nodes:** {{ eks_min_nodes }}/{{ eks_max_nodes }}
-{% endif %}
-
-{% if enable_compute %}
-### Compute Configuration
-- **Instance Type:** {{ instance_type }}
-- **EBS Volume Size:** {{ ebs_volume_size }} GB
-{% endif %}
-
-{% if enable_database %}
-### Database Configuration
-- **RDS Instance Class:** {{ rds_instance_class }}
-- **RDS Storage:** {{ rds_allocated_storage }} GB
-- **Backup Retention:** {{ rds_backup_retention }} days
-{% endif %}
-
-## Architecture Layers
-
-### Network Layer
-- **VPC** with public, private, and data subnets across multiple AZs
-- **Internet Gateway** for public internet access
-- **NAT Gateway** for private subnet internet access
-- **Transit Gateway** for hybrid connectivity (optional)
-
-### Security Layer
-- **IAM Roles** with least-privilege access
-- **KMS** for encryption at rest
-- **Secrets Manager** for credential management
-- **GuardDuty** for threat detection
-
-### Container & Compute Layer
-- **EKS Cluster** with managed node groups and autoscaling
-- **EC2 Instances** with auto-scaling capabilities
-- **Container Registry** for Docker images
-
-### Data Layer
-- **RDS** for relational database workloads
-- **DynamoDB** for NoSQL requirements
-- **ElastiCache** Redis for caching
-- **S3/EFS** for object and file storage
-
-### Observability Layer
-- **CloudWatch** for metrics and logs
-- **X-Ray** for distributed tracing
-- **Managed Prometheus** for container monitoring
-
-## Testing
-
-Run the Terraform test suite:
-
-```bash
-cd tests
-terraform test
-```
-
-## Security Best Practices
-
-✅ All resources encrypted at rest and in transit
-✅ Network segmentation with public/private/data subnets
-✅ IAM roles instead of access keys
-✅ Secrets stored in AWS Secrets Manager
-✅ Security groups with minimal required access
-✅ GuardDuty enabled for threat detection
-
-## Documentation
-
-See [docs/](docs/) for detailed documentation.
-
-## Support
-
-For issues and questions, contact the platform team or create an issue in the repository.
+${{ values.owner }}

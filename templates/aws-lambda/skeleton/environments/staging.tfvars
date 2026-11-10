@@ -7,18 +7,18 @@
 # Project Configuration
 name        = "${{ values.name }}"
 environment = "staging"
-description = "${{ values.description | default('Lambda function for ' + values.name) }}"
+description = ${{ (values.description or ('Lambda function for ' + values.name)) | dump | replace("${", "$${") | replace("%{", "%%{") }}
 
 # Runtime Configuration
-runtime = "${{ values.runtime | default('python3.12') }}"
-handler = "${{ values.handler | default('main.handler') }}"
+runtime = "${{ values.runtime }}"
+handler = "${{ values.handler }}"
 
 # Resource Configuration - Moderate for staging
-memory_size = 512
-timeout     = 60
+memory_size = ${{ values.memory_size }}
+timeout     = ${{ values.timeout }}
 
 # Architecture
-architectures = ["${{ values.architecture | default('x86_64') }}"]
+architectures = ["x86_64"]
 
 # Ephemeral storage
 ephemeral_storage_size = 512
@@ -58,7 +58,7 @@ environment_variables = {
 # Tags
 tags = {
   Project     = "${{ values.name }}"
-  Owner       = "${{ values.owner | default('platform-team') }}"
-  CostCenter  = "${{ values.cost_center | default('staging') }}"
+  Owner       = "${{ values.owner }}"
+  CostCenter  = "staging"
   Application = "${{ values.name }}"
 }

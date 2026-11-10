@@ -13,8 +13,10 @@ metadata:
     - cloud
     - iac
     - platform
+  annotations:
+    backstage.io/techdocs-ref: dir:.
 spec:
-  owner: platform-team
+  owner: group:platform-team
   type: infrastructure
 
   parameters:
@@ -22,6 +24,7 @@ spec:
       required:
         - projectName
         - componentName
+        - owner
       properties:
         projectName:
           title: Project Name
@@ -32,12 +35,21 @@ spec:
         componentName:
           title: Component Name
           type: string
-          description: Unique name for this infrastructure component
+          description: Unique name for this infrastructure component (lowercase letters, numbers and hyphens)
+          pattern: '^[a-z0-9][a-z0-9-]*[a-z0-9]$'
           ui:autofocus: true
         description:
           title: Description
           type: string
           description: Brief description of this infrastructure component
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns this infrastructure
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
 
     - title: Environment & Location
       required:
@@ -208,7 +220,7 @@ spec:
           title: EKS Kubernetes Version
           type: string
           description: Kubernetes version for EKS cluster
-          default: '1.28'
+          default: '1.31'
         eks_node_group_instance_types:
           title: EKS Node Instance Types
           type: array
@@ -299,13 +311,25 @@ spec:
             managedBy: backstage
             terraform: 'true'
 
+    - title: Repository
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
   steps:
     - id: template
       name: Generate AWS Infrastructure Code
       action: fetch:template
       input:
-        url: ./template
-        targetPath: ./iac
+        url: ./skeleton
+        cookiecutterCompat: false
         values:
           projectName: ${{ parameters.projectName }}
           componentName: ${{ parameters.componentName }}
@@ -343,19 +367,32 @@ spec:
           enable_dynamodb: ${{ parameters.enable_dynamodb }}
           enable_elasticache: ${{ parameters.enable_elasticache }}
           tags: ${{ parameters.tags }}
+          owner: ${{ parameters.owner }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
 
     - id: publish
-      name: Publish to Git
+      name: Publish to GitHub
       action: publish:github
       input:
         allowedHosts: ['github.com']
-        description: 'AWS Full Infrastructure Stack for ${{ parameters.componentName }}'
-        repoUrl: 'github.com?repo=${{ parameters.componentName }}-aws-infra&owner=${{ parameters.owner }}'
+        description: ${{ parameters.description }}
+        repoUrl: ${{ parameters.repoUrl }}
         defaultBranch: main
+        repoVisibility: private
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: /catalog-info.yaml
 
   output:
     links:
       - title: Repository
         url: ${{ steps.publish.output.remoteUrl }}
-      - title: Open in AWS Console
-        url: https://console.aws.amazon.com
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}
+      - title: Pipeline runs
+        url: ${{ steps.publish.output.remoteUrl }}/actions

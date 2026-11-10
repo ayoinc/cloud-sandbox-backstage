@@ -14,6 +14,7 @@
 name        = "${{ values.name }}"
 environment = "staging"
 org_prefix  = "myorg"
+region      = "${{ values.region }}"
 
 # -----------------------------------------------------------------------------
 # Origin Configuration
@@ -36,7 +37,7 @@ wait_for_deployment = true
 viewer_protocol_policy = "${{ values.viewer_protocol_policy }}"
 min_ttl                = 0
 default_ttl            = ${{ values.default_ttl }}
-max_ttl                = 31536000  # 1 year
+max_ttl                = 31536000
 enable_compression     = ${{ values.enable_compression }}
 forward_query_string   = false
 forward_cookies        = "none"

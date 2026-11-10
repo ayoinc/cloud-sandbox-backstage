@@ -22,6 +22,7 @@ module "vpc" {
   availability_zones_count = var.availability_zones_count
   enable_dns_hostnames     = var.enable_dns_hostnames
   enable_dns_support       = var.enable_dns_support
+  map_public_ip_on_launch  = var.map_public_ip_on_launch
 
   # Optional variables - NAT Gateway
   enable_nat_gateway = var.enable_nat_gateway

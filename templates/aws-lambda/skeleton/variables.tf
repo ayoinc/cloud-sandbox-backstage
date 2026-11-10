@@ -118,6 +118,12 @@ variable "dead_letter_target_arn" {
 variable "tracing_mode" {
   description = "X-Ray tracing mode (Active or PassThrough)"
   type        = string
+  default     = "Active"
+}
+
+variable "kms_key_arn" {
+  description = "KMS key ARN used to encrypt the environment variables. Uses the AWS managed key when null"
+  type        = string
   default     = null
 }
 
@@ -127,7 +133,7 @@ variable "tracing_mode" {
 variable "log_retention_days" {
   description = "CloudWatch log retention in days"
   type        = number
-  default     = 14
+  default     = 365
 }
 
 variable "log_kms_key_id" {

@@ -1,10 +1,8 @@
 site_name: ${{ values.name }}
-site_description: AWS S3 Bucket - ${{ values.description }}
+site_description: ${{ ('AWS S3 Bucket - ' + (values.description or values.name)) | dump }}
 
 nav:
   - Home: index.md
-  - Usage: usage.md
-  - Security: security.md
 
 plugins:
   - techdocs-core

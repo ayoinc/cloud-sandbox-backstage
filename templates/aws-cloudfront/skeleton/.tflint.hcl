@@ -8,7 +8,7 @@ plugin "terraform" {
 
 plugin "aws" {
   enabled = true
-  version = "0.31.0"
+  version = "0.50.0"
   source  = "github.com/terraform-linters/tflint-ruleset-aws"
 }
 
@@ -41,17 +41,9 @@ rule "terraform_required_providers" {
   enabled = true
 }
 
-# AWS Specific Rules
+# Environment, Owner, Project and ManagedBy come from the provider's default_tags,
+# which TFLint cannot follow into child modules.
 rule "aws_resource_missing_tags" {
-  enabled = true
-  tags    = ["Name", "Environment", "Owner"]
+  enabled = false
 }
 
-# CloudFront specific rules
-rule "aws_cloudfront_distribution_invalid_default_root_object" {
-  enabled = true
-}
-
-rule "aws_cloudfront_distribution_invalid_viewer_protocol_policy" {
-  enabled = true
-}

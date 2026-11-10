@@ -6,9 +6,34 @@
 # =============================================================================
 
 # -----------------------------------------------------------------------------
-# Mock Providers - Prevent actual AWS API calls
+# Mock Providers - Prevent actual AWS API calls. Runs apply against the mock so
+# that computed attributes such as ARNs have values.
 # -----------------------------------------------------------------------------
-mock_provider "aws" {}
+mock_provider "aws" {
+  mock_data "aws_caller_identity" {
+    defaults = {
+      account_id = "123456789012"
+    }
+  }
+
+  mock_data "aws_partition" {
+    defaults = {
+      partition = "aws"
+    }
+  }
+
+  mock_resource "aws_kms_key" {
+    defaults = {
+      arn = "arn:aws:kms:us-east-1:123456789012:key/11111111-2222-3333-4444-555555555555"
+    }
+  }
+
+  mock_resource "aws_iam_role" {
+    defaults = {
+      arn = "arn:aws:iam::123456789012:role/mock"
+    }
+  }
+}
 
 mock_provider "random" {}
 
@@ -16,7 +41,7 @@ mock_provider "random" {}
 # Test: Basic PostgreSQL Configuration
 # -----------------------------------------------------------------------------
 run "basic_postgres_configuration" {
-  command = plan
+  command = apply
 
   variables {
     name               = "test-db"
@@ -56,7 +81,7 @@ run "basic_postgres_configuration" {
 # Test: MySQL Configuration
 # -----------------------------------------------------------------------------
 run "mysql_configuration" {
-  command = plan
+  command = apply
 
   variables {
     name               = "test-mysql"
@@ -90,7 +115,7 @@ run "mysql_configuration" {
 # Test: Production Environment Settings
 # -----------------------------------------------------------------------------
 run "production_settings" {
-  command = plan
+  command = apply
 
   variables {
     name                         = "prod-db"
@@ -132,7 +157,7 @@ run "production_settings" {
 # Test: Development Environment Settings
 # -----------------------------------------------------------------------------
 run "development_settings" {
-  command = plan
+  command = apply
 
   variables {
     name                         = "dev-db"
@@ -174,7 +199,7 @@ run "development_settings" {
 # Test: Instance Identifier Naming
 # -----------------------------------------------------------------------------
 run "instance_identifier_naming" {
-  command = plan
+  command = apply
 
   variables {
     name               = "my-app-db"
@@ -203,7 +228,7 @@ run "instance_identifier_naming" {
 # Test: Secrets Manager Integration
 # -----------------------------------------------------------------------------
 run "secrets_manager_configuration" {
-  command = plan
+  command = apply
 
   variables {
     name               = "secrets-test"
@@ -239,7 +264,7 @@ run "secrets_manager_configuration" {
 # Test: Subnet Group Configuration
 # -----------------------------------------------------------------------------
 run "subnet_group_configuration" {
-  command = plan
+  command = apply
 
   variables {
     name               = "subnet-test"
@@ -269,7 +294,7 @@ run "subnet_group_configuration" {
 # Test: Parameter Group Configuration
 # -----------------------------------------------------------------------------
 run "parameter_group_configuration" {
-  command = plan
+  command = apply
 
   variables {
     name               = "params-test"
@@ -299,10 +324,10 @@ run "parameter_group_configuration" {
 # Test: Security Group Output
 # -----------------------------------------------------------------------------
 run "security_group_output" {
-  command = plan
+  command = apply
 
   variables {
-    name               = "sg-test"
+    name               = "network-test"
     environment        = "dev"
     region             = "us-east-1"
     vpc_id             = "vpc-12345678"
@@ -329,7 +354,7 @@ run "security_group_output" {
 # Test: Connection Info Output
 # -----------------------------------------------------------------------------
 run "connection_info_output" {
-  command = plan
+  command = apply
 
   variables {
     name               = "conn-test"
@@ -375,26 +400,26 @@ run "connection_info_output" {
 # Test: Storage Configuration
 # -----------------------------------------------------------------------------
 run "storage_configuration" {
-  command = plan
+  command = apply
 
   variables {
-    name               = "storage-test"
-    environment        = "staging"
-    region             = "us-east-1"
-    vpc_id             = "vpc-12345678"
-    private_subnet_ids = ["subnet-11111111", "subnet-22222222"]
-    vpc_cidr_block     = "10.0.0.0/16"
-    engine             = "postgres"
-    engine_version     = "16"
-    engine_family      = "postgres16"
-    instance_class     = "db.t3.medium"
-    allocated_storage  = 100
+    name                  = "storage-test"
+    environment           = "staging"
+    region                = "us-east-1"
+    vpc_id                = "vpc-12345678"
+    private_subnet_ids    = ["subnet-11111111", "subnet-22222222"]
+    vpc_cidr_block        = "10.0.0.0/16"
+    engine                = "postgres"
+    engine_version        = "16"
+    engine_family         = "postgres16"
+    instance_class        = "db.t3.medium"
+    allocated_storage     = 100
     max_allocated_storage = 500
-    storage_type       = "gp3"
-    storage_encrypted  = true
-    multi_az           = false
-    database_name      = "testapp"
-    master_username    = "dbadmin"
+    storage_type          = "gp3"
+    storage_encrypted     = true
+    multi_az              = false
+    database_name         = "testapp"
+    master_username       = "dbadmin"
   }
 
   # Verify allocated storage
@@ -408,7 +433,7 @@ run "storage_configuration" {
 # Test: Engine Version Output
 # -----------------------------------------------------------------------------
 run "engine_version_output" {
-  command = plan
+  command = apply
 
   variables {
     name               = "version-test"

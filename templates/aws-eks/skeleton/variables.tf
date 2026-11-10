@@ -44,9 +44,15 @@ variable "endpoint_private_access" {
 }
 
 variable "endpoint_public_access" {
-  description = "Enable public API server endpoint"
+  description = "Enable public API server endpoint. Needs public_access_cidrs"
   type        = bool
-  default     = true
+  default     = false
+}
+
+variable "public_access_cidrs" {
+  description = "CIDR blocks allowed to reach the public API server endpoint. Required when endpoint_public_access is true"
+  type        = list(string)
+  default     = []
 }
 
 # -----------------------------------------------------------------------------

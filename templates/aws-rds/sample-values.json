@@ -1,0 +1,23 @@
+{
+  "values": {
+    "name": "sample-db",
+    "description": "Database for the team's \"sample\" service: orders & users",
+    "owner": "group:default/platform-team",
+    "environment": "development",
+    "region": "eu-west-1",
+    "vpcId": "vpc-0123456789abcdef0",
+    "privateSubnetIds": [
+      "subnet-0123456789abcdef0",
+      "subnet-0fedcba9876543210"
+    ],
+    "vpcCidrBlock": "10.0.0.0/16",
+    "engine": "postgres",
+    "engineVersion": "16",
+    "engineFamily": "postgres16",
+    "databaseName": "app",
+    "instanceClass": "db.t3.small",
+    "allocatedStorage": 20,
+    "multiAz": false,
+    "repoUrl": "github.com?owner=example-org&repo=sample-db"
+  }
+}

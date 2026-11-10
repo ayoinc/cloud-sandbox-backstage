@@ -2,10 +2,8 @@
 # AWS S3 - Production Environment Configuration
 # =============================================================================
 # Full production settings with security and compliance.
-# - Versioning enabled
-# - KMS encryption (optional, can use AES256)
-# - Full lifecycle rules
-# - Access logging enabled
+# - Versioning, encryption and lifecycle rules as chosen at creation
+# - Access logging once a log bucket exists
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -14,14 +12,15 @@
 name        = "${{ values.name }}"
 environment = "prod"
 org_prefix  = "${{ values.orgPrefix }}"
+region      = "${{ values.region }}"
 
 # -----------------------------------------------------------------------------
-# Versioning (REQUIRED for production)
+# Versioning
 # -----------------------------------------------------------------------------
-versioning_enabled = true
+versioning_enabled = ${{ values.versioning }}
 
 # -----------------------------------------------------------------------------
-# Encryption (KMS recommended for production)
+# Encryption
 # -----------------------------------------------------------------------------
 encryption_type = "${{ values.encryption }}"
 # kms_key_id    = "arn:aws:kms:region:account:key/key-id"  # Uncomment if using KMS
@@ -35,18 +34,19 @@ ignore_public_acls      = true
 restrict_public_buckets = true
 
 # -----------------------------------------------------------------------------
-# Lifecycle Rules (full production settings)
+# Lifecycle Rules
 # -----------------------------------------------------------------------------
-lifecycle_enabled                  = true
+lifecycle_enabled                  = ${{ values.lifecycleEnabled }}
 transition_to_ia_days              = 60
 transition_to_glacier_days         = 120
 noncurrent_version_transition_days = 30
 noncurrent_version_expiration_days = 180
 
 # -----------------------------------------------------------------------------
-# Logging (enabled for production compliance)
+# Logging
 # -----------------------------------------------------------------------------
-logging_enabled = false  # Set to true and configure logging_bucket when available
+# Set to true and configure logging_bucket when a log bucket exists
+logging_enabled = false
 # logging_bucket  = "my-logging-bucket"
 
 # -----------------------------------------------------------------------------

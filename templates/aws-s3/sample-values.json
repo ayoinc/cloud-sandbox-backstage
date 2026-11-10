@@ -1,0 +1,14 @@
+{
+  "values": {
+    "name": "sample-assets",
+    "description": "Static assets for the team's \"sample\" service: images & downloads",
+    "owner": "group:default/platform-team",
+    "environment": "development",
+    "region": "eu-west-1",
+    "orgPrefix": "exampleorg",
+    "versioning": true,
+    "encryption": "AES256",
+    "lifecycleEnabled": true,
+    "repoUrl": "github.com?owner=example-org&repo=sample-assets-s3"
+  }
+}

@@ -44,6 +44,12 @@ variable "enable_dns_support" {
   default     = true
 }
 
+variable "map_public_ip_on_launch" {
+  description = "Give instances launched in the public subnets a public IP address automatically"
+  type        = bool
+  default     = false
+}
+
 # -----------------------------------------------------------------------------
 # Optional Variables - NAT Gateway
 # -----------------------------------------------------------------------------
@@ -71,7 +77,7 @@ variable "flow_logs_traffic_type" {
 variable "flow_logs_retention_days" {
   description = "Number of days to retain flow logs"
   type        = number
-  default     = 14
+  default     = 365
 }
 
 # -----------------------------------------------------------------------------

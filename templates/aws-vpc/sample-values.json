@@ -1,0 +1,12 @@
+{
+  "values": {
+    "name": "sample-network",
+    "description": "Network for the team's \"sample\" platform: shared services",
+    "owner": "group:default/platform-team",
+    "aws_region": "eu-west-1",
+    "environment": "dev",
+    "vpc_cidr": "10.0.0.0/16",
+    "azs": 2,
+    "repoUrl": "github.com?owner=example-org&repo=sample-network"
+  }
+}

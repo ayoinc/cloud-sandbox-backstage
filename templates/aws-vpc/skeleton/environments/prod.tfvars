@@ -18,7 +18,7 @@ enable_nat_gateway = true
 enable_flow_logs   = true
 
 # Flow Logs Configuration (extended retention for compliance)
-flow_logs_retention_days = 90
+flow_logs_retention_days = 365
 flow_logs_traffic_type   = "ALL"
 
 # Tags

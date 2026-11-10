@@ -19,6 +19,7 @@ variables {
   kubernetes_version      = "1.31"
   endpoint_private_access = true
   endpoint_public_access  = true
+  public_access_cidrs     = ["203.0.113.0/24"]
 
   node_instance_types = ["t3.medium"]
   node_capacity_type  = "SPOT"
@@ -37,20 +38,80 @@ variables {
 # Mock Providers for Testing
 # -----------------------------------------------------------------------------
 mock_provider "aws" {
-  mock_data "aws_availability_zones" {
+  mock_resource "aws_iam_role" {
     defaults = {
-      names = ["us-east-1a", "us-east-1b", "us-east-1c"]
+      arn = "arn:aws:iam::123456789012:role/mock"
+    }
+  }
+
+  mock_resource "aws_kms_key" {
+    defaults = {
+      arn = "arn:aws:kms:us-east-1:123456789012:key/11111111-2222-3333-4444-555555555555"
+    }
+  }
+
+  mock_resource "aws_eks_cluster" {
+    defaults = {
+      arn = "arn:aws:eks:us-east-1:123456789012:cluster/mock"
+      identity = [{
+        oidc = [{ issuer = "https://oidc.eks.us-east-1.amazonaws.com/id/0123456789ABCDEF0123456789ABCDEF" }]
+      }]
+      certificate_authority = [{ data = "bW9jaw==" }]
+    }
+  }
+
+  mock_resource "aws_eks_node_group" {
+    defaults = {
+      arn = "arn:aws:eks:us-east-1:123456789012:nodegroup/mock/mock-nodes/11111111-2222-3333-4444-555555555555"
+    }
+  }
+
+  mock_resource "aws_iam_openid_connect_provider" {
+    defaults = {
+      arn = "arn:aws:iam::123456789012:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/0123456789ABCDEF0123456789ABCDEF"
+    }
+  }
+
+  mock_data "aws_vpc" {
+    defaults = {
+      cidr_block = "10.0.0.0/16"
+    }
+  }
+
+  mock_data "aws_caller_identity" {
+    defaults = {
+      account_id = "123456789012"
+    }
+  }
+
+  mock_data "aws_partition" {
+    defaults = {
+      partition = "aws"
+    }
+  }
+
+  mock_data "aws_iam_policy_document" {
+    defaults = {
+      json = "{\"Version\":\"2012-10-17\",\"Statement\":[]}"
     }
   }
 }
 
-mock_provider "tls" {}
+mock_provider "tls" {
+  mock_data "tls_certificate" {
+    defaults = {
+      certificates = [{ sha1_fingerprint = "9e99a48a9960b14926bb7f3b02e22da2b0ab7280" }]
+    }
+  }
+}
+
+mock_provider "kubernetes" {}
 
 # -----------------------------------------------------------------------------
 # Test: Basic EKS Cluster Configuration
 # -----------------------------------------------------------------------------
 run "eks_cluster_basic_config" {
-  command = plan
+  command = apply
 
   assert {
     condition     = output.cluster_name == "test-cluster-dev"
@@ -72,13 +133,13 @@ run "eks_cluster_basic_config" {
 # Test: EKS Cluster Security Configuration for Production
 # -----------------------------------------------------------------------------
 run "eks_cluster_security_prod" {
-  command = plan
+  command = apply
 
   variables {
     name                    = "secure-cluster"
     environment             = "prod"
     endpoint_private_access = true
-    endpoint_public_access  = false  # Private only for production
+    endpoint_public_access  = false # Private only for production
     node_capacity_type      = "ON_DEMAND"
   }
 
@@ -98,7 +159,7 @@ run "eks_cluster_security_prod" {
 # Test: Node Group Configuration
 # -----------------------------------------------------------------------------
 run "eks_node_group_config" {
-  command = plan
+  command = apply
 
   variables {
     node_desired_size = 3
@@ -121,7 +182,7 @@ run "eks_node_group_config" {
 # Test: SPOT Capacity for Dev
 # -----------------------------------------------------------------------------
 run "eks_node_group_spot_dev" {
-  command = plan
+  command = apply
 
   variables {
     environment        = "dev"
@@ -138,7 +199,7 @@ run "eks_node_group_spot_dev" {
 # Test: ON_DEMAND Capacity for Production
 # -----------------------------------------------------------------------------
 run "eks_node_group_ondemand_prod" {
-  command = plan
+  command = apply
 
   variables {
     environment        = "prod"
@@ -155,7 +216,7 @@ run "eks_node_group_ondemand_prod" {
 # Test: IAM Role Outputs
 # -----------------------------------------------------------------------------
 run "eks_iam_roles" {
-  command = plan
+  command = apply
 
   assert {
     condition     = output.cluster_iam_role_arn != null
@@ -172,7 +233,7 @@ run "eks_iam_roles" {
 # Test: OIDC Provider for IRSA
 # -----------------------------------------------------------------------------
 run "eks_oidc_provider" {
-  command = plan
+  command = apply
 
   assert {
     condition     = output.oidc_provider_arn != null
@@ -189,7 +250,7 @@ run "eks_oidc_provider" {
 # Test: Cluster Autoscaler IRSA Role
 # -----------------------------------------------------------------------------
 run "eks_cluster_autoscaler_irsa" {
-  command = plan
+  command = apply
 
   variables {
     enable_cluster_autoscaler_irsa = true
@@ -205,7 +266,7 @@ run "eks_cluster_autoscaler_irsa" {
 # Test: AWS Load Balancer Controller IRSA Role
 # -----------------------------------------------------------------------------
 run "eks_aws_lb_controller_irsa" {
-  command = plan
+  command = apply
 
   variables {
     enable_aws_load_balancer_controller_irsa = true
@@ -221,7 +282,7 @@ run "eks_aws_lb_controller_irsa" {
 # Test: IRSA Disabled
 # -----------------------------------------------------------------------------
 run "eks_irsa_disabled" {
-  command = plan
+  command = apply
 
   variables {
     enable_cluster_autoscaler_irsa           = false
@@ -243,7 +304,7 @@ run "eks_irsa_disabled" {
 # Test: Outputs Are Populated
 # -----------------------------------------------------------------------------
 run "eks_outputs_populated" {
-  command = plan
+  command = apply
 
   assert {
     condition     = output.cluster_id != null
@@ -275,7 +336,7 @@ run "eks_outputs_populated" {
 # Test: Three AZ Configuration (Production-like)
 # -----------------------------------------------------------------------------
 run "eks_three_az_config" {
-  command = plan
+  command = apply
 
   variables {
     private_subnet_ids = ["subnet-1a", "subnet-2b", "subnet-3c"]
@@ -294,7 +355,7 @@ run "eks_three_az_config" {
 # Test: Staging Environment Configuration
 # -----------------------------------------------------------------------------
 run "eks_staging_config" {
-  command = plan
+  command = apply
 
   variables {
     name                = "staging-cluster"

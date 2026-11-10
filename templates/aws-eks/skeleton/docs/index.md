@@ -140,13 +140,14 @@ aws.iam.node_role -> aws.vpc.private.eks.nodes
 | Region                   | `${{ values.region }}`               |
 | Environment              | `${{ values.environment }}`          |
 | Node Instance Type       | `${{ values.nodeInstanceType }}`     |
-| Node Capacity Type       | `ON_DEMAND`                          |
+| Node Capacity Type       | `SPOT` (dev), `ON_DEMAND` (staging/prod) |
 | Desired Nodes            | ${{ values.nodeDesiredSize }}        |
-| Min Nodes                | ${{ values.nodeMinSize }}            |
+| Min Nodes                | 1 (dev/staging), ${{ values.nodeDesiredSize }} (prod) |
 | Max Nodes                | ${{ values.nodeMaxSize }}            |
-| Node Disk Size           | `50 GB`                              |
+| Node Disk Size           | 30 GB (dev), 50 GB (staging), 100 GB (prod) |
 | Private Endpoint Access  | `true`                               |
-| Public Endpoint Access   | `true` (dev/staging), `false` (prod) |
+| Public Endpoint Access   | `false`; enable per environment with `public_access_cidrs` |
+| Secrets Encryption       | KMS key created with the cluster     |
 | Cluster Autoscaler IRSA  | Enabled                              |
 | AWS LB Controller IRSA   | Enabled                              |
 
@@ -168,89 +169,30 @@ aws.iam.node_role -> aws.vpc.private.eks.nodes
 
 ## CI/CD Pipeline
 
-This repository includes a comprehensive GitHub Actions pipeline with:
+The workflow in `.github/workflows/terraform.yaml` runs on every push and pull
+request to `main`, once a week for drift detection, and on demand from the
+Actions tab.
 
-- **Preflight Checks**: AWS connectivity and prerequisites validation
-- **Validation**: Format checking, TFLint, Terraform validation
-- **Testing**: Terraform native tests for configuration validation
-- **Security Scanning**: tfsec, Checkov, Trivy for vulnerability detection
-- **Cost Estimation**: Infracost integration for cost visibility
-- **Multi-Environment**: Separate plans for dev, staging, and production
-- **Manual Approvals**: Required for apply and destroy operations
-- **Drift Detection**: Scheduled checks for configuration drift
+| Job           | Runs when                                   | What it does                                                         |
+| ------------- | ------------------------------------------- | -------------------------------------------------------------------- |
+| Settings      | Always                                      | Detects which secrets are configured and which environments to target |
+| Validate      | Always                                      | `terraform fmt -check`, `terraform init -backend=false`, `terraform validate`, TFLint |
+| Test          | After Validate                              | `terraform test` against a mocked AWS provider                        |
+| Security scan | After Validate                              | Trivy and Checkov; findings of medium severity or higher fail the job |
+| Cost estimate | Pull requests, `INFRACOST_API_KEY` set      | Posts an Infracost estimate on the pull request                       |
+| Plan          | `AWS_ROLE_ARN` and `TF_STATE_BUCKET` set    | Plans dev, staging and prod and stores each plan as an artifact       |
+| Apply         | Manual run with action `apply`              | Applies the plan of the chosen environment                            |
+| Destroy       | Manual run with action `destroy`            | Destroys the chosen environment after typing `DESTROY`                |
+| Drift         | Weekly schedule, AWS secrets set            | Warns when the deployed resources differ from the configuration       |
+| Summary       | Always                                      | Lists every job result and fails when a job failed                    |
 
-### Pipeline Workflow
+A new repository has no secrets, so only the jobs that need no cloud account
+run: Validate, Test and Security scan. Plan, Apply, Destroy and Drift start
+working once the secrets described under [Prerequisites](#prerequisites) exist.
 
-```d2
-direction: right
-
-pr: Pull Request {
-  shape: oval
-  style.fill: "#E3F2FD"
-  style.stroke: "#1976D2"
-}
-
-preflight: Preflight {
-  style.fill: "#ECEFF1"
-  style.stroke: "#607D8B"
-  label: "AWS Auth\nState Backend\nEKS Permissions"
-}
-
-validate: Validate {
-  style.fill: "#E8F5E9"
-  style.stroke: "#388E3C"
-  label: "Format Check\nTFLint\nValidate"
-}
-
-test: Test {
-  style.fill: "#E1F5FE"
-  style.stroke: "#0288D1"
-  label: "Terraform Test\nUnit Tests"
-}
-
-security: Security {
-  style.fill: "#FFCDD2"
-  style.stroke: "#D32F2F"
-  label: "tfsec\nCheckov\nTrivy"
-}
-
-plan: Plan {
-  style.fill: "#E3F2FD"
-  style.stroke: "#1976D2"
-  label: "Generate Plan\nCost Estimate"
-}
-
-review: Review {
-  shape: diamond
-  style.fill: "#FFECB3"
-  style.stroke: "#FFA000"
-  label: "Manual\nApproval"
-}
-
-apply: Apply {
-  style.fill: "#E8F5E9"
-  style.stroke: "#388E3C"
-  label: "Deploy\nEKS Cluster"
-}
-
-pr -> preflight -> validate -> test -> security -> plan -> review -> apply
-```
-
-### Pipeline Stages
-
-| Stage     | Trigger           | Actions                                              |
-| --------- | ----------------- | ---------------------------------------------------- |
-| Preflight | All               | AWS OIDC auth, state backend verification, EKS perms |
-| Validate  | All               | terraform fmt, tflint, terraform validate            |
-| Test      | All               | terraform test for configuration validation          |
-| Security  | All               | tfsec, Checkov, Trivy scanning                       |
-| Cost      | Pull Request      | Infracost analysis and PR comment                    |
-| Plan      | All               | terraform plan for each environment                  |
-| Apply     | Manual Dispatch   | terraform apply with environment approval            |
-| Destroy   | Manual Dispatch   | terraform destroy with confirmation                  |
-| Drift     | Scheduled (daily) | Check for configuration drift                        |
-
----
+Apply and Destroy run in the GitHub environments `dev`, `staging` and `prod`.
+Add required reviewers to an environment to make its deployments wait for
+approval.
 
 ## Prerequisites
 
@@ -410,6 +352,27 @@ Attach a policy with these permissions to the GitHub Actions role:
         "autoscaling:UpdateAutoScalingGroup",
         "autoscaling:CreateOrUpdateTags",
         "autoscaling:DeleteTags"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "KMSKeyManagement",
+      "Effect": "Allow",
+      "Action": [
+        "kms:CreateKey",
+        "kms:CreateAlias",
+        "kms:DeleteAlias",
+        "kms:ListAliases",
+        "kms:DescribeKey",
+        "kms:GetKeyPolicy",
+        "kms:GetKeyRotationStatus",
+        "kms:ListResourceTags",
+        "kms:EnableKeyRotation",
+        "kms:PutKeyPolicy",
+        "kms:TagResource",
+        "kms:UntagResource",
+        "kms:ScheduleKeyDeletion",
+        "kms:CreateGrant"
       ],
       "Resource": "*"
     },
@@ -626,30 +589,38 @@ For `staging` and `prod` environments, you'll need approval from designated revi
 
 ## Security Scanning
 
-The pipeline includes three security scanning tools:
+The pipeline runs two scanners on every push and pull request:
 
 | Tool        | Purpose                                                   | Documentation                        |
 | ----------- | --------------------------------------------------------- | ------------------------------------ |
-| **tfsec**   | Static analysis for Terraform security misconfigurations  | [tfsec.dev](https://tfsec.dev)       |
+| **Trivy**   | Misconfiguration scanner for infrastructure as code       | [trivy.dev](https://trivy.dev)       |
 | **Checkov** | Policy-as-code for infrastructure security and compliance | [checkov.io](https://www.checkov.io) |
-| **Trivy**   | Comprehensive vulnerability scanner for IaC               | [trivy.dev](https://trivy.dev)       |
 
-Results are uploaded to the GitHub **Security** tab as SARIF reports.
+A finding fails the Security scan job. Fix the configuration, or, where the
+finding is an accepted design choice, add an inline exception next to the
+resource with the reason:
+
+```hcl
+resource "aws_s3_bucket" "example" {
+  # checkov:skip=CKV_AWS_144: Replication is not required for this data
+  # trivy:ignore:AVD-AWS-0089
+}
+```
 
 ### Common Security Findings
 
 | Finding                                 | Resolution                                                     |
 | --------------------------------------- | -------------------------------------------------------------- |
-| EKS public endpoint enabled             | Restricted to specific CIDRs or disabled in production         |
+| EKS public endpoint enabled             | Disabled by default; enabling it requires `public_access_cidrs` |
 | Node group has public IP                | Nodes are deployed in private subnets (no public IPs)          |
-| Missing encryption for secrets          | Enable EKS secrets encryption with AWS KMS                     |
+| Missing encryption for secrets          | Secrets are encrypted with a KMS key created by this template  |
 | Cluster logging not enabled             | Control plane logging is enabled in this template              |
-| Overly permissive security group rules  | Review and restrict egress rules as needed                     |
+| Overly permissive security group rules  | Control plane egress is limited to the VPC CIDR                |
 
 ### EKS-Specific Security Best Practices
 
-- **Enable Secrets Encryption**: Use AWS KMS to encrypt Kubernetes secrets at rest
-- **Private API Endpoint**: Disable public endpoint for production clusters
+- **Secrets Encryption**: Kubernetes secrets are encrypted at rest with the KMS key in `modules/eks`
+- **Private API Endpoint**: The public endpoint stays disabled unless `endpoint_public_access` and `public_access_cidrs` are set
 - **Network Policies**: Implement Kubernetes network policies for pod-to-pod traffic control
 - **Pod Security Standards**: Apply Pod Security Admission for workload security
 - **IRSA**: Use IAM Roles for Service Accounts instead of node-level IAM roles
@@ -829,13 +800,9 @@ Error: Error acquiring the state lock
 
 **Security scan failing**
 
-Set `soft_fail: true` in the workflow to allow warnings without blocking:
-
-```yaml
-- uses: aquasecurity/tfsec-action@v1.0.3
-  with:
-    soft_fail: true
-```
+Read the finding in the job log; it names the check and the resource. Fix the
+resource, or add an inline `checkov:skip` or `trivy:ignore` comment with the
+reason as described under [Security Scanning](#security-scanning).
 
 **Terraform test failures**
 

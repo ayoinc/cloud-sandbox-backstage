@@ -1,0 +1,335 @@
+# Terraform pipeline for AWS EKS Infrastructure.
+#
+# Runs with no configuration: formatting, validation, linting, native tests and
+# security scans need no cloud account. Plan, apply, destroy and drift detection
+# start once these repository (or environment) secrets exist:
+#   AWS_ROLE_ARN         IAM role assumed through GitHub OIDC
+#   TF_STATE_BUCKET      S3 bucket holding the Terraform state
+#   TF_STATE_LOCK_TABLE  DynamoDB table for state locking (optional)
+#   INFRACOST_API_KEY    enables the cost estimate on pull requests (optional)
+# The repository variable AWS_REGION overrides the region used for the AWS
+# session and the state bucket (default: the region chosen at creation).
+# Apply and destroy run in the GitHub environments dev, staging and prod, so
+# reviewers configured on those environments approve the change.
+name: AWS EKS Infrastructure
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Terraform action
+        required: true
+        default: plan
+        type: choice
+        options: [plan, apply, destroy]
+      environment:
+        description: Target environment
+        required: true
+        default: dev
+        type: choice
+        options: [dev, staging, prod]
+      confirm_destroy:
+        description: Type DESTROY to confirm a destroy
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+env:
+  TF_VERSION: '1.17.1'
+  TFLINT_VERSION: 'v0.66.0'
+  TF_INPUT: 'false'
+  TF_IN_AUTOMATION: 'true'
+  DEFAULT_AWS_REGION: ${{ values.region }}
+{% raw %}
+
+concurrency:
+  group: terraform-${{ github.ref }}-${{ inputs.environment || 'all' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  settings:
+    name: Settings
+    runs-on: ubuntu-latest
+    outputs:
+      aws: ${{ steps.detect.outputs.aws }}
+      infracost: ${{ steps.detect.outputs.infracost }}
+      environments: ${{ steps.detect.outputs.environments }}
+      region: ${{ steps.detect.outputs.region }}
+    steps:
+      - name: Detect configured credentials
+        id: detect
+        env:
+          HAS_AWS: ${{ secrets.AWS_ROLE_ARN != '' && secrets.TF_STATE_BUCKET != '' }}
+          HAS_INFRACOST: ${{ secrets.INFRACOST_API_KEY != '' }}
+          REGION_OVERRIDE: ${{ vars.AWS_REGION }}
+          TARGET: ${{ inputs.environment }}
+        run: |
+          {
+            echo "aws=$HAS_AWS"
+            echo "infracost=$HAS_INFRACOST"
+            echo "region=${REGION_OVERRIDE:-$DEFAULT_AWS_REGION}"
+            if [ -n "$TARGET" ]; then
+              echo "environments=[\"$TARGET\"]"
+            else
+              echo 'environments=["dev","staging","prod"]'
+            fi
+          } >> "$GITHUB_OUTPUT"
+          if [ "$HAS_AWS" != "true" ]; then
+            echo "AWS_ROLE_ARN and TF_STATE_BUCKET are not set: plan, apply, destroy and drift detection are skipped." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Check formatting
+        run: terraform fmt -check -recursive -diff
+
+      - name: Initialise without a backend
+        run: terraform init -backend=false
+
+      - name: Validate configuration
+        run: terraform validate
+
+      - uses: terraform-linters/setup-tflint@v6
+        with:
+          tflint_version: ${{ env.TFLINT_VERSION }}
+
+      - name: Lint with TFLint
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          tflint --init --config "$PWD/.tflint.hcl"
+          tflint --recursive --config "$PWD/.tflint.hcl" --format compact
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Initialise without a backend
+        run: terraform init -backend=false
+
+      - name: Run Terraform tests
+        run: terraform test
+
+      - name: Plan every environment against mocked providers
+        run: |
+          for file in environments/*.tfvars; do
+            echo "::group::$file"
+            terraform test -test-directory=tests/environments -var-file="$file"
+            echo "::endgroup::"
+          done
+
+  security:
+    name: Security scan
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Scan with Trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          scan-ref: .
+          severity: CRITICAL,HIGH,MEDIUM
+          exit-code: '1'
+
+      - name: Scan with Checkov
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: .
+          framework: terraform
+          quiet: true
+
+  cost:
+    name: Cost estimate
+    runs-on: ubuntu-latest
+    needs: [settings, validate]
+    if: github.event_name == 'pull_request' && needs.settings.outputs.infracost == 'true'
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: infracost/actions/setup@v3
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+      - name: Estimate monthly cost
+        run: |
+          infracost breakdown --path . \
+            --terraform-var-file environments/prod.tfvars \
+            --format json --out-file /tmp/infracost.json
+
+      - name: Comment on the pull request
+        env:
+          PULL_REQUEST: ${{ github.event.pull_request.number }}
+        run: |
+          infracost comment github --path /tmp/infracost.json \
+            --repo "$GITHUB_REPOSITORY" \
+            --pull-request "$PULL_REQUEST" \
+            --github-token "${{ github.token }}" \
+            --behavior update
+
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    needs: [settings, validate, test, security]
+    if: needs.settings.outputs.aws == 'true' && github.event_name != 'schedule' && inputs.action != 'destroy'
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: ${{ fromJSON(needs.settings.outputs.environments) }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/terraform-init
+        with:
+          environment: ${{ matrix.environment }}
+          terraform-version: ${{ env.TF_VERSION }}
+          aws-region: ${{ needs.settings.outputs.region }}
+          role-arn: ${{ secrets.AWS_ROLE_ARN }}
+          state-bucket: ${{ secrets.TF_STATE_BUCKET }}
+          state-lock-table: ${{ secrets.TF_STATE_LOCK_TABLE }}
+
+      - name: Plan
+        env:
+          ENVIRONMENT: ${{ matrix.environment }}
+        run: |
+          terraform plan -var-file="environments/$ENVIRONMENT.tfvars" -out=tfplan
+          {
+            echo "### Plan for $ENVIRONMENT"
+            echo '```'
+            terraform show -no-color tfplan | tail -n 200
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: tfplan-${{ matrix.environment }}
+          path: tfplan
+          retention-days: 5
+
+  apply:
+    name: Apply
+    runs-on: ubuntu-latest
+    needs: [settings, plan]
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/terraform-init
+        with:
+          environment: ${{ inputs.environment }}
+          terraform-version: ${{ env.TF_VERSION }}
+          aws-region: ${{ needs.settings.outputs.region }}
+          role-arn: ${{ secrets.AWS_ROLE_ARN }}
+          state-bucket: ${{ secrets.TF_STATE_BUCKET }}
+          state-lock-table: ${{ secrets.TF_STATE_LOCK_TABLE }}
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: tfplan-${{ inputs.environment }}
+
+      - name: Apply the reviewed plan
+        run: terraform apply tfplan
+
+  destroy:
+    name: Destroy
+    runs-on: ubuntu-latest
+    needs: settings
+    if: >-
+      github.event_name == 'workflow_dispatch' && inputs.action == 'destroy' &&
+      inputs.confirm_destroy == 'DESTROY' && needs.settings.outputs.aws == 'true'
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/terraform-init
+        with:
+          environment: ${{ inputs.environment }}
+          terraform-version: ${{ env.TF_VERSION }}
+          aws-region: ${{ needs.settings.outputs.region }}
+          role-arn: ${{ secrets.AWS_ROLE_ARN }}
+          state-bucket: ${{ secrets.TF_STATE_BUCKET }}
+          state-lock-table: ${{ secrets.TF_STATE_LOCK_TABLE }}
+
+      - name: Destroy
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: terraform destroy -auto-approve -var-file="environments/$ENVIRONMENT.tfvars"
+
+  drift:
+    name: Drift
+    runs-on: ubuntu-latest
+    needs: settings
+    if: github.event_name == 'schedule' && needs.settings.outputs.aws == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [dev, staging, prod]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/terraform-init
+        with:
+          environment: ${{ matrix.environment }}
+          terraform-version: ${{ env.TF_VERSION }}
+          aws-region: ${{ needs.settings.outputs.region }}
+          role-arn: ${{ secrets.AWS_ROLE_ARN }}
+          state-bucket: ${{ secrets.TF_STATE_BUCKET }}
+          state-lock-table: ${{ secrets.TF_STATE_LOCK_TABLE }}
+
+      - name: Compare the state with the configuration
+        env:
+          ENVIRONMENT: ${{ matrix.environment }}
+        run: |
+          status=0
+          terraform plan -var-file="environments/$ENVIRONMENT.tfvars" -detailed-exitcode -lock=false || status=$?
+          if [ "$status" -eq 2 ]; then
+            echo "::warning::Drift detected in $ENVIRONMENT"
+            echo "Drift detected in $ENVIRONMENT. Run the plan action to review it." >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$status" -ne 0 ]; then
+            exit "$status"
+          fi
+
+  summary:
+    name: Summary
+    runs-on: ubuntu-latest
+    needs: [settings, validate, test, security, cost, plan, apply, destroy, drift]
+    if: always()
+    steps:
+      - name: Report job results
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          {
+            echo "| Job | Result |"
+            echo "| --- | --- |"
+            jq -r 'to_entries[] | "| \(.key) | \(.value.result) |"' <<< "$RESULTS"
+          } >> "$GITHUB_STEP_SUMMARY"
+          jq -e 'all(.[]; .result == "success" or .result == "skipped")' <<< "$RESULTS" > /dev/null
+{% endraw %}

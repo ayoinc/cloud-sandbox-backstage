@@ -135,11 +135,11 @@ cloudfront -> logs: Access Logs
 | Origin Domain            | `${{ values.origin_domain_name }}`             |
 | Price Class              | `${{ values.price_class }}`                    |
 | Default TTL              | `${{ values.default_ttl }}` seconds            |
-| Max TTL                  | `${{ values.max_ttl }}` seconds                |
+| Max TTL                  | `31536000` seconds                |
 | Viewer Protocol Policy   | `${{ values.viewer_protocol_policy }}`         |
 | Compression Enabled      | `${{ values.enable_compression }}`             |
-| IPv6 Enabled             | `${{ values.ipv6_enabled }}`                   |
-| Default Root Object      | `${{ values.default_root_object }}`            |
+| IPv6 Enabled             | `true`                   |
+| Default Root Object      | `index.html`            |
 
 ---
 
@@ -151,15 +151,15 @@ The default cache behavior applies to all requests that don't match a specific p
 
 | Setting              | Value                                      |
 | -------------------- | ------------------------------------------ |
-| Allowed Methods      | `${{ values.allowed_methods }}`            |
-| Cached Methods       | `${{ values.cached_methods }}`             |
+| Allowed Methods      | `GET, HEAD, OPTIONS`            |
+| Cached Methods       | `GET, HEAD`             |
 | Viewer Protocol      | `${{ values.viewer_protocol_policy }}`     |
 | Compress             | `${{ values.enable_compression }}`         |
-| Min TTL              | `${{ values.min_ttl }}` seconds            |
+| Min TTL              | `0` seconds            |
 | Default TTL          | `${{ values.default_ttl }}` seconds        |
-| Max TTL              | `${{ values.max_ttl }}` seconds            |
-| Forward Query String | `${{ values.forward_query_string }}`       |
-| Forward Cookies      | `${{ values.forward_cookies }}`            |
+| Max TTL              | `31536000` seconds            |
+| Forward Query String | `false`       |
+| Forward Cookies      | `none`            |
 
 ### Price Classes
 
@@ -183,81 +183,30 @@ The default cache behavior applies to all requests that don't match a specific p
 
 ## CI/CD Pipeline
 
-This repository includes a comprehensive GitHub Actions pipeline with:
+The workflow in `.github/workflows/terraform.yaml` runs on every push and pull
+request to `main`, once a week for drift detection, and on demand from the
+Actions tab.
 
-- **Validation**: Format checking, TFLint, Terraform validation
-- **Testing**: Terraform native tests for configuration validation
-- **Security Scanning**: tfsec, Checkov, Trivy for vulnerability detection
-- **Cost Estimation**: Infracost integration for cost visibility
-- **Multi-Environment**: Separate plans for dev, staging, and production
-- **Manual Approvals**: Required for apply and destroy operations
+| Job           | Runs when                                   | What it does                                                         |
+| ------------- | ------------------------------------------- | -------------------------------------------------------------------- |
+| Settings      | Always                                      | Detects which secrets are configured and which environments to target |
+| Validate      | Always                                      | `terraform fmt -check`, `terraform init -backend=false`, `terraform validate`, TFLint |
+| Test          | After Validate                              | `terraform test` against a mocked AWS provider                        |
+| Security scan | After Validate                              | Trivy and Checkov; findings of medium severity or higher fail the job |
+| Cost estimate | Pull requests, `INFRACOST_API_KEY` set      | Posts an Infracost estimate on the pull request                       |
+| Plan          | `AWS_ROLE_ARN` and `TF_STATE_BUCKET` set    | Plans dev, staging and prod and stores each plan as an artifact       |
+| Apply         | Manual run with action `apply`              | Applies the plan of the chosen environment                            |
+| Destroy       | Manual run with action `destroy`            | Destroys the chosen environment after typing `DESTROY`                |
+| Drift         | Weekly schedule, AWS secrets set            | Warns when the deployed resources differ from the configuration       |
+| Summary       | Always                                      | Lists every job result and fails when a job failed                    |
 
-### Pipeline Workflow
+A new repository has no secrets, so only the jobs that need no cloud account
+run: Validate, Test and Security scan. Plan, Apply, Destroy and Drift start
+working once the secrets described under [Prerequisites](#prerequisites) exist.
 
-```d2
-direction: right
-
-pr: Pull Request {
-  shape: oval
-  style.fill: "#E3F2FD"
-  style.stroke: "#1976D2"
-}
-
-validate: Validate {
-  style.fill: "#E8F5E9"
-  style.stroke: "#388E3C"
-  label: "Format Check\nTFLint\nValidate"
-}
-
-test: Test {
-  style.fill: "#E1F5FE"
-  style.stroke: "#0288D1"
-  label: "Terraform Test\nUnit Tests"
-}
-
-security: Security {
-  style.fill: "#FFCDD2"
-  style.stroke: "#D32F2F"
-  label: "tfsec\nCheckov\nTrivy"
-}
-
-plan: Plan {
-  style.fill: "#E3F2FD"
-  style.stroke: "#1976D2"
-  label: "Generate Plan\nCost Estimate"
-}
-
-review: Review {
-  shape: diamond
-  style.fill: "#FFECB3"
-  style.stroke: "#FFA000"
-  label: "Manual\nApproval"
-}
-
-apply: Apply {
-  style.fill: "#E8F5E9"
-  style.stroke: "#388E3C"
-  label: "Deploy\nDistribution"
-}
-
-invalidate: Invalidate {
-  style.fill: "#F3E5F5"
-  style.stroke: "#7B1FA2"
-  label: "Clear Cache\n(Optional)"
-}
-
-pr -> validate -> test -> security -> plan -> review -> apply -> invalidate
-```
-
-### Pipeline Triggers
-
-| Trigger                  | Actions                                          |
-| ------------------------ | ------------------------------------------------ |
-| Pull Request to `main`   | Validate, Test, Security Scan, Plan, Cost Est.   |
-| Push to `main`           | Validate, Test, Security Scan, Plan (all envs)   |
-| Manual `workflow_dispatch` | Plan, Apply, or Destroy (selectable)           |
-
----
+Apply and Destroy run in the GitHub environments `dev`, `staging` and `prod`.
+Add required reviewers to an environment to make its deployments wait for
+approval.
 
 ## Prerequisites
 
@@ -657,8 +606,8 @@ resource "aws_route53_record" "cdn_ipv6" {
 | Feature                    | Configuration                               |
 | -------------------------- | ------------------------------------------- |
 | Viewer Protocol Policy     | `${{ values.viewer_protocol_policy }}`      |
-| Minimum TLS Version        | `${{ values.minimum_protocol_version }}`    |
-| SSL Support Method         | `${{ values.ssl_support_method }}`          |
+| Minimum TLS Version        | `TLSv1.2_2021`    |
+| SSL Support Method         | `sni-only`          |
 
 All connections use TLS 1.2+ with modern cipher suites.
 
@@ -816,10 +765,10 @@ When logging is enabled, access logs are stored in S3:
 
 ```bash
 # List log files
-aws s3 ls s3://${{ values.logging_bucket }}/${{ values.name }}/
+aws s3 ls s3://<logging-bucket>/${{ values.name }}/
 
 # Download and analyze logs
-aws s3 cp s3://${{ values.logging_bucket }}/${{ values.name }}/ ./logs/ --recursive
+aws s3 cp s3://<logging-bucket>/${{ values.name }}/ ./logs/ --recursive
 
 # Parse logs (gzip compressed)
 zcat logs/*.gz | head -100

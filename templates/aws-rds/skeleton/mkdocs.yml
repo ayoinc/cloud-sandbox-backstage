@@ -1,5 +1,5 @@
 site_name: ${{ values.name }}
-site_description: AWS RDS Database - ${{ values.description }}
+site_description: ${{ ('AWS RDS Database - ' + (values.description or values.name)) | dump }}
 
 nav:
   - Home: index.md

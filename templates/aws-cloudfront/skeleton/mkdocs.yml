@@ -1,5 +1,5 @@
 site_name: ${{ values.name }}
-site_description: AWS CloudFront Distribution - ${{ values.description }}
+site_description: ${{ ('AWS CloudFront Distribution - ' + (values.description or values.name)) | dump }}
 
 nav:
   - Home: index.md

@@ -155,9 +155,9 @@ After deployment, update your S3 bucket policy to allow CloudFront OAC access:
 
 This template includes a GitHub Actions workflow (`.github/workflows/terraform.yaml`) that:
 
-1. **On Pull Request**: Runs `terraform fmt`, `terraform validate`, and `terraform plan`
-2. **On Merge to Main**: Applies infrastructure changes automatically
-3. **Environment Promotion**: Uses environment-specific tfvars files
+1. **On every push and pull request**: Checks formatting, validates, lints with TFLint, runs `terraform test` against mocked providers and scans with Trivy and Checkov. This needs no configuration.
+2. **With the `AWS_ROLE_ARN` and `TF_STATE_BUCKET` secrets**: Plans dev, staging and prod from the environment-specific tfvars files
+3. **Manual run**: Applies or destroys one environment from the Actions tab
 
 ## Testing
 

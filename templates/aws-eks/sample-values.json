@@ -1,0 +1,19 @@
+{
+  "values": {
+    "name": "sample-cluster",
+    "description": "The platform team's \"shared\" Kubernetes cluster: dev workloads",
+    "owner": "group:default/platform-team",
+    "environment": "development",
+    "region": "eu-west-1",
+    "kubernetesVersion": "1.31",
+    "vpcId": "vpc-0123456789abcdef0",
+    "privateSubnetIds": [
+      "subnet-0123456789abcdef0",
+      "subnet-0fedcba9876543210"
+    ],
+    "nodeInstanceType": "t3.large",
+    "nodeDesiredSize": 2,
+    "nodeMaxSize": 5,
+    "repoUrl": "github.com?owner=example-org&repo=sample-cluster-eks"
+  }
+}

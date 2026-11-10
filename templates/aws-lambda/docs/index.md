@@ -266,9 +266,10 @@ dead_letter_target_arn = "arn:aws:sqs:us-east-1:123456789:my-dlq"
 
 The included GitHub Actions workflow:
 
-1. **On Pull Request**: Validates Terraform and runs plan
-2. **On Merge**: Applies changes to target environment
-3. **Code Packaging**: Automatically creates deployment ZIP
+1. **On every push and pull request**: Checks formatting, validates, lints with TFLint, runs `terraform test` against mocked providers and scans with Trivy and Checkov. This needs no configuration.
+2. **With the `AWS_ROLE_ARN` and `TF_STATE_BUCKET` secrets**: Plans dev, staging and prod from the environment-specific tfvars files
+3. **Manual run**: Applies or destroys one environment from the Actions tab
+4. **Function code**: Lints and tests the Python handler (Ruff, pytest) and tests the Node.js handler
 
 ## Testing
 

@@ -23,6 +23,7 @@ module "eks" {
   kubernetes_version      = var.kubernetes_version
   endpoint_private_access = var.endpoint_private_access
   endpoint_public_access  = var.endpoint_public_access
+  public_access_cidrs     = var.public_access_cidrs
 
   # Node Group Configuration
   node_instance_types = var.node_instance_types

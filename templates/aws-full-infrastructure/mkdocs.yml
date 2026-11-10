@@ -1,0 +1,4 @@
+site_name: AWS Full Infrastructure Stack
+docs_dir: docs
+plugins:
+  - techdocs-core

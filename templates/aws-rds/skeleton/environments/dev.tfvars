@@ -14,12 +14,13 @@
 # -----------------------------------------------------------------------------
 name        = "${{ values.name }}"
 environment = "dev"
+region      = "${{ values.region }}"
 
 # -----------------------------------------------------------------------------
 # Network Configuration (from existing VPC)
 # -----------------------------------------------------------------------------
 vpc_id             = "${{ values.vpcId }}"
-private_subnet_ids = ${{ values.privateSubnetIds | dump }}
+private_subnet_ids = ["${{ values.privateSubnetIds | join('", "') }}"]
 vpc_cidr_block     = "${{ values.vpcCidrBlock }}"
 
 # -----------------------------------------------------------------------------
@@ -32,13 +33,13 @@ engine_family  = "${{ values.engineFamily }}"
 # -----------------------------------------------------------------------------
 # Instance Configuration (cost-optimized)
 # -----------------------------------------------------------------------------
-instance_class = "db.t3.micro"
+instance_class = "${{ values.instanceClass }}"
 
 # -----------------------------------------------------------------------------
 # Storage Configuration
 # -----------------------------------------------------------------------------
-allocated_storage     = 20
-max_allocated_storage = 50
+allocated_storage     = ${{ values.allocatedStorage }}
+max_allocated_storage = ${{ values.allocatedStorage * 2 }}
 storage_type          = "gp3"
 storage_encrypted     = true
 
@@ -51,7 +52,7 @@ master_username = "dbadmin"
 # -----------------------------------------------------------------------------
 # High Availability (disabled for dev)
 # -----------------------------------------------------------------------------
-multi_az = false
+multi_az = ${{ values.multiAz }}
 
 # -----------------------------------------------------------------------------
 # Backup Configuration (minimal for dev)

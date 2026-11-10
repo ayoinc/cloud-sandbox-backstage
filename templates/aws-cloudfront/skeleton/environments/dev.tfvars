@@ -14,6 +14,7 @@
 name        = "${{ values.name }}"
 environment = "dev"
 org_prefix  = "myorg"
+region      = "${{ values.region }}"
 
 # -----------------------------------------------------------------------------
 # Origin Configuration
@@ -35,8 +36,8 @@ wait_for_deployment = false
 # -----------------------------------------------------------------------------
 viewer_protocol_policy = "${{ values.viewer_protocol_policy }}"
 min_ttl                = 0
-default_ttl            = 3600      # 1 hour for dev
-max_ttl                = 86400     # 1 day max
+default_ttl            = 3600
+max_ttl                = 86400
 enable_compression     = ${{ values.enable_compression }}
 forward_query_string   = false
 forward_cookies        = "none"

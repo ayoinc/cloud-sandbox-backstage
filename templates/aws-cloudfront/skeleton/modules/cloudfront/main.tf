@@ -22,9 +22,47 @@ resource "aws_cloudfront_origin_access_control" "this" {
 }
 
 # -----------------------------------------------------------------------------
+# Security response headers added to every response
+# -----------------------------------------------------------------------------
+resource "aws_cloudfront_response_headers_policy" "security" {
+  name    = "${local.distribution_name}-security-headers"
+  comment = "Security headers for ${local.distribution_name}"
+
+  security_headers_config {
+    strict_transport_security {
+      access_control_max_age_sec = 31536000
+      include_subdomains         = true
+      preload                    = true
+      override                   = true
+    }
+
+    content_type_options {
+      override = true
+    }
+
+    frame_options {
+      frame_option = "SAMEORIGIN"
+      override     = false
+    }
+
+    referrer_policy {
+      referrer_policy = "strict-origin-when-cross-origin"
+      override        = false
+    }
+  }
+}
+
+# -----------------------------------------------------------------------------
 # CloudFront Distribution
 # -----------------------------------------------------------------------------
+# Access logging is switched on with logging_enabled once a log bucket exists (logging_bucket).
+# trivy:ignore:AVD-AWS-0010
 resource "aws_cloudfront_distribution" "this" {
+  # checkov:skip=CKV_AWS_174: Without a custom domain CloudFront serves its default certificate, whose TLS policy is fixed; with a certificate minimum_protocol_version (TLSv1.2_2021) applies
+  # checkov:skip=CKV2_AWS_42: The custom domain and ACM certificate are optional choices made when the repository is created
+  # checkov:skip=CKV_AWS_310: The distribution serves a single S3 origin; origin failover needs a second origin
+  # checkov:skip=CKV_AWS_374: Content is served worldwide unless geo_restriction_type and geo_restriction_locations are set
+  # checkov:skip=CKV2_AWS_47: A WAF web ACL is attached through web_acl_id when the content needs one
   enabled             = var.enabled
   is_ipv6_enabled     = var.ipv6_enabled
   comment             = var.comment != "" ? var.comment : "CloudFront distribution for ${local.distribution_name}"
@@ -65,11 +103,12 @@ resource "aws_cloudfront_distribution" "this" {
       }
     }
 
-    viewer_protocol_policy = var.viewer_protocol_policy
-    min_ttl                = var.min_ttl
-    default_ttl            = var.default_ttl
-    max_ttl                = var.max_ttl
-    compress               = var.enable_compression
+    viewer_protocol_policy     = var.viewer_protocol_policy
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.security.id
+    min_ttl                    = var.min_ttl
+    default_ttl                = var.default_ttl
+    max_ttl                    = var.max_ttl
+    compress                   = var.enable_compression
 
     dynamic "function_association" {
       for_each = var.function_associations

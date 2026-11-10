@@ -5,21 +5,6 @@
 # Environment-specific values are provided via -var-file.
 # =============================================================================
 
-terraform {
-  required_version = ">= 1.0"
-
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.0"
-    }
-  }
-}
-
 # -----------------------------------------------------------------------------
 # RDS Module
 # -----------------------------------------------------------------------------
@@ -57,6 +42,8 @@ module "rds" {
 
   # High Availability
   multi_az = var.multi_az
+
+  iam_database_authentication_enabled = var.iam_database_authentication_enabled
 
   # Backup Configuration
   backup_retention_period = var.backup_retention_period

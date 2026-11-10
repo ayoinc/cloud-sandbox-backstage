@@ -7,22 +7,25 @@
 # =============================================================================
 
 # -----------------------------------------------------------------------------
-# Mock Providers - Prevent actual AWS API calls
+# Mock Providers - Prevent actual AWS API calls. Runs apply against the mock so
+# that computed attributes such as ARNs have values.
 # -----------------------------------------------------------------------------
 mock_provider "aws" {
-  alias = "mock"
+  mock_resource "aws_iam_role" {
+    defaults = {
+      arn = "arn:aws:iam::123456789012:role/mock"
+    }
+  }
 }
 
-mock_provider "archive" {
-  alias = "mock"
-}
+mock_provider "archive" {}
 
 # =============================================================================
 # UNIT TESTS - Lambda Function Configuration
 # =============================================================================
 
 run "lambda_function_basic_config" {
-  command = plan
+  command = apply
 
   variables {
     name        = "test-lambda"
@@ -50,7 +53,7 @@ run "lambda_function_basic_config" {
 }
 
 run "lambda_memory_configuration" {
-  command = plan
+  command = apply
 
   variables {
     name        = "test-lambda"
@@ -68,7 +71,7 @@ run "lambda_memory_configuration" {
 }
 
 run "lambda_timeout_configuration" {
-  command = plan
+  command = apply
 
   variables {
     name        = "test-lambda"
@@ -86,7 +89,7 @@ run "lambda_timeout_configuration" {
 }
 
 run "lambda_environment_variable" {
-  command = plan
+  command = apply
 
   variables {
     name        = "test-lambda"
@@ -108,7 +111,7 @@ run "lambda_environment_variable" {
 # =============================================================================
 
 run "lambda_iam_role_configuration" {
-  command = plan
+  command = apply
 
   variables {
     name        = "test-lambda"
@@ -135,7 +138,7 @@ run "lambda_iam_role_configuration" {
 # =============================================================================
 
 run "cloudwatch_log_group_configuration" {
-  command = plan
+  command = apply
 
   variables {
     name        = "test-lambda"
@@ -157,7 +160,7 @@ run "cloudwatch_log_group_configuration" {
 # =============================================================================
 
 run "python_runtime" {
-  command = plan
+  command = apply
 
   variables {
     name        = "py-lambda"
@@ -175,7 +178,7 @@ run "python_runtime" {
 }
 
 run "nodejs_runtime" {
-  command = plan
+  command = apply
 
   variables {
     name        = "node-lambda"
@@ -193,7 +196,7 @@ run "nodejs_runtime" {
 }
 
 run "java_runtime" {
-  command = plan
+  command = apply
 
   variables {
     name        = "java-lambda"
@@ -215,7 +218,7 @@ run "java_runtime" {
 # =============================================================================
 
 run "minimum_memory" {
-  command = plan
+  command = apply
 
   variables {
     name        = "min-mem-lambda"
@@ -233,7 +236,7 @@ run "minimum_memory" {
 }
 
 run "large_memory_configuration" {
-  command = plan
+  command = apply
 
   variables {
     name        = "large-mem-lambda"
@@ -251,7 +254,7 @@ run "large_memory_configuration" {
 }
 
 run "maximum_memory" {
-  command = plan
+  command = apply
 
   variables {
     name        = "max-mem-lambda"
@@ -273,7 +276,7 @@ run "maximum_memory" {
 # =============================================================================
 
 run "quick_function_timeout" {
-  command = plan
+  command = apply
 
   variables {
     name        = "quick-lambda"
@@ -291,7 +294,7 @@ run "quick_function_timeout" {
 }
 
 run "long_function_timeout" {
-  command = plan
+  command = apply
 
   variables {
     name        = "long-lambda"
@@ -309,7 +312,7 @@ run "long_function_timeout" {
 }
 
 run "maximum_timeout" {
-  command = plan
+  command = apply
 
   variables {
     name        = "max-timeout-lambda"
@@ -331,7 +334,7 @@ run "maximum_timeout" {
 # =============================================================================
 
 run "outputs_are_defined" {
-  command = plan
+  command = apply
 
   variables {
     name        = "output-test-lambda"
@@ -373,7 +376,7 @@ run "outputs_are_defined" {
 # =============================================================================
 
 run "development_environment" {
-  command = plan
+  command = apply
 
   variables {
     name        = "dev-lambda"
@@ -396,7 +399,7 @@ run "development_environment" {
 }
 
 run "staging_environment" {
-  command = plan
+  command = apply
 
   variables {
     name        = "staging-lambda"
@@ -419,7 +422,7 @@ run "staging_environment" {
 }
 
 run "production_environment" {
-  command = plan
+  command = apply
 
   variables {
     name        = "prod-lambda"
@@ -446,7 +449,7 @@ run "production_environment" {
 # =============================================================================
 
 run "function_info_summary" {
-  command = plan
+  command = apply
 
   variables {
     name        = "summary-test"

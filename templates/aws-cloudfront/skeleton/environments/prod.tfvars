@@ -14,6 +14,7 @@
 name        = "${{ values.name }}"
 environment = "prod"
 org_prefix  = "myorg"
+region      = "${{ values.region }}"
 
 # -----------------------------------------------------------------------------
 # Origin Configuration
@@ -36,7 +37,7 @@ wait_for_deployment = true
 viewer_protocol_policy = "https-only"
 min_ttl                = 0
 default_ttl            = ${{ values.default_ttl }}
-max_ttl                = 31536000  # 1 year
+max_ttl                = 31536000
 enable_compression     = true
 forward_query_string   = false
 forward_cookies        = "none"
@@ -68,15 +69,14 @@ geo_restriction_type = "none"
 # Custom Domain (configure for production)
 # -----------------------------------------------------------------------------
 # Uncomment and configure when custom domain is ready
-# custom_domain       = "${{ values.custom_domain }}"
-# acm_certificate_arn = "${{ values.acm_certificate_arn }}"
-custom_domain       = ""
-acm_certificate_arn = ""
+custom_domain       = "${{ values.custom_domain }}"
+acm_certificate_arn = "${{ values.acm_certificate_arn }}"
 
 # -----------------------------------------------------------------------------
 # Logging (enabled for production compliance)
 # -----------------------------------------------------------------------------
-logging_enabled = false  # Set to true and configure logging_bucket when available
+# Set to true and configure logging_bucket when a log bucket exists
+logging_enabled = false
 # logging_bucket  = "my-logging-bucket.s3.amazonaws.com"
 # logging_prefix  = "cloudfront/${{ values.name }}/"
 

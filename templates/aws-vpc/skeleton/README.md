@@ -57,8 +57,8 @@ This project includes a GitHub Actions workflow that:
 
 - Runs on pull requests and pushes to main
 - Performs linting with TFLint
-- Runs security scanning with tfsec and Checkov
-- Plans and applies Terraform changes
+- Runs security scanning with Trivy and Checkov
+- Plans and applies Terraform changes once the AWS secrets are configured
 - Runs Terraform native tests
 
 ## Documentation

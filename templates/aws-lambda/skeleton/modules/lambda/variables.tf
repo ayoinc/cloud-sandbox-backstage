@@ -196,12 +196,18 @@ variable "dead_letter_target_arn" {
 variable "tracing_mode" {
   description = "X-Ray tracing mode (Active or PassThrough)"
   type        = string
-  default     = null
+  default     = "Active"
 
   validation {
-    condition     = var.tracing_mode == null || contains(["Active", "PassThrough"], var.tracing_mode)
+    condition     = contains(["Active", "PassThrough"], var.tracing_mode)
     error_message = "Tracing mode must be Active or PassThrough."
   }
+}
+
+variable "kms_key_arn" {
+  description = "KMS key ARN used to encrypt the environment variables. Uses the AWS managed key when null"
+  type        = string
+  default     = null
 }
 
 # -----------------------------------------------------------------------------
@@ -210,7 +216,7 @@ variable "tracing_mode" {
 variable "log_retention_days" {
   description = "CloudWatch log retention in days"
   type        = number
-  default     = 14
+  default     = 365
 
   validation {
     condition = contains([

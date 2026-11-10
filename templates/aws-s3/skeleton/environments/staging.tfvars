@@ -2,9 +2,7 @@
 # AWS S3 - Staging Environment Configuration
 # =============================================================================
 # Production-like settings for testing.
-# - Versioning enabled
-# - AES256 encryption
-# - Basic lifecycle rules
+# - Versioning, encryption and lifecycle rules as chosen at creation
 # - Access logging optional
 # =============================================================================
 
@@ -14,16 +12,17 @@
 name        = "${{ values.name }}"
 environment = "staging"
 org_prefix  = "${{ values.orgPrefix }}"
+region      = "${{ values.region }}"
 
 # -----------------------------------------------------------------------------
-# Versioning (enabled for staging)
+# Versioning
 # -----------------------------------------------------------------------------
-versioning_enabled = true
+versioning_enabled = ${{ values.versioning }}
 
 # -----------------------------------------------------------------------------
 # Encryption
 # -----------------------------------------------------------------------------
-encryption_type = "AES256"
+encryption_type = "${{ values.encryption }}"
 
 # -----------------------------------------------------------------------------
 # Public Access Block (always enabled)
@@ -34,9 +33,9 @@ ignore_public_acls      = true
 restrict_public_buckets = true
 
 # -----------------------------------------------------------------------------
-# Lifecycle Rules (enabled with moderate settings)
+# Lifecycle Rules
 # -----------------------------------------------------------------------------
-lifecycle_enabled                  = true
+lifecycle_enabled                  = ${{ values.lifecycleEnabled }}
 transition_to_ia_days              = 90
 transition_to_glacier_days         = 180
 noncurrent_version_transition_days = 30

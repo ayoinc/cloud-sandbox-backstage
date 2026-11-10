@@ -7,17 +7,16 @@
 # =============================================================================
 
 # -----------------------------------------------------------------------------
-# Mock Providers - Prevent actual AWS API calls
+# Mock Providers - Prevent actual AWS API calls. Runs apply against the mock so
+# that computed attributes such as the distribution ID have values.
 # -----------------------------------------------------------------------------
-mock_provider "aws" {
-  alias = "mock"
-}
+mock_provider "aws" {}
 
 # -----------------------------------------------------------------------------
 # Test: Basic CloudFront Distribution Configuration
 # -----------------------------------------------------------------------------
 run "basic_distribution_configuration" {
-  command = plan
+  command = apply
 
   variables {
     name               = "test-cdn"
@@ -52,7 +51,7 @@ run "basic_distribution_configuration" {
 # Test: Distribution Enabled
 # -----------------------------------------------------------------------------
 run "distribution_enabled" {
-  command = plan
+  command = apply
 
   variables {
     name               = "enabled-cdn"
@@ -73,7 +72,7 @@ run "distribution_enabled" {
 # Test: Compression Enabled
 # -----------------------------------------------------------------------------
 run "compression_enabled" {
-  command = plan
+  command = apply
 
   variables {
     name               = "compressed-cdn"
@@ -91,7 +90,7 @@ run "compression_enabled" {
 }
 
 run "compression_disabled" {
-  command = plan
+  command = apply
 
   variables {
     name               = "uncompressed-cdn"
@@ -112,7 +111,7 @@ run "compression_disabled" {
 # Test: Viewer Protocol Policies
 # -----------------------------------------------------------------------------
 run "https_only_policy" {
-  command = plan
+  command = apply
 
   variables {
     name                   = "secure-cdn"
@@ -130,7 +129,7 @@ run "https_only_policy" {
 }
 
 run "redirect_to_https_policy" {
-  command = plan
+  command = apply
 
   variables {
     name                   = "redirect-cdn"
@@ -151,7 +150,7 @@ run "redirect_to_https_policy" {
 # Test: Price Classes
 # -----------------------------------------------------------------------------
 run "price_class_100" {
-  command = plan
+  command = apply
 
   variables {
     name               = "budget-cdn"
@@ -169,7 +168,7 @@ run "price_class_100" {
 }
 
 run "price_class_200" {
-  command = plan
+  command = apply
 
   variables {
     name               = "standard-cdn"
@@ -187,7 +186,7 @@ run "price_class_200" {
 }
 
 run "price_class_all" {
-  command = plan
+  command = apply
 
   variables {
     name               = "global-cdn"
@@ -208,7 +207,7 @@ run "price_class_all" {
 # Test: Custom Domain Configuration
 # -----------------------------------------------------------------------------
 run "no_custom_domain" {
-  command = plan
+  command = apply
 
   variables {
     name               = "default-cdn"
@@ -226,7 +225,7 @@ run "no_custom_domain" {
 }
 
 run "with_custom_domain" {
-  command = plan
+  command = apply
 
   variables {
     name                = "custom-cdn"
@@ -248,7 +247,7 @@ run "with_custom_domain" {
 # Test: Environment Validation
 # -----------------------------------------------------------------------------
 run "valid_development_environment" {
-  command = plan
+  command = apply
 
   variables {
     name               = "dev-cdn"
@@ -265,7 +264,7 @@ run "valid_development_environment" {
 }
 
 run "valid_staging_environment" {
-  command = plan
+  command = apply
 
   variables {
     name               = "staging-cdn"
@@ -282,7 +281,7 @@ run "valid_staging_environment" {
 }
 
 run "valid_production_environment" {
-  command = plan
+  command = apply
 
   variables {
     name               = "prod-cdn"
@@ -302,7 +301,7 @@ run "valid_production_environment" {
 # Test: Distribution Info Summary
 # -----------------------------------------------------------------------------
 run "distribution_info_summary" {
-  command = plan
+  command = apply
 
   variables {
     name               = "summary-cdn"
@@ -330,7 +329,7 @@ run "distribution_info_summary" {
 # Test: Production Best Practices
 # -----------------------------------------------------------------------------
 run "production_best_practices" {
-  command = plan
+  command = apply
 
   variables {
     name                   = "enterprise-cdn"
@@ -368,7 +367,7 @@ run "production_best_practices" {
 # Test: Origin Access Control
 # -----------------------------------------------------------------------------
 run "origin_access_control_created" {
-  command = plan
+  command = apply
 
   variables {
     name               = "oac-test"
@@ -388,7 +387,7 @@ run "origin_access_control_created" {
 # Test: Different Regions for Origin
 # -----------------------------------------------------------------------------
 run "us_west_2_origin" {
-  command = plan
+  command = apply
 
   variables {
     name               = "west-cdn"
@@ -405,7 +404,7 @@ run "us_west_2_origin" {
 }
 
 run "eu_west_1_origin" {
-  command = plan
+  command = apply
 
   variables {
     name               = "eu-cdn"

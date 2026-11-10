@@ -97,7 +97,7 @@ variable "storage_encrypted" {
 }
 
 variable "kms_key_id" {
-  description = "KMS key ID for storage encryption (uses default if not specified)"
+  description = "KMS key ARN for storage encryption. Defaults to the key created by this configuration"
   type        = string
   default     = null
 }
@@ -132,6 +132,12 @@ variable "multi_az" {
   default     = false
 }
 
+variable "iam_database_authentication_enabled" {
+  description = "Allow IAM users and roles to authenticate to the database"
+  type        = bool
+  default     = true
+}
+
 # -----------------------------------------------------------------------------
 # Backup Configuration
 # -----------------------------------------------------------------------------
@@ -162,7 +168,7 @@ variable "skip_final_snapshot" {
 variable "deletion_protection" {
   description = "Enable deletion protection"
   type        = bool
-  default     = false
+  default     = true
 }
 
 # -----------------------------------------------------------------------------

@@ -5,21 +5,6 @@
 # Environment-specific values are provided via -var-file.
 # =============================================================================
 
-terraform {
-  required_version = ">= 1.0"
-
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-    archive = {
-      source  = "hashicorp/archive"
-      version = "~> 2.0"
-    }
-  }
-}
-
 # -----------------------------------------------------------------------------
 # Package the Lambda Code
 # -----------------------------------------------------------------------------
@@ -69,6 +54,7 @@ module "lambda" {
 
   # Tracing
   tracing_mode = var.tracing_mode
+  kms_key_arn  = var.kms_key_arn
 
   # Logging
   log_retention_days = var.log_retention_days

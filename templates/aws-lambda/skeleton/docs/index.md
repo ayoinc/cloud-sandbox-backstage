@@ -138,7 +138,7 @@ monitoring.alarms -> lambda.function: monitors
 | Live Alias             | Enabled   | `live` alias for stable endpoint                 |
 | Function URL           | Optional  | HTTP(S) endpoint for direct invocation           |
 | VPC Integration        | Optional  | Access private resources (RDS, ElastiCache)      |
-| X-Ray Tracing          | Optional  | Distributed tracing for debugging                |
+| X-Ray Tracing          | Enabled   | Distributed tracing for debugging                |
 | Dead Letter Queue      | Optional  | Capture failed async invocations                 |
 | CloudWatch Alarms      | Optional  | Alerts for errors, duration, throttling          |
 
@@ -146,83 +146,31 @@ monitoring.alarms -> lambda.function: monitors
 
 ## CI/CD Pipeline
 
-This repository includes a comprehensive GitHub Actions pipeline with:
+The workflow in `.github/workflows/terraform.yaml` runs on every push and pull
+request to `main`, once a week for drift detection, and on demand from the
+Actions tab.
 
-- **Runtime Detection**: Automatic Python/Node.js detection for appropriate tooling
-- **Code Quality**: Linting with Ruff/Black (Python) or Biome (Node.js)
-- **Unit Testing**: pytest (Python) or Jest (Node.js) with coverage reporting
-- **Terraform Testing**: Native `terraform test` validation
-- **Security Scanning**: Trivy, tfsec, Checkov, Bandit for vulnerability detection
-- **Multi-Environment**: Progressive deployments through dev, staging, production
-- **Traffic Shifting**: Gradual rollout in production (10% -> 50% -> 100%)
-- **Rollback Support**: One-click rollback to any previous version
+| Job           | Runs when                                   | What it does                                                         |
+| ------------- | ------------------------------------------- | -------------------------------------------------------------------- |
+| Settings      | Always                                      | Detects which secrets are configured and which environments to target |
+| Validate      | Always                                      | `terraform fmt -check`, `terraform init -backend=false`, `terraform validate`, TFLint |
+| Function code | Always                                      | Ruff and pytest for `src/main.py`, `node --test` for `src/main.mjs`   |
+| Test          | After Validate                              | `terraform test` against a mocked AWS provider                        |
+| Security scan | After Validate                              | Trivy and Checkov; findings of medium severity or higher fail the job |
+| Cost estimate | Pull requests, `INFRACOST_API_KEY` set      | Posts an Infracost estimate on the pull request                       |
+| Plan          | `AWS_ROLE_ARN` and `TF_STATE_BUCKET` set    | Plans dev, staging and prod and stores each plan as an artifact       |
+| Apply         | Manual run with action `apply`              | Applies the plan of the chosen environment                            |
+| Destroy       | Manual run with action `destroy`            | Destroys the chosen environment after typing `DESTROY`                |
+| Drift         | Weekly schedule, AWS secrets set            | Warns when the deployed resources differ from the configuration       |
+| Summary       | Always                                      | Lists every job result and fails when a job failed                    |
 
-### Pipeline Workflow
+A new repository has no secrets, so only the jobs that need no cloud account
+run: Validate, Function code, Test and Security scan. Plan, Apply, Destroy and Drift start
+working once the secrets described under [Prerequisites](#prerequisites) exist.
 
-```d2
-direction: right
-
-pr: Pull Request {
-  shape: oval
-  style.fill: "#E3F2FD"
-  style.stroke: "#1976D2"
-}
-
-lint: Lint & Test {
-  style.fill: "#E8F5E9"
-  style.stroke: "#388E3C"
-  label: "Ruff/Biome\npytest/Jest\nTerraform Test"
-}
-
-security: Security {
-  style.fill: "#FFCDD2"
-  style.stroke: "#D32F2F"
-  label: "Trivy\ntfsec\nCheckov\nBandit"
-}
-
-build: Build {
-  style.fill: "#E3F2FD"
-  style.stroke: "#1976D2"
-  label: "Package\nDependencies\nCreate ZIP"
-}
-
-dev: Dev Deploy {
-  style.fill: "#C8E6C9"
-  style.stroke: "#388E3C"
-  label: "Deploy\nSmoke Test"
-}
-
-staging: Staging {
-  style.fill: "#FFECB3"
-  style.stroke: "#FFA000"
-  label: "Deploy\nSmoke Test"
-}
-
-approval: Approval {
-  shape: diamond
-  style.fill: "#FFCDD2"
-  style.stroke: "#D32F2F"
-  label: "Manual\nReview"
-}
-
-prod: Production {
-  style.fill: "#C8E6C9"
-  style.stroke: "#388E3C"
-  label: "Traffic Shift\n10%->50%->100%"
-}
-
-pr -> lint -> security -> build -> dev -> staging -> approval -> prod
-```
-
-### Deployment Stages
-
-| Stage      | Trigger                  | Approval Required | Traffic Strategy     |
-| ---------- | ------------------------ | ----------------- | -------------------- |
-| Dev        | Push to `develop`        | No                | Immediate 100%       |
-| Staging    | Push to `main`           | Optional          | Immediate 100%       |
-| Production | After staging success    | Yes               | Gradual (10/50/100%) |
-
----
+Apply and Destroy run in the GitHub environments `dev`, `staging` and `prod`.
+Add required reviewers to an environment to make its deployments wait for
+approval.
 
 ## Prerequisites
 
@@ -491,19 +439,15 @@ Create environments in **Settings > Environments**:
 git clone <repository-url>
 cd ${{ values.name }}
 
-# Install development dependencies (Python)
+# Install the Python development tools
 pip install -r requirements-dev.txt
 
-# Install development dependencies (Node.js)
-npm install
+# Lint and test the Python handler (src/main.py)
+ruff check src tests && ruff format --check src tests
+pytest tests/handler -v
 
-# Run tests locally
-pytest tests/ -v                    # Python
-npm test                            # Node.js
-
-# Run linting
-ruff check src/ && black --check src/   # Python
-npx @biomejs/biome check src/           # Node.js
+# Test the Node.js handler (src/main.mjs)
+node --test tests/handler/main.test.mjs
 
 # Initialize Terraform
 terraform init
@@ -586,17 +530,23 @@ curl -X POST https://xxxxxxxxxx.lambda-url.${{ values.aws_region }}.on.aws/ \
 
 ## Security Scanning
 
-The pipeline includes comprehensive security scanning:
+The pipeline runs two scanners on every push and pull request:
 
-| Tool        | Purpose                                                     | Documentation                        |
-| ----------- | ----------------------------------------------------------- | ------------------------------------ |
-| **Trivy**   | Filesystem and IaC vulnerability scanning                   | [trivy.dev](https://trivy.dev)       |
-| **tfsec**   | Static analysis for Terraform security misconfigurations    | [tfsec.dev](https://tfsec.dev)       |
-| **Checkov** | Policy-as-code for infrastructure security and compliance   | [checkov.io](https://www.checkov.io) |
-| **Bandit**  | Python-specific security linting                            | [bandit.readthedocs.io](https://bandit.readthedocs.io) |
-| **Snyk**    | Dependency vulnerability scanning (optional)                | [snyk.io](https://snyk.io)           |
+| Tool        | Purpose                                                   | Documentation                        |
+| ----------- | --------------------------------------------------------- | ------------------------------------ |
+| **Trivy**   | Misconfiguration scanner for infrastructure as code       | [trivy.dev](https://trivy.dev)       |
+| **Checkov** | Policy-as-code for infrastructure security and compliance | [checkov.io](https://www.checkov.io) |
 
-Results are uploaded to the GitHub **Security** tab as SARIF reports.
+A finding fails the Security scan job. Fix the configuration, or, where the
+finding is an accepted design choice, add an inline exception next to the
+resource with the reason:
+
+```hcl
+resource "aws_s3_bucket" "example" {
+  # checkov:skip=CKV_AWS_144: Replication is not required for this data
+  # trivy:ignore:AVD-AWS-0089
+}
+```
 
 ### Common Security Findings
 

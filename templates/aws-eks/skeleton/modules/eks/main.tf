@@ -76,8 +76,45 @@ resource "aws_iam_role_policy_attachment" "node_policies" {
 }
 
 # -----------------------------------------------------------------------------
+# KMS key for envelope encryption of Kubernetes secrets
+# -----------------------------------------------------------------------------
+data "aws_caller_identity" "current" {}
+
+data "aws_partition" "current" {}
+
+resource "aws_kms_key" "secrets" {
+  description             = "Envelope encryption of Kubernetes secrets in ${local.cluster_name}"
+  deletion_window_in_days = 30
+  enable_key_rotation     = true
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "AccountAdministration"
+      Effect    = "Allow"
+      Principal = { AWS = "arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:root" }
+      Action    = "kms:*"
+      Resource  = "*"
+    }]
+  })
+
+  tags = merge(var.tags, {
+    Name = "${local.cluster_name}-secrets"
+  })
+}
+
+resource "aws_kms_alias" "secrets" {
+  name          = "alias/${local.cluster_name}-secrets"
+  target_key_id = aws_kms_key.secrets.key_id
+}
+
+# -----------------------------------------------------------------------------
 # Security Group for Cluster
 # -----------------------------------------------------------------------------
+data "aws_vpc" "this" {
+  id = var.vpc_id
+}
+
 resource "aws_security_group" "cluster" {
   name        = "${local.cluster_name}-cluster-sg"
   description = "Security group for EKS cluster control plane"
@@ -87,8 +124,8 @@ resource "aws_security_group" "cluster" {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "Allow all outbound traffic"
+    cidr_blocks = [data.aws_vpc.this.cidr_block]
+    description = "Control plane to nodes and pods inside the VPC"
   }
 
   tags = merge(var.tags, {
@@ -113,7 +150,22 @@ resource "aws_eks_cluster" "this" {
     security_group_ids      = [aws_security_group.cluster.id]
   }
 
+  encryption_config {
+    resources = ["secrets"]
+
+    provider {
+      key_arn = aws_kms_key.secrets.arn
+    }
+  }
+
   enabled_cluster_log_types = var.cluster_enabled_log_types
+
+  lifecycle {
+    precondition {
+      condition     = !var.endpoint_public_access || length(var.public_access_cidrs) > 0
+      error_message = "Set public_access_cidrs to the networks that may reach the API server when endpoint_public_access is true."
+    }
+  }
 
   # Ensure IAM role policies are attached before creating cluster
   depends_on = [
@@ -257,10 +309,14 @@ resource "aws_iam_role_policy" "cluster_autoscaler" {
           "ec2:DescribeInstanceTypes",
           "ec2:DescribeLaunchTemplateVersions",
           "ec2:DescribeImages",
-          "ec2:GetInstanceTypesFromInstanceRequirements",
-          "eks:DescribeNodegroup"
+          "ec2:GetInstanceTypesFromInstanceRequirements"
         ]
         Resource = "*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["eks:DescribeNodegroup"]
+        Resource = aws_eks_node_group.this.arn
       },
       {
         Effect = "Allow"

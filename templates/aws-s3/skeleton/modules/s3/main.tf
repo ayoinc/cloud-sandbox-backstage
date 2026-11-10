@@ -13,6 +13,9 @@ locals {
 # S3 Bucket
 # -----------------------------------------------------------------------------
 resource "aws_s3_bucket" "this" {
+  # checkov:skip=CKV_AWS_145: The encryption type (SSE-S3 or SSE-KMS) is a choice made when the repository is created
+  # checkov:skip=CKV_AWS_144: Cross-region replication is not part of this module; add it where recovery objectives require a second region
+  # checkov:skip=CKV2_AWS_62: Event notifications depend on the consumers of the bucket and are configured by them
   bucket = local.bucket_name
 
   tags = merge(var.tags, {

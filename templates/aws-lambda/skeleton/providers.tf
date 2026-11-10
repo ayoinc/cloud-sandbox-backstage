@@ -6,15 +6,15 @@
 # =============================================================================
 
 provider "aws" {
-  region = "${{ values.region | default('us-east-1') }}"
+  region = "${{ values.aws_region }}"
 
   default_tags {
     tags = {
-      Project       = "${{ values.name }}"
-      ManagedBy     = "terraform"
-      Repository    = "${{ values.repoUrl | default('') }}"
-      Environment   = var.environment
-      TemplateType  = "aws-lambda"
+      Project      = "${{ values.name }}"
+      ManagedBy    = "terraform"
+      Repository   = "${{ values.destination.owner }}/${{ values.destination.repo }}"
+      Environment  = var.environment
+      TemplateType = "aws-lambda"
     }
   }
 }
