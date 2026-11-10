@@ -1,0 +1,12 @@
+{
+  "values": {
+    "name": "sample-docker-role",
+    "description": "Installs and configures Docker",
+    "owner": "group:default/platform-team",
+    "dockerEdition": "ce",
+    "dockerVersion": "",
+    "dockerComposeInstall": true,
+    "dockerUsers": "deploy",
+    "repoUrl": "github.com?owner=example-org&repo=sample-docker-role"
+  }
+}

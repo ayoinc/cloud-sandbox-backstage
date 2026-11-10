@@ -13,6 +13,7 @@
     "db:migrate:remote": "wrangler d1 migrations apply cloud-sandbox --remote",
     "catalog:sync": "node scripts/pipeline/sync-catalog.mjs",
     "template:run": "node scripts/pipeline/run-template.mjs",
+    "template:check": "node scripts/pipeline/check-templates.mjs",
     "verify": "node scripts/compare-with-backend.mjs"
   },
   "dependencies": {
