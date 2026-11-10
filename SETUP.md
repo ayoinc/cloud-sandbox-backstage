@@ -37,12 +37,12 @@ This guide provides comprehensive instructions for setting up the Cloud Sandbox 
 
 ### For Manual Development
 
-| Component | Version | Notes           |
-| --------- | ------- | --------------- |
+| Component | Version | Notes                           |
+| --------- | ------- | ------------------------------- |
 | Node.js   | 24.x    | Active LTS; 22.x also supported |
 | Yarn      | 4.13.0  | Bundled via `yarnPath`          |
-| Python    | 3.11+   | For TechDocs    |
-| D2        | 0.6+    | For diagrams    |
+| Python    | 3.11+   | For TechDocs                    |
+| D2        | 0.6+    | For diagrams                    |
 
 ---
 

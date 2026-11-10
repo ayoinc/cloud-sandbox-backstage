@@ -14,3 +14,6 @@ catalog/terraform-modules/templates/**/skeleton/**
 
 # Agent skills (third-party)
 .agents
+
+# Rewritten by Yarn in its own style
+.yarnrc.yml

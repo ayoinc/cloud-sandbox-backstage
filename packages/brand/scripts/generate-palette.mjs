@@ -20,7 +20,8 @@ import {
 
 // Variant is not exported from the package entry point; read it from the
 // stock tonal-spot scheme so role tone mapping follows the M3 baseline.
-const TONAL_SPOT = new SchemeTonalSpot(Hct.fromInt(0xff000000), false, 0).variant;
+const TONAL_SPOT = new SchemeTonalSpot(Hct.fromInt(0xff000000), false, 0)
+  .variant;
 
 /**
  * Brand source colours.
@@ -44,24 +45,61 @@ const STATUS = {
   warning: '#f47738',
 };
 
-const TONES = [0, 4, 5, 6, 10, 12, 17, 20, 22, 24, 25, 30, 35, 40, 50, 60, 70, 80, 87, 90, 92, 94, 95, 96, 98, 99, 100];
+const TONES = [
+  0, 4, 5, 6, 10, 12, 17, 20, 22, 24, 25, 30, 35, 40, 50, 60, 70, 80, 87, 90,
+  92, 94, 95, 96, 98, 99, 100,
+];
 
 const ROLES = [
-  'primary', 'onPrimary', 'primaryContainer', 'onPrimaryContainer',
-  'primaryFixed', 'primaryFixedDim', 'onPrimaryFixed', 'onPrimaryFixedVariant',
-  'secondary', 'onSecondary', 'secondaryContainer', 'onSecondaryContainer',
-  'secondaryFixed', 'secondaryFixedDim', 'onSecondaryFixed', 'onSecondaryFixedVariant',
-  'tertiary', 'onTertiary', 'tertiaryContainer', 'onTertiaryContainer',
-  'tertiaryFixed', 'tertiaryFixedDim', 'onTertiaryFixed', 'onTertiaryFixedVariant',
-  'error', 'onError', 'errorContainer', 'onErrorContainer',
-  'background', 'onBackground',
-  'surface', 'surfaceDim', 'surfaceBright',
-  'surfaceContainerLowest', 'surfaceContainerLow', 'surfaceContainer',
-  'surfaceContainerHigh', 'surfaceContainerHighest',
-  'onSurface', 'surfaceVariant', 'onSurfaceVariant',
-  'outline', 'outlineVariant',
-  'inverseSurface', 'inverseOnSurface', 'inversePrimary',
-  'surfaceTint', 'shadow', 'scrim',
+  'primary',
+  'onPrimary',
+  'primaryContainer',
+  'onPrimaryContainer',
+  'primaryFixed',
+  'primaryFixedDim',
+  'onPrimaryFixed',
+  'onPrimaryFixedVariant',
+  'secondary',
+  'onSecondary',
+  'secondaryContainer',
+  'onSecondaryContainer',
+  'secondaryFixed',
+  'secondaryFixedDim',
+  'onSecondaryFixed',
+  'onSecondaryFixedVariant',
+  'tertiary',
+  'onTertiary',
+  'tertiaryContainer',
+  'onTertiaryContainer',
+  'tertiaryFixed',
+  'tertiaryFixedDim',
+  'onTertiaryFixed',
+  'onTertiaryFixedVariant',
+  'error',
+  'onError',
+  'errorContainer',
+  'onErrorContainer',
+  'background',
+  'onBackground',
+  'surface',
+  'surfaceDim',
+  'surfaceBright',
+  'surfaceContainerLowest',
+  'surfaceContainerLow',
+  'surfaceContainer',
+  'surfaceContainerHigh',
+  'surfaceContainerHighest',
+  'onSurface',
+  'surfaceVariant',
+  'onSurfaceVariant',
+  'outline',
+  'outlineVariant',
+  'inverseSurface',
+  'inverseOnSurface',
+  'inversePrimary',
+  'surfaceTint',
+  'shadow',
+  'scrim',
 ];
 
 const seed = Hct.fromInt(argbFromHex(BRAND.soliriusBlue));
@@ -74,7 +112,10 @@ const palettes = {
   // Secondary carries the REPLY teal hue at its own chroma.
   secondary: TonalPalette.fromHueAndChroma(teal.hue, teal.chroma),
   // Tertiary carries the solirius.com indigo.
-  tertiary: TonalPalette.fromHueAndChroma(indigo.hue, Math.min(indigo.chroma, 48)),
+  tertiary: TonalPalette.fromHueAndChroma(
+    indigo.hue,
+    Math.min(indigo.chroma, 48),
+  ),
   // Calm, low-chroma neutrals tinted towards the seed hue.
   neutral: TonalPalette.fromHueAndChroma(seed.hue, 4),
   neutralVariant: TonalPalette.fromHueAndChroma(seed.hue, 8),
@@ -121,9 +162,21 @@ const output = {
     ...BRAND,
     status: STATUS,
     hct: {
-      soliriusBlue: { hue: +seed.hue.toFixed(2), chroma: +seed.chroma.toFixed(2), tone: +seed.tone.toFixed(2) },
-      replyTeal: { hue: +teal.hue.toFixed(2), chroma: +teal.chroma.toFixed(2), tone: +teal.tone.toFixed(2) },
-      soliriusIndigo: { hue: +indigo.hue.toFixed(2), chroma: +indigo.chroma.toFixed(2), tone: +indigo.tone.toFixed(2) },
+      soliriusBlue: {
+        hue: +seed.hue.toFixed(2),
+        chroma: +seed.chroma.toFixed(2),
+        tone: +seed.tone.toFixed(2),
+      },
+      replyTeal: {
+        hue: +teal.hue.toFixed(2),
+        chroma: +teal.chroma.toFixed(2),
+        tone: +teal.tone.toFixed(2),
+      },
+      soliriusIndigo: {
+        hue: +indigo.hue.toFixed(2),
+        chroma: +indigo.chroma.toFixed(2),
+        tone: +indigo.tone.toFixed(2),
+      },
     },
   },
   tonalPalettes: {
@@ -168,9 +221,15 @@ export const m3TonalPalettes: Record<
   TonalPaletteHex
 > = ${JSON.stringify(output.tonalPalettes, null, 2)};
 
-export const m3Schemes: { light: M3Scheme; dark: M3Scheme } = ${JSON.stringify(output.schemes, null, 2)};
+export const m3Schemes: { light: M3Scheme; dark: M3Scheme } = ${JSON.stringify(
+  output.schemes,
+  null,
+  2,
+)};
 `;
 
-const target = fileURLToPath(new URL('../src/tokens/palette.generated.ts', import.meta.url));
+const target = fileURLToPath(
+  new URL('../src/tokens/palette.generated.ts', import.meta.url),
+);
 writeFileSync(target, body);
 process.stdout.write(`Wrote ${target}\n`);

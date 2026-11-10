@@ -78,3 +78,6 @@ techdocs-output/
 .dev.vars
 worker-configuration.d.ts
 .prod.vars
+
+# Local secret-scanner cache
+.cache_ggshield
