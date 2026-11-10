@@ -15,22 +15,16 @@ galaxy_info:
   platforms:
     - name: Ubuntu
       versions:
-        - focal
         - jammy
+        - noble
     - name: Debian
       versions:
-        - buster
         - bullseye
         - bookworm
     - name: EL
       versions:
-        - '7'
         - '8'
         - '9'
-    - name: Amazon
-      versions:
-        - '2'
-        - '2023'
 
   galaxy_tags:
     - docker

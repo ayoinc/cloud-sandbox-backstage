@@ -1,17 +1,14 @@
 ---
 # Ansible Galaxy requirements file
 # Install with: ansible-galaxy install -r requirements.yml
+#
+# The role only uses ansible.builtin modules. List extra collections or roles
+# here when tasks start to need them, for example:
+#
+#   collections:
+#     - name: ansible.posix
+#       version: '>=1.5.0'
 
-collections:
-  # Community General collection for common modules
-  - name: community.general
-    version: ">=7.0.0"
-  
-  # Ansible POSIX collection for authorized_key, sysctl, etc.
-  - name: ansible.posix
-    version: ">=1.5.0"
+collections: []
 
 roles: []
-  # Add external roles here if needed
-  # - name: geerlingguy.nginx
-  #   version: "3.2.0"

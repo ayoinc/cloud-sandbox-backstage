@@ -1,0 +1,19 @@
+{
+  "values": {
+    "name": "automation",
+    "namespace": "awx",
+    "owner": "group:default/platform-team",
+    "environment": "development",
+    "repoUrl": "github.com?owner=example-org&repo=awx-development-automation",
+    "awx_version": "latest",
+    "service_type": "ClusterIP",
+    "ingress_enabled": true,
+    "hostname": "awx.example.com",
+    "storage_class": "default",
+    "postgres_storage_size": "8Gi",
+    "project_storage_size": "8Gi",
+    "admin_user": "admin",
+    "ssl_enabled": true,
+    "ldap_enabled": false
+  }
+}

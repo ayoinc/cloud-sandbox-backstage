@@ -2,10 +2,10 @@
 # {{ ansible_managed }}
 # Nginx configuration file
 
-user {{ nginx_user | default('www-data') }};
+user {{ nginx_user }};
 worker_processes {{ nginx_worker_processes }};
 pid /run/nginx.pid;
-include /etc/nginx/modules-enabled/*.conf;
+include {{ nginx_modules_include }};
 
 events {
     worker_connections {{ nginx_worker_connections }};
@@ -26,6 +26,7 @@ http {
     include /etc/nginx/mime.types;
     default_type application/octet-stream;
 
+{% if nginx_ssl_enabled %}
     ##
     # SSL Settings
     ##
@@ -35,6 +36,7 @@ http {
     ssl_session_cache {{ nginx_ssl_session_cache }};
     ssl_session_timeout {{ nginx_ssl_session_timeout }};
     ssl_session_tickets {{ nginx_ssl_session_tickets }};
+{% endif %}
 
     ##
     # Logging Settings
@@ -58,7 +60,7 @@ http {
     # Virtual Host Configs
     ##
     include /etc/nginx/conf.d/*.conf;
-{% if ansible_os_family == 'Debian' %}
+{% if ansible_facts.os_family == 'Debian' %}
     include /etc/nginx/sites-enabled/*;
 {% endif %}
 }

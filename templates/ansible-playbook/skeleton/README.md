@@ -15,22 +15,25 @@ This Ansible playbook was generated using the AWX Backstage platform. It follows
 
 - Ansible >= ${{ values.ansible_version }}
 - Target systems: ${{ values.target_os }}
-  {%- if values.collections %}
+{%- if values.collections | length %}
 - Required collections:
-  {%- for collection in values.collections %}
-  - {{ collection }}
-    {%- endfor %}
-    {%- endif %}
+{%- for collection in values.collections %}
+  - ${{ collection }}
+{%- endfor %}
+{%- endif %}
 
 ## Quick Start
 
 1. **Install dependencies:**
 
    ```bash
-   {%- if values.galaxy_requirements %}
+{%- if values.galaxy_requirements %}
    ansible-galaxy install -r requirements.yml
-   {%- endif %}
-   ansible-galaxy collection install {{ values.collections | join(' ') }}
+{%- elif values.collections | length %}
+   ansible-galaxy collection install ${{ values.collections | join(' ') }}
+{%- else %}
+   # No Galaxy dependencies
+{%- endif %}
    ```
 
 2. **Update inventory:**
@@ -52,9 +55,6 @@ ${{ values.name }}/
 {%- if values.galaxy_requirements %}
 ├── requirements.yml       # Galaxy dependencies
 {%- endif %}
-├── group_vars/            # Group variables
-├── host_vars/             # Host variables
-├── roles/                 # Custom roles
 {%- if values.molecule_testing %}
 ├── molecule/              # Molecule testing
 {%- endif %}
@@ -130,7 +130,7 @@ This project includes Molecule for testing:
 
 ```bash
 # Install molecule
-pip install molecule[docker]
+pip install ansible molecule "molecule-plugins[docker]"
 
 # Run tests
 molecule test
@@ -142,7 +142,7 @@ Testing can be done using:
 1. **Check mode:** `ansible-playbook playbook.yml --check`
 2. **Syntax check:** `ansible-playbook playbook.yml --syntax-check`
 3. **Linting:** `ansible-lint playbook.yml`
-   {%- endif %}
+{%- endif %}
 
 ## Best Practices
 

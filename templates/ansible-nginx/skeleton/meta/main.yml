@@ -1,6 +1,8 @@
 ---
 galaxy_info:
-  role_name: ${{ values.name }}
+  # Galaxy allows only lower-case letters, digits and underscores in both
+  role_name: ${{ values.name | lower | replace('-', '_') }}
+  namespace: ${{ values.destination.owner | lower | replace('-', '_') }}
   author: ${{ values.owner }}
   description: ${{ values.description }}
   license: MIT
@@ -9,16 +11,14 @@ galaxy_info:
   platforms:
     - name: Ubuntu
       versions:
-        - focal
         - jammy
+        - noble
     - name: Debian
       versions:
-        - buster
         - bullseye
         - bookworm
     - name: EL
       versions:
-        - '7'
         - '8'
         - '9'
 

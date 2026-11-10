@@ -1,0 +1,6 @@
+---
+# vars/debian.yml - Debian and Ubuntu package layout
+
+nginx_default_user: www-data
+nginx_default_vhost_path: /etc/nginx/sites-available
+nginx_modules_include: /etc/nginx/modules-enabled/*.conf

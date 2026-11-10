@@ -1,0 +1,13 @@
+{
+  "values": {
+    "name": "sample-playbook",
+    "description": "Baseline configuration for application servers",
+    "owner": "group:default/platform-team",
+    "target_os": "linux",
+    "repoUrl": "github.com?owner=example-org&repo=sample-playbook",
+    "ansible_version": "2.15",
+    "collections": ["community.general", "ansible.posix"],
+    "galaxy_requirements": true,
+    "molecule_testing": true
+  }
+}

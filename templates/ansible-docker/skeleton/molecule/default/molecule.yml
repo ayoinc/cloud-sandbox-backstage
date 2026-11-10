@@ -9,34 +9,25 @@ driver:
   name: docker
 
 platforms:
-  - name: ubuntu-22.04
-    image: ubuntu:22.04
-    pre_build_image: false
-    dockerfile: Dockerfile.j2
+  - name: instance
+    # Systemd-enabled images; MOLECULE_DISTRO selects the distribution.
+    image: 'geerlingguy/docker-${MOLECULE_DISTRO:-ubuntu2204}-ansible:latest'
+    command: ${MOLECULE_DOCKER_COMMAND:-""}
+    pre_build_image: true
     privileged: true
-    command: /lib/systemd/systemd
+    cgroupns_mode: host
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
-    cgroupns_mode: host
-
-  - name: debian-12
-    image: debian:12
-    pre_build_image: false
-    dockerfile: Dockerfile.j2
-    privileged: true
-    command: /lib/systemd/systemd
-    volumes:
-      - /sys/fs/cgroup:/sys/fs/cgroup:rw
-    cgroupns_mode: host
+      # The nested Docker daemon cannot keep its overlay data on the
+      # container's own overlay filesystem.
+      - /var/lib/docker
+      - /var/lib/containerd
 
 provisioner:
   name: ansible
-  inventory:
-    host_vars:
-      ubuntu-22.04:
-        ansible_python_interpreter: /usr/bin/python3
-      debian-12:
-        ansible_python_interpreter: /usr/bin/python3
+  env:
+    # converge.yml refers to the role by the name of its checkout directory.
+    ANSIBLE_ROLES_PATH: ${MOLECULE_PROJECT_DIRECTORY}/..
 
 verifier:
   name: ansible
@@ -45,7 +36,6 @@ scenario:
   name: default
   test_sequence:
     - dependency
-    - lint
     - cleanup
     - destroy
     - syntax
@@ -56,8 +46,3 @@ scenario:
     - verify
     - cleanup
     - destroy
-
-lint: |
-  set -e
-  yamllint .
-  ansible-lint

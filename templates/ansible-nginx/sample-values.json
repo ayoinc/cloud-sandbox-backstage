@@ -1,0 +1,12 @@
+{
+  "values": {
+    "name": "sample-nginx-role",
+    "description": "Installs and configures Nginx",
+    "owner": "group:default/platform-team",
+    "nginxWorkerProcesses": "auto",
+    "nginxWorkerConnections": 1024,
+    "enableSsl": true,
+    "enableGzip": true,
+    "repoUrl": "github.com?owner=example-org&repo=sample-nginx-role"
+  }
+}

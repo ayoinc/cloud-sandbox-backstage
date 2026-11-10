@@ -6,18 +6,21 @@ driver:
   name: docker
 
 platforms:
-  - name: ubuntu-22.04
-    image: ubuntu:22.04
-    pre_build_image: false
-    dockerfile: Dockerfile.j2
+  - name: instance
+    # Systemd-enabled images; MOLECULE_DISTRO selects the distribution.
+    image: 'geerlingguy/docker-${MOLECULE_DISTRO:-ubuntu2204}-ansible:latest'
+    command: ${MOLECULE_DOCKER_COMMAND:-""}
+    pre_build_image: true
     privileged: true
-    command: /lib/systemd/systemd
+    cgroupns_mode: host
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
-    cgroupns_mode: host
 
 provisioner:
   name: ansible
+  env:
+    # converge.yml refers to the role by the name of its checkout directory.
+    ANSIBLE_ROLES_PATH: ${MOLECULE_PROJECT_DIRECTORY}/..
 
 verifier:
   name: ansible
@@ -26,7 +29,6 @@ scenario:
   name: default
   test_sequence:
     - dependency
-    - lint
     - cleanup
     - destroy
     - syntax
@@ -37,8 +39,3 @@ scenario:
     - verify
     - cleanup
     - destroy
-
-lint: |
-  set -e
-  yamllint .
-  ansible-lint

@@ -9,7 +9,7 @@ This Ansible role provides automated installation and configuration of Docker on
 **Key Features:**
 
 - Docker CE (Community Edition) and Docker EE (Enterprise Edition) support
-- Multiple Linux distributions (Ubuntu, Debian, CentOS, RHEL, Amazon Linux)
+- Multiple Linux distributions (Ubuntu, Debian, Enterprise Linux)
 - Docker Compose plugin installation
 - User management for Docker group membership
 - Custom Docker daemon configuration via `daemon.json`
@@ -280,7 +280,7 @@ ansible --version
 
 ```bash
 # Install linting and testing tools
-pip install yamllint ansible-lint molecule molecule-docker
+pip install ansible yamllint ansible-lint molecule "molecule-plugins[docker]"
 
 # Verify Molecule installation
 molecule --version
@@ -311,7 +311,7 @@ docker ps
 
 | Requirement | Details |
 | ----------- | ------- |
-| OS | Ubuntu 20.04+, Debian 10+, CentOS 7+, RHEL 7+, Amazon Linux 2+ |
+| OS | Ubuntu 22.04+, Debian 11+, Enterprise Linux 8+ |
 | Access | SSH access with sudo/root privileges |
 | Python | Python 3.x installed on target hosts |
 | Network | Internet access to download Docker packages |
@@ -328,8 +328,7 @@ git clone https://github.com/${{ values.destination.owner }}/${{ values.destinat
 cd ${{ values.destination.repo }}
 
 # Install dependencies
-pip install -r requirements.txt  # if exists
-pip install molecule molecule-docker ansible-lint yamllint
+pip install ansible molecule "molecule-plugins[docker]" ansible-lint yamllint
 
 # Run linting
 yamllint .
@@ -484,25 +483,28 @@ This role includes comprehensive Molecule tests using the Docker driver.
 
 | Platform | Image | Purpose |
 | -------- | ----- | ------- |
-| Ubuntu 22.04 | `ubuntu:22.04` | Primary Debian-based testing |
-| Debian 12 | `debian:12` | Additional Debian-based testing |
+| Ubuntu 22.04 | `geerlingguy/docker-ubuntu2204-ansible` | Primary Debian-based testing |
+| Debian 12 | `geerlingguy/docker-debian12-ansible` | Additional Debian-based testing |
+| Rocky Linux 9 | `geerlingguy/docker-rockylinux9-ansible` | Enterprise Linux testing |
+
+One systemd-enabled container runs per test; the `MOLECULE_DISTRO` environment
+variable selects the distribution.
 
 ### Test Sequence
 
 The default Molecule scenario runs the following sequence:
 
 1. **dependency** - Install Galaxy dependencies
-2. **lint** - Run yamllint and ansible-lint
-3. **cleanup** - Clean up previous test artifacts
-4. **destroy** - Destroy previous test instances
-5. **syntax** - Check playbook syntax
-6. **create** - Create test containers
-7. **prepare** - Prepare containers (if prepare.yml exists)
-8. **converge** - Run the role
-9. **idempotence** - Verify role is idempotent
-10. **verify** - Run verification tests
-11. **cleanup** - Clean up test artifacts
-12. **destroy** - Destroy test containers
+2. **cleanup** - Clean up previous test artifacts
+3. **destroy** - Destroy previous test instances
+4. **syntax** - Check playbook syntax
+5. **create** - Create test containers
+6. **prepare** - Prepare containers (if prepare.yml exists)
+7. **converge** - Run the role
+8. **idempotence** - Verify role is idempotent
+9. **verify** - Run verification tests
+10. **cleanup** - Clean up test artifacts
+11. **destroy** - Destroy test containers
 
 ### Running Tests
 
@@ -517,7 +519,7 @@ molecule converge
 molecule verify
 
 # Login to a running instance
-molecule login --host ubuntu-22.04
+molecule login
 
 # Destroy test instances
 molecule destroy
@@ -544,12 +546,12 @@ The verify playbook validates:
 
 | Platform | Versions | Status |
 | -------- | -------- | ------ |
-| Ubuntu | 20.04, 22.04, 24.04 | Fully Supported |
-| Debian | 10, 11, 12 | Fully Supported |
-| CentOS | 7, 8, 9 | Fully Supported |
-| RHEL | 7, 8, 9 | Fully Supported |
-| Amazon Linux | 2, 2023 | Fully Supported |
-| Fedora | 38, 39 | Community Tested |
+| Ubuntu | 22.04 | Tested in CI |
+| Ubuntu | 24.04 | Supported |
+| Debian | 12 | Tested in CI |
+| Debian | 11 | Supported |
+| Rocky Linux | 9 | Tested in CI |
+| Enterprise Linux | 8, 9 | Supported |
 
 ---
 

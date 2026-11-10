@@ -9,8 +9,7 @@ Ansible role for Docker container deployment and management.
 ## Requirements
 
 - Ansible 2.12+
-- Docker Engine on target hosts
-- community.docker collection
+- A Debian, Ubuntu or Enterprise Linux target host
 
 ## Installation
 

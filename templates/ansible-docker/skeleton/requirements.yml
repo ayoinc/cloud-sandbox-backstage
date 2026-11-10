@@ -1,17 +1,14 @@
 ---
 # Ansible Galaxy requirements file
 # Install with: ansible-galaxy install -r requirements.yml
+#
+# The role only uses ansible.builtin modules. List extra collections or roles
+# here when tasks start to need them, for example:
+#
+#   collections:
+#     - name: community.docker
+#       version: '>=3.4.0'
 
-collections:
-  # Community Docker collection for container management
-  - name: community.docker
-    version: ">=3.4.0"
-
-  # Community General collection for common modules
-  - name: community.general
-    version: ">=7.0.0"
+collections: []
 
 roles: []
-  # Add external roles here if needed
-  # - name: geerlingguy.docker
-  #   version: "6.1.0"

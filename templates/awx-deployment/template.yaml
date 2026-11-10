@@ -68,7 +68,6 @@ spec:
           ui:options:
             allowedHosts:
               - github.com
-              - gitlab.com
     - title: AWX Configuration
       properties:
         awx_version:
@@ -139,6 +138,7 @@ spec:
         url: ./skeleton
         values:
           name: ${{ parameters.name }}
+          description: AWX deployment for the ${{ parameters.environment }} environment
           namespace: ${{ parameters.namespace }}
           owner: ${{ parameters.owner }}
           environment: ${{ parameters.environment }}

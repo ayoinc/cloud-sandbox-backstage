@@ -66,7 +66,6 @@ spec:
           ui:options:
             allowedHosts:
               - github.com
-              - gitlab.com
     - title: Ansible Configuration
       properties:
         ansible_version:

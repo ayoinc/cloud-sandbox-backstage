@@ -1,0 +1,27 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Look up the application directory
+      ansible.builtin.stat:
+        path: /opt/${{ values.name }}
+      register: app_directory
+
+    - name: Verify the application directory exists
+      ansible.builtin.assert:
+        that:
+          - app_directory.stat.exists
+          - app_directory.stat.isdir
+          - app_directory.stat.mode == '0755'
+
+    # Add your verification tasks below, for example:
+    # - name: Gather service facts
+    #   ansible.builtin.service_facts:
+    #
+    # - name: Verify service is running
+    #   ansible.builtin.assert:
+    #     that:
+    #       - ansible_facts.services['my_service.service'].state == 'running'

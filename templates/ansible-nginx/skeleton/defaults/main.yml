@@ -23,6 +23,7 @@ nginx_types_hash_max_size: 2048
 nginx_server_tokens: 'off'
 
 # SSL/TLS configuration
+nginx_ssl_enabled: ${{ 'true' if values.enableSsl else 'false' }}
 nginx_ssl_protocols: 'TLSv1.2 TLSv1.3'
 nginx_ssl_ciphers: 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384'
 nginx_ssl_prefer_server_ciphers: 'on'
@@ -31,7 +32,7 @@ nginx_ssl_session_timeout: '1d'
 nginx_ssl_session_tickets: 'off'
 
 # Gzip configuration
-nginx_gzip: 'on'
+nginx_gzip: '${{ 'on' if values.enableGzip else 'off' }}'
 nginx_gzip_vary: 'on'
 nginx_gzip_proxied: 'any'
 nginx_gzip_comp_level: 6
@@ -69,6 +70,8 @@ nginx_extra_conf_options: ''
 
 # Directories
 nginx_conf_path: /etc/nginx/nginx.conf
-nginx_vhost_path: /etc/nginx/sites-available
+# User and virtual host directory default to the platform values in vars/
+nginx_user: '{{ nginx_default_user }}'
+nginx_vhost_path: '{{ nginx_default_vhost_path }}'
 nginx_vhost_enabled_path: /etc/nginx/sites-enabled
 nginx_conf_d_path: /etc/nginx/conf.d

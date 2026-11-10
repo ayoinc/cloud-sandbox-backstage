@@ -17,6 +17,7 @@
 
 | Variable                          | Default           | Description           |
 | --------------------------------- | ----------------- | --------------------- |
+| `nginx_ssl_enabled`               | `${{ 'true' if values.enableSsl else 'false' }}`            | Write the SSL settings below into `nginx.conf` |
 | `nginx_ssl_protocols`             | `TLSv1.2 TLSv1.3` | SSL protocols         |
 | `nginx_ssl_ciphers`               | See defaults      | SSL cipher suite      |
 | `nginx_ssl_prefer_server_ciphers` | `on`              | Prefer server ciphers |
@@ -27,7 +28,7 @@
 
 | Variable                | Default      | Description               |
 | ----------------------- | ------------ | ------------------------- |
-| `nginx_gzip`            | `on`         | Enable gzip               |
+| `nginx_gzip`            | `${{ 'on' if values.enableGzip else 'off' }}`         | Enable gzip               |
 | `nginx_gzip_vary`       | `on`         | Enable Vary header        |
 | `nginx_gzip_proxied`    | `any`        | Gzip for proxied requests |
 | `nginx_gzip_comp_level` | `6`          | Compression level (1-9)   |
@@ -39,6 +40,8 @@
 | ---------------------------- | ------- | --------------------- |
 | `nginx_vhosts`               | `[]`    | List of virtual hosts |
 | `nginx_remove_default_vhost` | `true`  | Remove default vhost  |
+| `nginx_user`                 | Platform default (`www-data` or `nginx`) | User the workers run as |
+| `nginx_vhost_path`           | Platform default (`sites-available` or `conf.d`) | Directory for virtual host files |
 
 ### Virtual Host Structure
 

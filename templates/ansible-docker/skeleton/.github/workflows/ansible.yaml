@@ -1,3 +1,4 @@
+---
 name: Ansible Role CI
 
 on:
@@ -8,7 +9,9 @@ on:
 
 permissions:
   contents: read
-  security-events: write
+
+env:
+  PYTHON_VERSION: '3.13'
 
 jobs:
   lint:
@@ -21,11 +24,10 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: {% raw %}${{ env.PYTHON_VERSION }}{% endraw %}
 
       - name: Install dependencies
-        run: |
-          pip install yamllint ansible-lint
+        run: pip install ansible-lint yamllint
 
       - name: Run yamllint
         run: yamllint .
@@ -41,36 +43,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Run Trivy IaC scanner
-        uses: aquasecurity/trivy-action@0.28.0
+      - name: Scan for misconfigurations and committed secrets
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
-          scan-type: 'config'
-          scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-          severity: 'CRITICAL,HIGH,MEDIUM'
-        continue-on-error: true
-
-      - name: Upload Trivy SARIF results
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: trivy-results.sarif
-          category: trivy-iac
-        continue-on-error: true
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install ansible-later
-        run: pip install ansible-later
-
-      - name: Run ansible-later
-        run: |
-          ansible-later --rules-dir . || true
-        continue-on-error: true
+          scan-type: fs
+          scan-ref: .
+          scanners: misconfig,secret
+          severity: CRITICAL,HIGH
+          exit-code: '1'
 
   molecule:
     name: Molecule Test
@@ -82,6 +62,7 @@ jobs:
         distro:
           - ubuntu2204
           - debian12
+          - rockylinux9
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -89,24 +70,42 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: {% raw %}${{ env.PYTHON_VERSION }}{% endraw %}
 
       - name: Install dependencies
-        run: |
-          pip install molecule molecule-docker ansible-lint yamllint
+        run: pip install ansible molecule "molecule-plugins[docker]"
 
       - name: Run Molecule tests
         run: molecule test
         env:
-          MOLECULE_DISTRO: ${{ matrix.distro }}
+          MOLECULE_DISTRO: {% raw %}${{ matrix.distro }}{% endraw %}
           PY_COLORS: '1'
           ANSIBLE_FORCE_COLOR: '1'
+
+  galaxy-credentials:
+    name: Check Galaxy credentials
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    outputs:
+      available: {% raw %}${{ steps.check.outputs.available }}{% endraw %}
+    steps:
+      - name: Report whether GALAXY_API_KEY is configured
+        id: check
+        env:
+          GALAXY_API_KEY: {% raw %}${{ secrets.GALAXY_API_KEY }}{% endraw %}
+        run: |
+          if [ -n "$GALAXY_API_KEY" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::GALAXY_API_KEY is not set, so the Galaxy release is skipped."
+          fi
 
   release:
     name: Release to Galaxy
     runs-on: ubuntu-latest
-    needs: [molecule, security]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [molecule, security, galaxy-credentials]
+    if: needs.galaxy-credentials.outputs.available == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -114,15 +113,18 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: {% raw %}${{ env.PYTHON_VERSION }}{% endraw %}
 
       - name: Install Ansible
-        run: pip install ansible
+        run: pip install ansible-core
 
       - name: Import to Ansible Galaxy
+        env:
+          GALAXY_API_KEY: {% raw %}${{ secrets.GALAXY_API_KEY }}{% endraw %}
+          REPOSITORY_OWNER: {% raw %}${{ github.repository_owner }}{% endraw %}
+          REPOSITORY_NAME: {% raw %}${{ github.event.repository.name }}{% endraw %}
         run: |
           ansible-galaxy role import \
-            --api-key ${{ secrets.GALAXY_API_KEY }} \
-            ${{ github.repository_owner }} \
-            ${{ github.event.repository.name }}
-        continue-on-error: true
+            --token "$GALAXY_API_KEY" \
+            "$REPOSITORY_OWNER" \
+            "$REPOSITORY_NAME"

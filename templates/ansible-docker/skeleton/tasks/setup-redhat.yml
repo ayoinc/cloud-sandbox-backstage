@@ -3,7 +3,7 @@
 # Generated for: ${{ values.name }}
 
 - name: Ensure old Docker packages are removed
-  ansible.builtin.yum:
+  ansible.builtin.dnf:
     name:
       - docker
       - docker-client
@@ -16,7 +16,7 @@
     state: absent
 
 - name: Install required packages for Docker repository
-  ansible.builtin.yum:
+  ansible.builtin.dnf:
     name:
       - yum-utils
       - device-mapper-persistent-data
@@ -26,10 +26,10 @@
 - name: Add Docker YUM repository
   ansible.builtin.get_url:
     url: '{{ docker_yum_repo_url }}'
-    dest: /etc/yum.repos.d/docker-ce.repo
+    dest: /etc/yum.repos.d/docker-{{ docker_edition }}.repo
     mode: '0644'
 
 - name: Enable Docker repository
-  ansible.builtin.command: yum-config-manager --enable docker-ce-{{ docker_channel }}
+  ansible.builtin.command: yum-config-manager --enable docker-{{ docker_edition }}-{{ docker_channel }}
   changed_when: false
   when: docker_channel != 'stable'

@@ -2,21 +2,13 @@
 # tasks/main.yml - Main entry point for Nginx role
 
 - name: Include OS-specific variables
-  ansible.builtin.include_vars: '{{ item }}'
-  with_first_found:
-    - files:
-        - '{{ ansible_distribution | lower }}-{{ ansible_distribution_major_version }}.yml'
-        - '{{ ansible_distribution | lower }}.yml'
-        - '{{ ansible_os_family | lower }}.yml'
-      skip: true
+  ansible.builtin.include_vars: '{{ ansible_facts.os_family | lower }}.yml'
 
-- name: Include setup tasks for Debian-based systems
-  ansible.builtin.include_tasks: setup-debian.yml
-  when: ansible_os_family == 'Debian'
-
-- name: Include setup tasks for RedHat-based systems
-  ansible.builtin.include_tasks: setup-redhat.yml
-  when: ansible_os_family == 'RedHat'
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  when: ansible_facts.os_family == 'Debian'
 
 - name: Ensure Nginx is installed
   ansible.builtin.package:

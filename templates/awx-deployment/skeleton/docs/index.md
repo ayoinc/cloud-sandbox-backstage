@@ -554,7 +554,7 @@ kubectl create secret generic awx-${{ values.name }}-admin-password \
 # Update PostgreSQL credentials
 kubectl create secret generic awx-${{ values.name }}-postgres-configuration \
   -n ${{ values.namespace }} \
-  --from-literal=host=awx-${{ values.name }}-postgres-13 \
+  --from-literal=host=awx-${{ values.name }}-postgres-15 \
   --from-literal=port=5432 \
   --from-literal=database=awx \
   --from-literal=username=awx \
@@ -677,11 +677,11 @@ kubectl logs -f deployment/awx-operator-controller-manager -n awx-operator-syste
 
 ```bash
 # Create PostgreSQL dump
-kubectl exec -n ${{ values.namespace }} deployment/awx-${{ values.name }}-postgres-13 -- \
+kubectl exec -n ${{ values.namespace }} deployment/awx-${{ values.name }}-postgres-15 -- \
   pg_dump -U awx -d awx > awx-backup-$(date +%Y%m%d).sql
 
 # Restore from dump
-kubectl exec -i -n ${{ values.namespace }} deployment/awx-${{ values.name }}-postgres-13 -- \
+kubectl exec -i -n ${{ values.namespace }} deployment/awx-${{ values.name }}-postgres-15 -- \
   psql -U awx -d awx < awx-backup-20231201.sql
 ```
 
@@ -724,10 +724,10 @@ kubectl get crd | grep awx
 kubectl get pods -n ${{ values.namespace }} -l app.kubernetes.io/component=database
 
 # View PostgreSQL logs
-kubectl logs -n ${{ values.namespace }} deployment/awx-${{ values.name }}-postgres-13
+kubectl logs -n ${{ values.namespace }} deployment/awx-${{ values.name }}-postgres-15
 
 # Connect to database directly
-kubectl exec -it -n ${{ values.namespace }} deployment/awx-${{ values.name }}-postgres-13 -- \
+kubectl exec -it -n ${{ values.namespace }} deployment/awx-${{ values.name }}-postgres-15 -- \
   psql -U awx -d awx -c "\dt"
 
 # Verify database secret
@@ -802,7 +802,7 @@ kubectl logs -f -n ${{ values.namespace }} deployment/awx-${{ values.name }}-web
 kubectl logs -f -n ${{ values.namespace }} deployment/awx-${{ values.name }}-task
 
 # All AWX logs
-kubectl logs -f -n ${{ values.namespace }} -l app.kubernetes.io/instance=${{ values.name }}
+kubectl logs -f -n ${{ values.namespace }} -l app.kubernetes.io/part-of=awx-${{ values.name }}
 
 # Use deployment script
 ./deploy.sh logs

@@ -1,37 +1,46 @@
 ---
-- name: ${{ values.description }}
+# ${{ values.description }}
+- name: Run the ${{ values.name }} playbook
   hosts: all
   become: true
   gather_facts: true
 
   vars:
     # Add your variables here
-    example_var: 'example_value'
+    example_var: example_value
 
   pre_tasks:
+    - name: Check the Ansible version
+      ansible.builtin.assert:
+        that:
+          - ansible_version.full is version('${{ values.ansible_version }}', '>=')
+        fail_msg: This playbook needs Ansible ${{ values.ansible_version }} or newer.
+        quiet: true
+      run_once: true
+
     - name: Update package cache (Debian/Ubuntu)
-      apt:
+      ansible.builtin.apt:
         update_cache: true
         cache_valid_time: 3600
-      when: ansible_os_family == "Debian"
+      when: ansible_facts.os_family == 'Debian'
 
-    - name: Update package cache (RedHat/CentOS)
-      yum:
+    - name: Update package cache (RedHat)
+      ansible.builtin.dnf:
         update_cache: true
-      when: ansible_os_family == "RedHat"
+      when: ansible_facts.os_family == 'RedHat'
 
   tasks:
     - name: Example task - Display system information
-      debug:
+      ansible.builtin.debug:
         msg: |
-          System: {{ ansible_system }}
-          Distribution: {{ ansible_distribution }} {{ ansible_distribution_version }}
-          Architecture: {{ ansible_architecture }}
-          Hostname: {{ ansible_hostname }}
-          IP Address: {{ ansible_default_ipv4.address | default('N/A') }}
+          System: {{ ansible_facts.system }}
+          Distribution: {{ ansible_facts.distribution }} {{ ansible_facts.distribution_version }}
+          Architecture: {{ ansible_facts.architecture }}
+          Hostname: {{ ansible_facts.hostname }}
+          IP Address: {{ ansible_facts.default_ipv4.address | default('N/A') }}
 
     - name: Example task - Ensure a directory exists
-      file:
+      ansible.builtin.file:
         path: /opt/${{ values.name }}
         state: directory
         mode: '0755'
@@ -42,13 +51,13 @@
 
   post_tasks:
     - name: Cleanup temporary files
-      file:
+      ansible.builtin.file:
         path: /tmp/${{ values.name }}_temp
         state: absent
 
   handlers:
-    - name: restart service
-      service:
+    - name: Restart service
+      ansible.builtin.service:
         name: '{{ service_name }}'
         state: restarted
       when: service_name is defined

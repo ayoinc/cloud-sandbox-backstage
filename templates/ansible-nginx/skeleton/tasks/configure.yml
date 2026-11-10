@@ -10,7 +10,7 @@
     - '{{ nginx_vhost_path }}'
     - '{{ nginx_vhost_enabled_path }}'
     - '{{ nginx_conf_d_path }}'
-  when: ansible_os_family == 'Debian'
+  when: ansible_facts.os_family == 'Debian'
 
 - name: Copy Nginx configuration
   ansible.builtin.template:

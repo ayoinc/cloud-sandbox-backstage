@@ -1,0 +1,74 @@
+---
+name: AWX Deployment CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  KUBECONFORM_VERSION: v0.8.0
+  # Schemas of the AWX custom resources, pinned to a commit of the
+  # datreeio/CRDs-catalog repository.
+  CRD_SCHEMAS: https://raw.githubusercontent.com/datreeio/CRDs-catalog/354fd3e32e86916138dd4a63761b6d7c9ca877b7
+
+jobs:
+  validate:
+    name: Validate manifests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Run yamllint
+        run: |
+          pip install yamllint
+          yamllint .
+
+      - name: Build manifests with Kustomize
+        run: |
+          kubectl kustomize k8s > rendered.yaml
+          cat rendered.yaml
+
+      - name: Install kubeconform
+        run: |
+          curl -fsSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" \
+            | tar -xz -C "$RUNNER_TEMP" kubeconform
+
+      - name: Validate manifests against the Kubernetes and AWX schemas
+        run: |
+          "$RUNNER_TEMP/kubeconform" -strict -summary \
+            -schema-location default \
+            -schema-location "${CRD_SCHEMAS}/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json" \
+            rendered.yaml
+
+      - name: Check the deployment script
+        run: |
+          bash -n deploy.sh
+          shellcheck deploy.sh
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Scan for misconfigurations and committed secrets
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: misconfig,secret
+          severity: CRITICAL,HIGH
+          exit-code: '1'

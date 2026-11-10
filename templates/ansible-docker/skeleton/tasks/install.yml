@@ -5,24 +5,24 @@
 - name: Install Docker (Debian/Ubuntu)
   ansible.builtin.apt:
     name:
-      - docker-ce{{ docker_version | ternary('=' + docker_version + '*', '') }}
-      - docker-ce-cli{{ docker_version | ternary('=' + docker_version + '*', '') }}
+      - "{{ docker_package }}{{ docker_version | ternary('=' + docker_version + '*', '') }}"
+      - "{{ docker_package }}-cli{{ docker_version | ternary('=' + docker_version + '*', '') }}"
       - containerd.io
       - docker-buildx-plugin
     state: '{{ docker_package_state }}'
     update_cache: true
-  when: ansible_os_family == 'Debian'
+  when: ansible_facts.os_family == 'Debian'
   notify: Restart Docker
 
 - name: Install Docker (RedHat/CentOS)
-  ansible.builtin.yum:
+  ansible.builtin.dnf:
     name:
-      - docker-ce{{ docker_version | ternary('-' + docker_version, '') }}
-      - docker-ce-cli{{ docker_version | ternary('-' + docker_version, '') }}
+      - "{{ docker_package }}{{ docker_version | ternary('-' + docker_version, '') }}"
+      - "{{ docker_package }}-cli{{ docker_version | ternary('-' + docker_version, '') }}"
       - containerd.io
       - docker-buildx-plugin
     state: '{{ docker_package_state }}'
-  when: ansible_os_family == 'RedHat'
+  when: ansible_facts.os_family == 'RedHat'
   notify: Restart Docker
 
 - name: Ensure Docker service is started

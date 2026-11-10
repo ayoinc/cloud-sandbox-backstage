@@ -17,7 +17,7 @@
     dest: '{{ nginx_vhost_enabled_path }}/{{ item.server_name.split()[0] }}.conf'
     state: link
   loop: '{{ nginx_vhosts }}'
-  when: ansible_os_family == 'Debian'
+  when: ansible_facts.os_family == 'Debian'
   notify: Reload Nginx
 
 - name: Ensure document roots exist

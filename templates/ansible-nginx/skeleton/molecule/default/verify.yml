@@ -10,6 +10,10 @@
       register: nginx_version
       changed_when: false
 
+    - name: Check the deployed configuration is valid
+      ansible.builtin.command: nginx -t
+      changed_when: false
+
     - name: Check Nginx service is running
       ansible.builtin.service:
         name: nginx
@@ -27,7 +31,14 @@
         port: 80
         timeout: 5
 
-    - name: Test Nginx responds
+    - name: Request the test page
       ansible.builtin.uri:
         url: http://localhost/
-        status_code: [200, 404]
+        return_content: true
+      register: nginx_response
+
+    - name: Verify the virtual host serves the test page
+      ansible.builtin.assert:
+        that:
+          - nginx_response.status == 200
+          - "'molecule test page' in nginx_response.content"

@@ -1,0 +1,17 @@
+---
+# CA certificate AWX uses to verify the LDAP server. Replace the placeholder
+# with the PEM certificate of your directory's certificate authority.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: awx-${{ values.name }}-ldap-cacert
+  namespace: ${{ values.namespace }}
+  labels:
+    environment: ${{ values.environment }}
+    managed-by: backstage
+type: Opaque
+stringData:
+  ldap-ca.crt: |
+    -----BEGIN CERTIFICATE-----
+    REPLACE_WITH_YOUR_LDAP_CA_CERTIFICATE
+    -----END CERTIFICATE-----

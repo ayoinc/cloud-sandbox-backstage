@@ -1,31 +1,27 @@
 ---
 dependency:
   name: galaxy
+{%- if values.galaxy_requirements %}
   options:
     requirements-file: requirements.yml
+{%- endif %}
 
 driver:
   name: docker
 
 platforms:
   - name: instance
-    image: "geerlingguy/docker-${MOLECULE_DISTRO:-rockylinux8}-ansible:latest"
+    # Systemd-enabled images; MOLECULE_DISTRO selects the distribution.
+    image: 'geerlingguy/docker-${MOLECULE_DISTRO:-ubuntu2404}-ansible:latest'
     command: ${MOLECULE_DOCKER_COMMAND:-""}
+    pre_build_image: true
+    privileged: true
+    cgroupns_mode: host
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
-    cgroupns_mode: host
-    privileged: true
-    pre_build_image: true
 
 provisioner:
   name: ansible
-  playbooks:
-    converge: converge.yml
-    verify: verify.yml
-  inventory:
-    host_vars:
-      instance:
-        ansible_user: root
 
 verifier:
   name: ansible
@@ -41,7 +37,6 @@ scenario:
     - prepare
     - converge
     - idempotence
-    - side_effect
     - verify
     - cleanup
     - destroy

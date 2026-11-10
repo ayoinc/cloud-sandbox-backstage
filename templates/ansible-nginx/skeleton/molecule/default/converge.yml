@@ -6,8 +6,16 @@
   vars:
     nginx_vhosts:
       - server_name: test.example.com
+        default_server: true
         root: /var/www/test
         index: index.html
 
   roles:
     - role: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+
+  post_tasks:
+    - name: Publish a test page
+      ansible.builtin.copy:
+        content: "molecule test page\n"
+        dest: /var/www/test/index.html
+        mode: '0644'

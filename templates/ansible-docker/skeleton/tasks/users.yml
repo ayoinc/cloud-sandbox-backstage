@@ -17,4 +17,3 @@
 
 - name: Reset connection to apply group changes
   ansible.builtin.meta: reset_connection
-  when: ansible_user in docker_users

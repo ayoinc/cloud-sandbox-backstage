@@ -1,3 +1,4 @@
+---
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
@@ -8,7 +9,6 @@ metadata:
     github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
     backstage.io/techdocs-ref: dir:.
     kubernetes.io/namespace: ${{ values.namespace }}
-    argocd/app-name: awx-${{ values.name }}
   tags:
     - awx
     - kubernetes

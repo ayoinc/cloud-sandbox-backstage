@@ -6,7 +6,7 @@ ${{ values.description }}
 
 This Ansible role provides production-ready Nginx web server installation and configuration with:
 
-- Multi-distribution support (Ubuntu, Debian, CentOS, RHEL, Amazon Linux)
+- Multi-distribution support (Ubuntu, Debian, Enterprise Linux)
 - Virtual host management with SSL/TLS termination
 - Reverse proxy and load balancing configuration
 - Gzip compression for optimized content delivery
@@ -111,10 +111,11 @@ ${{ values.name }}/
 ├── tasks/
 │   ├── main.yml          # Main task entry point
 │   ├── configure.yml     # Core Nginx configuration
-│   ├── setup-debian.yml  # Debian/Ubuntu specific tasks
-│   ├── setup-redhat.yml  # RHEL/CentOS specific tasks
 │   ├── vhosts.yml        # Virtual host configuration
 │   └── upstreams.yml     # Upstream/load balancer configuration
+├── vars/
+│   ├── debian.yml        # Debian/Ubuntu package layout
+│   └── redhat.yml        # Enterprise Linux package layout
 ├── templates/
 │   ├── nginx.conf.j2     # Main configuration template
 │   ├── vhost.conf.j2     # Virtual host template
@@ -225,7 +226,7 @@ ansible --version
 
 | Requirement    | Details                                           |
 | -------------- | ------------------------------------------------- |
-| OS             | Ubuntu 20.04+, Debian 10+, CentOS 7+, RHEL 7+     |
+| OS             | Ubuntu 22.04+, Debian 11+, Enterprise Linux 8+    |
 | Access         | SSH access with sudo/root privileges              |
 | Python         | Python 3.x installed on target hosts              |
 | Network        | Ports 80 (HTTP) and 443 (HTTPS) accessible        |
@@ -379,7 +380,7 @@ ansible-playbook -i inventory/hosts.ini playbook.yml
 
 | Variable              | Default      | Description                    |
 | --------------------- | ------------ | ------------------------------ |
-| `nginx_gzip`          | `on`         | Enable gzip compression        |
+| `nginx_gzip`          | `${{ 'on' if values.enableGzip else 'off' }}`         | Enable gzip compression        |
 | `nginx_gzip_vary`     | `on`         | Enable Vary header             |
 | `nginx_gzip_proxied`  | `any`        | Compress proxied responses     |
 | `nginx_gzip_comp_level` | `6`        | Compression level (1-9)        |
@@ -392,7 +393,7 @@ ansible-playbook -i inventory/hosts.ini playbook.yml
 | ---------------------------- | ----------------------------- | ------------------------------ |
 | `nginx_vhosts`               | `[]`                          | List of virtual host configs   |
 | `nginx_remove_default_vhost` | `true`                        | Remove default site            |
-| `nginx_vhost_path`           | `/etc/nginx/sites-available`  | Path for vhost configs         |
+| `nginx_vhost_path`           | Platform default (`vars/`)    | Path for vhost configs         |
 | `nginx_vhost_enabled_path`   | `/etc/nginx/sites-enabled`    | Path for enabled vhosts        |
 
 ### Upstream Variables
@@ -489,7 +490,7 @@ This role includes comprehensive Molecule tests for automated validation.
 
 ```bash
 # Install test dependencies
-pip install molecule molecule-docker ansible-lint yamllint
+pip install ansible molecule "molecule-plugins[docker]" ansible-lint yamllint
 
 # Run full test suite
 molecule test
@@ -522,40 +523,16 @@ The default scenario tests against Ubuntu 22.04:
 
 ### Adding New Test Platforms
 
-Edit `molecule/default/molecule.yml`:
+The scenario runs on one systemd-enabled container whose distribution comes
+from the `MOLECULE_DISTRO` environment variable:
 
-```yaml
-platforms:
-  - name: ubuntu-22.04
-    image: ubuntu:22.04
-    pre_build_image: false
-    dockerfile: Dockerfile.j2
-    privileged: true
-    command: /lib/systemd/systemd
-    volumes:
-      - /sys/fs/cgroup:/sys/fs/cgroup:rw
-    cgroupns_mode: host
-
-  - name: debian-12
-    image: debian:12
-    pre_build_image: false
-    dockerfile: Dockerfile.j2
-    privileged: true
-    command: /lib/systemd/systemd
-    volumes:
-      - /sys/fs/cgroup:/sys/fs/cgroup:rw
-    cgroupns_mode: host
-
-  - name: centos-9
-    image: quay.io/centos/centos:stream9
-    pre_build_image: false
-    dockerfile: Dockerfile.j2
-    privileged: true
-    command: /lib/systemd/systemd
-    volumes:
-      - /sys/fs/cgroup:/sys/fs/cgroup:rw
-    cgroupns_mode: host
+```bash
+MOLECULE_DISTRO=debian12 molecule test
 ```
+
+To test another distribution in CI, add its image name to the `distro` matrix
+of the `molecule` job in `.github/workflows/ansible.yaml`. Any
+`geerlingguy/docker-<distro>-ansible` image works.
 
 ### Verification Tests
 
@@ -720,13 +697,14 @@ sudo tail -f /var/log/nginx/error.log
 
 ## Supported Platforms
 
-| Platform     | Versions       | Status      |
-| ------------ | -------------- | ----------- |
-| Ubuntu       | 20.04, 22.04   | Tested      |
-| Debian       | 10, 11, 12     | Tested      |
-| CentOS       | 7, 8, 9 Stream | Tested      |
-| RHEL         | 7, 8, 9        | Supported   |
-| Amazon Linux | 2, 2023        | Supported   |
+| Platform         | Versions     | Status    |
+| ---------------- | ------------ | --------- |
+| Ubuntu           | 22.04        | Tested    |
+| Ubuntu           | 24.04        | Supported |
+| Debian           | 12           | Tested    |
+| Debian           | 11           | Supported |
+| Rocky Linux      | 9            | Tested    |
+| Enterprise Linux | 8, 9         | Supported |
 
 ---
 

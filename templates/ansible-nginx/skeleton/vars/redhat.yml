@@ -1,0 +1,7 @@
+---
+# vars/redhat.yml - Enterprise Linux package layout
+
+nginx_default_user: nginx
+# Enterprise Linux has no sites-available/sites-enabled split.
+nginx_default_vhost_path: /etc/nginx/conf.d
+nginx_modules_include: /usr/share/nginx/modules/*.conf

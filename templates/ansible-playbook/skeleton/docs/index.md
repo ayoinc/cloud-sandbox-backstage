@@ -103,9 +103,9 @@ control.inventory -> managed: SSH
 | ----------------------- | -------------------------------- |
 | Playbook Name           | `${{ values.name }}`             |
 | Owner                   | `${{ values.owner }}`            |
-| System                  | `${{ values.system }}`           |
-| Ansible Version         | 2.17+                            |
-| Python Version          | 3.12+                            |
+| System                  | `awx-automation-platform`        |
+| Minimum Ansible Version | ${{ values.ansible_version }}                              |
+| Target OS               | ${{ values.target_os }}                            |
 | Default Inventory       | `inventory/hosts`                |
 | Molecule Driver         | Docker                           |
 | CI/CD Platform          | GitHub Actions                   |
@@ -569,15 +569,12 @@ driver:
 
 platforms:
   - name: instance
-    image: "geerlingguy/docker-${MOLECULE_DISTRO:-rockylinux8}-ansible:latest"
+    image: "geerlingguy/docker-${MOLECULE_DISTRO:-ubuntu2404}-ansible:latest"
     privileged: true
     pre_build_image: true
 
 provisioner:
   name: ansible
-  playbooks:
-    converge: converge.yml
-    verify: verify.yml
 
 verifier:
   name: ansible
@@ -827,5 +824,5 @@ molecule idempotence
 ## Support
 
 - **Owner**: ${{ values.owner }}
-- **System**: ${{ values.system }}
-- **Repository**: [GitHub](${{ values.repoUrl }})
+- **System**: awx-automation-platform
+- **Repository**: [GitHub](https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }})

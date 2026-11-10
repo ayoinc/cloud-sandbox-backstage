@@ -1,0 +1,5 @@
+# Ansible working files
+.ansible/
+*.retry
+ansible.log
+.vault_password

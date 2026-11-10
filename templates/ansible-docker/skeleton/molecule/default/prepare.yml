@@ -1,0 +1,14 @@
+---
+- name: Prepare
+  hosts: all
+  become: true
+
+  tasks:
+    # Container hosts often have no legacy ip_tables kernel module, so Docker
+    # must find the nftables-backed iptables. Installing it first stops dnf
+    # from resolving Docker's iptables dependency to the legacy variant.
+    - name: Install the nftables-backed iptables (RedHat)
+      ansible.builtin.dnf:
+        name: iptables-nft
+        state: present
+      when: ansible_facts.os_family == 'RedHat'
