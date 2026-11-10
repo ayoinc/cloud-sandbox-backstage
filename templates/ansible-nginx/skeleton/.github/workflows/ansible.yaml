@@ -17,6 +17,7 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -38,6 +39,7 @@ jobs:
   security:
     name: Security Scan
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: lint
     steps:
       - name: Checkout
@@ -55,6 +57,7 @@ jobs:
   molecule:
     name: Molecule Test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: lint
     strategy:
       fail-fast: false
@@ -85,6 +88,7 @@ jobs:
   galaxy-credentials:
     name: Check Galaxy credentials
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     outputs:
       available: {% raw %}${{ steps.check.outputs.available }}{% endraw %}
@@ -104,6 +108,7 @@ jobs:
   release:
     name: Release to Galaxy
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: [molecule, security, galaxy-credentials]
     if: needs.galaxy-credentials.outputs.available == 'true'
     steps:

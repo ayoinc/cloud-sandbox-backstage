@@ -36,6 +36,7 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -69,6 +70,7 @@ jobs:
   security:
     name: Security Scan
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: lint
     steps:
       - name: Checkout
@@ -103,6 +105,7 @@ jobs:
   test:
     name: Molecule Test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: lint
     strategy:
       fail-fast: false
@@ -137,6 +140,7 @@ jobs:
   validate:
     name: Validate
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: lint
     steps:
       - name: Checkout
@@ -171,6 +175,7 @@ jobs:
   deploy-credentials:
     name: Check deploy credentials
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     if: |
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'push' && github.ref == 'refs/heads/main')
@@ -192,6 +197,8 @@ jobs:
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
+    # Raise this if the playbook legitimately runs longer against your hosts.
+    timeout-minutes: 30
     needs:
       - lint
       - security

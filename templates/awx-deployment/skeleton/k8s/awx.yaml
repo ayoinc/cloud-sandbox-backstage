@@ -19,7 +19,9 @@ spec:
   # Ingress configuration
 {%- if values.ingress_enabled %}
   ingress_type: ingress
-  hostname: ${{ values.hostname }}
+{%- if values.hostname %}
+  hostname: ${{ values.hostname | dump }}
+{%- endif %}
 {%- if values.ssl_enabled %}
   # cert-manager issues the certificate into this secret.
   ingress_tls_secret: awx-${{ values.name }}-tls
@@ -39,21 +41,25 @@ spec:
 
   # Admin user. The operator generates the password into the secret
   # awx-${{ values.name }}-admin-password.
-  admin_user: ${{ values.admin_user }}
+  admin_user: ${{ values.admin_user | default('admin', true) | dump }}
 
   # Managed PostgreSQL. The operator generates its credentials into the secret
   # awx-${{ values.name }}-postgres-configuration.
-  postgres_storage_class: ${{ values.storage_class }}
+{%- if values.storage_class %}
+  postgres_storage_class: ${{ values.storage_class | dump }}
+{%- endif %}
   postgres_storage_requirements:
     requests:
-      storage: ${{ values.postgres_storage_size }}
+      storage: ${{ values.postgres_storage_size | default('8Gi', true) | dump }}
 
   # Project storage configuration
   projects_persistence: true
-  projects_storage_class: ${{ values.storage_class }}
-  projects_storage_size: ${{ values.project_storage_size }}
+{%- if values.storage_class %}
+  projects_storage_class: ${{ values.storage_class | dump }}
+{%- endif %}
+  projects_storage_size: ${{ values.project_storage_size | default('8Gi', true) | dump }}
   projects_storage_access_mode: ReadWriteMany
-{%- if values.awx_version != 'latest' %}
+{%- if values.awx_version and values.awx_version != 'latest' %}
 
   # Image configuration
   image_version: ${{ values.awx_version | dump }}

@@ -45,7 +45,11 @@ This deployment was generated using the AWX Backstage platform and includes:
 1. **Kubernetes Cluster:** A running Kubernetes cluster with sufficient resources
 2. **kubectl:** Kubernetes command-line tool configured to access your cluster
 3. **AWX Operator:** The AWX operator must be installed in the cluster
+{%- if values.storage_class %}
 4. **Storage Class:** A configured storage class named `${{ values.storage_class }}`
+{%- else %}
+4. **Storage Class:** A default storage class in the cluster
+{%- endif %}
 {%- if values.ssl_enabled and values.ingress_enabled %}
 5. **Cert-manager:** For automatic SSL certificate management
 {%- endif %}
@@ -89,8 +93,10 @@ kubectl get pods -n ${{ values.namespace }} -w
 
 ### 3. Access AWX
 
-{%- if values.ingress_enabled %}
+{%- if values.ingress_enabled and values.hostname %}
 Once deployed, access AWX at: **https://${{ values.hostname }}**
+{%- elif values.ingress_enabled %}
+Once deployed, access AWX through the address of your ingress controller.
 {%- elif values.service_type == 'NodePort' %}
 Access AWX via NodePort (check the deployment output for the exact URL)
 {%- else %}
@@ -197,7 +203,7 @@ kubectl apply -k k8s/
 
 - **PostgreSQL:** ${{ values.postgres_storage_size }} persistent storage
 - **Projects:** ${{ values.project_storage_size }} shared storage (ReadWriteMany)
-- **Storage Class:** ${{ values.storage_class }}
+- **Storage Class:** ${{ values.storage_class or 'cluster default' }}
 
 ### Security
 

@@ -19,8 +19,8 @@ metadata:
     - url: https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}
       title: Repository
       icon: github
-    {%- if values.ingress_enabled %}
-    - url: https://${{ values.hostname }}
+    {%- if values.ingress_enabled and values.hostname %}
+    - url: ${{ ('https://' + values.hostname) | dump }}
       title: AWX Web Interface
       icon: web
     {%- endif %}
@@ -30,7 +30,7 @@ metadata:
 spec:
   type: service
   lifecycle: ${{ values.environment }}
-  owner: ${{ values.owner }}
+  owner: ${{ values.owner | dump }}
   system: awx-automation-platform
   dependsOn:
     - component:awx-operator

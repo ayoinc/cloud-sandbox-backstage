@@ -5,11 +5,12 @@
 
 set -euo pipefail
 
-# Configuration
-AWX_NAME="awx-${{ values.name }}"
-NAMESPACE="${{ values.namespace }}"
-{%- if values.ingress_enabled %}
-HOSTNAME="${{ values.hostname }}"
+# Configuration. The values are single-quoted so the shell takes them literally.
+AWX_NAME='awx-${{ values.name | replace("'", "'\\''") }}'
+NAMESPACE='${{ values.namespace | replace("'", "'\\''") }}'
+ADMIN_USER='${{ values.admin_user | default('admin', true) | replace("'", "'\\''") }}'
+{%- if values.ingress_enabled and values.hostname %}
+AWX_HOSTNAME='${{ values.hostname | replace("'", "'\\''") }}'
 {%- endif %}
 
 # Colors for output
@@ -92,8 +93,10 @@ show_access_info() {
     echo
     log_info "Access Information:"
 
-    {%- if values.ingress_enabled %}
-    echo "  Web Interface: https://$HOSTNAME"
+    {%- if values.ingress_enabled and values.hostname %}
+    echo "  Web Interface: https://$AWX_HOSTNAME"
+    {%- elif values.ingress_enabled %}
+    echo "  Web Interface: through the cluster's ingress controller (no hostname set)"
     {%- elif values.service_type == 'NodePort' %}
     NODE_PORT=$(kubectl get service "$AWX_NAME-service" -n "$NAMESPACE" -o jsonpath='{.spec.ports[0].nodePort}')
     NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="ExternalIP")].address}')
@@ -110,7 +113,7 @@ show_access_info() {
 
     # Get admin password
     ADMIN_PASSWORD=$(kubectl get secret "$AWX_NAME-admin-password" -n "$NAMESPACE" -o jsonpath='{.data.password}' | base64 -d)
-    echo "  Username: ${{ values.admin_user }}"
+    echo "  Username: $ADMIN_USER"
     echo "  Password: $ADMIN_PASSWORD"
     echo
 

@@ -73,7 +73,8 @@ spec:
         awx_version:
           title: AWX Version
           type: string
-          description: AWX version to deploy
+          description: AWX image tag to deploy (latest lets the operator choose)
+          pattern: '^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$'
           default: latest
         service_type:
           title: Service Type
@@ -96,29 +97,35 @@ spec:
         hostname:
           title: Hostname
           type: string
-          description: Hostname for AWX instance (required if ingress enabled)
+          description: DNS name for the AWX instance (used when ingress is enabled)
+          pattern: '^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*)?$'
+          maxLength: 253
           default: awx.example.com
         storage_class:
           title: Storage Class
           type: string
-          description: Kubernetes storage class for persistent volumes
+          description: Kubernetes storage class for persistent volumes (empty uses the cluster default)
+          pattern: '^([a-z0-9]([a-z0-9.-]{0,251}[a-z0-9])?)?$'
           default: default
         postgres_storage_size:
           title: PostgreSQL Storage Size
           type: string
-          description: Storage size for PostgreSQL database
+          description: Storage size for PostgreSQL database, as a Kubernetes quantity such as 8Gi
+          pattern: '^[0-9]+(\.[0-9]+)?(Ki|Mi|Gi|Ti|Pi|Ei|k|M|G|T|P|E)?$'
           default: 8Gi
         project_storage_size:
           title: Project Storage Size
           type: string
-          description: Storage size for project data
+          description: Storage size for project data, as a Kubernetes quantity such as 8Gi
+          pattern: '^[0-9]+(\.[0-9]+)?(Ki|Mi|Gi|Ti|Pi|Ei|k|M|G|T|P|E)?$'
           default: 8Gi
     - title: Security Configuration
       properties:
         admin_user:
           title: Admin Username
           type: string
-          description: AWX admin username
+          description: AWX admin username (letters, digits and @ . + - _)
+          pattern: '^[A-Za-z0-9@.+_-]{1,150}$'
           default: admin
         ssl_enabled:
           title: Enable SSL/TLS
