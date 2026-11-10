@@ -52,8 +52,13 @@ variable "labels" {
 # -----------------------------------------------------------------------------
 
 variable "address_space" {
-  description = "Primary CIDR block for the VPC"
+  description = "Primary CIDR block for the VPC. Must be a /19 or larger so that the derived subnet ranges fit"
   type        = string
+
+  validation {
+    condition     = can(cidrhost(var.address_space, 0)) && try(tonumber(split("/", var.address_space)[1]), 32) <= 19
+    error_message = "address_space must be a valid IPv4 CIDR block with a prefix of /19 or larger (for example 10.0.0.0/16)."
+  }
 }
 
 variable "routing_mode" {
@@ -79,23 +84,27 @@ variable "mtu" {
 # -----------------------------------------------------------------------------
 
 variable "public_subnet_cidr" {
-  description = "CIDR block for the public subnet"
+  description = "CIDR block for the public subnet. A /24 range of address_space is used when null"
   type        = string
+  default     = null
 }
 
 variable "private_subnet_cidr" {
-  description = "CIDR block for the private subnet"
+  description = "CIDR block for the private subnet. A /24 range of address_space is used when null"
   type        = string
+  default     = null
 }
 
 variable "database_subnet_cidr" {
-  description = "CIDR block for the database subnet"
+  description = "CIDR block for the database subnet. A /24 range of address_space is used when null"
   type        = string
+  default     = null
 }
 
 variable "gke_subnet_cidr" {
-  description = "CIDR block for the GKE subnet"
+  description = "CIDR block for the GKE subnet. A /20 range of address_space is used when null"
   type        = string
+  default     = null
 }
 
 variable "gke_pods_cidr" {
@@ -226,6 +235,12 @@ variable "enable_http_firewall" {
   description = "Enable HTTP/HTTPS firewall rule for tagged instances"
   type        = bool
   default     = true
+}
+
+variable "http_firewall_source_ranges" {
+  description = "Source ranges allowed to reach tagged instances on ports 80 and 443. Defaults to the Google Cloud load balancer ranges"
+  type        = list(string)
+  default     = ["130.211.0.0/22", "35.191.0.0/16"]
 }
 
 variable "enable_deny_all_firewall" {

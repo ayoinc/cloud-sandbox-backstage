@@ -62,6 +62,8 @@ resource "google_service_networking_connection" "private_vpc_connection" {
 # Cloud SQL Instance
 # -----------------------------------------------------------------------------
 resource "google_sql_database_instance" "instance" {
+  # checkov:skip=CKV_GCP_60:A public address is used only when private IP is switched off; no network is authorized by default and SSL is required
+  project             = var.project_id
   name                = local.instance_name
   database_version    = var.database_version
   region              = var.region
@@ -85,6 +87,9 @@ resource "google_sql_database_instance" "instance" {
 
     # IP Configuration
     ip_configuration {
+      # A public address is used only when private IP is switched off; no
+      # network is authorized by default and SSL is required.
+      # trivy:ignore:AVD-GCP-0017
       ipv4_enabled    = var.enable_public_ip
       private_network = var.enable_private_ip ? var.network_id : null
       require_ssl     = var.require_ssl

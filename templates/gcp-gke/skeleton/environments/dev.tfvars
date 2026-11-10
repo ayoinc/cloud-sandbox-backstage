@@ -1,8 +1,6 @@
+{%- set selected = values.environment == 'development' -%}
 # =============================================================================
 # GCP GKE - Development Environment Configuration
-# =============================================================================
-# This file contains Jinja2 template variables that will be substituted
-# by Backstage when the template is scaffolded.
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -12,12 +10,12 @@ name        = "${{ values.name }}"
 environment = "dev"
 region      = "${{ values.region }}"
 project_id  = "${{ values.gcpProject }}"
-owner       = "${{ values.owner }}"
+owner       = "${{ (values.owner | parseEntityRef).name }}"
 
 # -----------------------------------------------------------------------------
 # Cluster Mode - Autopilot for dev (cost-optimized, fully managed)
 # -----------------------------------------------------------------------------
-cluster_mode = "autopilot"
+cluster_mode = "${{ values.clusterMode if selected else 'autopilot' }}"
 
 # -----------------------------------------------------------------------------
 # Network Configuration
@@ -61,13 +59,13 @@ autoscaling_memory_max     = 40
 # -----------------------------------------------------------------------------
 # Node Pool Configuration (Not used in Autopilot mode, but defined for completeness)
 # -----------------------------------------------------------------------------
-node_count          = 1
-node_pool_min_count = 1
-node_pool_max_count = 3
-machine_type        = "e2-medium"
-disk_size_gb        = 50
-disk_type           = "pd-standard"
-image_type          = "COS_CONTAINERD"
+node_count            = ${{ values.nodeCount if selected else 1 }}
+node_pool_min_count   = 1
+node_pool_max_count   = 3
+machine_type          = "${{ values.machineType if selected else 'e2-medium' }}"
+disk_size_gb          = 50
+disk_type             = "pd-standard"
+image_type            = "COS_CONTAINERD"
 use_preemptible_nodes = true
 use_spot_nodes        = false
 
@@ -105,5 +103,5 @@ artifact_registry_keep_count = 5
 # -----------------------------------------------------------------------------
 labels = {
   cost-center = "development"
-  team        = "${{ values.owner }}"
+  team        = "${{ (values.owner | parseEntityRef).name }}"
 }

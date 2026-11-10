@@ -1,5 +1,5 @@
 site_name: ${{ values.name }}
-site_description: GCP Cloud Run Service - ${{ values.description }}
+site_description: ${{ (values.description or 'GCP Cloud Run service') | dump }}
 
 nav:
   - Home: index.md

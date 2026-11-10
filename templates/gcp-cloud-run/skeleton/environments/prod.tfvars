@@ -1,39 +1,37 @@
+{%- set selected = values.environment == 'production' -%}
 # =============================================================================
 # GCP Cloud Run - Production Environment Configuration
 # =============================================================================
-# This file contains Jinja2 template variables that will be substituted
-# by Backstage when the template is scaffolded.
-# =============================================================================
 
 # -----------------------------------------------------------------------------
-# Required Variables (from Backstage template)
+# Required Variables
 # -----------------------------------------------------------------------------
 name        = "${{ values.name }}"
 environment = "prod"
 region      = "${{ values.region }}"
 project_id  = "${{ values.gcpProject }}"
-owner       = "${{ values.owner }}"
+owner       = "${{ (values.owner | parseEntityRef).name }}"
 
 # -----------------------------------------------------------------------------
 # Container Configuration
 # -----------------------------------------------------------------------------
-container_image = ""  # Uses Artifact Registry
+container_image = "" # Uses Artifact Registry
 image_tag       = "latest"
 container_port  = 8080
 
 # -----------------------------------------------------------------------------
 # Resource Configuration - Production (higher resources)
 # -----------------------------------------------------------------------------
-cpu               = "2"
-memory            = "2Gi"
-cpu_idle          = false  # Keep CPU warm for consistent latency
+cpu               = "${{ values.cpu if selected else '2' }}"
+memory            = "${{ values.memory if selected else '2Gi' }}"
+cpu_idle          = false # Keep CPU warm for consistent latency
 startup_cpu_boost = true
 
 # -----------------------------------------------------------------------------
 # Scaling Configuration - Production (higher capacity)
 # -----------------------------------------------------------------------------
 min_instances = 2
-max_instances = 20
+max_instances = ${{ values.maxInstances if selected else 20 }}
 
 # -----------------------------------------------------------------------------
 # Request Configuration
@@ -45,7 +43,7 @@ execution_environment = "EXECUTION_ENVIRONMENT_GEN2"
 # Ingress Configuration - Production (internal only recommended)
 # -----------------------------------------------------------------------------
 ingress               = "INGRESS_TRAFFIC_ALL"
-allow_unauthenticated = false
+allow_unauthenticated = ${{ values.allowUnauthenticated if selected else false }}
 
 # -----------------------------------------------------------------------------
 # Environment Variables
@@ -72,16 +70,16 @@ secret_environment_variables = {}
 # -----------------------------------------------------------------------------
 # Health Check Configuration
 # -----------------------------------------------------------------------------
-health_check_path               = "/health"
-enable_startup_probe            = true
-startup_probe_initial_delay     = 0
-startup_probe_timeout           = 1
-startup_probe_period            = 3
-startup_probe_failure_threshold = 3
-enable_liveness_probe           = true
-liveness_probe_initial_delay    = 0
-liveness_probe_timeout          = 1
-liveness_probe_period           = 10
+health_check_path                = "/health"
+enable_startup_probe             = true
+startup_probe_initial_delay      = 0
+startup_probe_timeout            = 1
+startup_probe_period             = 3
+startup_probe_failure_threshold  = 3
+enable_liveness_probe            = true
+liveness_probe_initial_delay     = 0
+liveness_probe_timeout           = 1
+liveness_probe_period            = 10
 liveness_probe_failure_threshold = 3
 
 # -----------------------------------------------------------------------------
@@ -121,7 +119,7 @@ artifact_registry_keep_count = 20
 # Monitoring Configuration - Enabled for production
 # -----------------------------------------------------------------------------
 enable_monitoring_alerts = true
-notification_channels    = []  # Add notification channel IDs
+notification_channels    = [] # Add notification channel IDs
 latency_threshold_ms     = 1000
 error_rate_threshold     = 10
 alert_duration_seconds   = 300
@@ -131,6 +129,6 @@ alert_duration_seconds   = 300
 # -----------------------------------------------------------------------------
 labels = {
   cost-center = "production"
-  team        = "${{ values.owner }}"
+  team        = "${{ (values.owner | parseEntityRef).name }}"
   criticality = "high"
 }

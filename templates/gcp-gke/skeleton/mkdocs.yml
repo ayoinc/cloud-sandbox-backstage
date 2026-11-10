@@ -1,5 +1,5 @@
 site_name: ${{ values.name }}
-site_description: GCP GKE Cluster - ${{ values.description }}
+site_description: ${{ (values.description or 'GCP GKE cluster') | dump }}
 
 nav:
   - Home: index.md

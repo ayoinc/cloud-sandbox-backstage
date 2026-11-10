@@ -8,6 +8,10 @@
 # =============================================================================
 # Module: VPC
 # =============================================================================
+locals {
+  address_space_prefix = tonumber(split("/", var.address_space)[1])
+}
+
 module "vpc" {
   source = "./modules/vpc"
 
@@ -28,10 +32,10 @@ module "vpc" {
   mtu                   = var.mtu
 
   # Subnet CIDRs
-  public_subnet_cidr   = var.public_subnet_cidr
-  private_subnet_cidr  = var.private_subnet_cidr
-  database_subnet_cidr = var.database_subnet_cidr
-  gke_subnet_cidr      = var.gke_subnet_cidr
+  public_subnet_cidr   = coalesce(var.public_subnet_cidr, cidrsubnet(var.address_space, 24 - local.address_space_prefix, 1))
+  private_subnet_cidr  = coalesce(var.private_subnet_cidr, cidrsubnet(var.address_space, 24 - local.address_space_prefix, 2))
+  database_subnet_cidr = coalesce(var.database_subnet_cidr, cidrsubnet(var.address_space, 24 - local.address_space_prefix, 3))
+  gke_subnet_cidr      = coalesce(var.gke_subnet_cidr, cidrsubnet(var.address_space, 20 - local.address_space_prefix, 1))
   gke_pods_cidr        = var.gke_pods_cidr
   gke_services_cidr    = var.gke_services_cidr
 
@@ -58,8 +62,9 @@ module "vpc" {
   nat_log_filter                          = var.nat_log_filter
 
   # Firewall
-  enable_http_firewall     = var.enable_http_firewall
-  enable_deny_all_firewall = var.enable_deny_all_firewall
+  enable_http_firewall        = var.enable_http_firewall
+  http_firewall_source_ranges = var.http_firewall_source_ranges
+  enable_deny_all_firewall    = var.enable_deny_all_firewall
 
   # Private Service Access
   enable_private_service_access        = var.enable_private_service_access

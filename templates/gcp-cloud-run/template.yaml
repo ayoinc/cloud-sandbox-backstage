@@ -118,7 +118,6 @@ spec:
       action: fetch:template
       input:
         url: ./skeleton
-        templateFileExtension: '.j2'
         cookiecutterCompat: false
         values:
           name: ${{ parameters.name }}
@@ -127,6 +126,7 @@ spec:
           environment: ${{ parameters.environment }}
           region: ${{ parameters.region }}
           gcpProject: ${{ parameters.gcpProject }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
           memory: ${{ parameters.memory }}
           cpu: ${{ parameters.cpu }}
           maxInstances: ${{ parameters.maxInstances }}

@@ -1,31 +1,29 @@
+{%- set selected = values.environment == 'development' -%}
 # =============================================================================
 # GCP Cloud Run - Development Environment Configuration
 # =============================================================================
-# This file contains Jinja2 template variables that will be substituted
-# by Backstage when the template is scaffolded.
-# =============================================================================
 
 # -----------------------------------------------------------------------------
-# Required Variables (from Backstage template)
+# Required Variables
 # -----------------------------------------------------------------------------
 name        = "${{ values.name }}"
 environment = "dev"
 region      = "${{ values.region }}"
 project_id  = "${{ values.gcpProject }}"
-owner       = "${{ values.owner }}"
+owner       = "${{ (values.owner | parseEntityRef).name }}"
 
 # -----------------------------------------------------------------------------
 # Container Configuration
 # -----------------------------------------------------------------------------
-container_image = ""  # Uses Artifact Registry
+container_image = "" # Uses Artifact Registry
 image_tag       = "latest"
 container_port  = 8080
 
 # -----------------------------------------------------------------------------
 # Resource Configuration - Development (minimal)
 # -----------------------------------------------------------------------------
-cpu               = "1"
-memory            = "512Mi"
+cpu               = "${{ values.cpu if selected else '1' }}"
+memory            = "${{ values.memory if selected else '512Mi' }}"
 cpu_idle          = true
 startup_cpu_boost = true
 
@@ -33,7 +31,7 @@ startup_cpu_boost = true
 # Scaling Configuration - Development (cost-optimized)
 # -----------------------------------------------------------------------------
 min_instances = 0
-max_instances = 3
+max_instances = ${{ values.maxInstances if selected else 3 }}
 
 # -----------------------------------------------------------------------------
 # Request Configuration
@@ -42,10 +40,10 @@ request_timeout       = 300
 execution_environment = "EXECUTION_ENVIRONMENT_GEN2"
 
 # -----------------------------------------------------------------------------
-# Ingress Configuration - Development (allow all for testing)
+# Ingress Configuration - Development
 # -----------------------------------------------------------------------------
 ingress               = "INGRESS_TRAFFIC_ALL"
-allow_unauthenticated = true
+allow_unauthenticated = ${{ values.allowUnauthenticated if selected else false }}
 
 # -----------------------------------------------------------------------------
 # Environment Variables
@@ -61,16 +59,16 @@ secret_environment_variables = {}
 # -----------------------------------------------------------------------------
 # Health Check Configuration
 # -----------------------------------------------------------------------------
-health_check_path               = "/health"
-enable_startup_probe            = true
-startup_probe_initial_delay     = 0
-startup_probe_timeout           = 1
-startup_probe_period            = 3
-startup_probe_failure_threshold = 3
-enable_liveness_probe           = true
-liveness_probe_initial_delay    = 0
-liveness_probe_timeout          = 1
-liveness_probe_period           = 10
+health_check_path                = "/health"
+enable_startup_probe             = true
+startup_probe_initial_delay      = 0
+startup_probe_timeout            = 1
+startup_probe_period             = 3
+startup_probe_failure_threshold  = 3
+enable_liveness_probe            = true
+liveness_probe_initial_delay     = 0
+liveness_probe_timeout           = 1
+liveness_probe_period            = 10
 liveness_probe_failure_threshold = 3
 
 # -----------------------------------------------------------------------------
@@ -112,5 +110,5 @@ alert_duration_seconds   = 300
 # -----------------------------------------------------------------------------
 labels = {
   cost-center = "development"
-  team        = "${{ values.owner }}"
+  team        = "${{ (values.owner | parseEntityRef).name }}"
 }

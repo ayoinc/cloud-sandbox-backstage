@@ -156,7 +156,6 @@ spec:
       action: fetch:template
       input:
         url: ./skeleton
-        templateFileExtension: '.j2'
         cookiecutterCompat: false
         values:
           name: ${{ parameters.name }}
@@ -165,6 +164,7 @@ spec:
           environment: ${{ parameters.environment }}
           region: ${{ parameters.region }}
           gcpProject: ${{ parameters.gcpProject }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
           database_version: ${{ parameters.database_version }}
           tier: ${{ parameters.tier }}
           disk_size: ${{ parameters.disk_size }}

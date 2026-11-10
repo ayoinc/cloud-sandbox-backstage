@@ -70,6 +70,12 @@ module "gke" {
   maintenance_recurrence = var.maintenance_recurrence
 
   # Artifact Registry
-  create_artifact_registry     = var.create_artifact_registry
-  artifact_registry_keep_count = var.artifact_registry_keep_count
+  create_artifact_registry       = var.create_artifact_registry
+  artifact_registry_keep_count   = var.artifact_registry_keep_count
+  artifact_registry_kms_key_name = var.artifact_registry_kms_key_name
+
+  # Cluster security
+  enable_intranode_visibility = var.enable_intranode_visibility
+  enable_binary_authorization = var.enable_binary_authorization
+  rbac_security_group         = var.rbac_security_group
 }

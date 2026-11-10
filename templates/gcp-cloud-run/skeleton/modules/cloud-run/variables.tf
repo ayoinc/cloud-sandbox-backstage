@@ -379,6 +379,12 @@ variable "artifact_registry_keep_count" {
   }
 }
 
+variable "artifact_registry_kms_key_name" {
+  description = "Cloud KMS key used to encrypt the Artifact Registry repository. Google-managed encryption is used when null"
+  type        = string
+  default     = null
+}
+
 # -----------------------------------------------------------------------------
 # Monitoring Configuration
 # -----------------------------------------------------------------------------

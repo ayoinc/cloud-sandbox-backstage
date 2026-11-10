@@ -131,68 +131,25 @@ internet -> gcp.lb: HTTPS
 
 ## CI/CD Pipeline
 
-This repository includes a comprehensive GitHub Actions pipeline with:
+The `Terraform` workflow (`.github/workflows/terraform.yaml`) runs on every
+push and pull request to `main`.
 
-- **Validation**: Format checking, TFLint, Terraform validation
-- **Security Scanning**: tfsec, Checkov, Trivy for vulnerability detection
-- **Terraform Tests**: Native Terraform test framework execution
-- **Cost Estimation**: Infracost integration for cost visibility
-- **Multi-Environment**: Progressive deployment through dev, staging, and production
-- **Manual Approvals**: Required for apply and destroy operations
-- **Drift Detection**: On-demand checks for configuration drift
+| Job                       | Needs credentials   | What it does                                                                   |
+| ------------------------- | ------------------- | ------------------------------------------------------------------------------ |
+| Validate                  | No                  | `terraform fmt -check`, `terraform init -backend=false`, `terraform validate`  |
+| TFLint                    | No                  | Lints the configuration and module with the Google ruleset                     |
+| Terraform tests           | No                  | `terraform test` against mocked providers                                      |
+| Security scan (Trivy)     | No                  | Fails on critical, high and medium misconfigurations                           |
+| Security scan (Checkov)   | No                  | Policy checks for the Terraform code                                           |
+| Cost estimation           | `INFRACOST_API_KEY` | Comments the cost estimate on pull requests                                    |
+| Plan                      | GCP secrets         | Plans the selected environment and comments the plan on pull requests          |
+| Apply                     | GCP secrets         | Applies the plan on pushes to `main`                                           |
+| Destroy / Drift detection | GCP secrets         | Started manually from the Actions tab                                          |
 
-### Pipeline Workflow
-
-```d2
-direction: right
-
-pr: Pull Request {
-  shape: oval
-  style.fill: "#E3F2FD"
-  style.stroke: "#1976D2"
-}
-
-validate: Validate {
-  style.fill: "#E8F5E9"
-  style.stroke: "#388E3C"
-  label: "Format Check\nTFLint\nValidate\nTests"
-}
-
-security: Security {
-  style.fill: "#FFCDD2"
-  style.stroke: "#D32F2F"
-  label: "tfsec\nCheckov\nTrivy"
-}
-
-plan: Plan {
-  style.fill: "#E3F2FD"
-  style.stroke: "#1976D2"
-  label: "Generate Plan\nCost Estimate"
-}
-
-review: Review {
-  shape: diamond
-  style.fill: "#FFECB3"
-  style.stroke: "#FFA000"
-  label: "Manual\nApproval"
-}
-
-apply: Apply {
-  style.fill: "#E8F5E9"
-  style.stroke: "#388E3C"
-  label: "Deploy\nCloud Run"
-}
-
-pr -> validate -> security -> plan -> review -> apply
-```
-
-### Pipeline Triggers
-
-| Trigger                 | Actions                                          |
-| ----------------------- | ------------------------------------------------ |
-| Pull Request            | Validate, Security Scan, Plan, Cost Estimate     |
-| Push to main            | Validate, Security Scan, Plan, Apply (all envs)  |
-| Manual (workflow_dispatch) | Plan, Apply, Destroy, or Drift Detection      |
+Jobs that need credentials are skipped until the repository secrets exist, so
+a new repository is green before any cloud access is configured. Pushes and
+pull requests target the environment selected when the repository was created
+(`${{ values.environment }}`); a manual run can target `dev`, `staging` or `prod`.
 
 ---
 
@@ -320,31 +277,24 @@ gcloud storage buckets update gs://${{ values.gcpProject }}-terraform-state \
 
 ### 2. GitHub Repository Setup
 
-#### Required Secrets
+#### Secrets
 
-Configure these in **Settings > Secrets and variables > Actions**:
+Configure these in **Settings > Secrets and variables > Actions**. Plan and
+apply are skipped until the first three exist.
 
-| Secret                            | Description                                          | Example                                                                 |
-| --------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------- |
-| `GCP_WORKLOAD_IDENTITY_PROVIDER`  | Full provider resource name                          | `projects/123/locations/global/workloadIdentityPools/github-actions/providers/github` |
-| `GCP_SERVICE_ACCOUNT`             | Service account email for authentication             | `github-actions-terraform@project.iam.gserviceaccount.com`              |
-| `GCP_PROJECT_ID`                  | GCP Project ID                                       | `${{ values.gcpProject }}`                                              |
-| `GCP_TERRAFORM_STATE_BUCKET`      | GCS bucket name for Terraform state                  | `${{ values.gcpProject }}-terraform-state`                              |
-| `INFRACOST_API_KEY`               | API key for cost estimation (optional)               | `ico-xxxxxxxx`                                                          |
+| Secret                           | Description                              | Example                                                                               |
+| -------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------- |
+| `GCP_WORKLOAD_IDENTITY_PROVIDER` | Full provider resource name              | `projects/123/locations/global/workloadIdentityPools/github-actions/providers/github` |
+| `GCP_SERVICE_ACCOUNT`            | Service account email for authentication | `github-actions-terraform@project.iam.gserviceaccount.com`                            |
+| `GCP_TERRAFORM_STATE_BUCKET`     | GCS bucket name for Terraform state      | `${{ values.gcpProject }}-terraform-state`                                            |
+| `INFRACOST_API_KEY`              | API key for cost estimation (optional)   | `ico-xxxxxxxx`                                                                        |
 
 #### GitHub Environments
 
-Create environments in **Settings > Environments**:
-
-| Environment | Protection Rules                                     | Reviewers                |
-| ----------- | ---------------------------------------------------- | ------------------------ |
-| `dev`       | None                                                 | -                        |
-| `dev-plan`  | None                                                 | -                        |
-| `staging`   | Required reviewers (optional)                        | Team leads               |
-| `staging-plan` | None                                              | -                        |
-| `prod`      | Required reviewers, Deployment branches: `main` only | Senior engineers, DevOps |
-| `prod-plan` | None                                                 | -                        |
-| `*-destroy` | Required reviewers                                   | Senior engineers         |
+The apply and destroy jobs run in the GitHub environment named after the
+target (`dev`, `staging` or `prod`); GitHub creates it on first use. To require
+an approval, add required reviewers to the environment in
+**Settings > Environments**.
 
 ---
 
@@ -435,7 +385,7 @@ gcloud run deploy ${{ values.name }}-${{ values.environment }} \
 #### Manual Deployment
 
 1. Navigate to **Actions** tab
-2. Select **Terraform CI/CD** workflow
+2. Select **Terraform** workflow
 3. Click **Run workflow**
 4. Configure:
    - **action**: `plan`, `apply`, `destroy`, or `drift-detection`
@@ -443,7 +393,7 @@ gcloud run deploy ${{ values.name }}-${{ values.environment }} \
    - **confirm_destroy**: Type `DESTROY` to confirm (required for destroy action)
 5. Click **Run workflow**
 
-For `staging` and `prod` environments, you'll need approval from designated reviewers.
+Apply and destroy wait for approval if the target GitHub environment has required reviewers.
 
 ---
 
@@ -495,34 +445,22 @@ gcloud secrets add-iam-policy-binding database-url \
 
 ## Security Scanning
 
-The pipeline includes three security scanning tools:
+| Tool        | Purpose                                                    | Documentation                        |
+| ----------- | ---------------------------------------------------------- | ------------------------------------ |
+| **Trivy**   | Misconfiguration scan; fails on critical, high and medium  | [trivy.dev](https://trivy.dev)       |
+| **Checkov** | Policy-as-code for infrastructure security and compliance  | [checkov.io](https://www.checkov.io) |
 
-| Tool        | Purpose                                                   | Documentation                        |
-| ----------- | --------------------------------------------------------- | ------------------------------------ |
-| **tfsec**   | Static analysis for Terraform security misconfigurations  | [tfsec.dev](https://tfsec.dev)       |
-| **Checkov** | Policy-as-code for infrastructure security and compliance | [checkov.io](https://www.checkov.io) |
-| **Trivy**   | Comprehensive vulnerability scanner for IaC               | [trivy.dev](https://trivy.dev)       |
+Both scans block the pipeline. Fix a finding in the Terraform code where
+possible. Where a finding is a deliberate choice, suppress that single rule
+on the resource with a reason:
 
-Results are uploaded to the GitHub **Security** tab as SARIF reports.
+```hcl
+resource "google_storage_bucket" "example" {
+  # checkov:skip=CKV_GCP_62:Reason for the exception
+}
 
-### Common Security Findings
-
-| Finding                                      | Resolution                                                      |
-| -------------------------------------------- | --------------------------------------------------------------- |
-| Cloud Run service allows unauthenticated access | Set `allow_unauthenticated = false` if not needed             |
-| No VPC connector configured                  | Enable VPC connector for private network access                 |
-| Secrets not using Secret Manager             | Use `secret_environment_variables` instead of plain env vars    |
-| Container running as root                    | Add `USER` instruction in Dockerfile                            |
-| Missing resource limits                      | Configure `cpu` and `memory` appropriately                      |
-
-### Suppressing False Positives
-
-Create a `.tfsec.yaml` file to suppress known false positives:
-
-```yaml
-exclude:
-  - rule: google-iam-no-project-level-service-account-impersonation
-    reason: Required for Workload Identity Federation
+# trivy:ignore:AVD-GCP-0001
+resource "google_storage_bucket" "other" {}
 ```
 
 ---
@@ -684,13 +622,9 @@ Error: Error creating Connector: googleapi: Error 400: Invalid connector
 
 **Security scan blocking deployment**
 
-Set `soft_fail: true` in the workflow to allow warnings without blocking:
-
-```yaml
-- uses: aquasecurity/tfsec-action@v1.0.3
-  with:
-    soft_fail: true
-```
+Open the failed Trivy or Checkov job to see the rule and the resource. Fix the
+Terraform code, or suppress that single rule on the resource with a reason
+(`# checkov:skip=<ID>:<reason>` or `# trivy:ignore:<ID>`).
 
 ---
 

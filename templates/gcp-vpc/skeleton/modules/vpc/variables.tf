@@ -331,6 +331,12 @@ variable "enable_http_firewall" {
   default     = true
 }
 
+variable "http_firewall_source_ranges" {
+  description = "Source ranges allowed to reach tagged instances on ports 80 and 443. Defaults to the Google Cloud load balancer ranges"
+  type        = list(string)
+  default     = ["130.211.0.0/22", "35.191.0.0/16"]
+}
+
 variable "enable_deny_all_firewall" {
   description = "Enable deny-all ingress firewall rule (catch-all)"
   type        = bool

@@ -1,7 +1,8 @@
 # =============================================================================
 # GCP Cloud Run - Terraform Tests
 # =============================================================================
-# Uses Terraform native testing framework with output.* references.
+# Uses the Terraform native testing framework. Every run applies against a
+# mocked provider, so no resources are created and no credentials are needed.
 # Run with: terraform test
 # =============================================================================
 
@@ -51,8 +52,8 @@ variables {
   }
 
   # Health checks
-  health_check_path    = "/health"
-  enable_startup_probe = true
+  health_check_path     = "/health"
+  enable_startup_probe  = true
   enable_liveness_probe = true
 
   # VPC configuration
@@ -81,7 +82,7 @@ variables {
 # Test: Cloud Run Module Plan Succeeds
 # -----------------------------------------------------------------------------
 run "cloud_run_plan_succeeds" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -102,7 +103,7 @@ run "cloud_run_plan_succeeds" {
 # Test: Cloud Run Naming Convention
 # -----------------------------------------------------------------------------
 run "cloud_run_naming_convention" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -118,7 +119,7 @@ run "cloud_run_naming_convention" {
 # Test: Service Account Created
 # -----------------------------------------------------------------------------
 run "service_account_created" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -134,7 +135,7 @@ run "service_account_created" {
 # Test: Artifact Registry Created When Enabled
 # -----------------------------------------------------------------------------
 run "artifact_registry_created_when_enabled" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -159,7 +160,7 @@ run "artifact_registry_created_when_enabled" {
 # Test: Artifact Registry NOT Created When Disabled
 # -----------------------------------------------------------------------------
 run "artifact_registry_not_created_when_disabled" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -180,7 +181,7 @@ run "artifact_registry_not_created_when_disabled" {
 # Test: VPC Connector NOT Created When Disabled
 # -----------------------------------------------------------------------------
 run "vpc_connector_not_created_when_disabled" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -200,7 +201,7 @@ run "vpc_connector_not_created_when_disabled" {
 # Test: Cloud Run Info Summary
 # -----------------------------------------------------------------------------
 run "cloud_run_info_summary" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -221,7 +222,7 @@ run "cloud_run_info_summary" {
 # Test: Environment - Development
 # -----------------------------------------------------------------------------
 run "environment_dev" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -241,7 +242,7 @@ run "environment_dev" {
 # Test: Environment - Production
 # -----------------------------------------------------------------------------
 run "environment_prod" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -261,7 +262,7 @@ run "environment_prod" {
 # Test: Different Region
 # -----------------------------------------------------------------------------
 run "different_region" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -281,7 +282,7 @@ run "different_region" {
 # Test: Docker Push Command
 # -----------------------------------------------------------------------------
 run "docker_push_command" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -302,7 +303,7 @@ run "docker_push_command" {
 # Test: Custom Labels
 # -----------------------------------------------------------------------------
 run "custom_labels" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -325,7 +326,7 @@ run "custom_labels" {
 # Test: Public Access Enabled
 # -----------------------------------------------------------------------------
 run "public_access_enabled" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -345,7 +346,7 @@ run "public_access_enabled" {
 # Test: Public Access Disabled
 # -----------------------------------------------------------------------------
 run "public_access_disabled" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock

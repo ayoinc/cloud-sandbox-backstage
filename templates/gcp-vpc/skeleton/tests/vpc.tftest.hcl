@@ -1,7 +1,8 @@
 # =============================================================================
 # GCP VPC - Terraform Tests
 # =============================================================================
-# Uses Terraform native testing framework with output.* references.
+# Uses the Terraform native testing framework. Every run applies against a
+# mocked provider, so no resources are created and no credentials are needed.
 # Run with: terraform test
 # =============================================================================
 
@@ -10,10 +11,6 @@
 # -----------------------------------------------------------------------------
 mock_provider "google" {
   alias = "mock"
-}
-
-mock_provider "google-beta" {
-  alias = "mock-beta"
 }
 
 # -----------------------------------------------------------------------------
@@ -43,11 +40,10 @@ variables {
 # Test: VPC Module Plan Succeeds
 # -----------------------------------------------------------------------------
 run "vpc_plan_succeeds" {
-  command = plan
+  command = apply
 
   providers = {
-    google      = google.mock
-    google-beta = google-beta.mock-beta
+    google = google.mock
   }
 
   assert {
@@ -65,11 +61,10 @@ run "vpc_plan_succeeds" {
 # Test: VPC Naming Convention
 # -----------------------------------------------------------------------------
 run "vpc_naming_convention" {
-  command = plan
+  command = apply
 
   providers = {
-    google      = google.mock
-    google-beta = google-beta.mock-beta
+    google = google.mock
   }
 
   assert {
@@ -82,11 +77,10 @@ run "vpc_naming_convention" {
 # Test: Subnet IDs are Created
 # -----------------------------------------------------------------------------
 run "subnet_ids_created" {
-  command = plan
+  command = apply
 
   providers = {
-    google      = google.mock
-    google-beta = google-beta.mock-beta
+    google = google.mock
   }
 
   assert {
@@ -114,11 +108,10 @@ run "subnet_ids_created" {
 # Test: Subnet Names Follow Convention
 # -----------------------------------------------------------------------------
 run "subnet_naming_convention" {
-  command = plan
+  command = apply
 
   providers = {
-    google      = google.mock
-    google-beta = google-beta.mock-beta
+    google = google.mock
   }
 
   assert {
@@ -136,11 +129,10 @@ run "subnet_naming_convention" {
 # Test: GKE Secondary Ranges
 # -----------------------------------------------------------------------------
 run "gke_secondary_ranges" {
-  command = plan
+  command = apply
 
   providers = {
-    google      = google.mock
-    google-beta = google-beta.mock-beta
+    google = google.mock
   }
 
   assert {
@@ -158,11 +150,10 @@ run "gke_secondary_ranges" {
 # Test: Cloud Router Created
 # -----------------------------------------------------------------------------
 run "cloud_router_created" {
-  command = plan
+  command = apply
 
   providers = {
-    google      = google.mock
-    google-beta = google-beta.mock-beta
+    google = google.mock
   }
 
   assert {
@@ -180,11 +171,10 @@ run "cloud_router_created" {
 # Test: Cloud NAT Created When Enabled
 # -----------------------------------------------------------------------------
 run "cloud_nat_created_when_enabled" {
-  command = plan
+  command = apply
 
   providers = {
-    google      = google.mock
-    google-beta = google-beta.mock-beta
+    google = google.mock
   }
 
   variables {
@@ -206,11 +196,10 @@ run "cloud_nat_created_when_enabled" {
 # Test: Cloud NAT NOT Created When Disabled
 # -----------------------------------------------------------------------------
 run "cloud_nat_not_created_when_disabled" {
-  command = plan
+  command = apply
 
   providers = {
-    google      = google.mock
-    google-beta = google-beta.mock-beta
+    google = google.mock
   }
 
   variables {
@@ -227,11 +216,10 @@ run "cloud_nat_not_created_when_disabled" {
 # Test: Subnet Map Contains All Subnets
 # -----------------------------------------------------------------------------
 run "subnet_map_complete" {
-  command = plan
+  command = apply
 
   providers = {
-    google      = google.mock
-    google-beta = google-beta.mock-beta
+    google = google.mock
   }
 
   assert {
@@ -264,11 +252,10 @@ run "subnet_map_complete" {
 # Test: VPC Info Summary
 # -----------------------------------------------------------------------------
 run "vpc_info_summary" {
-  command = plan
+  command = apply
 
   providers = {
-    google      = google.mock
-    google-beta = google-beta.mock-beta
+    google = google.mock
   }
 
   assert {
@@ -291,11 +278,10 @@ run "vpc_info_summary" {
 # Test: Environment Validation - Development
 # -----------------------------------------------------------------------------
 run "environment_dev" {
-  command = plan
+  command = apply
 
   providers = {
-    google      = google.mock
-    google-beta = google-beta.mock-beta
+    google = google.mock
   }
 
   variables {
@@ -312,11 +298,10 @@ run "environment_dev" {
 # Test: Environment Validation - Production
 # -----------------------------------------------------------------------------
 run "environment_prod" {
-  command = plan
+  command = apply
 
   providers = {
-    google      = google.mock
-    google-beta = google-beta.mock-beta
+    google = google.mock
   }
 
   variables {
@@ -333,11 +318,10 @@ run "environment_prod" {
 # Test: Different Region
 # -----------------------------------------------------------------------------
 run "different_region" {
-  command = plan
+  command = apply
 
   providers = {
-    google      = google.mock
-    google-beta = google-beta.mock-beta
+    google = google.mock
   }
 
   variables {
@@ -354,11 +338,10 @@ run "different_region" {
 # Test: Custom Labels
 # -----------------------------------------------------------------------------
 run "custom_labels" {
-  command = plan
+  command = apply
 
   providers = {
-    google      = google.mock
-    google-beta = google-beta.mock-beta
+    google = google.mock
   }
 
   variables {

@@ -1,76 +1,69 @@
-# =============================================================================
-# AZURE FULL INFRASTRUCTURE - LOCALS
-# =============================================================================
-
 locals {
-  # Standard tags for all resources
-  tags = merge({
-    Project     = var.project
-    Environment = var.environment
-    ManagedBy   = "terraform"
-    Repository  = "${{ values.name }}"
-    Owner       = "${{ values.owner }}"
-  }, var.additional_tags)
+  name_prefix = "${var.project_name}-${var.environment}"
 
-  # Environment-specific configurations
-  env_configs = {
-    dev = {
-      # Monitoring
-      log_retention_days = 30
+  # Service account IDs are limited to 30 characters.
+  sa_prefix = trimsuffix(substr(local.name_prefix, 0, 24), "-")
 
-      # Storage
-      storage_replication = "LRS"
+  # Production-like environments are protected against accidental deletion.
+  is_production = contains(["prod", "dr"], var.environment)
 
-      # Compute
-      vm_size = "Standard_B2s"
-
-      # AKS
-      aks_sku_tier   = "Free"
-      aks_node_count = 1
-      aks_max_nodes  = 3
-
-      # Database
-      sql_sku = "Basic"
+  # Label keys and values may only contain lowercase letters, digits,
+  # underscores and hyphens.
+  labels = merge(
+    {
+      for key, value in var.labels :
+      lower(replace(key, "/[^a-zA-Z0-9_-]/", "-")) => lower(replace(value, "/[^a-zA-Z0-9_-]/", "-"))
+    },
+    {
+      project     = var.project_name
+      component   = lower(replace(var.component_name, "/[^a-zA-Z0-9_-]/", "-"))
+      environment = var.environment
+      managed-by  = "terraform"
     }
+  )
 
-    staging = {
-      # Monitoring
-      log_retention_days = 60
+  network_name = var.enable_networking ? google_compute_network.main[0].name : var.existing_network
+  network_id   = "projects/${var.project_id}/global/networks/${local.network_name}"
 
-      # Storage
-      storage_replication = "ZRS"
+  # Subnet of the primary region used by the Compute Engine instances.
+  primary_subnets = [for subnet in google_compute_subnetwork.main : subnet.name if subnet.region == var.region]
+  subnetwork_id = format(
+    "projects/%s/regions/%s/subnetworks/%s",
+    var.project_id,
+    var.region,
+    length(local.primary_subnets) > 0 ? local.primary_subnets[0] : var.existing_subnetwork
+  )
 
-      # Compute
-      vm_size = "Standard_D2s_v3"
+  # Cloud SQL and Memorystore Redis reach the network through private service access.
+  needs_private_service_access = var.enable_database && var.create_private_service_access
 
-      # AKS
-      aks_sku_tier   = "Standard"
-      aks_node_count = 2
-      aks_max_nodes  = 5
+  # APIs required by the enabled categories.
+  services = toset(concat(
+    ["cloudresourcemanager.googleapis.com", "iam.googleapis.com"],
+    var.enable_networking || var.enable_compute ? ["compute.googleapis.com"] : [],
+    var.enable_containers ? ["compute.googleapis.com", "container.googleapis.com", "artifactregistry.googleapis.com"] : [],
+    var.enable_storage ? ["storage.googleapis.com"] : [],
+    var.enable_storage && var.enable_filestore ? ["file.googleapis.com"] : [],
+    var.enable_database ? ["compute.googleapis.com", "sqladmin.googleapis.com", "servicenetworking.googleapis.com", "secretmanager.googleapis.com"] : [],
+    var.enable_database && var.enable_firestore ? ["firestore.googleapis.com"] : [],
+    var.enable_database && var.enable_redis ? ["redis.googleapis.com"] : [],
+    var.enable_security ? ["cloudkms.googleapis.com", "secretmanager.googleapis.com"] : [],
+    var.enable_monitoring ? ["monitoring.googleapis.com", "logging.googleapis.com"] : [],
+    var.enable_analytics ? ["bigquery.googleapis.com", "pubsub.googleapis.com"] : [],
+    var.enable_ai_ml ? ["aiplatform.googleapis.com", "storage.googleapis.com"] : [],
+    var.enable_serverless ? ["run.googleapis.com"] : [],
+  ))
+}
 
-      # Database
-      sql_sku = "S1"
-    }
+# Suffix for names that must be globally unique or cannot be reused after deletion.
+resource "random_id" "suffix" {
+  byte_length = 4
+}
 
-    prod = {
-      # Monitoring
-      log_retention_days = 90
+resource "google_project_service" "main" {
+  for_each = local.services
 
-      # Storage
-      storage_replication = "GRS"
-
-      # Compute
-      vm_size = "Standard_D4s_v3"
-
-      # AKS
-      aks_sku_tier   = "Standard"
-      aks_node_count = 3
-      aks_max_nodes  = 10
-
-      # Database
-      sql_sku = "P1"
-    }
-  }
-
-  env_config = lookup(local.env_configs, var.environment, local.env_configs["dev"])
+  project            = var.project_id
+  service            = each.value
+  disable_on_destroy = false
 }

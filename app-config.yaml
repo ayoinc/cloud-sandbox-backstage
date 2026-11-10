@@ -449,6 +449,10 @@ catalog:
       target: ../../templates/gcp-cloud-sql/template.yaml
       rules:
         - allow: [Template]
+    - type: file
+      target: ../../templates/gcp-full-infrastructure/template.yaml
+      rules:
+        - allow: [Template]
 
     # Data Engineering Templates
     - type: file

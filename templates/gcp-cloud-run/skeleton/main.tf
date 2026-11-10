@@ -72,8 +72,9 @@ module "cloud_run" {
   service_account_roles = var.service_account_roles
 
   # Artifact Registry
-  create_artifact_registry     = var.create_artifact_registry
-  artifact_registry_keep_count = var.artifact_registry_keep_count
+  create_artifact_registry       = var.create_artifact_registry
+  artifact_registry_keep_count   = var.artifact_registry_keep_count
+  artifact_registry_kms_key_name = var.artifact_registry_kms_key_name
 
   # Monitoring
   enable_monitoring_alerts = var.enable_monitoring_alerts

@@ -1,0 +1,15 @@
+{
+  "values": {
+    "name": "sample-run-service",
+    "description": "Sample Cloud Run service",
+    "owner": "group:default/platform-team",
+    "environment": "development",
+    "region": "us-central1",
+    "gcpProject": "sample-project-123456",
+    "memory": "512Mi",
+    "cpu": "1",
+    "maxInstances": 10,
+    "allowUnauthenticated": false,
+    "repoUrl": "github.com?owner=example-org&repo=sample-run-service"
+  }
+}

@@ -1,24 +1,6 @@
 # =============================================================================
 # GCP Cloud SQL - Provider Configuration
 # =============================================================================
-# Configures the Google Cloud provider with Jinja2 template variables
-# that will be substituted by Backstage when the template is scaffolded.
-# =============================================================================
-
-terraform {
-  required_version = ">= 1.5"
-
-  required_providers {
-    google = {
-      source  = "hashicorp/google"
-      version = "~> 5.0"
-    }
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.5"
-    }
-  }
-}
 
 # -----------------------------------------------------------------------------
 # Google Cloud Provider

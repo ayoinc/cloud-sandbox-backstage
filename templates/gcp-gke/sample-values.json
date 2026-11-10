@@ -1,0 +1,16 @@
+{
+  "values": {
+    "name": "sample-gke-cluster",
+    "description": "Sample GKE cluster",
+    "owner": "group:default/platform-team",
+    "environment": "development",
+    "region": "us-central1",
+    "gcpProject": "sample-project-123456",
+    "networkId": "projects/sample-project-123456/global/networks/sample-vpc",
+    "subnetId": "projects/sample-project-123456/regions/us-central1/subnetworks/sample-gke-subnet",
+    "clusterMode": "autopilot",
+    "machineType": "e2-standard-2",
+    "nodeCount": 3,
+    "repoUrl": "github.com?owner=example-org&repo=sample-gke-cluster"
+  }
+}

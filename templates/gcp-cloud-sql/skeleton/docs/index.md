@@ -137,73 +137,25 @@ cloudsql.primary -> monitoring: "Metrics"
 
 ## CI/CD Pipeline
 
-This repository includes a comprehensive GitHub Actions pipeline with:
+The `Terraform` workflow (`.github/workflows/terraform.yaml`) runs on every
+push and pull request to `main`.
 
-- **Validation**: Format checking, TFLint, Terraform validation
-- **Security Scanning**: tfsec, Checkov for vulnerability detection
-- **Terraform Tests**: Native Terraform test framework
-- **Multi-Environment**: Separate plans for dev, staging, and production
-- **Manual Approvals**: Required for apply and destroy operations
-- **Drift Detection**: Scheduled checks for configuration drift
+| Job                       | Needs credentials   | What it does                                                                   |
+| ------------------------- | ------------------- | ------------------------------------------------------------------------------ |
+| Validate                  | No                  | `terraform fmt -check`, `terraform init -backend=false`, `terraform validate`  |
+| TFLint                    | No                  | Lints the configuration and module with the Google ruleset                     |
+| Terraform tests           | No                  | `terraform test` against mocked providers                                      |
+| Security scan (Trivy)     | No                  | Fails on critical, high and medium misconfigurations                           |
+| Security scan (Checkov)   | No                  | Policy checks for the Terraform code                                           |
+| Cost estimation           | `INFRACOST_API_KEY` | Comments the cost estimate on pull requests                                    |
+| Plan                      | GCP secrets         | Plans the selected environment and comments the plan on pull requests          |
+| Apply                     | GCP secrets         | Applies the plan on pushes to `main`                                           |
+| Destroy / Drift detection | GCP secrets         | Started manually from the Actions tab                                          |
 
-### Pipeline Workflow
-
-```d2
-direction: right
-
-pr: Pull Request {
-  shape: oval
-  style.fill: "#E3F2FD"
-  style.stroke: "#1976D2"
-}
-
-validate: Validate {
-  style.fill: "#E8F5E9"
-  style.stroke: "#388E3C"
-  label: "Format Check\nTFLint\nValidate"
-}
-
-security: Security {
-  style.fill: "#FFCDD2"
-  style.stroke: "#D32F2F"
-  label: "tfsec\nCheckov"
-}
-
-test: Test {
-  style.fill: "#F3E5F5"
-  style.stroke: "#7B1FA2"
-  label: "Terraform\nTests"
-}
-
-plan: Plan {
-  style.fill: "#E3F2FD"
-  style.stroke: "#1976D2"
-  label: "Generate Plan\nReview Changes"
-}
-
-review: Review {
-  shape: diamond
-  style.fill: "#FFECB3"
-  style.stroke: "#FFA000"
-  label: "Manual\nApproval"
-}
-
-apply: Apply {
-  style.fill: "#E8F5E9"
-  style.stroke: "#388E3C"
-  label: "Deploy\nInfrastructure"
-}
-
-pr -> validate -> security -> test -> plan -> review -> apply
-```
-
-### Environment Deployment Strategy
-
-| Environment | Trigger                    | Approval Required | Protection Rules          |
-| ----------- | -------------------------- | ----------------- | ------------------------- |
-| `dev`       | Push to `main`, Manual     | No                | None                      |
-| `staging`   | Manual workflow dispatch   | Optional          | Reviewers (optional)      |
-| `prod`      | Manual workflow dispatch   | Yes               | Reviewers, Branch: `main` |
+Jobs that need credentials are skipped until the repository secrets exist, so
+a new repository is green before any cloud access is configured. Pushes and
+pull requests target the environment selected when the repository was created
+(`${{ values.environment }}`); a manual run can target `dev`, `staging` or `prod`.
 
 ---
 
@@ -320,29 +272,24 @@ gcloud storage buckets update gs://your-terraform-state-bucket \
 
 ### 2. GitHub Repository Setup
 
-#### Required Secrets
+#### Secrets
 
-Configure these in **Settings > Secrets and variables > Actions**:
+Configure these in **Settings > Secrets and variables > Actions**. Plan and
+apply are skipped until the first three exist.
 
-| Secret                             | Description                                               | Example                                                                                                    |
-| ---------------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `GCP_WORKLOAD_IDENTITY_PROVIDER`   | Full identifier of the Workload Identity Provider         | `projects/123456789/locations/global/workloadIdentityPools/github-pool/providers/github-provider`          |
-| `GCP_SERVICE_ACCOUNT`              | Service account email for Terraform                       | `terraform-cloud-sql@${{ values.gcpProject }}.iam.gserviceaccount.com`                                     |
-| `GCP_PROJECT_ID`                   | GCP Project ID                                            | `${{ values.gcpProject }}`                                                                                 |
-| `GCP_TERRAFORM_STATE_BUCKET`       | GCS bucket name for Terraform state                       | `your-terraform-state-bucket`                                                                              |
-| `INFRACOST_API_KEY`                | API key for cost estimation (optional)                    | `ico-xxxxxxxx`                                                                                             |
+| Secret                           | Description                              | Example                                                                               |
+| -------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------- |
+| `GCP_WORKLOAD_IDENTITY_PROVIDER` | Full provider resource name              | `projects/123/locations/global/workloadIdentityPools/github-actions/providers/github` |
+| `GCP_SERVICE_ACCOUNT`            | Service account email for authentication | `github-actions-terraform@project.iam.gserviceaccount.com`                            |
+| `GCP_TERRAFORM_STATE_BUCKET`     | GCS bucket name for Terraform state      | `${{ values.gcpProject }}-terraform-state`                                            |
+| `INFRACOST_API_KEY`              | API key for cost estimation (optional)   | `ico-xxxxxxxx`                                                                        |
 
 #### GitHub Environments
 
-Create environments in **Settings > Environments**:
-
-| Environment   | Protection Rules                                     | Reviewers                |
-| ------------- | ---------------------------------------------------- | ------------------------ |
-| `dev`         | None                                                 | -                        |
-| `dev-plan`    | None                                                 | -                        |
-| `staging`     | Required reviewers (optional)                        | Team leads               |
-| `prod`        | Required reviewers, Deployment branches: `main` only | Senior engineers, DevOps |
-| `*-destroy`   | Required reviewers                                   | Infrastructure team      |
+The apply and destroy jobs run in the GitHub environment named after the
+target (`dev`, `staging` or `prod`); GitHub creates it on first use. To require
+an approval, add required reviewers to the environment in
+**Settings > Environments**.
 
 ---
 
@@ -437,7 +384,7 @@ terraform output -raw user_password
 #### Manual Deployment
 
 1. Navigate to **Actions** tab
-2. Select **Terraform CI/CD** workflow
+2. Select **Terraform** workflow
 3. Click **Run workflow**
 4. Configure:
    - **action**: `plan`, `apply`, `destroy`, or `drift-detection`
@@ -445,7 +392,7 @@ terraform output -raw user_password
    - **confirm_destroy**: Type `DESTROY` to confirm (required for destroy)
 5. Click **Run workflow**
 
-For `staging` and `prod` environments, you'll need approval from designated reviewers.
+Apply and destroy wait for approval if the target GitHub environment has required reviewers.
 
 ---
 
@@ -816,13 +763,9 @@ Error: Error creating service networking connection: googleapi: Error 400: Canno
 
 #### Security scan blocking deployment
 
-Set `soft_fail: true` in the workflow for warnings without blocking:
-
-```yaml
-- uses: aquasecurity/tfsec-action@v1.0.3
-  with:
-    soft_fail: true
-```
+Open the failed Trivy or Checkov job to see the rule and the resource. Fix the
+Terraform code, or suppress that single rule on the resource with a reason
+(`# checkov:skip=<ID>:<reason>` or `# trivy:ignore:<ID>`).
 
 #### Terraform test failures
 

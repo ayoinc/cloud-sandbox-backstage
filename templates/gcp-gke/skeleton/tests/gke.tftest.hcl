@@ -1,7 +1,8 @@
 # =============================================================================
 # GCP GKE - Terraform Tests
 # =============================================================================
-# Uses Terraform native testing framework with output.* references.
+# Uses the Terraform native testing framework. Every run applies against a
+# mocked provider, so no resources are created and no credentials are needed.
 # Run with: terraform test
 # =============================================================================
 
@@ -10,6 +11,14 @@
 # -----------------------------------------------------------------------------
 mock_provider "google" {
   alias = "mock"
+
+  mock_resource "google_container_cluster" {
+    defaults = {
+      master_auth = {
+        cluster_ca_certificate = "dGVzdC1jYS1jZXJ0aWZpY2F0ZQ=="
+      }
+    }
+  }
 }
 
 # -----------------------------------------------------------------------------
@@ -94,7 +103,7 @@ variables {
 # Test: GKE Module Plan Succeeds
 # -----------------------------------------------------------------------------
 run "gke_plan_succeeds" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -115,7 +124,7 @@ run "gke_plan_succeeds" {
 # Test: GKE Naming Convention
 # -----------------------------------------------------------------------------
 run "gke_naming_convention" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -131,7 +140,7 @@ run "gke_naming_convention" {
 # Test: Service Account Created
 # -----------------------------------------------------------------------------
 run "service_account_created" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -147,7 +156,7 @@ run "service_account_created" {
 # Test: Cluster Mode - Standard
 # -----------------------------------------------------------------------------
 run "cluster_mode_standard" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -172,7 +181,7 @@ run "cluster_mode_standard" {
 # Test: Cluster Mode - Autopilot
 # -----------------------------------------------------------------------------
 run "cluster_mode_autopilot" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -197,7 +206,7 @@ run "cluster_mode_autopilot" {
 # Test: Artifact Registry Created When Enabled
 # -----------------------------------------------------------------------------
 run "artifact_registry_created_when_enabled" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -222,7 +231,7 @@ run "artifact_registry_created_when_enabled" {
 # Test: Artifact Registry NOT Created When Disabled
 # -----------------------------------------------------------------------------
 run "artifact_registry_not_created_when_disabled" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -242,7 +251,7 @@ run "artifact_registry_not_created_when_disabled" {
 # Test: Workload Identity Pool
 # -----------------------------------------------------------------------------
 run "workload_identity_pool" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -258,7 +267,7 @@ run "workload_identity_pool" {
 # Test: GKE Info Summary
 # -----------------------------------------------------------------------------
 run "gke_info_summary" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -284,7 +293,7 @@ run "gke_info_summary" {
 # Test: Environment - Development
 # -----------------------------------------------------------------------------
 run "environment_dev" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -304,7 +313,7 @@ run "environment_dev" {
 # Test: Environment - Production
 # -----------------------------------------------------------------------------
 run "environment_prod" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -324,7 +333,7 @@ run "environment_prod" {
 # Test: Different Region
 # -----------------------------------------------------------------------------
 run "different_region" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -344,7 +353,7 @@ run "different_region" {
 # Test: Get Credentials Command
 # -----------------------------------------------------------------------------
 run "get_credentials_command" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -365,7 +374,7 @@ run "get_credentials_command" {
 # Test: Custom Labels
 # -----------------------------------------------------------------------------
 run "custom_labels" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock

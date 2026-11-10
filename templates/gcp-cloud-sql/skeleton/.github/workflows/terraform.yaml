@@ -1,0 +1,412 @@
+{%- set environments = { 'development': 'dev', 'staging': 'staging', 'production': 'prod' } -%}
+# Terraform pipeline.
+#
+# Every push and pull request is validated without any cloud access:
+# formatting, terraform validate, TFLint, terraform test (mocked providers)
+# and the Trivy and Checkov security scans.
+#
+# Plan, apply, destroy, drift detection and cost estimation need credentials.
+# They are skipped until the repository secrets exist:
+#   GCP_WORKLOAD_IDENTITY_PROVIDER, GCP_SERVICE_ACCOUNT and
+#   GCP_TERRAFORM_STATE_BUCKET   plan / apply / destroy / drift detection
+#   INFRACOST_API_KEY            cost estimate on pull requests
+name: Terraform
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Action to perform
+        required: true
+        type: choice
+        options: [plan, apply, destroy, drift-detection]
+        default: plan
+      environment:
+        description: Target environment
+        required: true
+        type: choice
+        options: [dev, staging, prod]
+        default: ${{ environments[values.environment] }}
+      confirm_destroy:
+        description: Type DESTROY to confirm the destroy action
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+  issues: write
+
+env:
+  TF_VERSION: '1.9.8'
+  TFLINT_VERSION: 'v0.59.1'
+  TRIVY_VERSION: 'v0.76.2'
+  TF_IN_AUTOMATION: 'true'
+  TF_INPUT: 'false'
+  # Prefix of the Terraform state inside the state bucket.
+  STATE_PREFIX: ${{ values.name }}
+  # Environment that pushes and pull requests plan and apply.
+  DEFAULT_ENVIRONMENT: ${{ environments[values.environment] }}
+{% raw %}
+concurrency:
+  group: terraform-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  setup:
+    name: Setup
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.target.outputs.environment }}
+      action: ${{ steps.target.outputs.action }}
+      gcp: ${{ steps.credentials.outputs.gcp }}
+      infracost: ${{ steps.credentials.outputs.infracost }}
+    steps:
+      - name: Resolve target environment and action
+        id: target
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_ACTION: ${{ inputs.action }}
+          INPUT_ENVIRONMENT: ${{ inputs.environment }}
+          CONFIRM_DESTROY: ${{ inputs.confirm_destroy }}
+        run: |
+          case "$EVENT" in
+            workflow_dispatch) action="$INPUT_ACTION" ;;
+            push) action=apply ;;
+            *) action=plan ;;
+          esac
+          if [ "$action" = destroy ] && [ "$CONFIRM_DESTROY" != DESTROY ]; then
+            echo "::error::Type DESTROY in the confirmation field to destroy an environment."
+            exit 1
+          fi
+          echo "action=$action" >> "$GITHUB_OUTPUT"
+          echo "environment=${INPUT_ENVIRONMENT:-$DEFAULT_ENVIRONMENT}" >> "$GITHUB_OUTPUT"
+
+      # The secrets context cannot be read in a job-level condition, so the
+      # presence of each credential is published as a job output.
+      - name: Detect configured credentials
+        id: credentials
+        env:
+          WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          STATE_BUCKET: ${{ secrets.GCP_TERRAFORM_STATE_BUCKET }}
+          INFRACOST_API_KEY: ${{ secrets.INFRACOST_API_KEY }}
+        run: |
+          if [ -n "$WORKLOAD_IDENTITY_PROVIDER" ] && [ -n "$SERVICE_ACCOUNT" ] && [ -n "$STATE_BUCKET" ]; then
+            echo "gcp=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "gcp=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::GCP credentials are not configured, so plan and apply are skipped. Add the secrets GCP_WORKLOAD_IDENTITY_PROVIDER, GCP_SERVICE_ACCOUNT and GCP_TERRAFORM_STATE_BUCKET to enable them."
+          fi
+          if [ -n "$INFRACOST_API_KEY" ]; then
+            echo "infracost=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "infracost=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Terraform format
+        run: terraform fmt -check -recursive -diff
+
+      - name: Terraform init
+        run: terraform init -backend=false
+
+      - name: Terraform validate
+        run: terraform validate -no-color
+
+  tflint:
+    name: TFLint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: ${{ env.TFLINT_VERSION }}
+
+      - name: Install TFLint plugins
+        run: tflint --init --config="$GITHUB_WORKSPACE/.tflint.hcl"
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Run TFLint
+        run: tflint --recursive --config="$GITHUB_WORKSPACE/.tflint.hcl" --format=compact
+
+  test:
+    name: Terraform tests
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Terraform init
+        run: terraform init -backend=false
+
+      - name: Terraform test
+        run: terraform test -no-color
+
+  security-trivy:
+    name: Security scan (Trivy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Trivy configuration scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          version: ${{ env.TRIVY_VERSION }}
+          scan-type: config
+          scan-ref: .
+          format: table
+          severity: CRITICAL,HIGH,MEDIUM
+          exit-code: '1'
+
+  security-checkov:
+    name: Security scan (Checkov)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Checkov
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: .
+          framework: terraform
+          quiet: true
+          output_format: cli
+
+  cost-estimation:
+    name: Cost estimation
+    runs-on: ubuntu-latest
+    needs: [setup, validate]
+    if: github.event_name == 'pull_request' && needs.setup.outputs.infracost == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: infracost/actions/setup@v3
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+      - name: Generate cost breakdown
+        run: |
+          for environment in dev staging prod; do
+            infracost breakdown \
+              --path=. \
+              --terraform-var-file="environments/$environment.tfvars" \
+              --format=json \
+              --out-file="/tmp/infracost-$environment.json"
+          done
+
+      - name: Comment on the pull request
+        run: |
+          infracost comment github \
+            --path="/tmp/infracost-*.json" \
+            --repo="$GITHUB_REPOSITORY" \
+            --github-token="${{ github.token }}" \
+            --pull-request="${{ github.event.pull_request.number }}" \
+            --behavior=update
+
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    needs: [setup, validate, tflint, test, security-trivy, security-checkov]
+    if: >-
+      needs.setup.outputs.gcp == 'true' &&
+      (needs.setup.outputs.action == 'plan' || needs.setup.outputs.action == 'apply')
+    env:
+      ENVIRONMENT: ${{ needs.setup.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Terraform init
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.GCP_TERRAFORM_STATE_BUCKET }}" \
+            -backend-config="prefix=$STATE_PREFIX/$ENVIRONMENT"
+
+      - name: Terraform plan
+        run: |
+          set -o pipefail
+          terraform plan \
+            -var-file="environments/$ENVIRONMENT.tfvars" \
+            -out=tfplan.binary \
+            -no-color | tee plan-output.txt
+
+      - name: Upload plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-${{ env.ENVIRONMENT }}
+          path: |
+            tfplan.binary
+            plan-output.txt
+          retention-days: 7
+
+      - name: Comment plan on the pull request
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('plan-output.txt', 'utf8').slice(-60000);
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `### Terraform plan (${process.env.ENVIRONMENT})\n\n\`\`\`\n${plan}\n\`\`\``,
+            });
+
+  apply:
+    name: Apply
+    runs-on: ubuntu-latest
+    needs: [setup, plan]
+    if: needs.setup.outputs.action == 'apply'
+    # Add required reviewers to this GitHub environment to approve applies.
+    environment: ${{ needs.setup.outputs.environment }}
+    env:
+      ENVIRONMENT: ${{ needs.setup.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Terraform init
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.GCP_TERRAFORM_STATE_BUCKET }}" \
+            -backend-config="prefix=$STATE_PREFIX/$ENVIRONMENT"
+
+      - name: Download plan
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-plan-${{ env.ENVIRONMENT }}
+
+      - name: Terraform apply
+        run: terraform apply -auto-approve -no-color tfplan.binary
+
+  destroy:
+    name: Destroy
+    runs-on: ubuntu-latest
+    needs: setup
+    if: needs.setup.outputs.gcp == 'true' && needs.setup.outputs.action == 'destroy'
+    environment: ${{ needs.setup.outputs.environment }}
+    env:
+      ENVIRONMENT: ${{ needs.setup.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Terraform init
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.GCP_TERRAFORM_STATE_BUCKET }}" \
+            -backend-config="prefix=$STATE_PREFIX/$ENVIRONMENT"
+
+      - name: Terraform destroy
+        run: terraform destroy -auto-approve -no-color -var-file="environments/$ENVIRONMENT.tfvars"
+
+  drift-detection:
+    name: Drift detection
+    runs-on: ubuntu-latest
+    needs: setup
+    if: needs.setup.outputs.gcp == 'true' && needs.setup.outputs.action == 'drift-detection'
+    env:
+      ENVIRONMENT: ${{ needs.setup.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Terraform init
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.GCP_TERRAFORM_STATE_BUCKET }}" \
+            -backend-config="prefix=$STATE_PREFIX/$ENVIRONMENT"
+
+      # Exit code 0 means no changes, 2 means the deployed resources differ
+      # from the configuration, anything else is an error.
+      - name: Detect drift
+        id: drift
+        run: |
+          set +e
+          terraform plan \
+            -var-file="environments/$ENVIRONMENT.tfvars" \
+            -detailed-exitcode \
+            -no-color > drift-output.txt 2>&1
+          code=$?
+          cat drift-output.txt
+          if [ "$code" -eq 2 ]; then
+            echo "detected=true" >> "$GITHUB_OUTPUT"
+          elif [ "$code" -ne 0 ]; then
+            exit "$code"
+          fi
+
+      - name: Open an issue for the drift
+        if: steps.drift.outputs.detected == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('drift-output.txt', 'utf8').slice(-60000);
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Infrastructure drift detected in ${process.env.ENVIRONMENT}`,
+              body: `Terraform found differences between the configuration and the deployed resources.\n\n\`\`\`\n${plan}\n\`\`\`\n\nRun: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            });
+{% endraw %}

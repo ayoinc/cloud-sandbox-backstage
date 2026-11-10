@@ -1,0 +1,12 @@
+{
+  "values": {
+    "name": "sample-vpc",
+    "description": "Sample VPC network",
+    "owner": "group:default/platform-team",
+    "environment": "development",
+    "region": "us-central1",
+    "gcpProject": "sample-project-123456",
+    "cidrRange": "10.0.0.0/16",
+    "repoUrl": "github.com?owner=example-org&repo=sample-vpc"
+  }
+}

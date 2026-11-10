@@ -1,5 +1,5 @@
 site_name: ${{ values.name }}
-site_description: GCP VPC Network - ${{ values.description }}
+site_description: ${{ (values.description or 'GCP VPC network') | dump }}
 
 nav:
   - Home: index.md

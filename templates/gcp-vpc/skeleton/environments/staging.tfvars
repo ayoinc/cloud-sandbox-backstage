@@ -1,9 +1,6 @@
 # =============================================================================
 # GCP VPC - Staging Environment Configuration
 # =============================================================================
-# This file contains Jinja2 template variables that will be substituted
-# by Backstage when the template is scaffolded.
-# =============================================================================
 
 # -----------------------------------------------------------------------------
 # Required Variables (from Backstage template)
@@ -12,18 +9,17 @@ name        = "${{ values.name }}"
 environment = "staging"
 region      = "${{ values.region }}"
 description = "${{ values.description }}"
-owner       = "${{ values.owner }}"
+owner       = "${{ (values.owner | parseEntityRef).name }}"
 
 # -----------------------------------------------------------------------------
 # VPC Configuration - Staging (production-like)
 # -----------------------------------------------------------------------------
-address_space = "${{ values.addressSpace }}"
+address_space = "${{ values.cidrRange }}"
 
-# Subnet CIDRs
-public_subnet_cidr   = "${{ values.publicSubnetCidr }}"
-private_subnet_cidr  = "${{ values.privateSubnetCidr }}"
-database_subnet_cidr = "${{ values.databaseSubnetCidr }}"
-gke_subnet_cidr      = "${{ values.gkeSubnetCidr }}"
+# Subnet CIDRs are derived from address_space: /24 ranges for the public,
+# private and database subnets and a /20 range for the GKE subnet. Set
+# public_subnet_cidr, private_subnet_cidr, database_subnet_cidr or
+# gke_subnet_cidr to override one.
 
 # GKE secondary ranges
 gke_pods_cidr     = "10.100.0.0/16"
@@ -81,5 +77,5 @@ private_service_access_prefix_length = 16
 # -----------------------------------------------------------------------------
 labels = {
   cost-center = "staging"
-  team        = "${{ values.owner }}"
+  team        = "${{ (values.owner | parseEntityRef).name }}"
 }

@@ -1,8 +1,6 @@
+{%- set selected = values.environment == 'production' -%}
 # =============================================================================
 # GCP GKE - Production Environment Configuration
-# =============================================================================
-# This file contains Jinja2 template variables that will be substituted
-# by Backstage when the template is scaffolded.
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -12,12 +10,12 @@ name        = "${{ values.name }}"
 environment = "prod"
 region      = "${{ values.region }}"
 project_id  = "${{ values.gcpProject }}"
-owner       = "${{ values.owner }}"
+owner       = "${{ (values.owner | parseEntityRef).name }}"
 
 # -----------------------------------------------------------------------------
 # Cluster Mode - Standard for production (full control)
 # -----------------------------------------------------------------------------
-cluster_mode = "standard"
+cluster_mode = "${{ values.clusterMode if selected else 'standard' }}"
 
 # -----------------------------------------------------------------------------
 # Network Configuration
@@ -61,10 +59,10 @@ autoscaling_memory_max     = 500
 # -----------------------------------------------------------------------------
 # Node Pool Configuration
 # -----------------------------------------------------------------------------
-node_count            = 3
+node_count            = ${{ values.nodeCount if selected else 3 }}
 node_pool_min_count   = 3
 node_pool_max_count   = 20
-machine_type          = "e2-standard-8"
+machine_type          = "${{ values.machineType if selected else 'e2-standard-8' }}"
 disk_size_gb          = 200
 disk_type             = "pd-ssd"
 image_type            = "COS_CONTAINERD"
@@ -121,6 +119,6 @@ artifact_registry_keep_count = 20
 # -----------------------------------------------------------------------------
 labels = {
   cost-center = "production"
-  team        = "${{ values.owner }}"
+  team        = "${{ (values.owner | parseEntityRef).name }}"
   criticality = "high"
 }

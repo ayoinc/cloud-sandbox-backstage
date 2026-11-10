@@ -57,11 +57,13 @@ resource "google_project_iam_member" "gke_nodes" {
 # Artifact Registry
 # =============================================================================
 resource "google_artifact_registry_repository" "main" {
+  # checkov:skip=CKV_GCP_84:Google-managed encryption is the default; set artifact_registry_kms_key_name to use a customer-managed key
   count = var.create_artifact_registry ? 1 : 0
 
   location      = var.region
   repository_id = "${var.name}-${var.environment}"
   description   = "Container registry for ${var.name}"
+  kms_key_name  = var.artifact_registry_kms_key_name
   format        = "DOCKER"
 
   cleanup_policies {
@@ -79,11 +81,38 @@ resource "google_artifact_registry_repository" "main" {
 # GKE Cluster - Autopilot Mode
 # =============================================================================
 resource "google_container_cluster" "autopilot" {
+  # checkov:skip=CKV_GCP_21:Labels come from local.common_labels, which includes variables without defaults that a static scan cannot resolve
+  # checkov:skip=CKV_GCP_65:Google Groups for RBAC needs a Google Workspace group; set rbac_security_group to enable it
+  # checkov:skip=CKV_GCP_69:Autopilot clusters always run the GKE metadata server
+  # checkov:skip=CKV_GCP_12:Autopilot always enforces network policy (Dataplane V2); the provider rejects a network_policy block
+  # checkov:skip=CKV_GCP_61:The provider rejects enable_intranode_visibility on Autopilot clusters
   count    = var.cluster_mode == "autopilot" ? 1 : 0
   name     = local.cluster_name
   location = var.region
 
   enable_autopilot = true
+
+  # Nodes run as the dedicated service account instead of the Compute Engine
+  # default one.
+  cluster_autoscaling {
+    auto_provisioning_defaults {
+      service_account = google_service_account.gke_nodes.email
+      oauth_scopes    = ["https://www.googleapis.com/auth/cloud-platform"]
+    }
+  }
+
+  master_auth {
+    client_certificate_config {
+      issue_client_certificate = false
+    }
+  }
+
+  dynamic "authenticator_groups_config" {
+    for_each = var.rbac_security_group == null ? [] : [var.rbac_security_group]
+    content {
+      security_group = authenticator_groups_config.value
+    }
+  }
 
   network    = var.network_id
   subnetwork = var.subnet_id
@@ -119,13 +148,7 @@ resource "google_container_cluster" "autopilot" {
 
   # Security settings
   binary_authorization {
-    evaluation_mode = local.is_production ? "PROJECT_SINGLETON_POLICY_ENFORCE" : "DISABLED"
-  }
-
-  # Network policy
-  network_policy {
-    enabled  = var.enable_network_policy
-    provider = var.enable_network_policy ? "CALICO" : "PROVIDER_UNSPECIFIED"
+    evaluation_mode = var.enable_binary_authorization ? "PROJECT_SINGLETON_POLICY_ENFORCE" : "DISABLED"
   }
 
   # Maintenance window
@@ -146,9 +169,27 @@ resource "google_container_cluster" "autopilot" {
 # GKE Cluster - Standard Mode
 # =============================================================================
 resource "google_container_cluster" "standard" {
+  # checkov:skip=CKV_GCP_21:Labels come from local.common_labels, which includes variables without defaults that a static scan cannot resolve
+  # checkov:skip=CKV_GCP_65:Google Groups for RBAC needs a Google Workspace group; set rbac_security_group to enable it
+  # checkov:skip=CKV_GCP_69:The default node pool is removed; every node pool below sets workload_metadata_config to GKE_METADATA
   count    = var.cluster_mode == "standard" ? 1 : 0
   name     = local.cluster_name
   location = var.region
+
+  enable_intranode_visibility = var.enable_intranode_visibility
+
+  master_auth {
+    client_certificate_config {
+      issue_client_certificate = false
+    }
+  }
+
+  dynamic "authenticator_groups_config" {
+    for_each = var.rbac_security_group == null ? [] : [var.rbac_security_group]
+    content {
+      security_group = authenticator_groups_config.value
+    }
+  }
 
   # We'll manage node pools separately
   remove_default_node_pool = true
@@ -209,7 +250,7 @@ resource "google_container_cluster" "standard" {
 
   # Security settings
   binary_authorization {
-    evaluation_mode = local.is_production ? "PROJECT_SINGLETON_POLICY_ENFORCE" : "DISABLED"
+    evaluation_mode = var.enable_binary_authorization ? "PROJECT_SINGLETON_POLICY_ENFORCE" : "DISABLED"
   }
 
   # Network policy

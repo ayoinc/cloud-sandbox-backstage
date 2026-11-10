@@ -40,7 +40,7 @@ variables {
   database_name            = ""
   db_user_name             = "app_user"
   database_deletion_policy = "DELETE"
-  user_deletion_policy     = "DELETE"
+  user_deletion_policy     = ""
   database_flags           = []
 
   # Network configuration
@@ -85,7 +85,7 @@ variables {
 # Test: Cloud SQL Module Plan Succeeds
 # -----------------------------------------------------------------------------
 run "cloud_sql_plan_succeeds" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -107,7 +107,7 @@ run "cloud_sql_plan_succeeds" {
 # Test: Cloud SQL Naming Convention
 # -----------------------------------------------------------------------------
 run "cloud_sql_naming_convention" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -124,7 +124,7 @@ run "cloud_sql_naming_convention" {
 # Test: Database Created
 # -----------------------------------------------------------------------------
 run "database_created" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -141,7 +141,7 @@ run "database_created" {
 # Test: User Created
 # -----------------------------------------------------------------------------
 run "user_created" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -158,7 +158,7 @@ run "user_created" {
 # Test: Password Secret Created When Enabled
 # -----------------------------------------------------------------------------
 run "password_secret_created_when_enabled" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -179,7 +179,7 @@ run "password_secret_created_when_enabled" {
 # Test: Cloud SQL Info Summary
 # -----------------------------------------------------------------------------
 run "cloud_sql_info_summary" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -206,7 +206,7 @@ run "cloud_sql_info_summary" {
 # Test: Environment - Development
 # -----------------------------------------------------------------------------
 run "environment_dev" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -227,7 +227,7 @@ run "environment_dev" {
 # Test: Environment - Production
 # -----------------------------------------------------------------------------
 run "environment_prod" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -248,7 +248,7 @@ run "environment_prod" {
 # Test: Different Region
 # -----------------------------------------------------------------------------
 run "different_region" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -269,7 +269,7 @@ run "different_region" {
 # Test: MySQL Database Version
 # -----------------------------------------------------------------------------
 run "mysql_database_version" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -290,7 +290,7 @@ run "mysql_database_version" {
 # Test: High Availability Configuration
 # -----------------------------------------------------------------------------
 run "high_availability_configuration" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -311,7 +311,7 @@ run "high_availability_configuration" {
 # Test: Cloud SQL Proxy Command
 # -----------------------------------------------------------------------------
 run "cloud_sql_proxy_command" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock
@@ -333,7 +333,7 @@ run "cloud_sql_proxy_command" {
 # Test: Backup Configuration
 # -----------------------------------------------------------------------------
 run "backup_configuration" {
-  command = plan
+  command = apply
 
   providers = {
     google = google.mock

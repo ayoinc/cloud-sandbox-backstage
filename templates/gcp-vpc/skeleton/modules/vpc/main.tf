@@ -237,12 +237,14 @@ resource "google_compute_firewall" "allow_iap_ssh" {
   }
 }
 
-# Allow HTTP/HTTPS for tagged instances
+# Allow HTTP/HTTPS for tagged instances. The default source ranges are the
+# Google Cloud load balancer proxies, so instances are reached through a load
+# balancer and not directly from the internet.
 resource "google_compute_firewall" "allow_http_https" {
   count = var.enable_http_firewall ? 1 : 0
 
   name        = "fw-${var.name}-allow-http-https-${var.environment}"
-  description = "Allow HTTP/HTTPS from internet to tagged instances"
+  description = "Allow HTTP/HTTPS from the configured source ranges to tagged instances"
   network     = google_compute_network.main.name
   priority    = 1000
   direction   = "INGRESS"
@@ -252,7 +254,7 @@ resource "google_compute_firewall" "allow_http_https" {
     ports    = ["80", "443"]
   }
 
-  source_ranges = ["0.0.0.0/0"]
+  source_ranges = var.http_firewall_source_ranges
   target_tags   = ["http-server", "https-server"]
 
   log_config {
@@ -318,6 +320,7 @@ resource "google_compute_global_address" "private_service_access" {
   address_type  = "INTERNAL"
   prefix_length = var.private_service_access_prefix_length
   network       = google_compute_network.main.id
+  labels        = local.common_labels
 }
 
 resource "google_service_networking_connection" "private_service_access" {

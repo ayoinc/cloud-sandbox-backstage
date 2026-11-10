@@ -310,3 +310,31 @@ variable "artifact_registry_keep_count" {
   type        = number
   default     = 10
 }
+
+variable "artifact_registry_kms_key_name" {
+  description = "Cloud KMS key used to encrypt the Artifact Registry repository. Google-managed encryption is used when null"
+  type        = string
+  default     = null
+}
+
+# -----------------------------------------------------------------------------
+# Cluster Security Configuration
+# -----------------------------------------------------------------------------
+
+variable "enable_intranode_visibility" {
+  description = "Send pod-to-pod traffic on the same node through the VPC so that flow logs and firewall rules apply to it"
+  type        = bool
+  default     = true
+}
+
+variable "enable_binary_authorization" {
+  description = "Enforce the project's Binary Authorization policy on the cluster"
+  type        = bool
+  default     = true
+}
+
+variable "rbac_security_group" {
+  description = "Google Workspace group (gke-security-groups@your-domain) used for Kubernetes RBAC. Google Groups for RBAC is off when null"
+  type        = string
+  default     = null
+}

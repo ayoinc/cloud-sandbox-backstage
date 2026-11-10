@@ -27,9 +27,6 @@ locals {
     },
     var.labels
   )
-
-  # Determine if this is production (for security settings)
-  is_production = contains(["prod", "production"], var.environment)
 }
 
 # =============================================================================
@@ -53,12 +50,14 @@ resource "google_project_iam_member" "cloud_run" {
 # Artifact Registry
 # =============================================================================
 resource "google_artifact_registry_repository" "main" {
+  # checkov:skip=CKV_GCP_84:Google-managed encryption is the default; set artifact_registry_kms_key_name to use a customer-managed key
   count = var.create_artifact_registry ? 1 : 0
 
   location      = var.region
   repository_id = local.service_name
   description   = "Container registry for ${var.name}"
   format        = "DOCKER"
+  kms_key_name  = var.artifact_registry_kms_key_name
 
   cleanup_policies {
     id     = "keep-minimum-versions"

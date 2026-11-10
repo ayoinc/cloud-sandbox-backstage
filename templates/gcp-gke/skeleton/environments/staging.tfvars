@@ -1,8 +1,6 @@
+{%- set selected = values.environment == 'staging' -%}
 # =============================================================================
 # GCP GKE - Staging Environment Configuration
-# =============================================================================
-# This file contains Jinja2 template variables that will be substituted
-# by Backstage when the template is scaffolded.
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -12,12 +10,12 @@ name        = "${{ values.name }}"
 environment = "staging"
 region      = "${{ values.region }}"
 project_id  = "${{ values.gcpProject }}"
-owner       = "${{ values.owner }}"
+owner       = "${{ (values.owner | parseEntityRef).name }}"
 
 # -----------------------------------------------------------------------------
 # Cluster Mode - Standard for staging (production-like)
 # -----------------------------------------------------------------------------
-cluster_mode = "standard"
+cluster_mode = "${{ values.clusterMode if selected else 'standard' }}"
 
 # -----------------------------------------------------------------------------
 # Network Configuration
@@ -61,10 +59,10 @@ autoscaling_memory_max     = 100
 # -----------------------------------------------------------------------------
 # Node Pool Configuration
 # -----------------------------------------------------------------------------
-node_count            = 2
+node_count            = ${{ values.nodeCount if selected else 2 }}
 node_pool_min_count   = 2
 node_pool_max_count   = 6
-machine_type          = "e2-standard-4"
+machine_type          = "${{ values.machineType if selected else 'e2-standard-4' }}"
 disk_size_gb          = 100
 disk_type             = "pd-balanced"
 image_type            = "COS_CONTAINERD"
@@ -105,5 +103,5 @@ artifact_registry_keep_count = 10
 # -----------------------------------------------------------------------------
 labels = {
   cost-center = "staging"
-  team        = "${{ values.owner }}"
+  team        = "${{ (values.owner | parseEntityRef).name }}"
 }

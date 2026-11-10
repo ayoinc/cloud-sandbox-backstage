@@ -23,17 +23,21 @@ spec:
         - projectName
         - componentName
         - gcpProjectId
+        - owner
       properties:
         projectName:
           title: Project Name
           type: string
-          description: Project name for resource naming (use hyphens, lowercase only)
-          pattern: '^[a-z0-9-]+$'
+          description: Prefix of every resource name (lowercase letters, digits and hyphens, at most 20 characters)
+          pattern: '^[a-z][a-z0-9-]*$'
+          maxLength: 20
           ui:help: 'Example: solar-app, data-platform, marketing-site'
         componentName:
           title: Component Name
           type: string
-          description: Unique name for this infrastructure component
+          description: Unique name for this infrastructure component in the catalog
+          pattern: '^[a-z0-9]([a-z0-9-]*[a-z0-9])?$'
+          maxLength: 63
           ui:autofocus: true
         gcpProjectId:
           title: GCP Project ID
@@ -44,6 +48,15 @@ spec:
           title: Description
           type: string
           description: Brief description of this infrastructure component
+          default: GCP infrastructure stack
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns this infrastructure
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
 
     - title: Environment & Location
       required:
@@ -93,7 +106,7 @@ spec:
         network_cidr:
           title: VPC Network CIDR Block
           type: string
-          description: CIDR notation for the VPC network (e.g., 10.0.0.0/16)
+          description: CIDR block of the VPC network, /20 or larger (e.g., 10.0.0.0/16). The last /20 is used for the GKE nodes.
           default: 10.0.0.0/16
         subnet_configurations:
           title: Subnet Configuration
@@ -132,52 +145,52 @@ spec:
         enable_networking:
           title: Enable Networking Resources
           type: boolean
-          description: VPC networks, subnets, firewall rules, load balancers, Cloud CDN, Cloud Interconnect
+          description: VPC network, subnets, Cloud NAT and firewall rules. When off, the existing default network is used.
           default: true
         enable_compute:
           title: Enable Compute Resources
           type: boolean
-          description: Compute Engine instances, managed instance groups, GPUs, TPUs
+          description: Compute Engine instance template and regional managed instance group
           default: true
         enable_containers:
           title: Enable Container Resources
           type: boolean
-          description: GKE clusters, Artifact Registry, Cloud Run, Cloud Build
+          description: Private GKE cluster with a node pool, and an Artifact Registry repository
           default: true
         enable_storage:
           title: Enable Storage Resources
           type: boolean
-          description: Cloud Storage buckets, Filestore, Persistent Disks, Cloud Storage for Firebase
+          description: Cloud Storage buckets and, if selected below, Filestore
           default: true
         enable_database:
           title: Enable Database Resources
           type: boolean
-          description: Cloud SQL (PostgreSQL, MySQL, SQL Server), Cloud Spanner, Firestore, Bigtable, Memorystore
+          description: Cloud SQL with a private address and, if selected below, Firestore and Memorystore Redis
           default: true
         enable_security:
           title: Enable Security Resources
           type: boolean
-          description: Secret Manager, Key Management Service, IAM service accounts, IAP, VPC Service Controls
+          description: Cloud KMS key for buckets and BigQuery, application service account and Secret Manager secret
           default: true
         enable_monitoring:
           title: Enable Monitoring Resources
           type: boolean
-          description: Cloud Monitoring, Cloud Logging, Error Reporting, Trace, Debugger
+          description: Log-based error metric and Cloud Monitoring alert policy
           default: true
         enable_analytics:
           title: Enable Analytics Resources
           type: boolean
-          description: BigQuery, Dataflow, Dataproc, Pub/Sub, Datastream, Data Fusion
+          description: BigQuery dataset, Pub/Sub topic and subscription
           default: false
         enable_ai_ml:
           title: Enable AI/ML Resources
           type: boolean
-          description: Vertex AI, AI Platform, AutoML, Vision AI, Natural Language, Speech-to-Text
+          description: Vertex AI API, service account and artifact bucket
           default: false
         enable_serverless:
           title: Enable Serverless Resources
           type: boolean
-          description: Cloud Functions, Cloud Run, App Engine
+          description: Cloud Run service
           default: false
 
     - title: Compute Configuration
@@ -206,8 +219,8 @@ spec:
         gke_version:
           title: GKE Kubernetes Version
           type: string
-          description: Kubernetes version for GKE cluster
-          default: '1.28'
+          description: Minimum Kubernetes version of the GKE control plane. It must be available in the REGULAR release channel.
+          default: '1.35'
         gke_node_machine_type:
           title: GKE Node Machine Type
           type: string
@@ -216,13 +229,10 @@ spec:
         gke_node_locations:
           title: GKE Node Locations
           type: array
-          description: Zones for GKE node pools
+          description: Zones of the selected region for the GKE nodes. Leave empty to use every zone of the region.
           items:
             type: string
-          default:
-            - us-central1-a
-            - us-central1-b
-            - us-central1-c
+          default: []
         gke_initial_node_count:
           title: Initial Node Count
           type: number
@@ -259,7 +269,7 @@ spec:
         enable_filestore:
           title: Enable Filestore
           type: boolean
-          description: Create Filestore NFS file system
+          description: Create a Filestore NFS file system (needs Storage Resources)
           default: false
 
     - title: Database Configuration
@@ -283,45 +293,58 @@ spec:
         cloudsql_backup_retention:
           title: Cloud SQL Backup Retention Days
           type: number
-          description: Number of backup retention days (1-365)
+          description: Number of automated backups to keep (1-365)
           default: 7
           minimum: 1
           maximum: 365
         enable_firestore:
           title: Enable Firestore
           type: boolean
-          description: Create Firestore database for document storage
+          description: Create a Firestore database for document storage (needs Database Resources)
           default: false
         enable_redis:
           title: Enable Memorystore Redis
           type: boolean
-          description: Create Memorystore Redis instance for caching
+          description: Create a Memorystore Redis instance for caching (needs Database Resources)
           default: false
 
     - title: Advanced Settings
       properties:
         tags:
-          title: Additional Tags
+          title: Additional Labels
           type: object
-          description: Additional tags to apply to all resources
+          description: Additional labels applied to all resources. Keys and values are converted to lowercase.
           additionalProperties:
             type: string
           default:
             managedBy: backstage
             terraform: 'true'
 
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
   steps:
     - id: template
       name: Generate GCP Infrastructure Code
       action: fetch:template
       input:
-        url: ./template
-        targetPath: ./iac
+        url: ./skeleton
         values:
           projectName: ${{ parameters.projectName }}
           componentName: ${{ parameters.componentName }}
           gcpProjectId: ${{ parameters.gcpProjectId }}
           description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
           environment: ${{ parameters.environment }}
           region: ${{ parameters.region }}
           network_cidr: ${{ parameters.network_cidr }}
@@ -357,17 +380,28 @@ spec:
           tags: ${{ parameters.tags }}
 
     - id: publish
-      name: Publish to Git
+      name: Publish to GitHub
       action: publish:github
       input:
         allowedHosts: ['github.com']
         description: 'GCP Full Infrastructure Stack for ${{ parameters.componentName }}'
-        repoUrl: 'github.com?repo=${{ parameters.componentName }}-gcp-infra&owner=${{ parameters.owner }}'
+        repoUrl: ${{ parameters.repoUrl }}
+        repoVisibility: private
         defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
 
   output:
     links:
       - title: Repository
-        url: ${{ steps.publish.output.remoteUrl }}
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}
       - title: Open in Google Cloud Console
-        url: https://console.cloud.google.com/project/${{ parameters.gcpProjectId }}
+        url: https://console.cloud.google.com/home/dashboard?project=${{ parameters.gcpProjectId }}

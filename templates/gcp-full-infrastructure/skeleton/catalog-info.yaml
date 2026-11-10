@@ -1,15 +1,21 @@
 apiVersion: backstage.io/v1alpha1
 kind: Resource
 metadata:
-  name: ${{ values.name }}
-  description: Azure infrastructure for ${{ values.name }}
+  name: ${{ values.componentName }}
+  description: ${{ (values.description or 'GCP infrastructure stack') | dump }}
   annotations:
     backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
   tags:
+    - gcp
     - terraform
-    - azure
     - infrastructure
+    - ${{ values.environment }}
+  links:
+    - url: https://console.cloud.google.com/home/dashboard?project=${{ values.gcpProjectId }}
+      title: GCP Console
+      icon: cloud
 spec:
   type: infrastructure
   owner: ${{ values.owner }}
-  lifecycle: production
+  lifecycle: ${{ 'production' if values.environment in ['prod', 'dr'] else 'experimental' }}

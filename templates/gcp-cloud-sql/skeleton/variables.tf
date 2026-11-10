@@ -119,9 +119,9 @@ variable "database_deletion_policy" {
 }
 
 variable "user_deletion_policy" {
-  description = "Deletion policy for user: ABANDON or DELETE"
+  description = "Deletion policy for user: ABANDON keeps the user, an empty string deletes it"
   type        = string
-  default     = "DELETE"
+  default     = ""
 }
 
 variable "database_flags" {

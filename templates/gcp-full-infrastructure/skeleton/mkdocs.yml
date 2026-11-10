@@ -1,0 +1,8 @@
+site_name: ${{ values.componentName }}
+site_description: ${{ (values.description or 'GCP infrastructure stack') | dump }}
+
+nav:
+  - Home: index.md
+
+plugins:
+  - techdocs-core
