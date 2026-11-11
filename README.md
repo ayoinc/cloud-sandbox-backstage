@@ -35,6 +35,23 @@ A fully-featured [Backstage](https://backstage.io) developer portal configured f
 - Data engineering (Airflow, dbt, Superset)
 - Documentation (ADRs, Runbooks, D2 diagrams)
 
+Every template is held to the same rule: a repository created from it has a
+pipeline, and that pipeline passes on its first push with nothing configured
+by hand. Jobs that need a cloud account or another outside service are
+skipped until their credentials are set. When adding or changing a template:
+
+- Keep a `sample-values.json` next to its `template.yaml`: form values a user
+  could enter. `yarn workspace @internal/edge template:check` renders every
+  template with them through the real scaffolder, without publishing; add
+  `--out <dir>` to keep what was rendered. The `Template check` workflow runs
+  it on every change.
+- The new repository's `catalog-info.yaml` names its own repository in
+  `github.com/project-slug`, so the portal's CI/CD tab shows its runs, and
+  carries `backstage.io/techdocs-ref: dir:.` with an `mkdocs.yml` and
+  `docs/index.md`, so it has a documentation page.
+- Push the rendered output to a scratch repository once and watch its
+  workflows before registering the template in `app-config.yaml`.
+
 ## Quick Start
 
 ### Prerequisites
@@ -350,6 +367,9 @@ something from a template. It runs the template in the real scaffolder, sends
 every log line and the result back to the portal as they happen, hands the
 catalog file of the new repository to the portal, and then runs the sync so
 the new component and its documentation appear.
+
+**`template-check.yml`** renders every template with its sample values when a
+template or the pipeline changes.
 
 Set these in the GitHub repository (Settings > Secrets and variables > Actions):
 

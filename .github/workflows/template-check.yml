@@ -1,0 +1,63 @@
+# =============================================================================
+# Template Check Workflow
+# =============================================================================
+# Renders every software template with the real Backstage scaffolder, using
+# the sample-values.json next to each template.yaml, without publishing
+# anything (edge/scripts/pipeline/check-templates.mjs). A template whose form
+# rejects its sample values, whose steps fail, or that leaves template syntax
+# in its output fails here instead of in front of a user of the portal.
+#
+# The repository is public: nothing a pull request, issue or fork does starts
+# a run, and every run must have been started by the repository owner.
+# =============================================================================
+
+name: Template check
+
+on:
+  push:
+    paths:
+      - 'templates/**'
+      - 'catalog/terraform-modules/templates/**'
+      - 'app-config.pipeline.yaml'
+      - 'packages/backend/src/pipeline.ts'
+      - 'packages/backend/src/pipeline/**'
+      - 'edge/scripts/pipeline/**'
+      - '.github/workflows/template-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: template-check-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '24'
+
+jobs:
+  render:
+    name: Render every template
+    if: github.actor == github.repository_owner
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'yarn'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Render the templates
+        run: yarn workspace @internal/edge template:check
