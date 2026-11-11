@@ -55,8 +55,16 @@ jobs:
           settings="$(curl -fsS http://127.0.0.1:7007/api/branding-settings)"
           echo "$settings"
           echo "$settings" | jq -e '.organizationName == null and .logoFullUrl == null and .themePreset == null' >/dev/null
-          [ "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:7007/api/branding-settings/logo/full)" = 404 ]
-          [ "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:7007/api/catalog/entities)" = 401 ]
+          # Each check says what it found, so a failure names itself.
+          expect() {
+            found="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:7007$2")"
+            echo "$2 answered $found (expected $1)"
+            [ "$found" = "$1" ]
+          }
+          # No logo has been uploaded; the address itself is public.
+          expect 404 /api/branding-settings/logo/full
+          # The catalog is not.
+          expect 401 /api/catalog/entities
           curl -fsS http://127.0.0.1:7007/ | grep -o '<title>[^<]*</title>'
           sudo test "$(sudo stat -c '%a' /etc/portal/portal.env)" = 640
 
