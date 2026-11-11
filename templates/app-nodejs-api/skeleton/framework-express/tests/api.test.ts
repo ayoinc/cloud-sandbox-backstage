@@ -52,6 +52,12 @@ describe('Error handling', () => {
     expect(response.body).toEqual({ error: 'Not Found' });
   });
 
+  it('returns 405 and the allowed methods for a method a route does not offer', async () => {
+    const response = await request(app).delete('/api/example');
+    expect(response.status).toBe(405);
+    expect(response.headers.allow).toBe('GET');
+  });
+
   it('returns 400 as JSON when the request body is not valid JSON', async () => {
     const response = await request(app)
       .post('/api')

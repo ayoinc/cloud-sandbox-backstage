@@ -18,6 +18,27 @@ export function buildApp(): FastifyInstance {
   app.register(healthRoutes, { prefix: '/health' });
   app.register(apiRoutes, { prefix: '/api' });
 
+  // A path that exists, asked for with a method it does not offer, is 405
+  // with the methods it does offer; only a path that does not exist is 404.
+  // Decided before the body is read, which would refuse some methods first.
+  // `hasRoute` compares with the path as registered, so a route with
+  // parameters needs its pattern looked up here instead of the request path.
+  app.addHook('onRequest', async (request, reply) => {
+    if (!request.is404) {
+      return;
+    }
+    const path = request.url.split('?')[0];
+    const allow = (['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const).filter(
+      (method) => app.hasRoute({ method, url: path }),
+    );
+    if (allow.length > 0) {
+      await reply
+        .header('allow', allow.join(', '))
+        .status(405)
+        .send({ error: 'Method Not Allowed' });
+    }
+  });
+
   app.setNotFoundHandler((_request, reply) => {
     reply.status(404).send({ error: 'Not Found' });
   });

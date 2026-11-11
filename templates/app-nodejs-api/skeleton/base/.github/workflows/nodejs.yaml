@@ -77,6 +77,12 @@ jobs:
           done
           exit 1
 
+      # Requests generated from docs/openapi.yaml: the service must answer
+      # each as its description says. The server from the step above is
+      # still running.
+      - name: Test the API against its OpenAPI description
+        run: pipx run schemathesis==4.33.2 run docs/openapi.yaml --url http://localhost:8080
+
       - uses: actions/upload-artifact@v7
         with:
           name: dist

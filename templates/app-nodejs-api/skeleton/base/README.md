@@ -33,7 +33,10 @@ The API listens on <http://localhost:${{ values.port }}>.
 | GET    | `/api`          | Welcome message           |
 | GET    | `/api/example`  | Example endpoint to adapt |
 
-`docs/openapi.yaml` describes them in OpenAPI 3.
+`docs/openapi.yaml` describes them in OpenAPI 3. The build tests the running
+service against that description with
+[Schemathesis](https://schemathesis.readthedocs.io), so the two cannot drift
+apart.
 
 ## Configuration
 
