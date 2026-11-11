@@ -65,14 +65,19 @@ const seconds = (from?: string | null, to?: string | null) =>
 function stepLines(steps: WorkflowStep[]): Line[] {
   const lines: Line[] = [];
   for (const step of steps) {
-    if (QUIET_STEP.test(step.name) || step.status === 'queued') {
+    // A step shows once it is running, and not at all if it was skipped.
+    if (
+      QUIET_STEP.test(step.name) ||
+      !['in_progress', 'completed'].includes(step.status) ||
+      step.conclusion === 'skipped'
+    ) {
       continue;
     }
     lines.push({
       key: `step-${step.number}-start`,
       message: `GitHub Actions: ${step.name}…`,
     });
-    if (step.status === 'completed' && step.conclusion !== 'skipped') {
+    if (step.status === 'completed') {
       const failed = step.conclusion === 'failure';
       lines.push({
         key: `step-${step.number}-end`,
