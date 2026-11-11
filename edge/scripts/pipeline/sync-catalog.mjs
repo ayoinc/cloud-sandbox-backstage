@@ -168,6 +168,7 @@ async function sync(portal, { github, githubToken }, dataDir) {
   const backend = await startBackend({ dataDir, githubToken });
   let settleMs;
   let actions;
+  let templatingExtensions;
   let catalog;
   let errors;
   try {
@@ -201,6 +202,10 @@ async function sync(portal, { github, githubToken }, dataDir) {
       settleMs += await waitForCatalog(dataDir, locations);
     }
     actions = await backendRequest(backend, '/api/scaffolder/v2/actions');
+    templatingExtensions = await backendRequest(
+      backend,
+      '/api/scaffolder/v2/templating-extensions',
+    );
     catalog = readCatalog(dataDir);
     errors = readProcessingErrors(dataDir, registered);
   } catch (error) {
@@ -301,6 +306,12 @@ async function sync(portal, { github, githubToken }, dataDir) {
     json: actions,
     retry: true,
   });
+  await portalRequest(
+    portal,
+    'PUT',
+    '/api/pipeline/scaffolder/templating-extensions',
+    { json: templatingExtensions, retry: true },
+  );
   console.log(`Catalog pushed in ${seconds(Date.now() - pushStarted)}`);
 
   const sent = {

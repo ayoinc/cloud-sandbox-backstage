@@ -21,6 +21,7 @@ import type { AppEnv } from './types';
 export const scaffolderRoutes = new Hono<AppEnv>();
 
 const ACTIONS_KEY = 'scaffolder-actions';
+const EXTENSIONS_KEY = 'scaffolder-templating-extensions';
 const WORKFLOW_FILE = 'portal-scaffold.yml';
 const MAX_TASK_BYTES = 256 * 1024;
 
@@ -85,23 +86,42 @@ async function findTemplate(
   return template;
 }
 
-/** Replaces the actions list with the one a real scaffolder backend reports. */
-export const saveActions = (db: D1Database, actions: unknown[]) =>
+const saveState = (db: D1Database, key: string, value: unknown) =>
   db
     .prepare(
       'INSERT INTO portal_state (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value',
     )
-    .bind(ACTIONS_KEY, JSON.stringify(actions))
+    .bind(key, JSON.stringify(value))
     .run();
 
-scaffolderRoutes.get('/v2/actions', async c => {
-  const actions = await c.env.DB.prepare(
-    'SELECT value FROM portal_state WHERE key = ?',
-  )
-    .bind(ACTIONS_KEY)
+const readState = (db: D1Database, key: string) =>
+  db
+    .prepare('SELECT value FROM portal_state WHERE key = ?')
+    .bind(key)
     .first<string>('value');
-  return rawJson(actions ?? '[]');
-});
+
+/** Replaces the actions list with the one a real scaffolder backend reports. */
+export const saveActions = (db: D1Database, actions: unknown[]) =>
+  saveState(db, ACTIONS_KEY, actions);
+
+/** Replaces the template filters and globals a real scaffolder backend reports. */
+export const saveTemplatingExtensions = (
+  db: D1Database,
+  extensions: Record<string, unknown>,
+) => saveState(db, EXTENSIONS_KEY, extensions);
+
+scaffolderRoutes.get('/v2/actions', async c =>
+  rawJson((await readState(c.env.DB, ACTIONS_KEY)) ?? '[]'),
+);
+
+// Before the first sync there is nothing to list, which the page shows as
+// "no templating extensions".
+scaffolderRoutes.get('/v2/templating-extensions', async c =>
+  rawJson(
+    (await readState(c.env.DB, EXTENSIONS_KEY)) ??
+      '{"filters":{},"globals":{"functions":{},"values":{}}}',
+  ),
+);
 
 scaffolderRoutes.get(
   '/v2/templates/:namespace/:kind/:name/parameter-schema',

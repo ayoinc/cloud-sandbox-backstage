@@ -40,7 +40,7 @@ export const GUEST_PROVIDER = 'guest';
 
 const USER_TOKEN_TTL_SECONDS = 3600;
 const USER_TOKEN_AUDIENCE = 'backstage';
-const GUEST_USER = 'user:development/guest';
+export const GUEST_USER = 'user:development/guest';
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();

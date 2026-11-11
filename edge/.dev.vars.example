@@ -14,5 +14,11 @@ PIPELINE_TOKEN=
 # GitHub token that starts the template workflow and reads Actions runs.
 # Leave empty to work without GitHub: templates then fail with that reason.
 PORTAL_GITHUB_TOKEN=
+# Optional. Portal admins, comma-separated: jane or user:default/jane. While
+# empty and no admin was added in the portal, the first person to sign in
+# (guests excepted) is admin
+PORTAL_ADMINS=
 # Guest sign-in for local use only
 GUEST_AUTH_ENABLED=true
+# Optional. The address the privacy notice tells people to write to
+PORTAL_CONTACT_EMAIL=

@@ -14,6 +14,7 @@ import {
 } from '@backstage/plugin-app-react';
 import { NotificationsSidebarItem } from '@backstage/plugin-notifications';
 import { MyGroupsSidebarItem } from '@backstage/plugin-org';
+import { BrandSidebarLogo } from '@internal/brand';
 import { SidebarSearchModal } from '@backstage/plugin-search';
 import { UserSettingsSignInAvatar } from '@backstage/plugin-user-settings';
 import AccountTreeIcon from '@material-ui/icons/AccountTree';
@@ -27,7 +28,6 @@ import PersonIcon from '@material-ui/icons/Person';
 import SearchIcon from '@material-ui/icons/Search';
 import StorageIcon from '@material-ui/icons/Storage';
 import WidgetsIcon from '@material-ui/icons/Widgets';
-import { SidebarLogo } from './SidebarLogo';
 
 const SidebarNavItem = (props: NavContentNavItem & { text?: string }) => (
   <SidebarItem
@@ -80,7 +80,7 @@ export const SidebarContent = NavContentBlueprint.make({
 
       return (
         <Sidebar>
-          <SidebarLogo />
+          <BrandSidebarLogo />
           <SidebarGroup label="Search" icon={<SearchIcon />} to="/search">
             <SidebarSearchModal />
           </SidebarGroup>

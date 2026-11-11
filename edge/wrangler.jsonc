@@ -63,6 +63,12 @@
   //                           themselves (wrangler.pipeline.jsonc)
   //   PORTAL_GITHUB_TOKEN     GitHub token that starts the template workflow
   //                           in PORTAL_REPO and reads Actions runs for the CI tab
+  //   PORTAL_CONTACT_EMAIL    optional: who the privacy notice says to contact
+  //   PORTAL_ADMINS           optional: users who may change branding and
+  //                           ownership, comma-separated (jane, or
+  //                           user:default/jane). While it is empty and no
+  //                           admin has been added in the portal, the first
+  //                           person to sign in becomes admin
   "secrets": {
     "required": [
       "SESSION_SECRET",

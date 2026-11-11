@@ -9,9 +9,16 @@ import { githubAuthApiRef, googleAuthApiRef } from '@backstage/core-plugin-api';
 import { ThemeProvider, makeStyles, useTheme } from '@material-ui/core/styles';
 import type { Theme } from '@material-ui/core/styles';
 import useMediaQuery from '@material-ui/core/useMediaQuery';
+import {
+  brandOverrides,
+  getBrandIdentity,
+  useBrandIdentity,
+  useLoadBrandIdentity,
+} from '../identity/brandIdentity';
 import { LogoFull } from '../logo/Logo';
-import { brandTokens } from '../tokens/brandTokens';
+import { brandTokensFor } from '../tokens/brandTokens';
 import type { BrandMode } from '../tokens/brandTokens';
+import { resolveBrandColors } from '../tokens/overrides';
 
 // Dynamic import: the demo is decorative, so the sign-in page's first paint must not wait for its code.
 const CatalogSearchDemo = lazy(() => import('../stageshow/CatalogSearchDemo'));
@@ -43,10 +50,23 @@ export const brandSignInProviders: IdentityProviders = [
   'guest',
 ];
 
-const useStyles = makeStyles(theme => {
+/**
+ * The tokens and colours in effect. Read where styles are computed from the
+ * theme: the theme is rebuilt whenever the identity changes, so the two agree.
+ */
+function activeBrand(theme: Theme) {
   const mode: BrandMode = theme.palette.type === 'dark' ? 'dark' : 'light';
-  const c = brandTokens.color[mode];
-  const { typography, spacing } = brandTokens;
+  const identity = getBrandIdentity();
+  return {
+    mode,
+    tokens: brandTokensFor(identity.themePreset),
+    c: resolveBrandColors(mode, brandOverrides(identity)),
+  };
+}
+
+const useStyles = makeStyles((theme: Theme) => {
+  const { mode, tokens, c } = activeBrand(theme);
+  const { typography, spacing } = tokens;
   return {
     root: {
       minHeight: '100vh',
@@ -61,7 +81,7 @@ const useStyles = makeStyles(theme => {
     },
     brand: {
       backgroundColor: c.navigation.background,
-      color: brandTokens.identity.white,
+      color: c.navigation.selectedText,
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'space-between',
@@ -167,9 +187,8 @@ const useStyles = makeStyles(theme => {
  * logic, analytics and error handling stay exactly as Backstage ships them.
  */
 function signInOverrides(outer: Theme): BackstageOverrides {
-  const mode: BrandMode = outer.palette.type === 'dark' ? 'dark' : 'light';
-  const c = brandTokens.color[mode];
-  const { shape, spacing, target, typography } = brandTokens;
+  const { mode, tokens, c } = activeBrand(outer);
+  const { shape, spacing, target, typography, palettes } = tokens;
   return {
     BackstagePage: {
       root: {
@@ -250,15 +269,11 @@ function signInOverrides(outer: Theme): BackstageOverrides {
         fontWeight: typography.weight.bold,
         fontSize: `${typography.size.body / 16}rem`,
         textTransform: 'none',
-        boxShadow: `0 2px 0 ${
-          brandTokens.palettes.primary[mode === 'dark' ? 40 : 10]
-        }`,
+        boxShadow: `0 2px 0 ${palettes.primary[mode === 'dark' ? 40 : 10]}`,
         '&:hover': {
           border: 0,
           backgroundColor:
-            mode === 'dark'
-              ? brandTokens.palettes.primary[90]
-              : brandTokens.palettes.primary[25],
+            mode === 'dark' ? palettes.primary[90] : palettes.primary[25],
         },
         '&:active': { transform: 'translateY(2px)', boxShadow: 'none' },
       },
@@ -274,13 +289,21 @@ function BrandPanel() {
   const theme = useTheme<Theme>();
   const wide = useMediaQuery(theme.breakpoints.up('md'), { noSsr: true });
   const mode: BrandMode = theme.palette.type === 'dark' ? 'dark' : 'light';
-  const { name } = brandTokens;
+  const { organizationName, logoFullUrl } = useBrandIdentity();
   return (
     <header className={classes.brand}>
-      <LogoFull tone="reversed" height={56} style={{ maxWidth: '100%' }} />
+      {/* Nothing stands in for a logo or a name that has not been set. */}
+      {logoFullUrl ? (
+        <LogoFull
+          height={56}
+          style={{ maxWidth: '100%', alignSelf: 'flex-start' }}
+        />
+      ) : null}
       <div className={classes.identity}>
-        <p className={classes.product}>{name.product}</p>
-        <p className={classes.descriptor}>{name.productDescriptor}</p>
+        {organizationName ? (
+          <p className={classes.product}>{organizationName}</p>
+        ) : null}
+        <p className={classes.descriptor}>Developer portal</p>
         <hr className={classes.rule} aria-hidden="true" />
         <p className={classes.summary}>
           Find services, APIs and documentation in one place, and create new
@@ -294,28 +317,35 @@ function BrandPanel() {
           </Suspense>
         ) : null}
       </div>
-      <p className={classes.owner}>Built and run by {name.company}.</p>
+      {organizationName ? (
+        <p className={classes.owner}>Built and run by {organizationName}.</p>
+      ) : null}
     </header>
   );
 }
 
 function SignInHeading() {
   const classes = useStyles();
+  const { organizationName } = useBrandIdentity();
   return (
     <div>
-      <h1 className={classes.heading}>Sign in to {brandTokens.name.product}</h1>
+      <h1 className={classes.heading}>
+        {organizationName ? `Sign in to ${organizationName}` : 'Sign in'}
+      </h1>
       <p className={classes.lead}>Choose an account to sign in with.</p>
     </div>
   );
 }
 
 /**
- * Full-bleed Solirius Reply sign-in screen. Renders the core Backstage
+ * Full-bleed sign-in screen, in the organisation's name, logo and theme once
+ * an administrator has set them. Renders the core Backstage
  * `SignInPage` inside a branded, GOV.UK-style accessible layout: one h1,
  * plain-English copy, 44px targets and visible focus. Authentication is
  * entirely handled by the core component.
  */
 export function BrandedSignInPage(props: BrandedSignInPageProps) {
+  useLoadBrandIdentity();
   const classes = useStyles();
   const nestedTheme = useCallback(
     (outer: Theme): Theme => ({
@@ -340,9 +370,9 @@ export function BrandedSignInPage(props: BrandedSignInPageProps) {
             )}
           </ThemeProvider>
           <p className={classes.help}>
-            If you cannot sign in, contact the {brandTokens.name.product}{' '}
-            platform team. Read the <a href="/privacy.html">privacy notice</a>{' '}
-            to see how sign-in details are used.
+            If you cannot sign in, contact the platform team. Read the{' '}
+            <a href="/privacy.html">privacy notice</a> to see how sign-in
+            details are used.
           </p>
         </div>
       </div>

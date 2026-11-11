@@ -5,8 +5,12 @@ import {
   type UnifiedTheme,
   type UnifiedThemeOptions,
 } from '@backstage/theme';
-import { brandTokens } from '../tokens/brandTokens';
-import type { BrandMode, BrandModeColors } from '../tokens/brandTokens';
+import { brandTokensFor } from '../tokens/brandTokens';
+import type {
+  BrandMode,
+  BrandModeColors,
+  BrandTokens,
+} from '../tokens/brandTokens';
 import { resolveBrandColors } from '../tokens/overrides';
 import type { BrandColorOverrides } from '../tokens/overrides';
 
@@ -26,7 +30,7 @@ const PAGE_THEME_IDS = [
 
 /**
  * Solid branded page headers. No decorative burst shapes: identity comes from
- * the REPLY teal surface and a primary accent rule, not ornament.
+ * the dark secondary surface and a primary accent rule, not ornament.
  */
 function pageThemes(c: BrandModeColors): Record<string, PageTheme> {
   const header: PageTheme = {
@@ -41,10 +45,11 @@ function pageThemes(c: BrandModeColors): Record<string, PageTheme> {
 function palette(
   mode: BrandMode,
   c: BrandModeColors,
+  tokens: BrandTokens,
 ): UnifiedThemeOptions['palette'] {
   const { status } = c;
   const isDark = mode === 'dark';
-  const p = brandTokens.palettes;
+  const p = tokens.palettes;
   return {
     type: mode,
     mode,
@@ -128,8 +133,11 @@ function palette(
   };
 }
 
-function components(c: BrandModeColors): UnifiedThemeOptions['components'] {
-  const { shape, target, focus, typography, elevation } = brandTokens;
+function components(
+  c: BrandModeColors,
+  tokens: BrandTokens,
+): UnifiedThemeOptions['components'] {
+  const { shape, target, focus, typography, elevation } = tokens;
   const baseline = defaultComponentThemes?.MuiCssBaseline?.styleOverrides;
   const outlined = `1px solid ${c.outlineVariant}`;
 
@@ -261,15 +269,17 @@ function components(c: BrandModeColors): UnifiedThemeOptions['components'] {
 }
 
 /**
- * Creates the Solirius Reply MUI v4 + v5 unified theme for `mode`.
- * Pass `overrides` to apply administrator branding on top of the defaults.
+ * Creates the MUI v4 + v5 unified theme for `mode`. `overrides` carries the
+ * administrator's preset and primary colour; without it the default preset
+ * is used.
  */
 export function createBrandTheme(
   mode: BrandMode,
   overrides?: BrandColorOverrides,
 ): UnifiedTheme {
   const c = resolveBrandColors(mode, overrides);
-  const { typography } = brandTokens;
+  const tokens = brandTokensFor(overrides?.preset);
+  const { typography } = tokens;
   const heading = (size: number, marginBottom: number) => ({
     fontFamily: typography.fontFamily,
     fontSize: size,
@@ -277,7 +287,7 @@ export function createBrandTheme(
     marginBottom,
   });
   return createUnifiedTheme({
-    palette: palette(mode, c),
+    palette: palette(mode, c, tokens),
     fontFamily: typography.fontFamily,
     htmlFontSize: typography.htmlFontSize,
     typography: {
@@ -292,6 +302,6 @@ export function createBrandTheme(
     },
     defaultPageTheme: 'home',
     pageTheme: pageThemes(c),
-    components: components(c),
+    components: components(c, tokens),
   });
 }

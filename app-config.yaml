@@ -1,11 +1,11 @@
 app:
-  title: Cloud Sandbox
+  title: Developer Portal
   baseUrl: http://localhost
   # Discover every frontend plugin listed in packages/app/package.json
   packages: all
 
   extensions:
-    # Solirius Reply themes (from @internal/brand) replace the stock ones
+    # The brand themes (from @internal/brand) replace the stock ones
     - theme:app/light: false
     - theme:app/dark: false
     # The catalog is the landing page
@@ -24,7 +24,7 @@ app:
             - url: https://backstage.io/docs
               label: Backstage Docs
               icon: docs
-            - url: https://github.com/ayointegral/cloud-sandbox-backstage
+            - url: https://github.com/ayoinc/cloud-sandbox-backstage
               label: GitHub
               icon: github
             - url: /create
@@ -570,7 +570,7 @@ permission:
 
 # https://backstage.io/docs/ai/mcp-actions
 mcpActions:
-  name: 'Cloud Sandbox Backstage'
+  name: 'Developer Portal'
   description: 'Tools for managing the software catalog, creating services from templates, and exploring the developer portal'
 
 # =============================================================================

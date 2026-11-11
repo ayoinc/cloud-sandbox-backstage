@@ -1,69 +1,26 @@
-import type { CSSProperties, SVGProps } from 'react';
-import { brandTokens } from '../tokens/brandTokens';
-import {
-  LOGO_VIEWBOX,
-  MARK_PATH,
-  MARK_VIEWBOX,
-  REPLY_PATH,
-  SOLIRIUS_PATH,
-} from './logoPaths';
-
-const [, , LOGO_WIDTH, LOGO_HEIGHT] = LOGO_VIEWBOX.split(' ').map(Number);
-/** Width-to-height ratio of the full lockup artwork. */
-const LOGO_ASPECT = LOGO_WIDTH / LOGO_HEIGHT;
-
-/**
- * Logo colour treatment.
- * - `color`: official two-colour artwork, for light surfaces.
- * - `reversed`: single-colour white, for dark surfaces such as the sidebar.
- */
-export type LogoTone = 'color' | 'reversed';
+import type { CSSProperties } from 'react';
+import { useBrandIdentity } from '../identity/brandIdentity';
 
 /** Props shared by {@link LogoFull} and {@link LogoIcon}. */
-export interface LogoProps
-  extends Omit<SVGProps<SVGSVGElement>, 'ref' | 'children' | 'viewBox'> {
-  /** Colour treatment. Defaults to `reversed`, matching the dark sidebar. */
-  tone?: LogoTone;
+export interface LogoProps {
   /**
-   * Accessible name. Defaults to "Solirius Reply". Pass an empty string when
-   * the logo is decorative (for example inside a link that is already named).
+   * Accessible name. Defaults to the organisation's name. Pass an empty
+   * string when the logo is decorative (for example inside a named link).
    */
   title?: string;
-  /**
-   * Administrator-supplied image URL. When set, it replaces the built-in
-   * artwork (branding settings override the brand default).
-   */
-  src?: string | null;
-  /** Rendered height in px. Width follows the artwork's aspect ratio. */
+  /** Rendered height in px. Width follows the artwork. */
   height?: number;
-}
-
-function toneColors(tone: LogoTone) {
-  const { identity } = brandTokens;
-  return tone === 'color'
-    ? {
-        figure: identity.soliriusBlue,
-        reply: identity.replyTeal,
-        solirius: identity.soliriusBlue,
-      }
-    : {
-        figure: identity.white,
-        reply: identity.white,
-        solirius: identity.white,
-      };
-}
-
-function OverrideImage(props: {
-  src: string;
-  title: string;
-  height: number;
   className?: string;
   style?: CSSProperties;
-}) {
+}
+
+const FALLBACK_NAME = 'Developer portal';
+
+function Uploaded(props: LogoProps & { src: string; alt: string }) {
   return (
     <img
       src={props.src}
-      alt={props.title}
+      alt={props.alt}
       className={props.className}
       style={{
         height: props.height,
@@ -75,91 +32,97 @@ function OverrideImage(props: {
   );
 }
 
-/** Full Solirius Reply lockup: running figure, REPLY and SOLIRIUS. */
-export function LogoFull(props: LogoProps) {
-  const {
-    tone = 'reversed',
-    title = brandTokens.name.company,
-    src,
-    height = 36,
-    style,
-    className,
-    ...rest
-  } = props;
-  if (src) {
-    return (
-      <OverrideImage
-        src={src}
-        title={title}
-        height={height}
-        className={className}
-        style={style}
-      />
-    );
-  }
-  const colors = toneColors(tone);
-  const decorative = title === '';
+/**
+ * The mark shown until an organisation uploads its own: a plain glyph in
+ * the surrounding text colour, belonging to nobody.
+ */
+function PlainMark(props: LogoProps & { label: string }) {
+  const { height, label, className, style } = props;
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      viewBox={LOGO_VIEWBOX}
-      role={decorative ? undefined : 'img'}
-      aria-hidden={decorative ? true : undefined}
+      viewBox="0 0 24 24"
+      role={label ? 'img' : undefined}
+      aria-label={label || undefined}
+      aria-hidden={label ? undefined : true}
       focusable="false"
       className={className}
       style={{
         height,
-        width: height * LOGO_ASPECT,
+        width: height,
         display: 'block',
+        flex: 'none',
         ...style,
       }}
-      {...rest}
     >
-      {decorative ? null : <title>{title}</title>}
-      <path fillRule="evenodd" fill={colors.figure} d={MARK_PATH} />
-      <path fillRule="evenodd" fill={colors.reply} d={REPLY_PATH} />
-      <path fillRule="evenodd" fill={colors.solirius} d={SOLIRIUS_PATH} />
+      <rect width="24" height="24" rx="6" fill="currentColor" opacity="0.18" />
+      <path
+        d="M7 8h10M7 12h10M7 16h6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
 
-/** Running figure mark on its own, for the collapsed sidebar and small spaces. */
-export function LogoIcon(props: LogoProps) {
-  const {
-    tone = 'reversed',
-    title = brandTokens.name.company,
-    src,
-    height = 32,
-    style,
-    className,
-    ...rest
-  } = props;
-  if (src) {
+/**
+ * The organisation's full logo. Without an uploaded one: the plain mark,
+ * followed by the organisation's name when it has been set.
+ */
+export function LogoFull(props: LogoProps) {
+  const { organizationName, logoFullUrl } = useBrandIdentity();
+  const { height = 36, className, style } = props;
+  const label = props.title ?? organizationName ?? FALLBACK_NAME;
+  if (logoFullUrl) {
     return (
-      <OverrideImage
-        src={src}
-        title={title}
-        height={height}
-        className={className}
-        style={style}
-      />
+      <Uploaded {...props} height={height} src={logoFullUrl} alt={label} />
     );
   }
-  const colors = toneColors(tone);
-  const decorative = title === '';
   return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox={MARK_VIEWBOX}
-      role={decorative ? undefined : 'img'}
-      aria-hidden={decorative ? true : undefined}
-      focusable="false"
+    <span
+      role={label ? 'img' : undefined}
+      aria-label={label || undefined}
       className={className}
-      style={{ height, width: height, display: 'block', ...style }}
-      {...rest}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: height / 3,
+        height,
+        maxWidth: '100%',
+        ...style,
+      }}
     >
-      {decorative ? null : <title>{title}</title>}
-      <path fillRule="evenodd" fill={colors.figure} d={MARK_PATH} />
-    </svg>
+      <PlainMark title="" label="" height={height} />
+      {organizationName ? (
+        <span
+          aria-hidden="true"
+          style={{
+            fontSize: height / 2,
+            fontWeight: 700,
+            lineHeight: 1.1,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {organizationName}
+        </span>
+      ) : null}
+    </span>
   );
+}
+
+/** The organisation's icon, for the collapsed sidebar and small spaces. */
+export function LogoIcon(props: LogoProps) {
+  const { organizationName, logoIconUrl } = useBrandIdentity();
+  const { height = 32 } = props;
+  const label = props.title ?? organizationName ?? FALLBACK_NAME;
+  if (logoIconUrl) {
+    return (
+      <Uploaded {...props} height={height} src={logoIconUrl} alt={label} />
+    );
+  }
+  return <PlainMark {...props} height={height} label={label} />;
 }

@@ -7,7 +7,12 @@ import {
   notFoundError,
 } from './errors';
 import { isRecord, readJson } from './json';
-import { appendTaskEvents, saveActions, type TaskEvent } from './scaffolder';
+import {
+  appendTaskEvents,
+  saveActions,
+  saveTemplatingExtensions,
+  type TaskEvent,
+} from './scaffolder';
 import type { AppEnv } from './types';
 
 /**
@@ -205,6 +210,15 @@ pipelineRoutes.put('/scaffolder/actions', async c => {
   }
   await saveActions(c.env.DB, actions);
   return c.json({ received: actions.length });
+});
+
+pipelineRoutes.put('/scaffolder/templating-extensions', async c => {
+  const extensions = await readJson(c, MAX_VALUE_BYTES);
+  if (!isRecord(extensions)) {
+    throw inputError('The templating extensions must be a JSON object');
+  }
+  await saveTemplatingExtensions(c.env.DB, extensions);
+  return c.json({ received: true });
 });
 
 pipelineRoutes.get('/locations', async c => {

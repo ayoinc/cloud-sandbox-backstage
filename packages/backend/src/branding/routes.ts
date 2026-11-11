@@ -136,8 +136,28 @@ export function createRouter(deps: RouterDeps): Router {
     if (!userEntityRef) return;
 
     try {
-      const { organizationName, primaryColor, logoFullUrl, logoIconUrl } =
-        req.body;
+      const {
+        organizationName,
+        primaryColor,
+        themePreset,
+        logoFullUrl,
+        logoIconUrl,
+      } = req.body;
+
+      // A preset id, or null / '' to go back to the built-in theme
+      if (
+        themePreset !== undefined &&
+        themePreset !== null &&
+        themePreset !== '' &&
+        (typeof themePreset !== 'string' ||
+          !/^[a-z][a-z0-9-]{0,39}$/.test(themePreset))
+      ) {
+        res.status(400).json({
+          error:
+            'themePreset must be a preset id: lower-case letters, digits and dashes, at most 40',
+        });
+        return;
+      }
 
       const updates: Record<string, unknown> = {
         updated_at: new Date().toISOString(),
@@ -149,6 +169,9 @@ export function createRouter(deps: RouterDeps): Router {
       }
       if (primaryColor !== undefined) {
         updates.primary_color = primaryColor || null;
+      }
+      if (themePreset !== undefined) {
+        updates.theme_preset = themePreset || null;
       }
       if (logoFullUrl !== undefined) {
         updates.logo_full_url = logoFullUrl || null;
@@ -274,6 +297,7 @@ export function createRouter(deps: RouterDeps): Router {
         logo_full_url: null,
         logo_icon_url: null,
         primary_color: null,
+        theme_preset: null,
         updated_at: new Date().toISOString(),
         updated_by: userEntityRef,
       });

@@ -1,7 +1,8 @@
-import { brandTokens } from '../tokens/brandTokens';
+import { brandTokensFor } from '../tokens/brandTokens';
 import type {
   BrandMode,
   BrandModeColors,
+  BrandTokens,
   StatusName,
 } from '../tokens/brandTokens';
 import { resolveBrandColors } from '../tokens/overrides';
@@ -21,14 +22,14 @@ function px(value: number): string {
 
 /**
  * Backstage UI (`--bui-*`) custom properties for one mode, derived from
- * {@link brandTokens}. Token names verified against @backstage/ui 0.19 styles.css.
+ * the brand tokens. Token names verified against @backstage/ui 0.19 styles.css.
  */
 export function buiVariables(
   mode: BrandMode,
   overrides?: BrandColorOverrides,
 ): Record<string, string> {
   const c: BrandModeColors = resolveBrandColors(mode, overrides);
-  const { typography, shape, focus } = brandTokens;
+  const { typography, shape, focus } = brandTokensFor(overrides?.preset);
   const isDark = mode === 'dark';
 
   const bg = isDark
@@ -145,15 +146,17 @@ const STATUS_FG: Record<StatusName, string> = {
 export function toastVariables(
   mode: BrandMode,
   status: StatusName,
+  overrides?: BrandColorOverrides,
 ): Record<string, string> {
-  const s = brandTokens.color[mode].status[status];
+  const tokens = brandTokensFor(overrides?.preset);
+  const s = tokens.color[mode].status[status];
   return {
     '--bui-bg-app': s.solid,
     '--bui-border-1': s.solid,
     '--bui-fg-primary': s.onSolid,
     '--bui-fg-secondary': s.onSolid,
     [STATUS_FG[status]]: s.onSolid,
-    '--bui-ring': brandTokens.focus.color,
+    '--bui-ring': tokens.focus.color,
   };
 }
 
@@ -165,8 +168,8 @@ function block(selector: string, vars: Record<string, string>): string {
 }
 
 /** GOV.UK-style focus treatment shared by MUI, Backstage UI and plain HTML. */
-function focusCss(): string {
-  const { color, text, edge, width } = brandTokens.focus;
+function focusCss({ focus }: BrandTokens): string {
+  const { color, text, edge, width } = focus;
   return `
 body :focus-visible,
 body [data-focus-visible] {
@@ -199,8 +202,7 @@ body a:focus-visible * {
  * toast module CSS is unlayered, so toast rules are unlayered with higher
  * specificity.
  */
-function componentCss(): string {
-  const { target, shape, elevation } = brandTokens;
+function componentCss({ target, shape, elevation }: BrandTokens): string {
   return `
 @layer theme {
   [class*='bui-Button'][data-size='medium'] {
@@ -235,13 +237,14 @@ export function buiThemeCss(
   mode: BrandMode,
   overrides?: BrandColorOverrides,
 ): string {
+  const tokens = brandTokensFor(overrides?.preset);
   const other: BrandMode = mode === 'light' ? 'dark' : 'light';
   const toastBlocks = (m: BrandMode, scope: string) =>
     (['success', 'warning', 'danger', 'info'] as StatusName[])
       .map(status =>
         block(
           `${scope}${TOAST}[data-status='${status}']`,
-          toastVariables(m, status),
+          toastVariables(m, status, overrides),
         ),
       )
       .join('\n');
@@ -255,7 +258,7 @@ export function buiThemeCss(
     toastBlocks(mode, ''),
     toastBlocks(other, `[data-theme-mode='${other}'] `),
     '}',
-    componentCss(),
-    focusCss(),
+    componentCss(tokens),
+    focusCss(tokens),
   ].join('\n');
 }

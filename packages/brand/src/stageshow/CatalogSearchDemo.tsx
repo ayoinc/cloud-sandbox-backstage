@@ -14,7 +14,8 @@ import {
   type Point,
 } from './kit';
 import { Glyph, type GlyphName } from './icons';
-import { soliriusLook } from './soliriusLook';
+import { brandLook } from './brandLook';
+import { brandOverrides, useBrandIdentity } from '../identity/brandIdentity';
 import type { BrandMode } from '../tokens/brandTokens';
 import './CatalogSearchDemo.css';
 
@@ -253,6 +254,7 @@ export interface CatalogSearchDemoProps {
 export default function CatalogSearchDemo({ mode }: CatalogSearchDemoProps) {
   const root = useRef<HTMLDivElement>(null);
   const [frame, setFrame] = useState<Frame | null>(null);
+  const overrides = brandOverrides(useBrandIdentity());
   useLayoutEffect(() => {
     const el = root.current;
     if (!el) return undefined;
@@ -291,7 +293,7 @@ export default function CatalogSearchDemo({ mode }: CatalogSearchDemoProps) {
               height={frame.height}
               fill
               theme={mode}
-              tokens={soliriusLook(mode)}
+              tokens={brandLook(mode, overrides)}
               initial={initial}
               poster={POSTER}
               script={script}

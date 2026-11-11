@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 /*
- * Generates src/tokens/palette.generated.ts: Material Design 3 colour roles
- * (light and dark) and tonal palettes derived from the Solirius Reply brand
- * colours sampled from the official logo artwork.
+ * Generates src/tokens/palette.generated.ts: for every theme preset, the
+ * Material Design 3 colour roles (light and dark) and tonal palettes derived
+ * from that preset's three seed colours.
  *
- * Run with: yarn workspace @internal/brand generate:palette
+ * To add a preset: add it to PRESETS below, describe it in
+ * src/tokens/presets.ts, then run
+ *   yarn workspace @internal/brand generate:palette
+ * The contrast tests check every preset against WCAG 2.2 AA.
  */
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -24,16 +27,52 @@ const TONAL_SPOT = new SchemeTonalSpot(Hct.fromInt(0xff000000), false, 0)
   .variant;
 
 /**
- * Brand source colours.
- * - solirius blue: running figure and "SOLIRIUS" wordmark (sampled from logo PNG).
- * - reply teal: "REPLY" wordmark (sampled from logo PNG).
- * - solirius indigo: secondary palette colour published on solirius.com.
+ * Theme presets. Each has three seeds:
+ * - primary: actions, links and focus-independent accents. White text must
+ *   reach 4.5:1 on it, because it also fills the "info" banner.
+ * - secondary: the sidebar and page header surface, so it has to be dark.
+ * - tertiary: visited links and the occasional contrasting accent.
+ * The first preset is the default, and carries no organisation's identity.
  */
-const BRAND = {
-  soliriusBlue: '#005399',
-  replyTeal: '#004149',
-  soliriusIndigo: '#171695',
-};
+const PRESETS = [
+  {
+    id: 'neutral',
+    primary: '#3f4a5a',
+    secondary: '#1f2933',
+    tertiary: '#5a4a6a',
+  },
+  {
+    id: 'harbour',
+    primary: '#005399',
+    secondary: '#004149',
+    tertiary: '#171695',
+  },
+  {
+    id: 'forest',
+    primary: '#1f6b45',
+    secondary: '#173d2c',
+    tertiary: '#5c5a1e',
+  },
+  { id: 'plum', primary: '#6a2c91', secondary: '#36204a', tertiary: '#a02c5a' },
+  {
+    id: 'ember',
+    primary: '#a8401c',
+    secondary: '#40241a',
+    tertiary: '#7a5200',
+  },
+  {
+    id: 'civic',
+    primary: '#1d70b8',
+    secondary: '#0b0c0c',
+    tertiary: '#4c2c92',
+  },
+  {
+    id: 'baseline',
+    primary: '#6750a4',
+    secondary: '#2b2440',
+    tertiary: '#7d5260',
+  },
+];
 
 /**
  * Status source colours. Hues follow the GOV.UK Design System conventions
@@ -102,105 +141,86 @@ const ROLES = [
   'scrim',
 ];
 
-const seed = Hct.fromInt(argbFromHex(BRAND.soliriusBlue));
-const teal = Hct.fromInt(argbFromHex(BRAND.replyTeal));
-const indigo = Hct.fromInt(argbFromHex(BRAND.soliriusIndigo));
-
-const palettes = {
-  // Full source chroma keeps the primary recognisably "Solirius blue".
-  primary: TonalPalette.fromHueAndChroma(seed.hue, seed.chroma),
-  // Secondary carries the REPLY teal hue at its own chroma.
-  secondary: TonalPalette.fromHueAndChroma(teal.hue, teal.chroma),
-  // Tertiary carries the solirius.com indigo.
-  tertiary: TonalPalette.fromHueAndChroma(
-    indigo.hue,
-    Math.min(indigo.chroma, 48),
-  ),
-  // Calm, low-chroma neutrals tinted towards the seed hue.
-  neutral: TonalPalette.fromHueAndChroma(seed.hue, 4),
-  neutralVariant: TonalPalette.fromHueAndChroma(seed.hue, 8),
+const STATUS_PALETTES = {
+  success: TonalPalette.fromInt(argbFromHex(STATUS.success)),
+  warning: TonalPalette.fromInt(argbFromHex(STATUS.warning)),
 };
-
-function makeScheme(isDark) {
-  return new DynamicScheme({
-    sourceColorArgb: seed.toInt(),
-    variant: TONAL_SPOT,
-    contrastLevel: 0,
-    isDark,
-    primaryPalette: palettes.primary,
-    secondaryPalette: palettes.secondary,
-    tertiaryPalette: palettes.tertiary,
-    neutralPalette: palettes.neutral,
-    neutralVariantPalette: palettes.neutralVariant,
-  });
-}
-
-function buildScheme(isDark) {
-  const scheme = makeScheme(isDark);
-  const roles = {};
-  for (const role of ROLES) {
-    roles[role] = hexFromArgb(MaterialDynamicColors[role].getArgb(scheme));
-  }
-  if (!isDark) {
-    // Brand pin: the logo blue sits at HCT tone 35 of the primary palette.
-    // M3 baseline uses tone 40; pinning to 35 makes the primary action colour
-    // the exact Solirius blue and raises onPrimary contrast.
-    roles.primary = hexFromArgb(palettes.primary.tone(35));
-    roles.surfaceTint = roles.primary;
-  }
-  return roles;
-}
 
 function tonal(palette) {
   return Object.fromEntries(TONES.map(t => [t, hexFromArgb(palette.tone(t))]));
 }
 
-const errorPalette = makeScheme(false).errorPalette;
-
-const output = {
-  source: {
-    ...BRAND,
-    status: STATUS,
-    hct: {
-      soliriusBlue: {
-        hue: +seed.hue.toFixed(2),
-        chroma: +seed.chroma.toFixed(2),
-        tone: +seed.tone.toFixed(2),
-      },
-      replyTeal: {
-        hue: +teal.hue.toFixed(2),
-        chroma: +teal.chroma.toFixed(2),
-        tone: +teal.tone.toFixed(2),
-      },
-      soliriusIndigo: {
-        hue: +indigo.hue.toFixed(2),
-        chroma: +indigo.chroma.toFixed(2),
-        tone: +indigo.tone.toFixed(2),
-      },
+function buildPreset({ primary, secondary, tertiary }) {
+  const seed = Hct.fromInt(argbFromHex(primary));
+  const second = Hct.fromInt(argbFromHex(secondary));
+  const third = Hct.fromInt(argbFromHex(tertiary));
+  const palettes = {
+    // Full source chroma keeps the primary recognisably the seed colour.
+    primary: TonalPalette.fromHueAndChroma(seed.hue, seed.chroma),
+    secondary: TonalPalette.fromHueAndChroma(second.hue, second.chroma),
+    tertiary: TonalPalette.fromHueAndChroma(
+      third.hue,
+      Math.min(third.chroma, 48),
+    ),
+    // Calm, low-chroma neutrals tinted towards the seed hue.
+    neutral: TonalPalette.fromHueAndChroma(seed.hue, Math.min(seed.chroma, 4)),
+    neutralVariant: TonalPalette.fromHueAndChroma(
+      seed.hue,
+      Math.min(seed.chroma, 8),
+    ),
+  };
+  const makeScheme = isDark =>
+    new DynamicScheme({
+      sourceColorArgb: seed.toInt(),
+      variant: TONAL_SPOT,
+      contrastLevel: 0,
+      isDark,
+      primaryPalette: palettes.primary,
+      secondaryPalette: palettes.secondary,
+      tertiaryPalette: palettes.tertiary,
+      neutralPalette: palettes.neutral,
+      neutralVariantPalette: palettes.neutralVariant,
+    });
+  const roles = isDark => {
+    const scheme = makeScheme(isDark);
+    const out = {};
+    for (const role of ROLES) {
+      out[role] = hexFromArgb(MaterialDynamicColors[role].getArgb(scheme));
+    }
+    if (!isDark) {
+      // The M3 baseline puts the light primary at tone 40. A darker seed is
+      // used at its own tone instead, so the primary action colour is the
+      // seed itself and white text on it has more contrast.
+      const pinned = Math.min(40, Math.max(25, Math.round(seed.tone)));
+      out.primary = hexFromArgb(palettes.primary.tone(pinned));
+      out.surfaceTint = out.primary;
+    }
+    return out;
+  };
+  return {
+    seeds: { primary, secondary, tertiary },
+    tonalPalettes: {
+      primary: tonal(palettes.primary),
+      secondary: tonal(palettes.secondary),
+      tertiary: tonal(palettes.tertiary),
+      neutral: tonal(palettes.neutral),
+      neutralVariant: tonal(palettes.neutralVariant),
+      error: tonal(makeScheme(false).errorPalette),
+      success: tonal(STATUS_PALETTES.success),
+      warning: tonal(STATUS_PALETTES.warning),
     },
-  },
-  tonalPalettes: {
-    primary: tonal(palettes.primary),
-    secondary: tonal(palettes.secondary),
-    tertiary: tonal(palettes.tertiary),
-    neutral: tonal(palettes.neutral),
-    neutralVariant: tonal(palettes.neutralVariant),
-    error: tonal(errorPalette),
-    success: tonal(TonalPalette.fromInt(argbFromHex(STATUS.success))),
-    warning: tonal(TonalPalette.fromInt(argbFromHex(STATUS.warning))),
-  },
-  schemes: {
-    light: buildScheme(false),
-    dark: buildScheme(true),
-  },
-};
+    schemes: { light: roles(false), dark: roles(true) },
+  };
+}
+
+const output = Object.fromEntries(
+  PRESETS.map(preset => [preset.id, buildPreset(preset)]),
+);
 
 const banner = `/*
  * GENERATED FILE: do not edit by hand.
  * Source: packages/brand/scripts/generate-palette.mjs
  * Library: @material/material-color-utilities (Material Design 3 HCT / DynamicScheme)
- * Seed: Solirius blue ${BRAND.soliriusBlue}; secondary hue REPLY teal ${BRAND.replyTeal};
- * tertiary hue solirius.com indigo ${BRAND.soliriusIndigo}.
  */
 `;
 
@@ -214,15 +234,24 @@ export type M3Scheme = Record<M3Role, string>;
 /** Tonal palette keyed by HCT tone (0 to 100). */
 export type TonalPaletteHex = Record<${TONES.join(' | ')}, string>;
 
-export const m3Source = ${JSON.stringify(output.source, null, 2)} as const;
+/** Ids of the theme presets, default first. */
+export const presetIds = ${JSON.stringify(PRESETS.map(p => p.id))} as const;
 
-export const m3TonalPalettes: Record<
-  'primary' | 'secondary' | 'tertiary' | 'neutral' | 'neutralVariant' | 'error' | 'success' | 'warning',
-  TonalPaletteHex
-> = ${JSON.stringify(output.tonalPalettes, null, 2)};
+/** Id of a theme preset. */
+export type PresetId = (typeof presetIds)[number];
 
-export const m3Schemes: { light: M3Scheme; dark: M3Scheme } = ${JSON.stringify(
-  output.schemes,
+/** Everything generated for one preset. */
+export interface PresetPalette {
+  seeds: { primary: string; secondary: string; tertiary: string };
+  tonalPalettes: Record<
+    'primary' | 'secondary' | 'tertiary' | 'neutral' | 'neutralVariant' | 'error' | 'success' | 'warning',
+    TonalPaletteHex
+  >;
+  schemes: { light: M3Scheme; dark: M3Scheme };
+}
+
+export const presetPalettes: Record<PresetId, PresetPalette> = ${JSON.stringify(
+  output,
   null,
   2,
 )};

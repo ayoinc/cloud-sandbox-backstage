@@ -1,6 +1,6 @@
 /* The catalog search demo. Every rule sits under .csd, the demo's root, so
    nothing here reaches the host page or another stage. Colours come from the
-   look (soliriusLook.ts): the kit's --ss-* tokens mapped from the brand tokens. */
+   look (brandLook.ts): the kit's --ss-* tokens mapped from the brand tokens. */
 
 /* Fills the slot the host gives it. Decorative: never in the pointer's way. */
 .csd {

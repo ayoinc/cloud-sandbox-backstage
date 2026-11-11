@@ -1,13 +1,15 @@
-import { brandTokens } from './brandTokens';
+import { brandTokensFor } from './brandTokens';
 import type { BrandMode, BrandModeColors } from './brandTokens';
 import { contrastRatio } from './contrast';
 
 /**
  * Runtime overrides an administrator can apply on top of the brand defaults
  * (for example from the branding-settings backend). `null` or missing values
- * keep the brand default.
+ * keep the default.
  */
 export interface BrandColorOverrides {
+  /** Theme preset id. An unknown id gives the default preset. */
+  preset?: string | null;
   /** Replacement primary colour as a 6-digit hex string. */
   primaryColor?: string | null;
 }
@@ -16,7 +18,8 @@ const HEX = /^#[0-9a-f]{6}$/i;
 const TEXT_AA = 4.5;
 
 /**
- * Returns the brand colours for `mode` with administrator overrides applied.
+ * Returns the colours of the chosen preset for `mode`, with the
+ * administrator's primary colour applied when one is set.
  *
  * An override primary gets whichever of white or the mode's on-surface colour
  * contrasts more with it, so filled buttons always meet AA. The override is
@@ -27,7 +30,7 @@ export function resolveBrandColors(
   mode: BrandMode,
   overrides?: BrandColorOverrides,
 ): BrandModeColors {
-  const base = brandTokens.color[mode];
+  const base = brandTokensFor(overrides?.preset).color[mode];
   const primary = overrides?.primaryColor?.trim();
   if (!primary || !HEX.test(primary)) {
     return base;

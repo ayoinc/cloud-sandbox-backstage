@@ -55,7 +55,7 @@ This guide provides comprehensive instructions for setting up the Cloud Sandbox 
 curl -fsSL https://get.jetify.com/devbox | bash
 
 # 2. Clone and enter directory
-git clone https://github.com/ayointegral/cloud-sandbox-backstage.git
+git clone https://github.com/ayoinc/cloud-sandbox-backstage.git
 cd cloud-sandbox-backstage
 
 # 3. Enter Devbox shell
@@ -76,7 +76,7 @@ devbox run dev
 
 ```bash
 # 1. Clone and enter directory
-git clone https://github.com/ayointegral/cloud-sandbox-backstage.git
+git clone https://github.com/ayoinc/cloud-sandbox-backstage.git
 cd cloud-sandbox-backstage
 
 # 2. Configure and start
@@ -109,7 +109,7 @@ On first run, Devbox will prompt to install Nix. Accept the installation - it re
 ### Step 2: Clone the Repository
 
 ```bash
-git clone https://github.com/ayointegral/cloud-sandbox-backstage.git
+git clone https://github.com/ayoinc/cloud-sandbox-backstage.git
 cd cloud-sandbox-backstage
 ```
 
@@ -229,7 +229,7 @@ Run everything in Docker containers - closest to production.
 ### Step 1: Clone the Repository
 
 ```bash
-git clone https://github.com/ayointegral/cloud-sandbox-backstage.git
+git clone https://github.com/ayoinc/cloud-sandbox-backstage.git
 cd cloud-sandbox-backstage
 ```
 
@@ -630,7 +630,7 @@ yarn build:backend
 
 ## Getting Help
 
-- **Issues:** https://github.com/ayointegral/cloud-sandbox-backstage/issues
+- **Issues:** https://github.com/ayoinc/cloud-sandbox-backstage/issues
 - **Backstage Docs:** https://backstage.io/docs
 - **Backstage Discord:** https://discord.gg/backstage-687207715902193673
 

@@ -273,4 +273,4 @@ create -> Templates -> Select app type -> Configure -> Generate repository
 
 **Last Updated:** 2024-12-28
 **Maintained By:** Platform Team
-**Repository:** https://github.com/ayointegral/cloud-sandbox-backstage
+**Repository:** https://github.com/ayoinc/cloud-sandbox-backstage

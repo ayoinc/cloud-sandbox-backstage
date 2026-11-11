@@ -33,6 +33,7 @@ export async function initializeTables(
       table.text('logo_full_url').nullable();
       table.text('logo_icon_url').nullable();
       table.string('primary_color').nullable();
+      table.string('theme_preset').nullable();
       table.timestamp('updated_at').defaultTo(knex.fn.now());
       table.string('updated_by').nullable();
     });
@@ -43,8 +44,20 @@ export async function initializeTables(
       logo_full_url: null,
       logo_icon_url: null,
       primary_color: null,
+      theme_preset: null,
       updated_at: new Date().toISOString(),
       updated_by: null,
+    });
+  }
+
+  // Tables created before theme presets existed lack the column
+  if (
+    hasSettingsTable &&
+    !(await knex.schema.hasColumn('branding_settings', 'theme_preset'))
+  ) {
+    logger.info('Adding theme_preset column to branding_settings');
+    await knex.schema.alterTable('branding_settings', table => {
+      table.string('theme_preset').nullable();
     });
   }
 
@@ -102,6 +115,7 @@ export async function getCurrentSettings(
     logoFullUrl: row.logo_full_url,
     logoIconUrl: row.logo_icon_url,
     primaryColor: row.primary_color,
+    themePreset: row.theme_preset,
     updatedAt: row.updated_at,
     updatedBy: row.updated_by,
   };

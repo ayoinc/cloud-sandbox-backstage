@@ -3,10 +3,10 @@ import { HomePageWidgetBlueprint } from '@backstage/plugin-home-react/alpha';
 import { MarkdownContent } from '@backstage/core-components';
 
 const content = `
-## Welcome to Cloud Sandbox
+## Welcome
 
-The Solirius Reply developer portal: one place to find services, APIs and
-documentation, and to create new components from approved templates.
+One place to find services, APIs and documentation, and to create new
+components from approved templates.
 
 ### Get started
 
@@ -18,7 +18,7 @@ documentation, and to create new components from approved templates.
 
 ### Get help
 
-- [Portal source and issues](https://github.com/ayointegral/cloud-sandbox-backstage)
+- [Portal source and issues](https://github.com/ayoinc/cloud-sandbox-backstage)
 - [Backstage documentation](https://backstage.io/docs)
 `;
 
@@ -27,7 +27,7 @@ const gettingStartedWidget = HomePageWidgetBlueprint.make({
   params: {
     name: 'GettingStarted',
     title: 'Get started',
-    description: 'How to find, create and document software in Cloud Sandbox',
+    description: 'How to find, create and document software in the portal',
     components: async () => ({
       Content: () => <MarkdownContent content={content} />,
     }),

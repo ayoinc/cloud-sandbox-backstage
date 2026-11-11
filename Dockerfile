@@ -116,7 +116,7 @@ FROM toolchain AS production
 
 LABEL org.opencontainers.image.title="cloud-sandbox-backstage" \
       org.opencontainers.image.description="Cloud Sandbox Backstage Developer Portal" \
-      org.opencontainers.image.source="https://github.com/ayointegral/cloud-sandbox-backstage"
+      org.opencontainers.image.source="https://github.com/ayoinc/cloud-sandbox-backstage"
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \

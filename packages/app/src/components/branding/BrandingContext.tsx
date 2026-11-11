@@ -11,14 +11,16 @@ import {
   fetchApiRef,
   identityApiRef,
 } from '@backstage/core-plugin-api';
+import { setBrandIdentity } from '@internal/brand';
 
 /**
  * =============================================================================
  * Branding Context
  * =============================================================================
  *
- * Provides global access to branding settings (logo, organization name).
- * Fetches settings from the branding-settings backend plugin.
+ * Loads the branding settings (name, logo, theme preset, primary colour) and
+ * lets an administrator change them. Whatever it loads or saves goes to the
+ * brand identity store, which is what every themed surface reads.
  *
  * Usage:
  *   const { settings, isAdmin, updateSettings, uploadLogo } = useBranding();
@@ -31,7 +33,8 @@ export interface BrandingSettings {
   logoFullUrl: string | null;
   logoIconUrl: string | null;
   primaryColor: string | null;
-  updatedAt: string;
+  themePreset: string | null;
+  updatedAt: string | null;
   updatedBy: string | null;
 }
 
@@ -52,8 +55,15 @@ const DEFAULT_SETTINGS: BrandingSettings = {
   logoFullUrl: null,
   logoIconUrl: null,
   primaryColor: null,
-  updatedAt: new Date().toISOString(),
+  themePreset: null,
+  updatedAt: null,
   updatedBy: null,
+};
+
+/** The message of a failed response, in either backend's error format. */
+const failure = (data: unknown, fallback: string) => {
+  const error = (data as { error?: string | { message?: string } })?.error;
+  return (typeof error === 'string' ? error : error?.message) || fallback;
 };
 
 const BrandingContext = createContext<BrandingContextType | undefined>(
@@ -70,7 +80,11 @@ export const BrandingProvider: React.FC<BrandingProviderProps> = ({
   const fetchApi = useApi(fetchApiRef);
   const identityApi = useApi(identityApiRef);
 
-  const [settings, setSettings] = useState<BrandingSettings>(DEFAULT_SETTINGS);
+  const [settings, setLoaded] = useState<BrandingSettings>(DEFAULT_SETTINGS);
+  const setSettings = useCallback((loaded: BrandingSettings) => {
+    setLoaded(loaded);
+    setBrandIdentity(loaded);
+  }, []);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -97,7 +111,7 @@ export const BrandingProvider: React.FC<BrandingProviderProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [fetchApi]);
+  }, [fetchApi, setSettings]);
 
   // Check if current user is admin
   const checkAdmin = useCallback(async () => {
@@ -134,7 +148,7 @@ export const BrandingProvider: React.FC<BrandingProviderProps> = ({
 
         if (!response.ok) {
           const data = await response.json();
-          throw new Error(data.error || 'Failed to update settings');
+          throw new Error(failure(data, 'Failed to update settings'));
         }
 
         const data = await response.json();
@@ -146,7 +160,7 @@ export const BrandingProvider: React.FC<BrandingProviderProps> = ({
         throw err;
       }
     },
-    [fetchApi],
+    [fetchApi, setSettings],
   );
 
   // Upload logo files
@@ -170,7 +184,7 @@ export const BrandingProvider: React.FC<BrandingProviderProps> = ({
 
         if (!response.ok) {
           const data = await response.json();
-          throw new Error(data.error || 'Failed to upload logo');
+          throw new Error(failure(data, 'Failed to upload logo'));
         }
 
         const data = await response.json();
@@ -182,7 +196,7 @@ export const BrandingProvider: React.FC<BrandingProviderProps> = ({
         throw err;
       }
     },
-    [fetchApi],
+    [fetchApi, setSettings],
   );
 
   // Reset logo to default
@@ -195,7 +209,7 @@ export const BrandingProvider: React.FC<BrandingProviderProps> = ({
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Failed to reset logo');
+        throw new Error(failure(data, 'Failed to reset logo'));
       }
 
       const data = await response.json();
@@ -206,7 +220,7 @@ export const BrandingProvider: React.FC<BrandingProviderProps> = ({
       setError(message);
       throw err;
     }
-  }, [fetchApi]);
+  }, [fetchApi, setSettings]);
 
   // Reset all branding to default
   const resetAll = useCallback(async () => {
@@ -218,7 +232,7 @@ export const BrandingProvider: React.FC<BrandingProviderProps> = ({
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Failed to reset branding');
+        throw new Error(failure(data, 'Failed to reset branding'));
       }
 
       const data = await response.json();
@@ -229,7 +243,7 @@ export const BrandingProvider: React.FC<BrandingProviderProps> = ({
       setError(message);
       throw err;
     }
-  }, [fetchApi]);
+  }, [fetchApi, setSettings]);
 
   // Initial fetch
   useEffect(() => {

@@ -1,6 +1,7 @@
-import { brandTokens } from './brandTokens';
+import { brandTokensFor } from './brandTokens';
 import { contrastRatio, blend } from './contrast';
 import { contrastPairs } from './contrastPairs';
+import { presetIds } from './palette.generated';
 
 describe('contrast helpers', () => {
   it('matches the WCAG reference values', () => {
@@ -14,20 +15,20 @@ describe('contrast helpers', () => {
   });
 });
 
-describe('brandTokens', () => {
-  it('keeps the exact logo colours as identity colours', () => {
-    expect(brandTokens.identity.soliriusBlue).toBe('#005399');
-    expect(brandTokens.identity.replyTeal).toBe('#004149');
+describe('brandTokensFor', () => {
+  it('gives the default preset for an id it does not know', () => {
+    expect(brandTokensFor('no-such-preset')).toBe(brandTokensFor(null));
+    expect(brandTokensFor(null).preset).toBe(presetIds[0]);
   });
 
-  it('pins the light primary role to the logo blue', () => {
-    expect(brandTokens.color.light.primary).toBe('#005399');
-  });
+  const cases = presetIds.flatMap(preset =>
+    (['light', 'dark'] as const).map(mode => [preset, mode] as const),
+  );
 
-  it.each(['light', 'dark'] as const)(
-    'meets WCAG 2.2 AA for every %s pairing',
-    mode => {
-      const failures = contrastPairs(mode)
+  it.each(cases)(
+    '%s %s meets WCAG 2.2 AA for every pairing',
+    (preset, mode) => {
+      const failures = contrastPairs(mode, preset)
         .filter(pair => pair.ratio < pair.minimum)
         .map(
           pair => `${pair.name}: ${pair.ratio.toFixed(2)} < ${pair.minimum}`,

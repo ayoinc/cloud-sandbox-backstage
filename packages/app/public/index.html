@@ -5,21 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="theme-color"
-      content="#004149"
+      content="#1f2933"
       media="(prefers-color-scheme: light)"
     />
     <meta
       name="theme-color"
-      content="#001f24"
+      content="#161c22"
       media="(prefers-color-scheme: dark)"
     />
     <meta name="color-scheme" content="light dark" />
     <meta
       name="description"
-      content="Cloud Sandbox: the Solirius Reply developer portal. Find services, APIs and documentation, and create new components from approved templates."
+      content="Developer portal. Find services, APIs and documentation, and create new components from approved templates."
     />
-    <meta name="application-name" content="Cloud Sandbox" />
-    <meta name="apple-mobile-web-app-title" content="Cloud Sandbox" />
+    <meta name="application-name" content="Developer Portal" />
+    <meta name="apple-mobile-web-app-title" content="Developer Portal" />
     <link
       rel="manifest"
       href="<%= publicPath %>/manifest.json"
@@ -51,10 +51,10 @@
     <link
       rel="mask-icon"
       href="<%= publicPath %>/safari-pinned-tab.svg"
-      color="#005399"
+      color="#3f4a5a"
     />
     <title>
-      <%= config.getOptionalString('app.title') ?? 'Cloud Sandbox' %>
+      <%= config.getOptionalString('app.title') ?? 'Developer Portal' %>
     </title>
     <style>
       /* Shown until the app renders into #root (and when JavaScript is off). */
@@ -75,13 +75,6 @@
         line-height: 1.5;
         text-align: center;
       }
-      .brand-boot__logo {
-        width: 200px;
-        height: auto;
-      }
-      .brand-boot__logo--dark {
-        display: none;
-      }
       .brand-boot__status {
         margin: 0;
         color: #43474e;
@@ -90,7 +83,7 @@
         width: 160px;
         height: 4px;
         border-radius: 9999px;
-        background: #d4e3ff;
+        background: #dde2ea;
         overflow: hidden;
       }
       .brand-boot__bar::after {
@@ -99,7 +92,7 @@
         width: 40%;
         height: 100%;
         border-radius: 9999px;
-        background: #005399;
+        background: #3f4a5a;
         animation: brand-boot-slide 1.5s ease-in-out infinite;
       }
       @keyframes brand-boot-slide {
@@ -121,20 +114,14 @@
           background: #121316;
           color: #e3e2e6;
         }
-        .brand-boot__logo--light {
-          display: none;
-        }
-        .brand-boot__logo--dark {
-          display: block;
-        }
         .brand-boot__status {
           color: #c3c6cf;
         }
         .brand-boot__bar {
-          background: #004785;
+          background: #3a4452;
         }
         .brand-boot__bar::after {
-          background: #a5c8ff;
+          background: #bcc7db;
         }
       }
     </style>
@@ -147,35 +134,15 @@
         }
       </style>
       <div class="brand-boot">
-        <img
-          class="brand-boot__logo brand-boot__logo--light"
-          src="<%= publicPath %>/solirius-reply-logo.svg"
-          alt="Solirius Reply"
-        />
-        <img
-          class="brand-boot__logo brand-boot__logo--dark"
-          src="<%= publicPath %>/solirius-reply-logo-white.svg"
-          alt="Solirius Reply"
-        />
         <p class="brand-boot__status">
-          You need to turn on JavaScript to use Cloud Sandbox.
+          You need to turn on JavaScript to use this portal.
         </p>
       </div>
     </noscript>
     <div id="root">
       <div class="brand-boot" role="status">
-        <img
-          class="brand-boot__logo brand-boot__logo--light"
-          src="<%= publicPath %>/solirius-reply-logo.svg"
-          alt="Solirius Reply"
-        />
-        <img
-          class="brand-boot__logo brand-boot__logo--dark"
-          src="<%= publicPath %>/solirius-reply-logo-white.svg"
-          alt="Solirius Reply"
-        />
         <div class="brand-boot__bar" aria-hidden="true"></div>
-        <p class="brand-boot__status">Loading Cloud Sandbox</p>
+        <p class="brand-boot__status">Loading</p>
       </div>
     </div>
   </body>

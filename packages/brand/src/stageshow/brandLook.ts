@@ -1,16 +1,21 @@
 import type { LookTokens } from './kit';
-import { brandTokens } from '../tokens/brandTokens';
+import { brandTokensFor } from '../tokens/brandTokens';
+import { resolveBrandColors } from '../tokens/overrides';
+import type { BrandColorOverrides } from '../tokens/overrides';
 import type { BrandMode } from '../tokens/brandTokens';
 
 /**
- * The Solirius Reply look for Stageshow stages: the brand tokens mapped onto
- * the kit's (`--ss-*`), so a demo follows the portal's light and dark themes.
+ * The portal's look for Stageshow stages: the brand tokens mapped onto
+ * the kit's (`--ss-*`), so a demo follows the portal's preset, light and dark.
  * Colour roles come from the same M3 scheme the Backstage theme uses; the
  * `--ss-nav-*` tokens carry the sidebar's own roles for the scene's CSS.
  */
-export function soliriusLook(mode: BrandMode): LookTokens {
-  const c = brandTokens.color[mode];
-  const { shape, typography } = brandTokens;
+export function brandLook(
+  mode: BrandMode,
+  overrides?: BrandColorOverrides,
+): LookTokens {
+  const c = resolveBrandColors(mode, overrides);
+  const { shape, typography } = brandTokensFor(overrides?.preset);
   const dark = mode === 'dark';
   // Cards sit on the page: white on the tinted page in light mode, one
   // surface step lighter than the page in dark mode.
@@ -32,7 +37,7 @@ export function soliriusLook(mode: BrandMode): LookTokens {
     '--ss-accent': c.primary,
     '--ss-accent-2': c.primary,
     // A soft ring round a focused field: the container tint in light mode; in
-    // dark mode that role is a saturated blue, so a wash of the accent instead.
+    // dark mode that role is saturated, so a wash of the accent instead.
     '--ss-accent-soft': dark
       ? `color-mix(in srgb, ${c.primary} 22%, transparent)`
       : c.primaryContainer,

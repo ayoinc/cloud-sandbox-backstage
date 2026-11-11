@@ -1,15 +1,16 @@
 import { Hono } from 'hono';
 import { guestRoutes, requireUser } from './auth';
+import { brandingRoutes, publicBrandingRoutes } from './branding';
 import { catalogRoutes } from './catalog/routes';
 import { handleError, notImplementedError } from './errors';
 import { GITHUB_API_PATH, githubRoutes } from './github';
+import { isRecord } from './json';
 import { configuredProviders, oauthRoutes } from './oauth';
+import { ownershipRoutes } from './ownership';
 import { pipelineRoutes } from './pipeline';
 import {
-  brandingRoutes,
   notificationRoutes,
   permissionRoutes,
-  publicBrandingRoutes,
   userSettingsRoutes,
 } from './portal';
 import { scaffolderRoutes } from './scaffolder';
@@ -47,6 +48,7 @@ app.route('/api/catalog', catalogRoutes);
 app.route('/api/permission', permissionRoutes);
 app.route('/api/user-settings', userSettingsRoutes);
 app.route('/api/branding-settings', brandingRoutes);
+app.route('/api/ownership-management', ownershipRoutes);
 app.route('/api/notifications', notificationRoutes);
 app.route('/api/search', searchRoutes);
 app.route('/api/scaffolder', scaffolderRoutes);
@@ -76,7 +78,23 @@ app.all('*', async c => {
     ...(c.env.GUEST_AUTH_ENABLED === 'true' ? ['guest'] : []),
   ];
   let json = '';
+  const contact = c.env.PORTAL_CONTACT_EMAIL?.trim();
   const page = new HTMLRewriter()
+    // The privacy notice names who runs the portal, which the built page
+    // cannot know. Text set here is escaped by the rewriter.
+    .on('[data-portal-host]', {
+      element(element) {
+        element.setInnerContent(new URL(c.req.url).host);
+      },
+    })
+    .on('[data-portal-contact]', {
+      element(element) {
+        if (contact) {
+          element.setInnerContent(contact);
+          element.setAttribute('href', `mailto:${contact}`);
+        }
+      },
+    })
     .on('script[type="backstage.io/config"]', {
       text(chunk) {
         json += chunk.text;
@@ -91,11 +109,29 @@ app.all('*', async c => {
           delete config.data.auth;
           delete config.data.integrations;
         }
+        // A list replaces the built-in one, so carry the built-in entries.
+        const builtInExtensions = configs.flatMap(config => {
+          const { app } = config.data;
+          return isRecord(app) && Array.isArray(app.extensions)
+            ? (app.extensions as unknown[])
+            : [];
+        });
         configs.push({
           context: 'cloudflare-edge',
           data: {
-            app: { baseUrl: origin },
+            app: {
+              baseUrl: origin,
+              // The template editor tries a template out on the backend,
+              // and templates only run in GitHub Actions here.
+              extensions: [
+                ...builtInExtensions,
+                { 'sub-page:scaffolder/editor': false },
+              ],
+            },
             backend: { baseUrl: origin },
+            // Pages about the GitHub organisation link to the one this
+            // portal is deployed from.
+            organization: { githubOrg: c.env.PORTAL_REPO.split('/')[0] },
             auth: {
               providers: Object.fromEntries(signIn.map(id => [id, {}])),
             },

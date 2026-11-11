@@ -1,4 +1,4 @@
-import { brandTokens } from './brandTokens';
+import { brandTokensFor } from './brandTokens';
 import type { BrandMode, StatusName } from './brandTokens';
 import { blend, contrastRatio } from './contrast';
 
@@ -19,12 +19,16 @@ const NON_TEXT = 3;
 const TOAST_DESCRIPTION_OPACITY = 0.9;
 
 /**
- * Every text/surface and indicator/surface pairing the brand themes use, with
+ * Every text/surface and indicator/surface pairing a preset's themes use, with
  * its measured contrast ratio. Used by tests and the contrast report.
  */
-export function contrastPairs(mode: BrandMode): ContrastPair[] {
-  const c = brandTokens.color[mode];
-  const { focus } = brandTokens;
+export function contrastPairs(
+  mode: BrandMode,
+  preset?: string | null,
+): ContrastPair[] {
+  const tokens = brandTokensFor(preset);
+  const c = tokens.color[mode];
+  const { focus } = tokens;
   const pairs: Array<Omit<ContrastPair, 'ratio'>> = [];
   const add = (
     name: string,

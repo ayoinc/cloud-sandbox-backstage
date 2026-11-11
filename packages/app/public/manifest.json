@@ -1,6 +1,6 @@
 {
-  "short_name": "Cloud Sandbox",
-  "name": "Cloud Sandbox developer portal by Solirius Reply",
+  "short_name": "Portal",
+  "name": "Developer Portal",
   "description": "Find services, APIs and documentation, and create new components from approved templates.",
   "icons": [
     {
@@ -27,6 +27,6 @@
   ],
   "start_url": "./index.html",
   "display": "standalone",
-  "theme_color": "#004149",
+  "theme_color": "#1f2933",
   "background_color": "#f4f3f7"
 }

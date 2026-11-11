@@ -7,6 +7,7 @@ import {
   Page,
   SupportButton,
 } from '@backstage/core-components';
+import { configApiRef, useApi } from '@backstage/core-plugin-api';
 import {
   Button,
   Card,
@@ -103,6 +104,10 @@ const ActionCard = ({
 
 export const GitHubOrgPage = () => {
   const classes = useStyles();
+  // The organisation is this deployment's: links to it appear once it is
+  // configured as `organization.githubOrg`.
+  const org = useApi(configApiRef).getOptionalString('organization.githubOrg');
+  const orgUrl = org && `https://github.com/orgs/${encodeURIComponent(org)}`;
 
   const actions = [
     {
@@ -137,20 +142,22 @@ export const GitHubOrgPage = () => {
         title="GitHub Organization"
         subtitle="Manage your GitHub organization from Backstage"
       >
-        <HeaderLabel label="Organization" value="ContainerCode" />
+        {org ? <HeaderLabel label="Organization" value={org} /> : null}
         <HeaderLabel label="Sync" value="Every 5 minutes" />
       </Header>
       <Content>
         <ContentHeader title="Organization Actions">
-          <Button
-            variant="outlined"
-            color="primary"
-            href="https://github.com/orgs/ContainerCode/people"
-            target="_blank"
-            startIcon={<GitHubIcon />}
-          >
-            View on GitHub
-          </Button>
+          {orgUrl ? (
+            <Button
+              variant="outlined"
+              color="primary"
+              href={`${orgUrl}/people`}
+              target="_blank"
+              startIcon={<GitHubIcon />}
+            >
+              View on GitHub
+            </Button>
+          ) : null}
           <SupportButton>
             Manage your GitHub organization directly from Backstage. Changes
             made here will sync to GitHub, and changes in GitHub will sync back
@@ -205,28 +212,32 @@ export const GitHubOrgPage = () => {
                       View All Teams
                     </Button>
                   </Grid>
-                  <Grid item xs={6}>
-                    <Button
-                      variant="outlined"
-                      fullWidth
-                      href="https://github.com/orgs/ContainerCode/teams"
-                      target="_blank"
-                      startIcon={<GitHubIcon />}
-                    >
-                      GitHub Teams
-                    </Button>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Button
-                      variant="outlined"
-                      fullWidth
-                      href="https://github.com/orgs/ContainerCode/people/pending_invitations"
-                      target="_blank"
-                      startIcon={<GitHubIcon />}
-                    >
-                      Pending Invitations
-                    </Button>
-                  </Grid>
+                  {orgUrl ? (
+                    <Grid item xs={6}>
+                      <Button
+                        variant="outlined"
+                        fullWidth
+                        href={`${orgUrl}/teams`}
+                        target="_blank"
+                        startIcon={<GitHubIcon />}
+                      >
+                        GitHub Teams
+                      </Button>
+                    </Grid>
+                  ) : null}
+                  {orgUrl ? (
+                    <Grid item xs={6}>
+                      <Button
+                        variant="outlined"
+                        fullWidth
+                        href={`${orgUrl}/people/pending_invitations`}
+                        target="_blank"
+                        startIcon={<GitHubIcon />}
+                      >
+                        Pending Invitations
+                      </Button>
+                    </Grid>
+                  ) : null}
                 </Grid>
               </CardContent>
             </Card>

@@ -4,7 +4,7 @@ import type { AppEnv } from './types';
 
 /**
  * The smaller Backstage APIs the front end calls on every page:
- * permissions, user settings, branding and notification status.
+ * permissions, user settings and notification status.
  */
 
 export const permissionRoutes = new Hono<AppEnv>();
@@ -111,34 +111,6 @@ userSettingsRoutes.delete('/buckets/:bucket/keys/:key{.+}', async c => {
     .run();
   return c.body(null, 204);
 });
-
-/** Public: the sign-in page shows branding before anyone has signed in. */
-export const publicBrandingRoutes = new Hono<AppEnv>();
-
-publicBrandingRoutes.get('/', async c => {
-  const row = await c.env.DB.prepare(
-    'SELECT organization_name, logo_full_url, logo_icon_url, primary_color, updated_at, updated_by FROM branding_settings WHERE id = 1',
-  ).first<Record<string, string | null>>();
-  return c.json({
-    organizationName: row?.organization_name ?? null,
-    logoFullUrl: row?.logo_full_url ?? null,
-    logoIconUrl: row?.logo_icon_url ?? null,
-    primaryColor: row?.primary_color ?? null,
-    updatedAt: row?.updated_at ?? null,
-    updatedBy: row?.updated_by ?? null,
-  });
-});
-
-export const brandingRoutes = new Hono<AppEnv>();
-
-// Branding changes are not implemented at the edge, so nobody is an admin.
-brandingRoutes.get('/admin-check', c =>
-  c.json({ isAdmin: false, userEntityRef: c.get('user').userEntityRef }),
-);
-
-brandingRoutes.get('/admins', c =>
-  c.json({ error: 'Admin access required' }, 403),
-);
 
 export const notificationRoutes = new Hono<AppEnv>();
 

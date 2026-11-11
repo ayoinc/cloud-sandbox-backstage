@@ -20,6 +20,7 @@ export interface BrandingSettings {
   logoFullUrl: string | null;
   logoIconUrl: string | null;
   primaryColor: string | null;
+  themePreset: string | null;
   updatedAt: string;
   updatedBy: string | null;
 }
@@ -44,6 +45,7 @@ export interface BrandingSettingsRow {
   logo_full_url: string | null;
   logo_icon_url: string | null;
   primary_color: string | null;
+  theme_preset: string | null;
   updated_at: string;
   updated_by: string | null;
 }
@@ -56,6 +58,7 @@ export const DEFAULT_SETTINGS: BrandingSettings = {
   logoFullUrl: null,
   logoIconUrl: null,
   primaryColor: null,
+  themePreset: null,
   updatedAt: new Date().toISOString(),
   updatedBy: null,
 };

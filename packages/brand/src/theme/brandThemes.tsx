@@ -3,13 +3,13 @@ import DarkIcon from '@material-ui/icons/Brightness2';
 import LightIcon from '@material-ui/icons/WbSunny';
 import { BrandThemeProvider } from './BrandThemeProvider';
 
-/** Solirius Reply light theme extension (`theme:app/solirius-light`). */
-export const soliriusLightTheme = ThemeBlueprint.make({
-  name: 'solirius-light',
+/** Light theme extension (`theme:app/brand-light`). */
+export const brandLightTheme = ThemeBlueprint.make({
+  name: 'brand-light',
   params: {
     theme: {
-      id: 'solirius-light',
-      title: 'Solirius Reply light',
+      id: 'brand-light',
+      title: 'Light',
       variant: 'light',
       icon: <LightIcon />,
       Provider: ({ children }) => (
@@ -19,13 +19,13 @@ export const soliriusLightTheme = ThemeBlueprint.make({
   },
 });
 
-/** Solirius Reply dark theme extension (`theme:app/solirius-dark`). */
-export const soliriusDarkTheme = ThemeBlueprint.make({
-  name: 'solirius-dark',
+/** Dark theme extension (`theme:app/brand-dark`). */
+export const brandDarkTheme = ThemeBlueprint.make({
+  name: 'brand-dark',
   params: {
     theme: {
-      id: 'solirius-dark',
-      title: 'Solirius Reply dark',
+      id: 'brand-dark',
+      title: 'Dark',
       variant: 'dark',
       icon: <DarkIcon />,
       Provider: ({ children }) => (
@@ -39,4 +39,4 @@ export const soliriusDarkTheme = ThemeBlueprint.make({
  * Brand theme extensions. Install them in an `app` frontend module; they are
  * restricted to the app plugin by `ThemeBlueprint`.
  */
-export const brandThemes = [soliriusLightTheme, soliriusDarkTheme];
+export const brandThemes = [brandLightTheme, brandDarkTheme];

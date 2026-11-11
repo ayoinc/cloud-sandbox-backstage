@@ -8,3 +8,8 @@ GOOGLE_CLIENT_ID=
 # Google accounts allowed to sign in: exact emails, and whole domains
 GOOGLE_ALLOWED_EMAILS=
 GOOGLE_ALLOWED_DOMAINS=
+# Optional. Portal admins, comma-separated: jane or user:default/jane. While
+# empty and no admin was added in the portal, the first person to sign in is admin
+PORTAL_ADMINS=
+# Optional. The address the privacy notice tells people to write to
+PORTAL_CONTACT_EMAIL=

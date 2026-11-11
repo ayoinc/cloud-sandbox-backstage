@@ -1,4 +1,4 @@
-import type { ErrorHandler } from 'hono';
+import type { Context, ErrorHandler } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 
 /** An error that maps to an HTTP status, serialised the way Backstage clients expect. */
@@ -31,27 +31,30 @@ export const conflictError = (message: string) =>
 export const notImplementedError = (message: string) =>
   new HttpError(501, 'NotImplementedError', message);
 
+/** The status and text to answer with. Unexpected errors are logged, not shown. */
+function describe(error: Error, c: Context) {
+  if (error instanceof HttpError) {
+    return { status: error.status, name: error.name, message: error.message };
+  }
+  console.error(
+    JSON.stringify({
+      message: 'Unhandled error',
+      error: error.message,
+      stack: error.stack,
+      method: c.req.method,
+      path: c.req.path,
+    }),
+  );
+  const status: ContentfulStatusCode = 500;
+  return { status, name: 'Error', message: 'Unexpected error' };
+}
+
 /** Responds in the Backstage error format: `{ error, request, response }`. */
 export const handleError: ErrorHandler = (error, c) => {
-  const known = error instanceof HttpError;
-  const status = known ? error.status : 500;
-  if (!known) {
-    console.error(
-      JSON.stringify({
-        message: 'Unhandled error',
-        error: error.message,
-        stack: error.stack,
-        method: c.req.method,
-        path: c.req.path,
-      }),
-    );
-  }
+  const { status, name, message } = describe(error, c);
   return c.json(
     {
-      error: {
-        name: known ? error.name : 'Error',
-        message: known ? error.message : 'Unexpected error',
-      },
+      error: { name, message },
       // Backstage reports the path relative to the plugin, without /api/<plugin>.
       request: {
         method: c.req.method,
@@ -61,4 +64,14 @@ export const handleError: ErrorHandler = (error, c) => {
     },
     status,
   );
+};
+
+/**
+ * Responds `{ error: "<message>" }`, as the portal's own plugins (branding,
+ * ownership) do on the Node backend. Their pages show `error` as text, so
+ * the Backstage format would read "[object Object]" there.
+ */
+export const handlePlainError: ErrorHandler = (error, c) => {
+  const { status, message } = describe(error, c);
+  return c.json({ error: message }, status);
 };

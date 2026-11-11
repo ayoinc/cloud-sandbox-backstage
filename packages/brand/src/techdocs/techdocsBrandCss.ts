@@ -1,4 +1,6 @@
-import { brandTokens } from '../tokens/brandTokens';
+import { brandTokensFor } from '../tokens/brandTokens';
+import { resolveBrandColors } from '../tokens/overrides';
+import type { BrandColorOverrides } from '../tokens/overrides';
 import type { BrandMode, StatusName } from '../tokens/brandTokens';
 
 /** mkdocs-material admonition types grouped by brand status. */
@@ -27,9 +29,12 @@ const ADMONITIONS: Record<StatusName, string[]> = {
  * shadow root (`:host` scoped) and layers on top of the palette-driven
  * variables TechDocs already derives from the active MUI theme.
  */
-export function techdocsBrandCss(mode: BrandMode): string {
-  const c = brandTokens.color[mode];
-  const { typography, shape, focus } = brandTokens;
+export function techdocsBrandCss(
+  mode: BrandMode,
+  overrides?: BrandColorOverrides,
+): string {
+  const c = resolveBrandColors(mode, overrides);
+  const { typography, shape, focus } = brandTokensFor(overrides?.preset);
 
   const admonitions = (Object.keys(ADMONITIONS) as StatusName[])
     .map(status => {

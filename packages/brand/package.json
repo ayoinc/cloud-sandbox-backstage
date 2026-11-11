@@ -1,7 +1,7 @@
 {
   "name": "@internal/brand",
   "version": "0.1.0",
-  "description": "Solirius Reply brand system for the Cloud Sandbox developer portal: M3 tokens, Backstage themes, sign-in page and logos.",
+  "description": "The portal's brand system: theme presets, M3 tokens, Backstage themes, sign-in page and logo slots filled from the branding settings.",
   "private": true,
   "license": "Apache-2.0",
   "main": "src/index.ts",

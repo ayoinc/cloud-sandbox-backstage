@@ -19,6 +19,8 @@ import CloudUploadIcon from '@material-ui/icons/CloudUpload';
 import DeleteIcon from '@material-ui/icons/Delete';
 import RefreshIcon from '@material-ui/icons/Refresh';
 import SaveIcon from '@material-ui/icons/Save';
+import { brandTokensFor, presetIds, presets } from '@internal/brand';
+import type { PresetId } from '@internal/brand';
 import { useBranding } from './BrandingContext';
 
 const useStyles = makeStyles(theme => ({
@@ -67,6 +69,57 @@ const useStyles = makeStyles(theme => ({
     gap: theme.spacing(1),
     marginTop: theme.spacing(2),
   },
+  presets: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+    gap: theme.spacing(1.5),
+    marginBottom: theme.spacing(3),
+  },
+  preset: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: theme.spacing(1),
+    minHeight: 44,
+    padding: theme.spacing(1.5),
+    textAlign: 'left',
+    font: 'inherit',
+    color: theme.palette.text.primary,
+    background: theme.palette.background.paper,
+    border: `1px solid ${theme.palette.divider}`,
+    borderRadius: theme.shape.borderRadius,
+    cursor: 'pointer',
+    transition: 'border-color 150ms, box-shadow 150ms',
+    '&:hover': { borderColor: theme.palette.text.secondary },
+    '&[aria-checked="true"]': {
+      borderColor: theme.palette.primary.main,
+      boxShadow: `inset 0 0 0 1px ${theme.palette.primary.main}`,
+    },
+    '&:disabled': { cursor: 'default', opacity: 0.6 },
+  },
+  swatches: {
+    display: 'flex',
+    height: 28,
+    overflow: 'hidden',
+    border: `1px solid ${theme.palette.divider}`,
+    '& > span': { flex: 1 },
+  },
+  presetText: { color: theme.palette.text.secondary, fontSize: '0.8125rem' },
+  colorRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(1.5),
+    flexWrap: 'wrap',
+  },
+  colorInput: {
+    width: 44,
+    height: 44,
+    padding: 0,
+    border: `1px solid ${theme.palette.divider}`,
+    borderRadius: theme.shape.borderRadius,
+    background: 'none',
+    cursor: 'pointer',
+  },
   dangerZone: {
     marginTop: theme.spacing(4),
     padding: theme.spacing(2),
@@ -105,12 +158,16 @@ export const BrandingSettingsPanel: React.FC = () => {
   const [uploading, setUploading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  const activePreset = brandTokensFor(settings.themePreset).preset;
+  const [primaryColor, setPrimaryColor] = useState(settings.primaryColor);
+
   const logoFullInputRef = useRef<HTMLInputElement>(null);
   const logoIconInputRef = useRef<HTMLInputElement>(null);
 
   // Sync local state when settings change
   useEffect(() => {
     setOrganizationName(settings.organizationName || '');
+    setPrimaryColor(settings.primaryColor);
   }, [settings]);
 
   if (!isAdmin) {
@@ -118,8 +175,8 @@ export const BrandingSettingsPanel: React.FC = () => {
       <Card className={classes.root}>
         <CardContent>
           <Alert severity="warning">
-            You need to be a member of the <strong>admins</strong> group to
-            access branding settings.
+            Only a portal administrator can change the branding. Ask one to add
+            you under Branding administrators.
           </Alert>
         </CardContent>
       </Card>
@@ -134,6 +191,22 @@ export const BrandingSettingsPanel: React.FC = () => {
         organizationName: organizationName || null,
       });
       setSuccessMessage('Settings saved successfully');
+    } catch {
+      // Error is handled in context
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleTheme = async (
+    updates: { themePreset: PresetId } | { primaryColor: string | null },
+    message: string,
+  ) => {
+    try {
+      setSaving(true);
+      setSuccessMessage(null);
+      await updateSettings(updates);
+      setSuccessMessage(message);
     } catch {
       // Error is handled in context
     } finally {
@@ -163,14 +236,14 @@ export const BrandingSettingsPanel: React.FC = () => {
   const handleResetLogo = async () => {
     if (
       // eslint-disable-next-line no-alert
-      !window.confirm('Are you sure you want to reset the logo to default?')
+      !window.confirm('Remove the uploaded logo?')
     ) {
       return;
     }
     try {
       setSaving(true);
       await resetLogo();
-      setSuccessMessage('Logo reset to default');
+      setSuccessMessage('Logo removed');
     } catch {
       // Error is handled in context
     } finally {
@@ -214,7 +287,7 @@ export const BrandingSettingsPanel: React.FC = () => {
     <Card className={classes.root}>
       <CardHeader
         title="Branding settings"
-        subheader="Overrides the Solirius Reply defaults for this portal"
+        subheader="The portal has no name, logo or colours of its own until you set them here"
         action={
           <Tooltip title="Refresh">
             <IconButton onClick={refresh} disabled={saving || uploading}>
@@ -246,10 +319,99 @@ export const BrandingSettingsPanel: React.FC = () => {
             value={organizationName}
             onChange={e => setOrganizationName(e.target.value)}
             placeholder="e.g., Platform Team, Acme Corp"
-            helperText="This name will appear in the sidebar and page titles"
+            helperText="Shown on the sign-in page and beside the logo"
             variant="outlined"
             disabled={saving}
           />
+        </div>
+
+        <Divider style={{ margin: '24px 0' }} />
+
+        {/* Theme Section */}
+        <div className={classes.section}>
+          <Typography variant="h6" className={classes.sectionTitle}>
+            Theme
+          </Typography>
+          <div
+            className={classes.presets}
+            role="radiogroup"
+            aria-label="Theme preset"
+          >
+            {presetIds.map(id => {
+              const { light } = brandTokensFor(id).color;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  role="radio"
+                  aria-checked={id === activePreset}
+                  className={classes.preset}
+                  style={{ borderRadius: brandTokensFor(id).shape.card }}
+                  disabled={saving}
+                  onClick={() =>
+                    handleTheme(
+                      { themePreset: id },
+                      `Theme changed to ${presets[id].title}`,
+                    )
+                  }
+                >
+                  <span className={classes.swatches} aria-hidden="true">
+                    <span style={{ background: light.navigation.background }} />
+                    <span style={{ background: light.primary }} />
+                    <span style={{ background: light.primaryContainer }} />
+                    <span style={{ background: light.surfaceContainerLow }} />
+                  </span>
+                  <strong>{presets[id].title}</strong>
+                  <span className={classes.presetText}>
+                    {presets[id].description}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <Typography variant="subtitle2" gutterBottom>
+            Primary colour
+          </Typography>
+          <div className={classes.colorRow}>
+            <input
+              type="color"
+              aria-label="Primary colour"
+              className={classes.colorInput}
+              value={
+                primaryColor ?? brandTokensFor(activePreset).color.light.primary
+              }
+              onChange={e => setPrimaryColor(e.target.value)}
+              disabled={saving}
+            />
+            <Button
+              variant="outlined"
+              disabled={
+                saving ||
+                !primaryColor ||
+                primaryColor === settings.primaryColor
+              }
+              onClick={() =>
+                handleTheme({ primaryColor }, 'Primary colour saved')
+              }
+            >
+              Use this colour
+            </Button>
+            <Button
+              disabled={saving || !settings.primaryColor}
+              onClick={() =>
+                handleTheme(
+                  { primaryColor: null },
+                  "Primary colour back to the preset's",
+                )
+              }
+            >
+              Use the preset's colour
+            </Button>
+          </div>
+          <Typography className={classes.metadata}>
+            Buttons and links take this colour. Text on it stays readable: where
+            the colour is too pale for links, links keep the preset's.
+          </Typography>
         </div>
 
         <Divider style={{ margin: '24px 0' }} />
@@ -281,7 +443,7 @@ export const BrandingSettingsPanel: React.FC = () => {
                     justifyContent="center"
                   >
                     <Typography variant="caption" color="textSecondary">
-                      Default Logo
+                      No logo yet
                     </Typography>
                   </Box>
                 )}
@@ -399,7 +561,7 @@ export const BrandingSettingsPanel: React.FC = () => {
         </Box>
 
         {/* Metadata */}
-        {settings.updatedBy && (
+        {settings.updatedBy && settings.updatedAt && (
           <Typography className={classes.metadata}>
             Last updated by {settings.updatedBy} on{' '}
             {new Date(settings.updatedAt).toLocaleString()}

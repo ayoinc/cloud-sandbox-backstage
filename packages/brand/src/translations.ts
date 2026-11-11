@@ -7,7 +7,7 @@ import { TranslationBlueprint } from '@backstage/plugin-app-react';
  * (GOV.UK content style). Install in the `app` frontend module.
  */
 export const brandTranslations = TranslationBlueprint.make({
-  name: 'solirius-core-components',
+  name: 'brand-core-components',
   params: {
     resource: createTranslationMessages({
       ref: coreComponentsTranslationRef,
