@@ -1,0 +1,89 @@
+# Development
+
+The function is a Maven project for Java ${{ values.runtime | replace('java', '') }}. Its entry point is
+`com.example.api.Handler::handleRequest`.
+
+## Layout
+
+Java files are listed relative to `src/main/java/com/example/api/`.
+
+| Path                             | Role                                                   |
+| -------------------------------- | ------------------------------------------------------ |
+| `pom.xml`                        | Dependencies, Java release, build of the jar           |
+| `Handler.java`                   | Lambda entry point                                     |
+| `Routes.java`                    | Route table: `"<METHOD> <path>"` to handler            |
+| `Router.java`                    | Routing, JSON responses, body parsing, error handling  |
+| `Request.java`                   | The fields of the API Gateway event the function uses  |
+| `Response.java`                  | Status, headers and body returned to API Gateway       |
+| `Route.java`                     | Interface of a handler                                 |
+| `HttpError.java`                 | Exception that answers with a status and a message     |
+{%- if values.enableCRUD %}
+| `items/Items.java`               | Handlers of the `/items` endpoints                     |
+| `items/ItemStore.java`           | Storage interface of the items                         |
+| `items/DynamoDbItemStore.java`   | Items in the DynamoDB table named by `ITEMS_TABLE`     |
+{%- endif %}
+| `src/test/java/`                 | Unit tests (JUnit 5), no AWS access needed             |
+
+Dependencies: `aws-lambda-java-core` (handler interface), `jackson-databind`
+(JSON){% if values.enableCRUD %}, the AWS SDK for Java 2.x DynamoDB client with its
+`url-connection-client` HTTP client{% endif %} and, for the tests only, JUnit 5. All
+versions are pinned in `pom.xml`.
+
+## Run the tests
+
+You need JDK ${{ values.runtime | replace('java', '') }} and Maven 3.9 or newer.
+
+```bash
+mvn test
+```
+
+The compiler runs with `-Xlint:all` and the build fails on a warning.
+
+## Build the deployment package
+
+```bash
+mvn verify
+mkdir -p build
+cp target/lambda.jar build/lambda.zip
+```
+
+`mvn verify` runs the tests and writes `target/lambda.jar`, a jar that contains
+the function and all its dependencies. Lambda takes such a jar as the
+deployment package; `infra/` deploys it from `build/lambda.zip`. The pipeline
+does the same through `.github/actions/build-lambda`.
+
+The entries of the jar have a fixed time (`project.build.outputTimestamp` in
+`pom.xml`), so the same sources built with the same JDK give the same file and
+Terraform redeploys the function only when something changed. A different JDK
+build can compile to different bytes, which causes one redeployment.
+
+## Implement an endpoint
+
+API Gateway sends every request to the function with the method in
+`request.httpMethod()` and the path template in `request.resource()` (for
+example `/users/{id}`; the value of `{id}` is `request.pathParameter("id")`).
+`Routes.table()` maps `"<METHOD> <path template>"` to a handler.
+
+An endpoint requested when the repository was created starts as the stub
+`Router.NOT_IMPLEMENTED`, which answers `501`. Replace the stub with a handler:
+
+```java
+private static Response createUser(Request request) {
+  Map<String, Object> user = Router.parseObject(request);
+  return Router.json(201, user);
+}
+
+public static Map<String, Route> table() {
+  Map<String, Route> routes = new LinkedHashMap<>();
+  // ...
+  routes.put("POST /users", Routes::createUser);
+  return routes;
+}
+```
+
+Throw `new HttpError(status, message)` to answer with an error status. Any
+other exception is logged and answered with `500`.
+
+To add an endpoint that was not requested at creation, add it to `endpoints`
+in `infra/terraform.tfvars.json` as well, so that API Gateway routes it; see
+[Operations](operations.md#change-the-configuration).

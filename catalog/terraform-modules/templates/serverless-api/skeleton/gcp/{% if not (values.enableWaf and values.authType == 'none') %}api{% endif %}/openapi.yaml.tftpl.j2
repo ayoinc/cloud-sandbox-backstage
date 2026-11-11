@@ -1,0 +1,125 @@
+{%- set runtime = values.runtime or 'nodejs24' -%}
+{%- set interpreted = runtime in ['nodejs24', 'python313'] -%}
+{%- set auth = values.authType or 'jwt' -%}
+{%- set directLb = values.enableWaf and auth == 'none' -%}
+{%- set gateway = not directLb -%}
+{%- set gatewayQuota = gateway and values.enableThrottling and auth == 'api-key' -%}
+{%- set armorThrottle = values.enableWaf and values.enableThrottling and auth != 'api-key' -%}
+{%- set sql = values.enableDatabase and values.databaseType == 'sql' -%}
+{%- set nosql = values.enableDatabase and not sql -%}
+{%- set strategy = values.deploymentStrategy or 'canary' -%}
+{%- set region = values.gcpRegion or 'us-central1' -%}
+{%- if values.apiType == 'graphql' -%}
+{%- set routes = [{ path: '/graphql', id: 'graphql', wildcard: false }] -%}
+{%- set methods = ['get', 'post'] -%}
+{%- else -%}
+{%- set routes = [{ path: '/', id: 'root', wildcard: false }, { path: '/{proxy=**}', id: 'proxy', wildcard: true }] -%}
+{%- set methods = ['get', 'post', 'put', 'patch', 'delete'] -%}
+{%- endif -%}
+{%- set schemes = { 'api-key': 'api_key', jwt: 'firebase', oauth2: 'oauth2', iam: 'google_id_token' } -%}
+# OpenAPI 2.0 document of the API config. Terraform fills in the placeholders;
+# see api.tf.
+swagger: "2.0"
+info:
+  title: "${title}"
+  description: "${description}"
+  version: "1.0.0"
+schemes:
+  - https
+produces:
+  - application/json
+x-google-backend:
+  address: "${backend_address}"
+  path_translation: APPEND_PATH_TO_ADDRESS
+  deadline: ${backend_deadline}
+  protocol: h2
+{%- if auth != 'none' %}
+securityDefinitions:
+{%- if auth == 'api-key' %}
+  api_key:
+    type: apiKey
+    name: x-api-key
+    in: header
+{%- elif auth == 'jwt' %}
+  firebase:
+    type: oauth2
+    authorizationUrl: ""
+    flow: implicit
+    x-google-issuer: "https://securetoken.google.com/${firebase_project_id}"
+    x-google-jwks_uri: "https://www.googleapis.com/service_accounts/v1/metadata/x509/securetoken@system.gserviceaccount.com"
+    x-google-audiences: "${firebase_project_id}"
+{%- elif auth == 'oauth2' %}
+  oauth2:
+    type: oauth2
+    authorizationUrl: ""
+    flow: implicit
+    x-google-issuer: "${oauth2_issuer}"
+    x-google-jwks_uri: "${oauth2_jwks_uri}"
+    x-google-audiences: "${oauth2_audiences}"
+{%- else %}
+  google_id_token:
+    type: oauth2
+    authorizationUrl: ""
+    flow: implicit
+    x-google-issuer: "https://accounts.google.com"
+    x-google-jwks_uri: "https://www.googleapis.com/oauth2/v3/certs"
+    x-google-audiences: "${iam_audience}"
+{%- endif %}
+security:
+  - ${{ schemes[auth] }}: []
+{%- endif %}
+{%- if gatewayQuota %}
+x-google-management:
+  metrics:
+    - name: requests
+      displayName: Requests
+      valueType: INT64
+      metricKind: DELTA
+  quota:
+    limits:
+      - name: requests-per-minute
+        metric: requests
+        unit: "1/min/{project}"
+        values:
+          STANDARD: ${requests_per_minute}
+{%- endif %}
+paths:
+{%- for route in routes %}
+  "${{ route.path }}":
+{%- for method in methods %}
+    ${{ method }}:
+      operationId: ${{ route.id }}_${{ method }}
+{%- if route.wildcard %}
+      parameters:
+        - name: proxy
+          in: path
+          required: true
+          type: string
+{%- endif %}
+{%- if gatewayQuota %}
+      x-google-quota:
+        metricCosts:
+          requests: 1
+{%- endif %}
+      responses:
+        "200":
+          description: Response of the function
+{%- endfor %}
+{%- if values.enableCors %}
+    # Browsers send preflight requests without credentials; the function
+    # answers them.
+    options:
+      operationId: ${{ route.id }}_options
+      security: []
+{%- if route.wildcard %}
+      parameters:
+        - name: proxy
+          in: path
+          required: true
+          type: string
+{%- endif %}
+      responses:
+        "204":
+          description: Preflight response of the function
+{%- endif %}
+{%- endfor %}

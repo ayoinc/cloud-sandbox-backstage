@@ -3,7 +3,7 @@ kind: Template
 metadata:
   name: azure-api-management
   title: Azure API Management Service
-  description: Create a comprehensive API Management instance with policies, authentication, rate limiting, and developer portal
+  description: Create an API Management instance with a global policy, a rate-limited product, developer portal sign-in and monitoring, managed with Terraform
   tags:
     - api-management
     - azure
@@ -23,8 +23,9 @@ spec:
         serviceName:
           title: Service Name
           type: string
-          description: Name of the API Management service (e.g., corp-api-mgmt)
-          pattern: '^[a-z0-9\-]+$'
+          description: Name of the API Management service (e.g., corp-api-mgmt). Globally unique; starts with a letter, lowercase letters, digits and hyphens, at most 32 characters.
+          pattern: '^[a-z]([a-z0-9\-]{0,30}[a-z0-9])?$'
+          maxLength: 32
           ui:autofocus: true
         description:
           title: Description
@@ -43,38 +44,40 @@ spec:
         location:
           title: Location
           type: string
-          description: Azure region for deployment
+          description: Azure region name for deployment (e.g., eastus, westeurope)
           default: eastus
+          pattern: '^[a-z0-9]+$'
 
     - title: Authentication & Security
       properties:
         enableAzureAD:
           title: Enable Azure AD Authentication
           type: boolean
-          description: Enable Azure AD for developer authentication
+          description: Enable Azure AD (Microsoft Entra ID) sign-in for developers on the developer portal. Not available in the Basic tier.
           default: true
         enableJWT:
           title: Enable JWT Validation
           type: boolean
-          description: Enable JWT token validation
+          description: Require a valid JWT access token on every API call
           default: true
         rateLimiting:
           title: Rate Limiting Policy
           type: boolean
-          description: Apply global rate limiting
+          description: Apply a rate limit to every subscription of the product that holds the APIs
           default: true
         callsPerMinute:
           title: Calls Per Minute
-          type: number
+          type: integer
           description: Maximum calls per minute per subscription
           default: 1000
+          minimum: 1
 
     - title: Developer Portal
       properties:
         enablePortal:
           title: Enable Developer Portal
           type: boolean
-          description: Enable developer portal
+          description: Open the developer portal for sign-up and show the APIs to developers
           default: true
         enablePortalAuth:
           title: Enable Portal Authentication
@@ -92,13 +95,15 @@ spec:
         enableLogAnalytics:
           title: Enable Log Analytics
           type: boolean
-          description: Enable Log Analytics for detailed logs
+          description: Send gateway logs and metrics to a Log Analytics workspace
           default: true
         logRetention:
           title: Log Retention (days)
-          type: number
-          description: Log retention period
+          type: integer
+          description: Retention of the Log Analytics workspace, 30 to 730 days
           default: 90
+          minimum: 30
+          maximum: 730
 
     - title: APIs & Backends
       properties:
@@ -108,19 +113,28 @@ spec:
           description: APIs to import and manage
           items:
             type: object
+            required:
+              - name
             properties:
               name:
                 title: API Name
                 type: string
+                description: Display name; also used, lowercased and hyphenated, as the API identifier and URL path
+                pattern: '^[A-Za-z0-9][A-Za-z0-9 ._\-]*$'
+                maxLength: 80
               backend_url:
                 title: Backend URL
                 type: string
+                description: Base URL of the backend service
+                pattern: '^https?://[^\s]+$'
               description:
                 title: Description
                 type: string
               open_api_spec:
                 title: OpenAPI Spec URL
                 type: string
+                description: Publicly reachable URL of an OpenAPI 3 document to import; leave empty for a blank API
+                pattern: '^https?://[^\s]+$'
 
     - title: Policies
       properties:
@@ -135,13 +149,34 @@ spec:
           description: Enable response caching
           default: true
 
+    - title: Repository
+      required:
+        - owner
+        - repoUrl
+      properties:
+        owner:
+          title: Owner
+          type: string
+          description: Team or user that owns the new component
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: [Group, User]
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
   steps:
-    - id: fetch-infra
-      name: Fetch Infrastructure
+    - id: fetch
+      name: Fetch Skeleton
       action: fetch:template
       input:
-        url: ./skeleton/infra
-        targetPath: ./infra
+        url: ./skeleton
+        templateFileExtension: '.j2'
         values:
           serviceName: ${{ parameters.serviceName }}
           description: ${{ parameters.description }}
@@ -159,11 +194,14 @@ spec:
           apis: ${{ parameters.apis }}
           enableCORS: ${{ parameters.enableCORS }}
           enableCaching: ${{ parameters.enableCaching }}
+          owner: ${{ parameters.owner }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
 
     - id: publish
       name: Publish to Repository
       action: publish:github
       input:
+        allowedHosts: ['github.com']
         description: ${{ parameters.description }}
         repoUrl: ${{ parameters.repoUrl }}
         defaultBranch: main
@@ -183,7 +221,6 @@ spec:
       - title: Open in Catalog
         icon: catalog
         entityRef: ${{ steps.register.output.entityRef }}
-      - title: Developer Portal
-        icon: docs
-      - title: API Gateway URL
+      - title: Pipeline Runs
         icon: dashboard
+        url: ${{ steps.publish.output.remoteUrl }}/actions

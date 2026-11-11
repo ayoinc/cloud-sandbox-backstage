@@ -1,0 +1,23 @@
+name: Build Lambda package
+description: Runs the unit tests of the function and writes build/lambda.zip
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-java@v6
+      with:
+        distribution: temurin
+        java-version: ${{ values.runtime | replace('java', '') }}
+        cache: maven
+        cache-dependency-path: pom.xml
+
+    - name: Run unit tests and build the jar
+      shell: bash
+      run: mvn -B -ntp verify
+
+    # Lambda accepts a jar with all dependencies as the deployment package.
+    - name: Copy the jar to the package path
+      shell: bash
+      run: |
+        mkdir -p build
+        cp target/lambda.jar build/lambda.zip

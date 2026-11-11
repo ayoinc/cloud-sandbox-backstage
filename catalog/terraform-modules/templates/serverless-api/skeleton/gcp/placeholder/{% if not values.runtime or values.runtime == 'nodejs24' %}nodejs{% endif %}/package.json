@@ -1,0 +1,10 @@
+{
+  "name": "placeholder-function",
+  "version": "1.0.0",
+  "description": "Placeholder deployed until a real function package is supplied",
+  "private": true,
+  "main": "index.js",
+  "dependencies": {
+    "@google-cloud/functions-framework": "^5.0.0"
+  }
+}

@@ -1,0 +1,834 @@
+{%- set runtime = values.runtime or 'nodejs24' -%}
+{%- set apiType = 'rest' if values.apiType == 'rest' else ('graphql' if values.apiType == 'graphql' else 'http') -%}
+{%- set authType = values.authType or 'none' -%}
+{%- set interpreted = runtime == 'nodejs24' or runtime == 'python313' -%}
+{%- set sql = values.enableDatabase and values.databaseType == 'sql' -%}
+{%- set nosql = values.enableDatabase and not sql -%}
+{%- set vpc = sql or values.enableCache -%}
+{%- set keyAuthorizer = apiType == 'http' and authType == 'api-key' -%}
+{%- set oidcAuthorizer = apiType == 'rest' and authType == 'oauth2' -%}
+{%- set graphqlKey = apiType == 'graphql' and (authType == 'api-key' or authType == 'none') -%}
+{%- set cloudfront = apiType == 'http' and values.enableWaf -%}
+{%- set waf = values.enableWaf or (apiType == 'graphql' and values.enableThrottling) -%}
+{%- set gradual = values.deploymentStrategy == 'canary' or values.deploymentStrategy == 'linear' -%}
+{%- set modules = 'git::https://github.com/ayoinc/cloud-sandbox-backstage.git//catalog/terraform-modules/aws/resources' -%}
+{%- set ref = '?ref=83f9ff7222d2731d5cc0da4ab1fc1f7c46da3693' -%}
+{%- if apiType == 'http' -%}
+# -----------------------------------------------------------------------------
+# HTTP API
+# -----------------------------------------------------------------------------
+
+resource "aws_apigatewayv2_api" "this" {
+  name          = "${local.name}-api"
+  description   = "HTTP API of ${var.project_name} (${var.environment})"
+  protocol_type = "HTTP"
+  {%- if values.enableCors %}
+
+  cors_configuration {
+    allow_origins = var.cors_allowed_origins
+    allow_methods = ["*"]
+    allow_headers = ["authorization", "content-type", "x-amz-date", "x-amz-security-token", "x-api-key"]
+    max_age       = 300
+  }
+  {%- endif %}
+}
+
+module "api_logs" {
+  source = "${{ modules }}/monitoring/cloudwatch${{ ref }}"
+
+  project_name      = var.project_name
+  environment       = var.environment
+  log_group_name    = "/aws/apigateway/${local.name}-api"
+  retention_in_days = var.log_retention_days
+}
+
+resource "aws_apigatewayv2_stage" "default" {
+  api_id      = aws_apigatewayv2_api.this.id
+  name        = "$default"
+  auto_deploy = true
+
+  access_log_settings {
+    destination_arn = module.api_logs.log_group_arn
+    format = jsonencode({
+      requestId        = "$context.requestId"
+      requestTime      = "$context.requestTime"
+      sourceIp         = "$context.identity.sourceIp"
+      httpMethod       = "$context.httpMethod"
+      path             = "$context.path"
+      routeKey         = "$context.routeKey"
+      status           = "$context.status"
+      responseLength   = "$context.responseLength"
+      responseLatency  = "$context.responseLatency"
+      integrationError = "$context.integrationErrorMessage"
+      authorizerError  = "$context.authorizer.error"
+    })
+  }
+  {%- if values.enableThrottling and values.enableMetrics %}
+
+  default_route_settings {
+    detailed_metrics_enabled = true
+    throttling_rate_limit    = var.throttle_rate_limit
+    throttling_burst_limit   = var.throttle_burst_limit
+  }
+  {%- elif values.enableThrottling %}
+
+  default_route_settings {
+    throttling_rate_limit  = var.throttle_rate_limit
+    throttling_burst_limit = var.throttle_burst_limit
+  }
+  {%- elif values.enableMetrics %}
+
+  # The limits are stated because a limit left out of this block is applied as
+  # 0, which rejects every request. The values are the default account quotas.
+  default_route_settings {
+    detailed_metrics_enabled = true
+    throttling_rate_limit    = 10000
+    throttling_burst_limit   = 5000
+  }
+  {%- endif %}
+}
+
+resource "aws_apigatewayv2_integration" "function" {
+  api_id                 = aws_apigatewayv2_api.this.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_alias.live.invoke_arn
+  payload_format_version = "2.0"
+  timeout_milliseconds   = min(var.timeout, 30) * 1000
+}
+
+resource "aws_apigatewayv2_route" "default" {
+  api_id    = aws_apigatewayv2_api.this.id
+  route_key = "$default"
+  target    = "integrations/${aws_apigatewayv2_integration.function.id}"
+  {%- if authType == 'jwt' or authType == 'oauth2' %}
+
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.this.id
+  {%- elif authType == 'api-key' %}
+
+  authorization_type = "CUSTOM"
+  authorizer_id      = aws_apigatewayv2_authorizer.this.id
+  {%- elif authType == 'iam' %}
+
+  authorization_type = "AWS_IAM"
+  {%- else %}
+
+  authorization_type = "NONE"
+  {%- endif %}
+}
+{%- if values.enableCors and authType != 'none' %}
+
+# Browsers send preflight requests without credentials. This route keeps them
+# away from the authorization of the $default route; API Gateway answers them
+# from the CORS configuration of the API.
+resource "aws_apigatewayv2_route" "preflight" {
+  api_id    = aws_apigatewayv2_api.this.id
+  route_key = "OPTIONS /{proxy+}"
+  target    = "integrations/${aws_apigatewayv2_integration.function.id}"
+}
+{%- endif %}
+
+resource "aws_lambda_permission" "api" {
+  statement_id  = "AllowApiGateway"
+  action        = "lambda:InvokeFunction"
+  function_name = module.function.function_name
+  qualifier     = aws_lambda_alias.live.name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.this.execution_arn}/*/*"
+}
+{%- if authType == 'jwt' %}
+
+resource "aws_apigatewayv2_authorizer" "this" {
+  api_id           = aws_apigatewayv2_api.this.id
+  name             = "cognito"
+  authorizer_type  = "JWT"
+  identity_sources = ["$request.header.Authorization"]
+
+  jwt_configuration {
+    issuer   = "https://${aws_cognito_user_pool.this.endpoint}"
+    audience = [aws_cognito_user_pool_client.this.id]
+  }
+}
+{%- elif authType == 'oauth2' %}
+
+resource "aws_apigatewayv2_authorizer" "this" {
+  api_id           = aws_apigatewayv2_api.this.id
+  name             = "oidc"
+  authorizer_type  = "JWT"
+  identity_sources = ["$request.header.Authorization"]
+
+  jwt_configuration {
+    issuer   = var.oauth2_issuer
+    audience = [var.oauth2_audience]
+  }
+}
+{%- elif authType == 'api-key' %}
+
+# HTTP APIs have no API keys of their own: a Lambda authorizer compares the
+# x-api-key header with the key generated below.
+resource "aws_apigatewayv2_authorizer" "this" {
+  api_id                            = aws_apigatewayv2_api.this.id
+  name                              = "api-key"
+  authorizer_type                   = "REQUEST"
+  authorizer_uri                    = module.authorizer.invoke_arn
+  authorizer_payload_format_version = "2.0"
+  enable_simple_responses           = true
+  identity_sources                  = ["$request.header.x-api-key"]
+  authorizer_result_ttl_in_seconds  = 300
+}
+
+resource "aws_lambda_permission" "authorizer" {
+  statement_id  = "AllowApiGatewayAuthorizer"
+  action        = "lambda:InvokeFunction"
+  function_name = module.authorizer.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.this.execution_arn}/authorizers/${aws_apigatewayv2_authorizer.this.id}"
+}
+
+resource "random_password" "api_key" {
+  length  = 40
+  special = false
+}
+{%- endif %}
+{%- elif apiType == 'rest' -%}
+# -----------------------------------------------------------------------------
+# REST API
+# -----------------------------------------------------------------------------
+
+resource "aws_api_gateway_rest_api" "this" {
+  name        = "${local.name}-api"
+  description = "REST API of ${var.project_name} (${var.environment})"
+
+  endpoint_configuration {
+    types = ["REGIONAL"]
+  }
+}
+
+resource "aws_api_gateway_resource" "proxy" {
+  rest_api_id = aws_api_gateway_rest_api.this.id
+  parent_id   = aws_api_gateway_rest_api.this.root_resource_id
+  path_part   = "{proxy+}"
+}
+
+locals {
+  # The function answers the root path and every path below it.
+  api_resource_ids = {
+    root  = aws_api_gateway_rest_api.this.root_resource_id
+    proxy = aws_api_gateway_resource.proxy.id
+  }
+}
+
+resource "aws_api_gateway_method" "function" {
+  for_each = local.api_resource_ids
+
+  rest_api_id = aws_api_gateway_rest_api.this.id
+  resource_id = each.value
+  http_method = "ANY"
+  {%- if authType == 'jwt' %}
+
+  authorization = "COGNITO_USER_POOLS"
+  authorizer_id = aws_api_gateway_authorizer.this.id
+  {%- elif authType == 'oauth2' %}
+
+  authorization = "CUSTOM"
+  authorizer_id = aws_api_gateway_authorizer.this.id
+  {%- elif authType == 'iam' %}
+
+  authorization = "AWS_IAM"
+  {%- elif authType == 'api-key' %}
+
+  authorization    = "NONE"
+  api_key_required = true
+  {%- else %}
+
+  authorization = "NONE"
+  {%- endif %}
+}
+
+resource "aws_api_gateway_integration" "function" {
+  for_each = aws_api_gateway_method.function
+
+  rest_api_id             = each.value.rest_api_id
+  resource_id             = each.value.resource_id
+  http_method             = each.value.http_method
+  type                    = "AWS_PROXY"
+  integration_http_method = "POST"
+  uri                     = aws_lambda_alias.live.invoke_arn
+  timeout_milliseconds    = min(var.timeout, 29) * 1000
+}
+
+resource "aws_lambda_permission" "api" {
+  statement_id  = "AllowApiGateway"
+  action        = "lambda:InvokeFunction"
+  function_name = module.function.function_name
+  qualifier     = aws_lambda_alias.live.name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_api_gateway_rest_api.this.execution_arn}/*"
+}
+{%- if values.enableCors %}
+
+# CORS: preflight requests are answered by API Gateway without credentials and
+# without calling the function. The function adds Access-Control-Allow-Origin
+# to its own responses (it receives the value in CORS_ALLOW_ORIGIN); the
+# gateway responses add it to errors that API Gateway produces itself.
+resource "aws_api_gateway_method" "preflight" {
+  for_each = local.api_resource_ids
+
+  rest_api_id   = aws_api_gateway_rest_api.this.id
+  resource_id   = each.value
+  http_method   = "OPTIONS"
+  authorization = "NONE"
+}
+
+resource "aws_api_gateway_integration" "preflight" {
+  for_each = aws_api_gateway_method.preflight
+
+  rest_api_id = each.value.rest_api_id
+  resource_id = each.value.resource_id
+  http_method = each.value.http_method
+  type        = "MOCK"
+
+  request_templates = {
+    "application/json" = jsonencode({ statusCode = 200 })
+  }
+}
+
+resource "aws_api_gateway_method_response" "preflight" {
+  for_each = aws_api_gateway_method.preflight
+
+  rest_api_id = each.value.rest_api_id
+  resource_id = each.value.resource_id
+  http_method = each.value.http_method
+  status_code = "200"
+
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Headers" = true
+    "method.response.header.Access-Control-Allow-Methods" = true
+    "method.response.header.Access-Control-Allow-Origin"  = true
+  }
+}
+
+resource "aws_api_gateway_integration_response" "preflight" {
+  for_each = aws_api_gateway_method_response.preflight
+
+  rest_api_id = each.value.rest_api_id
+  resource_id = each.value.resource_id
+  http_method = each.value.http_method
+  status_code = each.value.status_code
+
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Headers" = "'Authorization,Content-Type,X-Amz-Date,X-Amz-Security-Token,X-Api-Key'"
+    "method.response.header.Access-Control-Allow-Methods" = "'DELETE,GET,HEAD,OPTIONS,PATCH,POST,PUT'"
+    "method.response.header.Access-Control-Allow-Origin"  = "'${var.cors_allowed_origin}'"
+  }
+
+  depends_on = [aws_api_gateway_integration.preflight]
+}
+
+resource "aws_api_gateway_gateway_response" "cors" {
+  for_each = toset(["DEFAULT_4XX", "DEFAULT_5XX"])
+
+  rest_api_id   = aws_api_gateway_rest_api.this.id
+  response_type = each.key
+
+  response_parameters = {
+    "gatewayresponse.header.Access-Control-Allow-Origin" = "'${var.cors_allowed_origin}'"
+  }
+}
+{%- endif %}
+
+resource "aws_api_gateway_deployment" "this" {
+  rest_api_id = aws_api_gateway_rest_api.this.id
+
+  # A change to one of these resources produces a new deployment.
+  triggers = {
+    redeployment = sha1(jsonencode([
+      aws_api_gateway_resource.proxy,
+      aws_api_gateway_method.function,
+      aws_api_gateway_integration.function,
+      {%- if values.enableCors %}
+      aws_api_gateway_method.preflight,
+      aws_api_gateway_integration.preflight,
+      aws_api_gateway_method_response.preflight,
+      aws_api_gateway_integration_response.preflight,
+      aws_api_gateway_gateway_response.cors,
+      {%- endif %}
+      {%- if authType == 'jwt' or authType == 'oauth2' %}
+      aws_api_gateway_authorizer.this,
+      {%- endif %}
+    ]))
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+module "api_logs" {
+  count  = var.api_access_logging ? 1 : 0
+  source = "${{ modules }}/monitoring/cloudwatch${{ ref }}"
+
+  project_name      = var.project_name
+  environment       = var.environment
+  log_group_name    = "/aws/apigateway/${local.name}-api"
+  retention_in_days = var.log_retention_days
+}
+
+resource "aws_api_gateway_stage" "this" {
+  rest_api_id          = aws_api_gateway_rest_api.this.id
+  deployment_id        = aws_api_gateway_deployment.this.id
+  stage_name           = var.environment
+  xray_tracing_enabled = ${{ 'true' if values.enableTracing else 'false' }}
+
+  dynamic "access_log_settings" {
+    for_each = module.api_logs
+
+    content {
+      destination_arn = access_log_settings.value.log_group_arn
+      format = jsonencode({
+        requestId        = "$context.requestId"
+        requestTime      = "$context.requestTime"
+        sourceIp         = "$context.identity.sourceIp"
+        httpMethod       = "$context.httpMethod"
+        path             = "$context.path"
+        resourcePath     = "$context.resourcePath"
+        status           = "$context.status"
+        responseLength   = "$context.responseLength"
+        responseLatency  = "$context.responseLatency"
+        integrationError = "$context.integration.error"
+        authorizerError  = "$context.authorizer.error"
+      })
+    }
+  }
+}
+{%- if values.enableThrottling or values.enableMetrics %}
+
+resource "aws_api_gateway_method_settings" "all" {
+  rest_api_id = aws_api_gateway_rest_api.this.id
+  stage_name  = aws_api_gateway_stage.this.stage_name
+  method_path = "*/*"
+
+  settings {
+    {%- if values.enableThrottling and values.enableMetrics %}
+    metrics_enabled        = true
+    throttling_rate_limit  = var.throttle_rate_limit
+    throttling_burst_limit = var.throttle_burst_limit
+    {%- elif values.enableThrottling %}
+    throttling_rate_limit  = var.throttle_rate_limit
+    throttling_burst_limit = var.throttle_burst_limit
+    {%- else %}
+    metrics_enabled = true
+    {%- endif %}
+  }
+}
+{%- endif %}
+{%- if authType == 'jwt' %}
+
+# The authorizer accepts the ID token of a user of the pool in the
+# Authorization header.
+resource "aws_api_gateway_authorizer" "this" {
+  name            = "cognito"
+  rest_api_id     = aws_api_gateway_rest_api.this.id
+  type            = "COGNITO_USER_POOLS"
+  provider_arns   = [aws_cognito_user_pool.this.arn]
+  identity_source = "method.request.header.Authorization"
+}
+{%- elif authType == 'oauth2' %}
+
+# REST APIs have no authorizer for external OpenID Connect providers: a Lambda
+# authorizer verifies the bearer token against the keys of the issuer.
+resource "aws_api_gateway_authorizer" "this" {
+  name                             = "oidc"
+  rest_api_id                      = aws_api_gateway_rest_api.this.id
+  type                             = "TOKEN"
+  authorizer_uri                   = module.authorizer.invoke_arn
+  identity_source                  = "method.request.header.Authorization"
+  authorizer_result_ttl_in_seconds = 300
+}
+
+resource "aws_lambda_permission" "authorizer" {
+  statement_id  = "AllowApiGatewayAuthorizer"
+  action        = "lambda:InvokeFunction"
+  function_name = module.authorizer.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_api_gateway_rest_api.this.execution_arn}/authorizers/${aws_api_gateway_authorizer.this.id}"
+}
+{%- elif authType == 'api-key' %}
+
+# Callers send the key in the x-api-key header.
+resource "aws_api_gateway_api_key" "this" {
+  name = "${local.name}-default"
+}
+
+resource "aws_api_gateway_usage_plan" "this" {
+  name = "${local.name}-default"
+
+  api_stages {
+    api_id = aws_api_gateway_rest_api.this.id
+    stage  = aws_api_gateway_stage.this.stage_name
+  }
+  {%- if values.enableThrottling %}
+
+  throttle_settings {
+    rate_limit  = var.throttle_rate_limit
+    burst_limit = var.throttle_burst_limit
+  }
+  {%- endif %}
+}
+
+resource "aws_api_gateway_usage_plan_key" "this" {
+  key_id        = aws_api_gateway_api_key.this.id
+  key_type      = "API_KEY"
+  usage_plan_id = aws_api_gateway_usage_plan.this.id
+}
+{%- endif %}
+{%- else -%}
+# -----------------------------------------------------------------------------
+# GraphQL API (AppSync)
+# -----------------------------------------------------------------------------
+
+resource "aws_appsync_graphql_api" "this" {
+  name   = "${local.name}-api"
+  schema = file("${path.module}/graphql/schema.graphql")
+  {%- if authType == 'jwt' %}
+
+  authentication_type = "AMAZON_COGNITO_USER_POOLS"
+
+  user_pool_config {
+    user_pool_id   = aws_cognito_user_pool.this.id
+    aws_region     = var.aws_region
+    default_action = "ALLOW"
+  }
+  {%- elif authType == 'oauth2' %}
+
+  authentication_type = "OPENID_CONNECT"
+
+  openid_connect_config {
+    issuer = var.oauth2_issuer
+    # AppSync reads client_id as a regular expression for the aud claim.
+    client_id = "^${replace(var.oauth2_audience, "/[.*+?^$(){}|\\[\\]\\\\]/", "\\$0")}$"
+  }
+  {%- elif authType == 'iam' %}
+
+  authentication_type = "AWS_IAM"
+  {%- else %}
+
+  authentication_type = "API_KEY"
+  {%- endif %}
+
+  xray_enabled = ${{ 'true' if values.enableTracing else 'false' }}
+
+  log_config {
+    cloudwatch_logs_role_arn = module.appsync_role.role_arn
+    field_log_level          = "ERROR"
+  }
+  {%- if values.enableMetrics %}
+
+  enhanced_metrics_config {
+    data_source_level_metrics_behavior = "FULL_REQUEST_DATA_SOURCE_METRICS"
+    operation_level_metrics_config     = "ENABLED"
+    resolver_level_metrics_behavior    = "FULL_REQUEST_RESOLVER_METRICS"
+  }
+  {%- endif %}
+}
+
+# AppSync writes to this log group; creating it here sets its retention.
+module "api_logs" {
+  source = "${{ modules }}/monitoring/cloudwatch${{ ref }}"
+
+  project_name      = var.project_name
+  environment       = var.environment
+  log_group_name    = "/aws/appsync/apis/${aws_appsync_graphql_api.this.id}"
+  retention_in_days = var.log_retention_days
+}
+
+# Role AppSync assumes to call the function and to write its logs.
+module "appsync_role" {
+  source = "${{ modules }}/core/iam-role${{ ref }}"
+
+  name             = "${local.name}-appsync"
+  description      = "Lets the ${local.name} GraphQL API call its function and write logs"
+  trusted_services = ["appsync.amazonaws.com"]
+
+  inline_policies = {
+    function = jsonencode({
+      Version = "2012-10-17"
+      Statement = [{
+        Effect   = "Allow"
+        Action   = "lambda:InvokeFunction"
+        Resource = aws_lambda_alias.live.arn
+      }]
+    })
+
+    logs = jsonencode({
+      Version = "2012-10-17"
+      Statement = [{
+        Effect   = "Allow"
+        Action   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+        Resource = "${module.api_logs.log_group_arn}:*"
+      }]
+    })
+  }
+}
+
+resource "aws_appsync_datasource" "function" {
+  api_id           = aws_appsync_graphql_api.this.id
+  name             = "function"
+  type             = "AWS_LAMBDA"
+  service_role_arn = module.appsync_role.role_arn
+
+  lambda_config {
+    function_arn = aws_lambda_alias.live.arn
+  }
+}
+
+# Direct Lambda resolver: the function receives the AppSync context object and
+# returns the value of the field. Add one resolver for every field of
+# graphql/schema.graphql that the function resolves.
+resource "aws_appsync_resolver" "status" {
+  api_id      = aws_appsync_graphql_api.this.id
+  type        = "Query"
+  field       = "status"
+  kind        = "UNIT"
+  data_source = aws_appsync_datasource.function.name
+}
+{%- if graphqlKey %}
+
+# An AppSync key lives for at most 365 days. The expiry moves a year ahead
+# whenever the configuration is applied more than 300 days after the last
+# renewal; the key itself stays the same.
+resource "time_rotating" "api_key" {
+  rotation_days = 300
+}
+
+resource "aws_appsync_api_key" "this" {
+  api_id      = aws_appsync_graphql_api.this.id
+  description = "Default key of the ${local.name} API"
+  expires     = formatdate("YYYY-MM-DD'T'hh:00:00Z", timeadd(time_rotating.api_key.rfc3339, "8760h"))
+}
+{%- endif %}
+{%- endif %}
+{%- if authType == 'jwt' %}
+
+# -----------------------------------------------------------------------------
+# Users (Cognito)
+# -----------------------------------------------------------------------------
+
+resource "aws_cognito_user_pool" "this" {
+  name                     = "${local.name}-users"
+  username_attributes      = ["email"]
+  auto_verified_attributes = ["email"]
+  mfa_configuration        = "OPTIONAL"
+  deletion_protection      = var.environment == "production" ? "ACTIVE" : "INACTIVE"
+
+  software_token_mfa_configuration {
+    enabled = true
+  }
+
+  password_policy {
+    minimum_length                   = 12
+    require_lowercase                = true
+    require_uppercase                = true
+    require_numbers                  = true
+    require_symbols                  = true
+    temporary_password_validity_days = 7
+  }
+
+  admin_create_user_config {
+    allow_admin_create_user_only = !var.allow_self_sign_up
+  }
+
+  account_recovery_setting {
+    recovery_mechanism {
+      name     = "verified_email"
+      priority = 1
+    }
+  }
+}
+
+# Public client for applications that sign users in (no client secret).
+resource "aws_cognito_user_pool_client" "this" {
+  name                          = "${local.name}-client"
+  user_pool_id                  = aws_cognito_user_pool.this.id
+  generate_secret               = false
+  explicit_auth_flows           = ["ALLOW_USER_SRP_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"]
+  prevent_user_existence_errors = "ENABLED"
+}
+{%- endif %}
+{%- if keyAuthorizer or oidcAuthorizer %}
+
+# -----------------------------------------------------------------------------
+# Authorizer function
+# -----------------------------------------------------------------------------
+
+data "archive_file" "authorizer" {
+  type             = "zip"
+  source_file      = "${path.module}/authorizer/index.mjs"
+  output_path      = "${path.module}/build/authorizer.zip"
+  output_file_mode = "0644"
+}
+
+module "authorizer_logs" {
+  source = "${{ modules }}/monitoring/cloudwatch${{ ref }}"
+
+  project_name      = var.project_name
+  environment       = var.environment
+  log_group_name    = "/aws/lambda/${local.name}-authorizer"
+  retention_in_days = var.log_retention_days
+}
+
+module "authorizer_role" {
+  source = "${{ modules }}/core/iam-role${{ ref }}"
+
+  name             = "${local.name}-authorizer"
+  description      = "Execution role of the ${local.name}-authorizer function"
+  trusted_services = ["lambda.amazonaws.com"]
+
+  inline_policies = {
+    logs = jsonencode({
+      Version = "2012-10-17"
+      Statement = [{
+        Effect   = "Allow"
+        Action   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+        Resource = "${module.authorizer_logs.log_group_arn}:*"
+      }]
+    })
+  }
+}
+
+module "authorizer" {
+  source = "${{ modules }}/compute/lambda${{ ref }}"
+
+  function_name = "${local.name}-authorizer"
+  {%- if keyAuthorizer %}
+  description   = "Checks the x-api-key header of requests to the ${local.name} API"
+  {%- else %}
+  description   = "Verifies the bearer tokens of requests to the ${local.name} API"
+  {%- endif %}
+  role_arn      = module.authorizer_role.role_arn
+  runtime       = "nodejs24.x"
+  handler       = "index.handler"
+  memory_size   = 256
+  timeout       = 10
+
+  filename         = data.archive_file.authorizer.output_path
+  source_code_hash = data.archive_file.authorizer.output_base64sha256
+  {%- if keyAuthorizer %}
+
+  # The function only knows the hash of the key.
+  environment_variables = {
+    API_KEY_SHA256 = sha256(random_password.api_key.result)
+  }
+  {%- else %}
+
+  environment_variables = {
+    OIDC_ISSUER   = var.oauth2_issuer
+    OIDC_AUDIENCE = var.oauth2_audience
+  }
+  {%- endif %}
+
+  depends_on = [module.authorizer_role]
+}
+{%- endif %}
+{%- if waf %}
+
+# -----------------------------------------------------------------------------
+# Web application firewall
+# -----------------------------------------------------------------------------
+
+module "waf" {
+  source = "${{ modules }}/security/waf${{ ref }}"
+  {%- if cloudfront %}
+
+  providers = {
+    aws = aws.us_east_1
+  }
+  {%- endif %}
+
+  project_name = var.project_name
+  environment  = var.environment
+  name         = "api"
+  scope        = "${{ 'CLOUDFRONT' if cloudfront else 'REGIONAL' }}"
+  {%- if not values.enableWaf %}
+
+  # Only the rate limit below: the managed rule groups come with the WAF option.
+  managed_rule_groups = []
+  {%- endif %}
+  {%- if apiType == 'graphql' and values.enableThrottling %}
+
+  # AppSync has no throttling setting of its own. This rule blocks a client IP
+  # address that sends more requests in five minutes than the rate allows.
+  rate_limit_rules = [{
+    name     = "throttle"
+    priority = 1
+    limit    = min(max(floor(var.throttle_rate_limit * 300), 100), 2000000000)
+    action   = "block"
+  }]
+  {%- endif %}
+}
+{%- if apiType == 'rest' %}
+
+resource "aws_wafv2_web_acl_association" "api" {
+  resource_arn = aws_api_gateway_stage.this.arn
+  web_acl_arn  = module.waf.web_acl_arn
+}
+{%- elif apiType == 'graphql' %}
+
+resource "aws_wafv2_web_acl_association" "api" {
+  resource_arn = aws_appsync_graphql_api.this.arn
+  web_acl_arn  = module.waf.web_acl_arn
+}
+{%- else %}
+
+# A web ACL cannot be attached to an HTTP API. Clients call this CloudFront
+# distribution, which applies the web ACL and passes every request on to the
+# API without caching.
+data "aws_cloudfront_cache_policy" "disabled" {
+  name = "Managed-CachingDisabled"
+}
+
+data "aws_cloudfront_origin_request_policy" "all_viewer_except_host" {
+  name = "Managed-AllViewerExceptHostHeader"
+}
+
+resource "aws_cloudfront_distribution" "api" {
+  enabled         = true
+  comment         = "${local.name} API"
+  is_ipv6_enabled = true
+  http_version    = "http2and3"
+  web_acl_id      = module.waf.web_acl_arn
+
+  origin {
+    origin_id   = "api"
+    domain_name = trimprefix(aws_apigatewayv2_api.this.api_endpoint, "https://")
+
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "https-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+
+  default_cache_behavior {
+    target_origin_id         = "api"
+    viewer_protocol_policy   = "https-only"
+    allowed_methods          = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods           = ["GET", "HEAD"]
+    cache_policy_id          = data.aws_cloudfront_cache_policy.disabled.id
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host.id
+    compress                 = true
+  }
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"
+    }
+  }
+
+  viewer_certificate {
+    cloudfront_default_certificate = true
+  }
+}
+{%- endif %}
+{%- endif %}

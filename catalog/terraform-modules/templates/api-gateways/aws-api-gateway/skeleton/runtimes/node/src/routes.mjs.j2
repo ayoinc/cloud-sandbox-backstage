@@ -1,0 +1,28 @@
+import { json{% if values.endpoints | length %}, notImplemented{% endif %} } from './router.mjs';
+{%- if values.enableCRUD %}
+import { itemRoutes } from './items/items.mjs';
+import { createStore } from './items/store.mjs';
+{%- endif %}
+
+const health = () =>
+  json(200, {
+    status: 'ok',
+    service: process.env.API_NAME ?? ${{ values.apiName | dump }},
+    version: process.env.API_VERSION ?? ${{ (values.apiVersion or '1.0.0') | dump }},
+  });
+
+// Route table: "<METHOD> <API Gateway resource path>" -> handler(event).
+// A handler returns { statusCode, headers, body }; use json() from router.mjs.
+// To implement an endpoint, replace its notImplemented stub with a handler.
+export const routes = {
+  'GET /health': health,
+{%- if values.enableCRUD %}
+  ...itemRoutes(createStore()),
+{%- endif %}
+{%- for endpoint in values.endpoints or [] %}
+{%- if endpoint.description %}
+  // ${{ endpoint.description | replace('\n', ' ') | replace('\r', ' ') }}
+{%- endif %}
+  ${{ (endpoint.method + ' ' + endpoint.path) | dump }}: notImplemented,
+{%- endfor %}
+};

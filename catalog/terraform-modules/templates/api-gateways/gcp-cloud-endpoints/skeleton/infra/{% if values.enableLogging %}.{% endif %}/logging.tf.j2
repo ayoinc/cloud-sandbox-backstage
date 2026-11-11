@@ -1,0 +1,56 @@
+locals {
+  log_bucket_id = "${var.api_name}-api-logs"
+
+  # Request logs Endpoints writes for the API, and the output of the gateway itself.
+  log_filter = join(" OR ", [
+    "(resource.type=\"api\" AND resource.labels.service=\"${local.service_name}\")",
+    "(resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"${local.gateway_name}\")",
+  ])
+}
+
+module "log_bucket" {
+  source = "git::https://github.com/ayoinc/cloud-sandbox-backstage.git//catalog/terraform-modules/gcp/resources/monitoring/cloud-logging?ref=${{ values.moduleRef }}"
+
+  project_name = var.api_name
+  project_id   = var.project_id
+  environment  = var.environment
+
+  log_buckets = [
+    {
+      bucket_id      = local.log_bucket_id
+      location       = "global"
+      retention_days = var.log_retention_days
+      description    = "Request logs of ${local.service_name} and logs of its gateway."
+    }
+  ]
+}
+
+# Routes the logs of the API to the bucket. The sink is a second module call
+# so that it is created after the bucket it writes to.
+module "log_sink" {
+  source = "git::https://github.com/ayoinc/cloud-sandbox-backstage.git//catalog/terraform-modules/gcp/resources/monitoring/cloud-logging?ref=${{ values.moduleRef }}"
+
+  project_name = var.api_name
+  project_id   = var.project_id
+  environment  = var.environment
+
+  log_sinks = [
+    {
+      name                   = local.log_bucket_id
+      destination            = "logging.googleapis.com/${module.log_bucket.log_bucket_ids[local.log_bucket_id]}"
+      filter                 = local.log_filter
+      unique_writer_identity = true
+
+      # Request log entries below var.log_level are not stored. DEBUG is the
+      # lowest level, so it keeps everything. The exclusion leaves the output
+      # of the gateway alone: it is always stored.
+      exclusions = [
+        for level in [var.log_level] : {
+          name        = "requests-below-${lower(level)}"
+          description = "Request log entries less severe than ${level}"
+          filter      = "resource.type=\"api\" AND severity < ${level}"
+        } if level != "DEBUG"
+      ]
+    }
+  ]
+}

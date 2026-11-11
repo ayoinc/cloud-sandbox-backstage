@@ -1,0 +1,78 @@
+{%- set grpc = values.protocol != 'rest' -%}
+{%- set authType = values.authType if values.enableAuth else 'none' -%}
+{%- set definition = 'google_endpoints_service.api.grpc_config' if grpc else 'google_endpoints_service.api.openapi_config' -%}
+# Plans the configuration with the values of terraform.tfvars against a mocked
+# Google provider. No credentials are used and nothing is created.
+
+mock_provider "google" {}
+{%- if authType == 'jwt' %}
+
+# The variables that describe the identity provider have no default. The test
+# uses its own values for them.
+variables {
+  jwt_issuer    = "https://login.example.com/"
+  jwt_jwks_uri  = "https://login.example.com/.well-known/jwks.json"
+  jwt_audiences = ["example"]
+}
+{%- endif %}
+{%- if authType == 'oauth2' %}
+
+# The variable with the OAuth client IDs has no default. The test uses its own
+# value for it.
+variables {
+  oauth_client_ids = ["1234567890-example.apps.googleusercontent.com"]
+}
+{%- endif %}
+
+run "committed_values" {
+  command = plan
+
+  assert {
+    condition     = google_endpoints_service.api.service_name == "${var.api_name}.endpoints.${var.project_id}.cloud.goog"
+    error_message = "The Endpoints service is not named after api_name and project_id."
+  }
+{%- if grpc %}
+
+  assert {
+    condition     = yamldecode(${{ definition }}).name == google_endpoints_service.api.service_name
+    error_message = "api_config.yaml is not valid YAML after its placeholders are filled, or its name is not the Endpoints service."
+  }
+
+  assert {
+    condition     = startswith(yamldecode(${{ definition }}).backend.rules[0].address, "grpc")
+    error_message = "The backend address in api_config.yaml is not a gRPC address."
+  }
+{%- if values.enableQuotas %}
+
+  assert {
+    condition     = yamldecode(${{ definition }}).quota.limits[0].values.STANDARD == var.quota_limit
+    error_message = "The quota in api_config.yaml does not follow quota_limit."
+  }
+{%- endif %}
+{%- else %}
+
+  assert {
+    condition     = yamldecode(${{ definition }}).host == google_endpoints_service.api.service_name
+    error_message = "${{ values.openApiSpec }} is not valid YAML after its placeholders are filled, or its host is not the Endpoints service."
+  }
+
+  assert {
+    condition     = can(regex("^https?://[^/]+", yamldecode(${{ definition }})["x-google-backend"].address))
+    error_message = "The backend address in ${{ values.openApiSpec }} is not an http:// or https:// URL."
+  }
+{%- if values.enableQuotas %}
+
+  assert {
+    condition     = yamldecode(${{ definition }})["x-google-management"].quota.limits[0].values.STANDARD == var.quota_limit
+    error_message = "The quota in ${{ values.openApiSpec }} does not follow quota_limit."
+  }
+{%- endif %}
+{%- endif %}
+{%- if values.enablePortal %}
+
+  assert {
+    condition     = length(google_endpoints_service_iam_member.consumers) == length(var.api_consumers)
+    error_message = "Every entry of api_consumers must become one IAM member on the service."
+  }
+{%- endif %}
+}

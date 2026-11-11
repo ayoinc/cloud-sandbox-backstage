@@ -1,0 +1,71 @@
+{%- set authType = values.authType if values.enableAuth else 'none' -%}
+# ${{ values.apiName }}
+
+${{ values.description }}
+
+`${{ values.apiName }}` is an Amazon API Gateway REST API. Every route is
+served by one AWS Lambda function (`${{ values.runtime }}`). The
+infrastructure is defined with Terraform in `infra/` and uses the platform's
+shared Terraform modules.
+
+## What this repository creates
+
+| Part | Resource | Setting |
+| ---- | -------- | ------- |
+| API | API Gateway REST API, regional endpoint | Stage `v${{ (values.apiVersion or '1.0.0').split('.')[0] }}` (version ${{ values.apiVersion or '1.0.0' }}) |
+| Function | Lambda function `${{ values.apiName }}` | `${{ values.runtime }}`, ${{ values.memorySize or 512 }} MB, ${{ values.timeout or 30 }} s timeout |
+{%- if values.enableCRUD %}
+| Storage | DynamoDB table `${{ values.apiName }}-items` | On-demand, encrypted, point-in-time recovery |
+{%- endif %}
+{%- if authType == 'jwt' %}
+| Authentication | Lambda authorizer `${{ values.apiName }}-authorizer` | Bearer tokens of `${{ values.jwtIssuer | replace('|', '\\|') }}` for audience `${{ values.jwtAudience | replace('|', '\\|') }}` |
+{%- elif authType == 'apikey' %}
+| Authentication | API key and usage plan | Key sent in the `x-api-key` header |
+{%- elif authType == 'cognito' %}
+| Authentication | Cognito user pool and app client | ID token sent in the `Authorization` header |
+{%- else %}
+| Authentication | None | The API is public |
+{%- endif %}
+{%- if values.enableWAF %}
+| Firewall | AWS WAF web ACL on the stage | AWS managed rule groups{% if values.rateLimiting %}, rate-based rule per client address{% endif %} |
+{%- endif %}
+{%- if values.rateLimiting %}
+| Rate limiting | Stage throttling{% if authType == 'apikey' %} and usage plan{% endif %} | ${{ values.requestsPerSecond or 100 }} requests per second, burst ${{ (values.requestsPerSecond or 100) * 2 }} |
+{%- endif %}
+{%- if values.enableMonitoring %}
+| Monitoring | Access logs, detailed metrics, four alarms, dashboard `${{ values.apiName }}` | Logs kept ${{ values.logRetention or 30 }} days |
+{%- else %}
+| Logging | Function log group | Logs kept ${{ values.logRetention or 30 }} days |
+{%- endif %}
+{%- if values.enableXRay %}
+| Tracing | AWS X-Ray on the stage and the function | Active tracing |
+{%- endif %}
+
+Nothing exists in AWS until the configuration is applied; see
+[Operations](operations.md).
+
+## Where to go next
+
+- [API](api.md): the endpoints, how callers authenticate, limits
+- [Development](development.md): run the tests, build the package, implement an endpoint
+- [Operations](operations.md): deploy, monitor, change settings
+
+## Pipeline
+
+Every push and pull request runs the `CI` workflow. It needs no AWS account.
+
+| Job | What it checks |
+| --- | -------------- |
+| Lambda function | Unit tests of the function; builds `build/lambda.zip` |
+{%- if authType == 'jwt' %}
+| Token authorizer | Unit tests of `authorizer/` |
+{%- endif %}
+| Terraform | `terraform fmt -check`, `terraform validate`, `terraform test` (a plan of `infra/terraform.tfvars.json` against mocked providers), TFLint |
+| Security scan | Trivy scan of `infra/`; fails on high and critical findings |
+| Documentation | `mkdocs build --strict` of `docs/` |
+{%- if values.enableCICD %}
+
+The `Deploy` workflow plans on pull requests and applies on `main` once an AWS
+role and a state bucket are configured. Until then it reports that and skips
+both steps.
+{%- endif %}

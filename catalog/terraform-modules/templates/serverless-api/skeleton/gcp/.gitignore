@@ -1,0 +1,9 @@
+.terraform/
+*.tfstate
+*.tfstate.*
+tfplan
+crash.log
+# Function archive packaged by Terraform
+build/
+# Output of mkdocs build
+site/

@@ -1,0 +1,45 @@
+{%- if values.authType in ['jwt', 'iam'] or (values.enableDatabase and values.databaseType == 'sql') -%}
+data "azurerm_client_config" "current" {}
+
+{% endif -%}
+# Storage accounts, Key Vaults, function apps and API Management instances
+# share one global namespace per service; the suffix keeps the names unique.
+resource "random_string" "suffix" {
+  length  = 6
+  lower   = true
+  numeric = true
+  upper   = false
+  special = false
+}
+
+locals {
+  name   = "${var.project_name}-${var.environment}"
+  suffix = random_string.suffix.result
+
+  environment_short = { dev = "dev", staging = "stg", production = "prd" }[var.environment]
+
+  # At most 14 lowercase alphanumeric characters, for services with short
+  # name limits (storage account and Key Vault: 24 characters).
+  compact = "${substr(replace(var.project_name, "-", ""), 0, 11)}${local.environment_short}"
+
+  tags = merge(
+    {
+      Project     = var.project_name
+      Environment = var.environment
+      ManagedBy   = "terraform"
+    },
+    var.tags,
+  )
+}
+
+module "resource_group" {
+  source = "git::https://github.com/ayoinc/cloud-sandbox-backstage.git//catalog/terraform-modules/azure/resources/core/resource-group?ref=83f9ff7222d2731d5cc0da4ab1fc1f7c46da3693"
+
+  name     = local.name
+  project  = var.project_name
+  location = var.location
+  tags     = local.tags
+
+  # The module accepts "prod", not "production".
+  environment = var.environment == "production" ? "prod" : var.environment
+}

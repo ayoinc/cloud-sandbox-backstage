@@ -1,0 +1,8 @@
+site_name: ${{ values.projectName }} infrastructure
+site_description: AWS three-tier infrastructure for ${{ values.projectName }}
+
+nav:
+  - Overview: index.md
+
+plugins:
+  - techdocs-core

@@ -1,0 +1,22 @@
+# Deployment packages
+build/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+tfplan
+crash.log
+
+# Toolchains
+node_modules/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.venv/
+target/
+bin/
+obj/
+
+# Documentation build
+site/

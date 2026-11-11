@@ -1,0 +1,26 @@
+{
+  "values": {
+    "projectName": "orbit",
+    "environment": "dev",
+    "owner": "group:default/platform-team",
+    "cloudProvider": "aws",
+    "awsRegion": "eu-west-1",
+    "kubernetesVersion": "1.36",
+    "nodePoolConfig": {
+      "minNodes": 3,
+      "maxNodes": 10,
+      "nodeSize": "medium"
+    },
+    "enableGitOps": true,
+    "enableObservability": true,
+    "enableServiceMesh": false,
+    "enableCertManager": true,
+    "enableExternalDns": true,
+    "enableIngress": "traefik",
+    "enablePodSecurityPolicies": true,
+    "enableNetworkPolicies": true,
+    "enableOPA": false,
+    "enableVaultIntegration": false,
+    "repoUrl": "github.com?owner=example-org&repo=orbit-kubernetes-platform"
+  }
+}

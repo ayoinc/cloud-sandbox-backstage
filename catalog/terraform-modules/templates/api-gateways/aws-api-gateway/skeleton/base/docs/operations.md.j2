@@ -1,0 +1,100 @@
+{%- set authType = values.authType if values.enableAuth else 'none' -%}
+# Operations
+
+## Deploy
+{% if values.enableCICD %}
+The `Deploy` workflow (`.github/workflows/deploy.yml`) runs on pull requests
+(plan only) and on `main` (plan, then apply). It does nothing until these
+repository settings exist (Settings → Secrets and variables → Actions):
+
+| Name | Kind | Value |
+| ---- | ---- | ----- |
+| `AWS_ROLE_ARN` | Secret or variable | IAM role the workflow assumes through GitHub's OIDC provider |
+| `TF_STATE_BUCKET` | Variable | S3 bucket that stores the Terraform state |
+| `TF_STATE_REGION` | Variable, optional | Region of that bucket when it is not `${{ values.awsRegion or 'us-east-1' }}` |
+
+The role must trust `token.actions.githubusercontent.com` for this repository
+and be allowed to manage API Gateway, Lambda, IAM roles, CloudWatch,
+DynamoDB, WAF and Cognito resources, and to read and write the state bucket.
+The apply job uses the GitHub environment `production`; add required
+reviewers to it to approve deployments.
+
+After a successful apply the job summary shows the API URL.
+{% else %}
+No deployment workflow was requested for this repository. Deploy from a
+workstation or your own pipeline as described below.
+{% endif %}
+### From a workstation
+
+```bash
+# 1. Build the deployment package (see Development)
+# 2. Deploy
+cd infra
+terraform init \
+  -backend-config="bucket=<state bucket>" \
+  -backend-config="key=${{ values.destination.repo }}/terraform.tfstate" \
+  -backend-config="region=${{ values.awsRegion or 'us-east-1' }}" \
+  -backend-config="use_lockfile=true"
+terraform apply
+terraform output api_url
+```
+
+## Change the configuration
+
+The choices made when the repository was created are in
+`infra/terraform.tfvars.json`. Every one of them is a Terraform variable
+described in `infra/variables.tf`; change the value, open a pull request and
+read the plan.
+
+| Variable | Effect |
+| -------- | ------ |
+| `enable_auth`, `auth_type` | `jwt`, `apikey`, `cognito` or `none` |
+| `jwt_issuer`, `jwt_audience`, `jwt_jwks_uri` | Tokens the authorizer accepts (`auth_type` `jwt`; needs the `authorizer/` directory of a repository created with JWT authentication) |
+| `enable_waf` | WAF web ACL in front of the stage |
+| `enable_rate_limiting`, `requests_per_second` | Throttling of the stage, the usage plan and the WAF rate rule |
+| `lambda_runtime`, `lambda_memory_size`, `lambda_timeout` | Function settings |
+| `enable_crud` | The `/items` endpoints and their DynamoDB table |
+| `endpoints` | Additional routes sent to the function |
+| `enable_monitoring`, `enable_xray`, `log_retention_days` | Logs, metrics, alarms, dashboard, tracing |
+| `alarm_topic_arn` | SNS topic that receives alarm notifications |
+| `manage_account_logging_role` | Whether this configuration sets the account's API Gateway logging role |
+
+The stage is named after the major version in `api_version`. Changing the
+major version replaces the stage and therefore the URL.
+
+## Monitor
+{% if values.enableMonitoring %}
+- Dashboard `${{ values.apiName }}` in CloudWatch: requests, errors, latency,
+  function invocations and duration.
+- Alarms: `${{ values.apiName }}-api-5xx`, `${{ values.apiName }}-api-latency`,
+  `${{ values.apiName }}-lambda-errors`, `${{ values.apiName }}-lambda-throttles`. They are visible in
+  CloudWatch; set `alarm_topic_arn` to be notified.
+- Access logs: log group `/aws/apigateway/${{ values.apiName }}/access`.
+- Function logs: log group `/aws/lambda/${{ values.apiName }}`.
+
+API Gateway writes logs with one IAM role per account and region. This
+configuration creates that role and sets it in the account settings. If the
+account already has one, set `manage_account_logging_role` to `false`.
+{% else %}
+Detailed monitoring was not requested. Function logs are in the log group
+`/aws/lambda/${{ values.apiName }}`; API Gateway's standard metrics are in the
+`AWS/ApiGateway` namespace. Set `enable_monitoring` to add access logs, alarms
+and a dashboard.
+{% endif %}
+{%- if values.enableXRay %}
+Traces of each request through API Gateway and the function are in X-Ray
+(CloudWatch → Traces).
+{% endif %}
+## Shared modules
+
+`infra/` uses modules of the platform's Terraform module library, pinned to a
+commit of `github.com/ayoinc/cloud-sandbox-backstage`:
+
+| Module | Used for |
+| ------ | -------- |
+| `aws/resources/compute/lambda` | The function{% if authType == 'jwt' %} and the authorizer{% endif %} |
+| `aws/resources/core/iam-role` | Execution and logging roles |
+| `aws/resources/security/waf` | Web ACL |
+| `aws/resources/monitoring/cloudwatch` | Access log group, alarms, dashboard |
+
+To take a newer version of a module, change the `ref` in its `source`.

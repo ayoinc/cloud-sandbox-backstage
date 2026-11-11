@@ -1,0 +1,199 @@
+{%- set private = values.backendType == 'compute-engine' or values.backendType == 'gke' -%}
+{%- set authType = values.authType if values.enableAuth else 'none' -%}
+variable "project_id" {
+  description = "Google Cloud project the API, its gateway and their supporting resources are created in."
+  type        = string
+}
+
+variable "region" {
+  description = "Region of the Cloud Run service that runs the gateway."
+  type        = string
+  default     = "europe-west1"
+}
+
+variable "environment" {
+  description = "Value of the environment label on the resources."
+  type        = string
+  default     = "production"
+}
+
+variable "api_name" {
+  description = "Name of the API. The Endpoints service is <api_name>.endpoints.<project_id>.cloud.goog."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[a-z]([a-z0-9-]{0,38}[a-z0-9])?$", var.api_name))
+    error_message = "api_name must be at most 40 lowercase letters, digits and hyphens, start with a letter and not end with a hyphen."
+  }
+}
+
+variable "backend_url" {
+  description = "URL of the backend service the gateway forwards requests to."
+  type        = string
+
+  validation {
+    condition     = can(regex("^https?://[^/]+", var.backend_url))
+    error_message = "backend_url must start with http:// or https://."
+  }
+}
+{%- if private %}
+
+variable "vpc_connector" {
+  description = "Serverless VPC Access connector the gateway reaches private addresses through, as projects/<project>/locations/<region>/connectors/<name>. Null when the backend has a public address."
+  type        = string
+  default     = null
+}
+
+variable "vpc_egress" {
+  description = "Gateway traffic sent through the connector: PRIVATE_RANGES_ONLY or ALL_TRAFFIC."
+  type        = string
+  default     = "PRIVATE_RANGES_ONLY"
+}
+{%- else %}
+
+variable "backend_jwt_audience" {
+  description = "Audience of the ID token the gateway sends to the backend. Null uses the backend URL."
+  type        = string
+  default     = null
+}
+{%- endif %}
+{%- if authType == 'jwt' %}
+
+variable "jwt_issuer" {
+  description = "Issuer (iss claim) of the JSON Web Tokens the API accepts."
+  type        = string
+
+  validation {
+    condition     = length(var.jwt_issuer) > 0
+    error_message = "jwt_issuer must not be empty."
+  }
+}
+
+variable "jwt_jwks_uri" {
+  description = "URL of the JSON Web Key Set the issuer signs its tokens with."
+  type        = string
+
+  validation {
+    condition     = can(regex("^https://", var.jwt_jwks_uri))
+    error_message = "jwt_jwks_uri must be an https:// URL."
+  }
+}
+
+variable "jwt_audiences" {
+  description = "Audiences (aud claim) the API accepts."
+  type        = list(string)
+
+  validation {
+    condition     = length(var.jwt_audiences) > 0
+    error_message = "jwt_audiences needs at least one audience."
+  }
+}
+{%- endif %}
+{%- if authType == 'oauth2' %}
+
+variable "oauth_client_ids" {
+  description = "OAuth 2.0 client IDs whose Google ID tokens the API accepts (the aud claim of the token)."
+  type        = list(string)
+
+  validation {
+    condition     = length(var.oauth_client_ids) > 0
+    error_message = "oauth_client_ids needs at least one client ID."
+  }
+}
+{%- endif %}
+{%- if values.enableCORS %}
+
+variable "cors_allow_origin" {
+  description = "Origin allowed to call the API from a browser. \"*\" allows every origin."
+  type        = string
+  default     = "*"
+}
+
+variable "cors_allow_headers" {
+  description = "Request headers browsers may send to the API, comma separated."
+  type        = string
+  default     = "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization,X-Api-Key"
+}
+{%- endif %}
+{%- if values.enableQuotas %}
+
+variable "quota_limit" {
+  description = "Requests per minute each consumer project may send."
+  type        = number
+
+  validation {
+    condition     = var.quota_limit >= 1 && floor(var.quota_limit) == var.quota_limit
+    error_message = "quota_limit must be a whole number of at least 1."
+  }
+}
+{%- endif %}
+
+variable "log_level" {
+  description = "{% if values.enableLogging %}Lowest severity of request log entries kept in the log bucket. {% endif %}DEBUG turns on debug logging in the gateway."
+  type        = string
+
+  validation {
+    condition     = contains(["DEBUG", "INFO", "WARNING", "ERROR"], var.log_level)
+    error_message = "log_level must be DEBUG, INFO, WARNING or ERROR."
+  }
+}
+{%- if values.enableLogging %}
+
+variable "log_retention_days" {
+  description = "Days the log bucket keeps entries."
+  type        = number
+  default     = 30
+}
+{%- endif %}
+{%- if values.enableMonitoring %}
+
+variable "alert_emails" {
+  description = "Email addresses notified by the alert policies. Empty creates the policies without notifications."
+  type        = list(string)
+  default     = []
+}
+
+variable "error_ratio_threshold" {
+  description = "Share of requests answered with a 5xx status, between 0 and 1, above which the error alert fires."
+  type        = number
+  default     = 0.05
+}
+
+variable "latency_threshold_seconds" {
+  description = "95th percentile request latency in seconds above which the latency alert fires."
+  type        = number
+  default     = 2
+}
+{%- endif %}
+{%- if values.enablePortal %}
+
+variable "api_consumers" {
+  description = "Principals allowed to enable and call the API from their own projects, e.g. group:partners@example.com or serviceAccount:client@other-project.iam.gserviceaccount.com."
+  type        = list(string)
+  default     = []
+}
+{%- endif %}
+
+variable "gateway_image" {
+  description = "Container image of the Extensible Service Proxy (ESPv2) that serves the API."
+  type        = string
+  default     = "gcr.io/endpoints-release/endpoints-runtime-serverless:2"
+}
+
+variable "gateway_min_instances" {
+  description = "Gateway instances kept running when there is no traffic."
+  type        = number
+  default     = 0
+}
+
+variable "gateway_max_instances" {
+  description = "Upper limit of gateway instances."
+  type        = number
+  default     = 10
+}
+
+variable "espv2_extra_args" {
+  description = "Additional ESPv2 start-up flags, e.g. [\"--http_request_timeout_s=30\"]."
+  type        = list(string)
+  default     = []
+}

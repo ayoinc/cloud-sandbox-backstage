@@ -1,0 +1,220 @@
+{%- set private = values.backendType == 'compute-engine' or values.backendType == 'gke' -%}
+{%- set authType = values.authType if values.enableAuth else 'none' -%}
+{%- set apiKey = values.enableQuotas or authType == 'apikey' -%}
+{%- set tokenScheme = { 'jwt': 'jwt', 'firebase': 'firebase', 'oauth2': 'google_id_token' }[authType] -%}
+# OpenAPI 2.0 definition of the API. Terraform deploys it to Cloud Endpoints
+# and fills in the dollar-brace placeholders (host, backend_address and so on)
+# from local.api_definition_values in infra/main.tf.
+swagger: "2.0"
+info:
+  title: ${{ values.apiName }}
+  description: ${{ values.description | replace('${', '$${') | replace('%{', '%%{') | dump }}
+  version: 1.0.0
+host: "${host}"
+schemes:
+  - https
+consumes:
+  - application/json
+produces:
+  - application/json
+
+# Every request is forwarded to the backend with its path appended to the address.
+x-google-backend:
+  address: "${backend_address}"
+  path_translation: APPEND_PATH_TO_ADDRESS
+{%- if private %}
+  # The backend is reached by its network address and gets no ID token.
+  disable_auth: true
+{%- else %}
+  # The gateway adds an ID token of its service account for this audience.
+  jwt_audience: "${backend_jwt_audience}"
+{%- endif %}
+{%- if values.enableQuotas %}
+
+# Each consumer project, identified by its API key, may send this many
+# requests per minute to the operations that have a metric cost.
+x-google-management:
+  metrics:
+    - name: requests
+      displayName: Requests
+      valueType: INT64
+      metricKind: DELTA
+  quota:
+    limits:
+      - name: requests-per-minute
+        metric: requests
+        unit: "1/min/{project}"
+        values:
+          STANDARD: ${quota_limit}
+{%- endif %}
+{%- if apiKey or tokenScheme %}
+
+securityDefinitions:
+{%- if apiKey %}
+  # A Google Cloud API key of a project that has enabled this API.
+  api_key:
+    type: apiKey
+    name: x-api-key
+    in: header
+{%- endif %}
+{%- if authType == 'jwt' %}
+  # Tokens of the identity provider configured with the jwt_* Terraform variables.
+  jwt:
+    type: oauth2
+    flow: implicit
+    authorizationUrl: ""
+    x-google-issuer: "${jwt_issuer}"
+    x-google-jwks_uri: "${jwt_jwks_uri}"
+    x-google-audiences: "${jwt_audiences}"
+{%- endif %}
+{%- if authType == 'firebase' %}
+  # Firebase Authentication ID tokens of the project.
+  firebase:
+    type: oauth2
+    flow: implicit
+    authorizationUrl: ""
+    x-google-issuer: "https://securetoken.google.com/${project_id}"
+    x-google-jwks_uri: "https://www.googleapis.com/service_accounts/v1/metadata/x509/securetoken@system.gserviceaccount.com"
+    x-google-audiences: "${project_id}"
+{%- endif %}
+{%- if authType == 'oauth2' %}
+  # Google ID tokens issued to the OAuth clients in the oauth_client_ids Terraform variable.
+  google_id_token:
+    type: oauth2
+    flow: implicit
+    authorizationUrl: ""
+    x-google-issuer: "https://accounts.google.com"
+    x-google-jwks_uri: "https://www.googleapis.com/oauth2/v3/certs"
+    x-google-audiences: "${oauth_client_ids}"
+{%- endif %}
+
+# Applies to every operation that does not set its own security.
+{%- if apiKey and tokenScheme %} A call needs both the key and the token.{% endif %}
+security:
+{%- if apiKey %}
+  - api_key: []
+{%- if tokenScheme %}
+    ${{ tokenScheme }}: []
+{%- endif %}
+{%- else %}
+  - ${{ tokenScheme }}: []
+{%- endif %}
+{%- endif %}
+
+paths:
+  /healthz:
+    get:
+      summary: Health check
+      description: Reports whether the backend answers. Needs no credentials.
+      operationId: getHealth
+{%- if apiKey or tokenScheme %}
+      security: []
+{%- endif %}
+      responses:
+        "200":
+          description: The backend is healthy.
+          schema:
+            $ref: "#/definitions/Health"
+  /v1/items:
+    get:
+      summary: List items
+      operationId: listItems
+{%- if values.enableQuotas %}
+      x-google-quota:
+        metricCosts:
+          requests: 1
+{%- endif %}
+      parameters:
+        - name: pageSize
+          in: query
+          description: Maximum number of items to return.
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+          default: 20
+        - name: pageToken
+          in: query
+          description: Token of the page to return, from a previous response.
+          type: string
+      responses:
+        "200":
+          description: A page of items.
+          schema:
+            $ref: "#/definitions/ItemList"
+        default:
+          description: The request failed.
+          schema:
+            $ref: "#/definitions/Error"
+  /v1/items/{itemId}:
+    get:
+      summary: Get an item
+      operationId: getItem
+{%- if values.enableQuotas %}
+      x-google-quota:
+        metricCosts:
+          requests: 1
+{%- endif %}
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          type: string
+      responses:
+        "200":
+          description: The item.
+          schema:
+            $ref: "#/definitions/Item"
+        "404":
+          description: There is no item with this ID.
+          schema:
+            $ref: "#/definitions/Error"
+        default:
+          description: The request failed.
+          schema:
+            $ref: "#/definitions/Error"
+
+definitions:
+  Health:
+    type: object
+    required:
+      - status
+    properties:
+      status:
+        type: string
+        example: ok
+  Item:
+    type: object
+    required:
+      - id
+      - name
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      createdAt:
+        type: string
+        format: date-time
+  ItemList:
+    type: object
+    required:
+      - items
+    properties:
+      items:
+        type: array
+        items:
+          $ref: "#/definitions/Item"
+      nextPageToken:
+        type: string
+  Error:
+    type: object
+    required:
+      - code
+      - message
+    properties:
+      code:
+        type: integer
+        format: int32
+      message:
+        type: string

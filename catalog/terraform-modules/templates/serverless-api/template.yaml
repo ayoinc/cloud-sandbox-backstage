@@ -26,8 +26,9 @@ spec:
         projectName:
           title: Project Name
           type: string
-          description: Name for the serverless API (lowercase, hyphens allowed)
-          pattern: '^[a-z0-9-]+$'
+          description: Name for the serverless API (lowercase letters, digits and hyphens, starting with a letter)
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          maxLength: 24
           ui:autofocus: true
         environment:
           title: Environment
@@ -49,8 +50,6 @@ spec:
             - Microsoft Azure (Functions)
             - Google Cloud Platform (Cloud Functions)
           default: aws
-
-    - title: AWS Configuration
       dependencies:
         cloudProvider:
           oneOf:
@@ -67,12 +66,9 @@ spec:
                     - eu-central-1
                     - ap-southeast-1
                   default: us-east-1
-
-    - title: Azure Configuration
-      dependencies:
-        cloudProvider:
-          oneOf:
-            - properties:
+            - required:
+                - azurePublisherEmail
+              properties:
                 cloudProvider:
                   const: azure
                 azureRegion:
@@ -88,12 +84,16 @@ spec:
                 azureSubscriptionId:
                   title: Azure Subscription ID
                   type: string
-
-    - title: GCP Configuration
-      dependencies:
-        cloudProvider:
-          oneOf:
-            - properties:
+                  description: Subscription to deploy into. Leave empty to take it from the ARM_SUBSCRIPTION_ID environment variable at deploy time.
+                  pattern: '^$|^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$'
+                azurePublisherEmail:
+                  title: API Publisher E-mail
+                  type: string
+                  description: Mailbox that receives the notifications of the API Management instance
+                  pattern: '^[^@\s]+@[^@\s]+\.[^@\s]+$'
+            - required:
+                - gcpProjectId
+              properties:
                 cloudProvider:
                   const: gcp
                 gcpRegion:
@@ -109,6 +109,8 @@ spec:
                 gcpProjectId:
                   title: GCP Project ID
                   type: string
+                  description: Project the resources are created in
+                  pattern: '^[a-z][a-z0-9-]{4,28}[a-z0-9]$'
 
     - title: Function Configuration
       properties:
@@ -116,18 +118,18 @@ spec:
           title: Runtime
           type: string
           enum:
-            - nodejs20
-            - python312
-            - go121
-            - dotnet8
+            - nodejs24
+            - python313
+            - go126
+            - dotnet10
             - java21
           enumNames:
-            - Node.js 20
-            - Python 3.12
-            - Go 1.21
-            - .NET 8
+            - Node.js 24
+            - Python 3.13
+            - Go 1.26
+            - .NET 10
             - Java 21
-          default: nodejs20
+          default: nodejs24
         memorySize:
           title: Memory Size (MB)
           type: number
@@ -171,10 +173,12 @@ spec:
           title: Rate Limit (requests/second)
           type: number
           default: 1000
+          minimum: 1
         throttleBurstLimit:
           title: Burst Limit
           type: number
           default: 2000
+          minimum: 1
 
     - title: Authentication & Authorization
       properties:
@@ -190,9 +194,9 @@ spec:
           enumNames:
             - None (Public API)
             - API Key
-            - JWT (Cognito/AAD/Firebase)
-            - OAuth 2.0
-            - IAM (AWS only)
+            - JWT (Cognito/Entra ID/Firebase)
+            - OAuth 2.0 (external identity provider)
+            - Cloud identity (AWS IAM / Entra ID / Google IAM)
           default: jwt
         enableWaf:
           title: Enable WAF
@@ -210,20 +214,12 @@ spec:
           title: Database Type
           type: string
           enum:
-            - dynamodb
-            - cosmosdb
-            - firestore
-            - aurora-serverless
-            - sql-serverless
-            - spanner
+            - nosql
+            - sql
           enumNames:
-            - DynamoDB (AWS)
-            - Cosmos DB (Azure)
-            - Firestore (GCP)
-            - Aurora Serverless (AWS)
-            - SQL Serverless (Azure)
-            - Spanner (GCP)
-          default: dynamodb
+            - NoSQL (DynamoDB / Cosmos DB / Firestore)
+            - Relational (Aurora Serverless / Azure SQL serverless / Spanner)
+          default: nosql
         enableCache:
           title: Enable Cache
           type: boolean
@@ -253,30 +249,41 @@ spec:
         logRetentionDays:
           title: Log Retention (days)
           type: number
+          enum:
+            - 7
+            - 14
+            - 30
+            - 60
+            - 90
+            - 180
+            - 365
           default: 30
 
     - title: CI/CD Configuration
       properties:
         enableCicd:
-          title: Enable CI/CD Pipeline
+          title: Enable Deployment Pipeline
           type: boolean
           default: true
+          description: Add a GitHub Actions workflow that plans and applies the infrastructure once cloud credentials are configured. The validation workflow is always included.
         deploymentStrategy:
           title: Deployment Strategy
           type: string
+          description: How a new function version takes traffic
           enum:
             - all-at-once
             - canary
             - linear
           enumNames:
             - All at Once
-            - Canary (10% increments)
+            - Canary (10% first, then the rest)
             - Linear (gradual rollout)
           default: canary
 
     - title: Repository Configuration
       required:
         - repoUrl
+        - owner
       properties:
         repoUrl:
           title: Repository Location
@@ -285,21 +292,32 @@ spec:
           ui:options:
             allowedHosts:
               - github.com
+        owner:
+          title: Owner
+          type: string
+          description: Team or user that owns the API
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind:
+                - Group
+                - User
 
   steps:
     - id: fetch
-      name: Fetch Template
+      name: Fetch Repository Files
       action: fetch:template
       input:
-        url: ./skeleton
+        url: ./skeleton/common
         templateFileExtension: '.j2'
-        values:
+        values: &values
           projectName: ${{ parameters.projectName }}
           environment: ${{ parameters.environment }}
           cloudProvider: ${{ parameters.cloudProvider }}
           awsRegion: ${{ parameters.awsRegion }}
           azureRegion: ${{ parameters.azureRegion }}
           azureSubscriptionId: ${{ parameters.azureSubscriptionId }}
+          azurePublisherEmail: ${{ parameters.azurePublisherEmail }}
           gcpRegion: ${{ parameters.gcpRegion }}
           gcpProjectId: ${{ parameters.gcpProjectId }}
           runtime: ${{ parameters.runtime }}
@@ -322,6 +340,35 @@ spec:
           logRetentionDays: ${{ parameters.logRetentionDays }}
           enableCicd: ${{ parameters.enableCicd }}
           deploymentStrategy: ${{ parameters.deploymentStrategy }}
+          owner: ${{ parameters.owner }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: fetch-aws
+      name: Fetch AWS Infrastructure
+      if: ${{ parameters.cloudProvider == 'aws' }}
+      action: fetch:template
+      input:
+        url: ./skeleton/aws
+        templateFileExtension: '.j2'
+        values: *values
+
+    - id: fetch-azure
+      name: Fetch Azure Infrastructure
+      if: ${{ parameters.cloudProvider == 'azure' }}
+      action: fetch:template
+      input:
+        url: ./skeleton/azure
+        templateFileExtension: '.j2'
+        values: *values
+
+    - id: fetch-gcp
+      name: Fetch GCP Infrastructure
+      if: ${{ parameters.cloudProvider == 'gcp' }}
+      action: fetch:template
+      input:
+        url: ./skeleton/gcp
+        templateFileExtension: '.j2'
+        values: *values
 
     - id: publish
       name: Publish to GitHub
@@ -329,7 +376,7 @@ spec:
       input:
         allowedHosts: ['github.com']
         repoUrl: ${{ parameters.repoUrl }}
-        description: Serverless API Infrastructure for ${{ parameters.projectName }}
+        description: Serverless API infrastructure for ${{ parameters.projectName }}
         defaultBranch: main
         repoVisibility: private
 
@@ -344,6 +391,9 @@ spec:
     links:
       - title: Repository
         url: ${{ steps.publish.output.remoteUrl }}
+      - title: Pipeline Runs
+        icon: github
+        url: ${{ steps.publish.output.remoteUrl }}/actions
       - title: Open in Catalog
         icon: catalog
         entityRef: ${{ steps.register.output.entityRef }}

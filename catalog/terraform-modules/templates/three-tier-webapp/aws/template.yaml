@@ -20,13 +20,24 @@ spec:
       required:
         - projectName
         - environment
+        - owner
       properties:
         projectName:
           title: Project Name
           type: string
-          description: Name for the project (lowercase, hyphens allowed)
-          pattern: '^[a-z0-9-]+$'
+          description: Name for the project, used as a prefix for resource names (lowercase letters, digits and hyphens, at most 16 characters)
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          maxLength: 16
           ui:autofocus: true
+        owner:
+          title: Owner
+          type: string
+          description: Team or user that owns this infrastructure
+          ui:field: OwnerPicker
+          ui:options:
+            allowedKinds:
+              - Group
+              - User
         environment:
           title: Environment
           type: string
@@ -52,7 +63,8 @@ spec:
           title: VPC CIDR Block
           type: string
           default: '10.0.0.0/16'
-          description: CIDR block for the VPC
+          pattern: '^(\d{1,3}\.){3}\d{1,3}/(1[6-9]|20)$'
+          description: CIDR block for the VPC, between /16 and /20
 
     - title: Compute Configuration
       required:
@@ -74,14 +86,19 @@ spec:
           title: Instance Type
           type: string
           default: t3.medium
+          pattern: '^[a-z][a-z0-9-]*\.[a-z0-9]+$'
           description: EC2 instance type (for ECS-EC2 or ASG)
         minCapacity:
           title: Minimum Capacity
-          type: number
+          type: integer
+          minimum: 1
+          maximum: 100
           default: 2
         maxCapacity:
           title: Maximum Capacity
-          type: number
+          type: integer
+          minimum: 1
+          maximum: 100
           default: 10
 
     - title: Database Configuration
@@ -100,6 +117,7 @@ spec:
           title: Database Instance Class
           type: string
           default: db.t3.medium
+          pattern: '^db\.[a-z0-9-]+\.[a-z0-9]+$'
         multiAz:
           title: Enable Multi-AZ
           type: boolean
@@ -139,17 +157,21 @@ spec:
         values:
           projectName: ${{ parameters.projectName }}
           environment: ${{ parameters.environment }}
-          region: ${{ parameters.region }}
-          vpcCidr: ${{ parameters.vpcCidr }}
-          computeType: ${{ parameters.computeType }}
-          instanceType: ${{ parameters.instanceType }}
-          minCapacity: ${{ parameters.minCapacity }}
-          maxCapacity: ${{ parameters.maxCapacity }}
-          databaseEngine: ${{ parameters.databaseEngine }}
-          databaseInstanceClass: ${{ parameters.databaseInstanceClass }}
-          multiAz: ${{ parameters.multiAz }}
-          enableWaf: ${{ parameters.enableWaf }}
-          enableCloudfront: ${{ parameters.enableCloudfront }}
+          region: ${{ parameters.region or 'us-east-1' }}
+          vpcCidr: ${{ parameters.vpcCidr or '10.0.0.0/16' }}
+          computeType: ${{ parameters.computeType or 'ecs-fargate' }}
+          instanceType: ${{ parameters.instanceType or 't3.medium' }}
+          minCapacity: ${{ parameters.minCapacity or 2 }}
+          maxCapacity: ${{ parameters.maxCapacity or 10 }}
+          databaseEngine: ${{ parameters.databaseEngine or 'postgres' }}
+          databaseInstanceClass: ${{ parameters.databaseInstanceClass or 'db.t3.medium' }}
+          multiAz: ${{ parameters.multiAz if parameters.multiAz is defined else true }}
+          enableWaf: ${{ parameters.enableWaf if parameters.enableWaf is defined else true }}
+          enableCloudfront: ${{ parameters.enableCloudfront if parameters.enableCloudfront is defined else false }}
+          owner: ${{ parameters.owner }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+          # Commit of github.com/ayoinc/cloud-sandbox-backstage the Terraform modules are taken from
+          moduleRef: 83f9ff7222d2731d5cc0da4ab1fc1f7c46da3693
 
     - id: publish
       name: Publish to GitHub

@@ -1,0 +1,21 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.apiName }}
+  description: ${{ values.description | dump }}
+  annotations:
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - graphql
+    - apollo
+    - nodejs
+    - typescript
+  links:
+    - url: https://${{ values.destination.host }}/${{ values.destination.owner }}/${{ values.destination.repo }}/actions
+      title: CI pipeline
+      icon: github
+spec:
+  type: service
+  lifecycle: experimental
+  owner: ${{ values.owner | dump }}

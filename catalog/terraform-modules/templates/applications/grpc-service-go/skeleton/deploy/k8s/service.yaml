@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ${{ values.serviceName }}
+  labels:
+    app.kubernetes.io/name: ${{ values.serviceName }}
+spec:
+  selector:
+    app.kubernetes.io/name: ${{ values.serviceName }}
+  ports:
+    - name: grpc
+      port: 50051
+      targetPort: grpc
+{% if values.enableAuth %}
+      # The server speaks TLS itself: proxies must pass the bytes through.
+      appProtocol: tls
+{% else %}
+      appProtocol: grpc
+{% endif %}
+{% if values.enableMetrics %}
+    - name: metrics
+      port: 9090
+      targetPort: metrics
+      appProtocol: http
+{% endif %}

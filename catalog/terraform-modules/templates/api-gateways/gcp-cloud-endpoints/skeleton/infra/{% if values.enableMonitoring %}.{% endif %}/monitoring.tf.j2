@@ -1,0 +1,224 @@
+locals {
+  # Selects the metrics Endpoints records for this API.
+  api_metrics = "resource.type = \"api\" AND resource.labels.service = \"${local.service_name}\""
+
+  request_count_filter = "metric.type = \"serviceruntime.googleapis.com/api/request_count\" AND ${local.api_metrics}"
+
+  latency_filter = "metric.type = \"serviceruntime.googleapis.com/api/request_latencies\" AND ${local.api_metrics}"
+}
+
+# Notification channels, the latency alert and the dashboard of the API.
+module "monitoring" {
+  source = "git::https://github.com/ayoinc/cloud-sandbox-backstage.git//catalog/terraform-modules/gcp/resources/monitoring/cloud-monitoring?ref=${{ values.moduleRef }}"
+
+  project_name = var.api_name
+  project_id   = var.project_id
+  environment  = var.environment
+
+  notification_channels = [
+    for email in var.alert_emails : {
+      display_name = email
+      type         = "email"
+      labels       = { email_address = email }
+    }
+  ]
+
+  alert_policies = [
+    {
+      display_name = "${var.api_name}: slow responses"
+      combiner     = "OR"
+      conditions = [
+        {
+          display_name = "95th percentile latency above ${var.latency_threshold_seconds} s for 5 minutes"
+          condition_threshold = {
+            filter          = local.latency_filter
+            duration        = "300s"
+            comparison      = "COMPARISON_GT"
+            threshold_value = var.latency_threshold_seconds
+            aggregations = [
+              {
+                alignment_period     = "60s"
+                per_series_aligner   = "ALIGN_DELTA"
+                cross_series_reducer = "REDUCE_PERCENTILE_95"
+                group_by_fields      = ["resource.label.service"]
+              }
+            ]
+          }
+        }
+      ]
+      notification_channels = var.alert_emails
+      documentation = {
+        content = "The 95th percentile latency of ${local.service_name} is above ${var.latency_threshold_seconds} s. Compare the backend and overhead latencies on the dashboard to see whether the backend or the gateway is slow."
+      }
+    }
+  ]
+
+  dashboards = [
+    {
+      display_name = "${var.api_name} API"
+      dashboard_json = jsonencode({
+        displayName = "${var.api_name} API"
+        mosaicLayout = {
+          columns = 12
+          tiles = [
+            {
+              xPos   = 0
+              yPos   = 0
+              width  = 6
+              height = 4
+              widget = {
+                title = "Requests per second by response class"
+                xyChart = {
+                  dataSets = [
+                    {
+                      plotType = "STACKED_AREA"
+                      timeSeriesQuery = {
+                        timeSeriesFilter = {
+                          filter = local.request_count_filter
+                          aggregation = {
+                            alignmentPeriod    = "60s"
+                            perSeriesAligner   = "ALIGN_RATE"
+                            crossSeriesReducer = "REDUCE_SUM"
+                            groupByFields      = ["metric.label.response_code_class"]
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              xPos   = 6
+              yPos   = 0
+              width  = 6
+              height = 4
+              widget = {
+                title = "Requests per second by method"
+                xyChart = {
+                  dataSets = [
+                    {
+                      plotType = "LINE"
+                      timeSeriesQuery = {
+                        timeSeriesFilter = {
+                          filter = local.request_count_filter
+                          aggregation = {
+                            alignmentPeriod    = "60s"
+                            perSeriesAligner   = "ALIGN_RATE"
+                            crossSeriesReducer = "REDUCE_SUM"
+                            groupByFields      = ["resource.label.method"]
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              xPos   = 0
+              yPos   = 4
+              width  = 6
+              height = 4
+              widget = {
+                title = "Request latency (50th and 95th percentile)"
+                xyChart = {
+                  dataSets = [
+                    for reducer in ["REDUCE_PERCENTILE_50", "REDUCE_PERCENTILE_95"] : {
+                      plotType = "LINE"
+                      timeSeriesQuery = {
+                        timeSeriesFilter = {
+                          filter = local.latency_filter
+                          aggregation = {
+                            alignmentPeriod    = "60s"
+                            perSeriesAligner   = "ALIGN_DELTA"
+                            crossSeriesReducer = reducer
+                            groupByFields      = ["resource.label.service"]
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              xPos   = 6
+              yPos   = 4
+              width  = 6
+              height = 4
+              widget = {
+                title = "Backend latency (95th percentile) by method"
+                xyChart = {
+                  dataSets = [
+                    {
+                      plotType = "LINE"
+                      timeSeriesQuery = {
+                        timeSeriesFilter = {
+                          filter = "metric.type = \"serviceruntime.googleapis.com/api/request_latencies_backend\" AND ${local.api_metrics}"
+                          aggregation = {
+                            alignmentPeriod    = "60s"
+                            perSeriesAligner   = "ALIGN_DELTA"
+                            crossSeriesReducer = "REDUCE_PERCENTILE_95"
+                            groupByFields      = ["resource.label.method"]
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+          ]
+        }
+      })
+    }
+  ]
+}
+
+# Share of requests answered with a 5xx status. It is defined here because
+# the shared monitoring module has no ratio (denominator) conditions.
+resource "google_monitoring_alert_policy" "error_ratio" {
+  project      = var.project_id
+  display_name = "${var.api_name}: 5xx responses"
+  combiner     = "OR"
+
+  conditions {
+    display_name = "More than ${var.error_ratio_threshold * 100}% of requests fail with 5xx for 5 minutes"
+
+    condition_threshold {
+      filter             = "${local.request_count_filter} AND metric.labels.response_code_class = \"5xx\""
+      denominator_filter = local.request_count_filter
+      duration           = "300s"
+      comparison         = "COMPARISON_GT"
+      threshold_value    = var.error_ratio_threshold
+
+      aggregations {
+        alignment_period     = "60s"
+        per_series_aligner   = "ALIGN_RATE"
+        cross_series_reducer = "REDUCE_SUM"
+        group_by_fields      = ["resource.label.service"]
+      }
+
+      denominator_aggregations {
+        alignment_period     = "60s"
+        per_series_aligner   = "ALIGN_RATE"
+        cross_series_reducer = "REDUCE_SUM"
+        group_by_fields      = ["resource.label.service"]
+      }
+    }
+  }
+
+  notification_channels = values(module.monitoring.notification_channel_ids)
+
+  documentation {
+    content   = "More than ${var.error_ratio_threshold * 100}% of the requests to ${local.service_name} are answered with a 5xx status. Check the logs of the gateway and the health of the backend."
+    mime_type = "text/markdown"
+  }
+
+  user_labels = {
+    project     = var.api_name
+    environment = var.environment
+    managed_by  = "terraform"
+  }
+}

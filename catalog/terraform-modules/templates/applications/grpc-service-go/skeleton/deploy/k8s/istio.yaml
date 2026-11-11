@@ -1,0 +1,24 @@
+# Only workloads in the mesh may call the service, over mutual TLS.
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: ${{ values.serviceName }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ${{ values.serviceName }}
+  mtls:
+    mode: STRICT
+---
+# gRPC keeps connections open, so balance per request instead of per connection.
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: ${{ values.serviceName }}
+spec:
+  host: ${{ values.serviceName }}
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+    loadBalancer:
+      simple: LEAST_REQUEST

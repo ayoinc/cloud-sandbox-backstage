@@ -1,0 +1,99 @@
+{%- set authType = values.authType if values.enableAuth else 'none' -%}
+{%- set stage = 'v' + (values.apiVersion or '1.0.0').split('.')[0] -%}
+# API
+
+Base URL after deployment: the Terraform output `api_url`, of the form
+`https://<api-id>.execute-api.${{ values.awsRegion or 'us-east-1' }}.amazonaws.com/${{ stage }}`.
+
+The portal shows the same definition under the API entity of this component.
+
+## Endpoints
+
+| Method | Path | Description | Status |
+| ------ | ---- | ----------- | ------ |
+| GET | `/health` | Health check, always public | Implemented |
+{%- if values.enableCRUD %}
+| GET | `/items` | List items (at most 100) | Implemented |
+| POST | `/items` | Create an item from a JSON object | Implemented |
+| GET | `/items/{id}` | Get an item | Implemented |
+| PUT | `/items/{id}` | Replace an item | Implemented |
+| DELETE | `/items/{id}` | Delete an item | Implemented |
+{%- endif %}
+{%- for endpoint in values.endpoints or [] %}
+| ${{ endpoint.method }} | `${{ endpoint.path }}` | ${{ (endpoint.description or '') | replace('|', '\\|') | replace('\n', ' ') }} | Answers `501` until implemented |
+{%- endfor %}
+
+Errors are JSON objects with a `message`.
+{%- if values.enableCRUD %}
+
+### Items
+
+An item is any JSON object. The API adds `id` (UUID), `createdAt` and
+`updatedAt` (ISO 8601, UTC). `PUT` replaces every other attribute.
+
+```bash
+curl -X POST "$API_URL/items" -H 'Content-Type: application/json' -d '{"name":"first"}'
+```
+{%- endif %}
+
+## Authentication
+{% if authType == 'jwt' %}
+Every endpoint except `/health` needs a JSON Web Token in the `Authorization`
+header:
+
+```
+Authorization: Bearer <token>
+```
+
+The Lambda authorizer in `authorizer/` accepts a token when
+
+- it is signed (RS256, RS384, RS512, ES256 or ES384) by a key published in the
+  issuer's key set (`<issuer>/.well-known/jwks.json` unless `jwt_jwks_uri` is
+  set),
+- its `iss` claim is `${{ values.jwtIssuer }}`,
+- its `aud` claim contains `${{ values.jwtAudience }}`,
+- it has not expired.
+
+API Gateway caches the decision for a token for five minutes. The function
+finds the token's `sub` and `scope` in `event.requestContext.authorizer`.
+{% elif authType == 'apikey' %}
+Every endpoint except `/health` needs an API key in the `x-api-key` header.
+One key, `${{ values.apiName }}-default`, is created with the API. Read its value
+with:
+
+```bash
+aws apigateway get-api-key --include-value --api-key "$(terraform -chdir=infra output -raw api_key_id)"
+```
+
+Add `aws_api_gateway_api_key` and `aws_api_gateway_usage_plan_key` resources
+in `infra/auth.tf` for further clients.
+{% elif authType == 'cognito' %}
+Every endpoint except `/health` needs the ID token of a user of the Cognito
+user pool `${{ values.apiName }}` in the `Authorization` header. The pool and an
+app client are created with the API (outputs `cognito_user_pool_id` and
+`cognito_user_pool_client_id`). Users sign in with their e-mail address; only
+administrators create users:
+
+```bash
+aws cognito-idp admin-create-user --user-pool-id <pool id> --username user@example.com
+```
+{% else %}
+None. Every endpoint is public. To require authentication later, set
+`enable_auth` and `auth_type` in `infra/terraform.tfvars.json`.
+{% endif %}
+## Limits
+{% if values.rateLimiting %}
+- The stage accepts ${{ values.requestsPerSecond or 100 }} requests per second per method, with bursts
+  up to ${{ (values.requestsPerSecond or 100) * 2 }}. Requests above that get `429`.
+{%- if authType == 'apikey' %}
+- The usage plan applies the same limit to each API key separately.
+{%- endif %}
+{%- if values.enableWAF %}
+- WAF blocks a client address that sends more than ${{ (values.requestsPerSecond or 100) * 300 }} requests
+  in five minutes (${{ values.requestsPerSecond or 100 }} per second on average) with `403`.
+{%- endif %}
+{%- else %}
+- Rate limiting is off: only the account-level API Gateway limits apply.
+{%- endif %}
+- API Gateway waits at most 29 seconds for the function.
+- Request bodies are limited to 10 MB by API Gateway and 6 MB by Lambda.

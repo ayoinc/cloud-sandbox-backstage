@@ -1,0 +1,10 @@
+# Terraform working files and local state
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+crash.log
+
+# MkDocs build output
+site/

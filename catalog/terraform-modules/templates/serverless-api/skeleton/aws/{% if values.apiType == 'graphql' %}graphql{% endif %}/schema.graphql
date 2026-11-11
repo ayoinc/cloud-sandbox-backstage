@@ -1,0 +1,17 @@
+# Schema of the API. Replace the example type and query with the API's own.
+# Every field that the function resolves needs an aws_appsync_resolver in
+# api.tf.
+
+type Status {
+  service: String!
+  environment: String!
+  placeholder: Boolean!
+}
+
+type Query {
+  status: Status!
+}
+
+schema {
+  query: Query
+}

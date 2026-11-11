@@ -1,0 +1,58 @@
+{%- set grpc = values.protocol != 'rest' -%}
+{%- set serviceName = values.apiName + '.endpoints.' + values.projectId + '.cloud.goog' -%}
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.destination.repo }}
+  title: ${{ values.apiName }}
+  description: ${{ values.description | dump }}
+  annotations:
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - gcp
+    - cloud-endpoints
+    - api-gateway
+    - terraform
+    - ${{ 'grpc' if grpc else 'rest' }}
+  links:
+    - url: https://console.cloud.google.com/endpoints/api/${{ serviceName }}/overview?project=${{ values.projectId }}
+      title: API in the Cloud Endpoints console
+      icon: dashboard
+    - url: https://console.cloud.google.com/run?project=${{ values.projectId }}
+      title: Gateway on Cloud Run
+      icon: dashboard
+{%- if values.enableMonitoring %}
+    - url: https://console.cloud.google.com/monitoring/dashboards?project=${{ values.projectId }}
+      title: Cloud Monitoring dashboards
+      icon: dashboard
+{%- endif %}
+spec:
+  type: service
+  lifecycle: production
+  owner: ${{ values.owner }}
+{%- if values.enablePortal %}
+  providesApis:
+    - ${{ values.destination.repo }}
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: ${{ values.destination.repo }}
+  title: ${{ values.apiName }}
+  description: ${{ values.description | dump }}
+  annotations:
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
+  tags:
+    - gcp
+    - cloud-endpoints
+    - ${{ 'grpc' if grpc else 'rest' }}
+spec:
+  type: ${{ 'grpc' if grpc else 'openapi' }}
+  lifecycle: production
+  owner: ${{ values.owner }}
+  # The definition is read from the file in this repository, so the portal
+  # always shows what is deployed from the main branch.
+  definition:
+    $text: ./${{ values.grpcSpec if grpc else values.openApiSpec }}
+{%- endif %}

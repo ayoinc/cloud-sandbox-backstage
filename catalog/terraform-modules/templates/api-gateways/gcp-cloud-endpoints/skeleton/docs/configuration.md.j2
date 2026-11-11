@@ -1,0 +1,220 @@
+{%- set grpc = values.protocol != 'rest' -%}
+{%- set transcoding = values.protocol == 'grpc-rest' -%}
+{%- set private = values.backendType == 'compute-engine' or values.backendType == 'gke' -%}
+{%- set authType = values.authType if values.enableAuth else 'none' -%}
+{%- set apiKey = values.enableQuotas or authType == 'apikey' -%}
+{%- set definition = 'api_config.yaml' if grpc else values.openApiSpec -%}
+# Configuration
+
+Settings are Terraform variables. `infra/terraform.tfvars` holds the values entered when the repository was created; `infra/variables.tf` describes every variable and its default. Change a value in `terraform.tfvars`, open a pull request and the Deploy workflow shows the plan; merging applies it.
+
+Which features exist (protocol, backend type, authentication type, CORS, monitoring, logging, quota, portal) was decided when the repository was created: only the Terraform files, variables and sections of `${{ definition }}` for the chosen features were generated.
+
+## Variables
+
+| Variable | Value | Purpose |
+| --- | --- | --- |
+| `project_id` | `${{ values.projectId }}` | Project everything is created in |
+| `api_name` | `${{ values.apiName }}` | Name of the API; the Endpoints service is `<api_name>.endpoints.<project_id>.cloud.goog` |
+| `region` | `europe-west1` | Region of the gateway |
+| `environment` | `production` | Value of the `environment` label |
+| `backend_url` | `${{ values.backendUrl }}` | Backend the gateway forwards requests to |
+{%- if private %}
+| `vpc_connector` | not set | Serverless VPC Access connector for a backend with a private address |
+| `vpc_egress` | `PRIVATE_RANGES_ONLY` | Gateway traffic sent through the connector |
+{%- else %}
+| `backend_jwt_audience` | not set | Audience of the ID token sent to the backend; defaults to the backend URL |
+{%- endif %}
+{%- if authType == 'jwt' %}
+| `jwt_issuer` | **required, not set** | Issuer of the accepted tokens |
+| `jwt_jwks_uri` | **required, not set** | Key set of the issuer |
+| `jwt_audiences` | **required, not set** | Accepted audiences |
+{%- endif %}
+{%- if authType == 'oauth2' %}
+| `oauth_client_ids` | **required, not set** | OAuth client IDs whose Google ID tokens are accepted |
+{%- endif %}
+{%- if values.enableCORS %}
+| `cors_allow_origin` | `*` | Origin allowed to call the API from a browser |
+| `cors_allow_headers` | common headers, `Authorization`, `X-Api-Key` | Request headers browsers may send |
+{%- endif %}
+{%- if values.enableQuotas %}
+| `quota_limit` | `${{ values.quotaLimit }}` | Requests per minute for each consumer project |
+{%- endif %}
+| `log_level` | `${{ values.logLevel }}` | {% if values.enableLogging %}Lowest severity of request log entries kept in the log bucket; {% endif %}`DEBUG` turns on gateway debug logging |
+{%- if values.enableLogging %}
+| `log_retention_days` | `30` | Retention of the log bucket |
+{%- endif %}
+{%- if values.enableMonitoring %}
+| `alert_emails` | empty | Addresses notified by the alert policies |
+| `error_ratio_threshold` | `0.05` | 5xx share that fires the error alert |
+| `latency_threshold_seconds` | `2` | 95th percentile latency that fires the latency alert |
+{%- endif %}
+{%- if values.enablePortal %}
+| `api_consumers` | empty | Principals that may enable the API in their own projects |
+{%- endif %}
+| `gateway_image` | `gcr.io/endpoints-release/endpoints-runtime-serverless:2` | ESPv2 image |
+| `gateway_min_instances`, `gateway_max_instances` | `0`, `10` | Scaling of the gateway |
+| `espv2_extra_args` | empty | Additional [ESPv2 start-up flags](https://cloud.google.com/endpoints/docs/openapi/specify-esp-v2-startup-options) |
+
+## Backend
+{%- if grpc %}
+
+The backend has to serve the gRPC services of `${{ values.grpcSpec }}`. Terraform turns `backend_url` into the gRPC address in `api_config.yaml`: `https://host` becomes `grpcs://host`{% if private %} and `http://host:port` becomes `grpc://host:port`{% endif %}; a path in the URL is ignored.
+{%- else %}
+
+The gateway appends the request path to `backend_url`: `GET /v1/items` is sent to `<backend_url>/v1/items`.
+{%- endif %}
+{%- if not private %}
+
+Cloud Run and Cloud Functions serve HTTPS only, so a `backend_url` that starts with `http://` is used as `https://`.
+{%- endif %}
+{%- if values.backendType == 'cloud-run' %}
+
+The backend is a Cloud Run service. The gateway's service account has the Cloud Run Invoker role on the project and sends an ID token with every request, so the backend does not need to allow unauthenticated invocations. The audience of the token is the URL of the service; set `backend_jwt_audience` if the backend expects a custom audience.
+{%- endif %}
+{%- if values.backendType == 'serverless' %}
+{%- if grpc %}
+
+Cloud Functions cannot serve gRPC. With a gRPC protocol the backend URL has to point at a Cloud Run service that serves the gRPC services; the configuration treats it as one: the gateway's service account has the Cloud Run Invoker and Cloud Functions Invoker roles on the project and sends an ID token whose audience is the URL of the service.
+{%- else %}
+
+The backend is a Cloud Function. `backend_url` is the URL of the function; the request path is appended to it, so the function receives `/v1/items` as its sub-path. The gateway's service account has the Cloud Functions Invoker and Cloud Run Invoker roles on the project (2nd gen functions run on Cloud Run) and sends an ID token whose audience is `backend_url`, so the function does not need to allow unauthenticated invocations. Set `backend_jwt_audience` if the function expects another audience.
+{%- endif %}
+{%- endif %}
+{%- if private %}
+
+The backend runs on ${{ 'Google Kubernetes Engine' if values.backendType == 'gke' else 'Compute Engine' }}. The gateway adds no ID token of its own; the `Authorization` header of the caller is passed on unchanged.
+
+- A backend with a public address needs nothing more.
+- A backend with a private address, such as an internal load balancer{% if values.backendType == 'gke' %} or an internal Gateway or Service{% endif %}, is reached through a [Serverless VPC Access connector](https://cloud.google.com/vpc/docs/serverless-vpc-access) in the gateway's region. Create the connector in the network of the backend and set `vpc_connector` to `projects/<project>/locations/<region>/connectors/<name>`. Keep `vpc_egress` at `PRIVATE_RANGES_ONLY` unless the backend has a public address that must be reached through the network.
+
+The shared Cloud Run module used for the gateway supports connectors only, not Direct VPC egress.
+{%- endif %}
+
+## Authentication
+{%- if authType == 'none' %}
+
+The API accepts calls without a token.{% if values.enableQuotas %} Because the quota is on, callers still send an API key; see [Quota](#quota).{% endif %} To add authentication later, add the security definitions to `${{ definition }}` as described in the [Endpoints documentation](https://cloud.google.com/endpoints/docs/openapi/authentication-method).
+{%- endif %}
+{%- if authType == 'jwt' %}
+
+Callers send a JSON Web Token of your identity provider in the `Authorization: Bearer` header. ESPv2 verifies the signature against the key set, the issuer, the expiry and the audience. Three variables describe the provider and have no default, so **the first deployment fails until they are set** in `infra/terraform.tfvars`:
+
+```hcl
+jwt_issuer    = "https://login.example.com/"
+jwt_jwks_uri  = "https://login.example.com/.well-known/jwks.json"
+jwt_audiences = ["${{ values.apiName }}"]
+```
+
+`jwt_issuer` has to equal the `iss` claim of the tokens exactly, including a trailing slash.
+{%- endif %}
+{%- if authType == 'firebase' %}
+
+Callers send a Firebase Authentication ID token in the `Authorization: Bearer` header. The issuer is `https://securetoken.google.com/${{ values.projectId }}` and the audience is `${{ values.projectId }}`: the tokens have to come from the Firebase project of the Google Cloud project the API is deployed to. No variable needs to be set.
+{%- endif %}
+{%- if authType == 'oauth2' %}
+
+Callers send a Google ID token in the `Authorization: Bearer` header: the token a user gets when signing in with Google through one of your OAuth 2.0 clients. The issuer is `https://accounts.google.com` and the audience has to be one of the client IDs in `oauth_client_ids`. The variable has no default, so **the first deployment fails until it is set** in `infra/terraform.tfvars`:
+
+```hcl
+oauth_client_ids = ["1234567890-abc123.apps.googleusercontent.com"]
+```
+{%- endif %}
+{%- if authType == 'apikey' %}
+
+Callers send a Google Cloud API key in the `x-api-key` header. The key has to belong to a project that has enabled the API; the project `${{ values.projectId }}` itself has. An API key identifies the calling project, not a user: restrict each key to this API when you create it.
+
+```bash
+gcloud services api-keys create --project ${{ values.projectId }} \
+  --display-name "${{ values.apiName }} client" \
+  --api-target service=${{ values.apiName }}.endpoints.${{ values.projectId }}.cloud.goog
+```
+{%- endif %}
+{%- if authType != 'none' %}
+
+{% if grpc %}`Health.Check`{% else %}`GET /healthz`{% endif %} needs no credentials. The rules are in the {% if grpc %}`usage` and `authentication` sections{% else %}`securityDefinitions` and `security` sections{% endif %} of `${{ definition }}`.
+{%- endif %}
+{%- if values.enableQuotas %}
+
+## Quota
+
+Each consumer project may send `quota_limit` requests per minute (${{ values.quotaLimit }} at creation) to the {% if grpc %}methods of the `Items` service{% else %}operations that have an `x-google-quota` block{% endif %}. Calls over the limit are answered with status 429.
+
+Endpoints counts the quota per consumer project and identifies the project by its API key. Every call therefore needs an API key in the `x-api-key` header{% if authType != 'none' and authType != 'apikey' %}, in addition to the token{% endif %}{% if authType == 'none' %}, although authentication is off{% endif %}. The key has to belong to a project that has enabled the API; the project `${{ values.projectId }}` itself has:
+
+```bash
+gcloud services api-keys create --project ${{ values.projectId }} \
+  --display-name "${{ values.apiName }} client" \
+  --api-target service=${{ values.apiName }}.endpoints.${{ values.projectId }}.cloud.goog
+```
+
+The metric and the limit are defined in the {% if grpc %}`metrics` and `quota` sections{% else %}`x-google-management` section{% endif %} of `${{ definition }}`.
+{%- endif %}
+
+## CORS
+{%- if values.enableCORS %}
+
+The gateway answers preflight (`OPTIONS`) requests itself and adds the CORS headers to responses (ESPv2 flag `--cors_preset=basic`); the backend does not have to implement CORS. `cors_allow_origin` is `*` at creation: set it to the origin of your web application before production use. `cors_allow_headers` lists the request headers browsers may send. Other CORS flags, such as `--cors_allow_credentials`, go into `espv2_extra_args`.
+{%- else %}
+
+The gateway does not handle CORS. Preflight requests are rejected, so browsers on another origin cannot call the API. To turn CORS on, add `"--cors_preset=basic"` to `espv2_extra_args`.
+{%- endif %}
+
+## Logging
+
+Endpoints writes one log entry per request (log `endpoints_log`, resource type `api`) and the gateway writes its own output as Cloud Run logs. Both arrive in the `_Default` log bucket of the project.
+{%- if values.enableLogging %}
+
+In addition, a sink routes both to the log bucket `${{ values.apiName }}-api-logs`, which keeps them for `log_retention_days` days. Request log entries less severe than `log_level` are not stored in that bucket; the output of the gateway always is. Successful requests are logged at `INFO` and failed ones at `ERROR`, so `WARNING` or `ERROR` keeps failures only.
+{%- endif %}
+
+With `log_level = "DEBUG"` the gateway also runs with `--enable_debug` and logs every request in detail. Use it for troubleshooting only; it is verbose.
+
+## Monitoring
+{%- if values.enableMonitoring %}
+
+Terraform creates:
+
+- the dashboard `${{ values.apiName }} API` with the request rate by response class and by method, the 50th and 95th percentile latency, and the backend latency by method;
+- the alert policy `${{ values.apiName }}: 5xx responses`, which fires when more than `error_ratio_threshold` of the requests are answered with a 5xx status for 5 minutes;
+- the alert policy `${{ values.apiName }}: slow responses`, which fires when the 95th percentile latency is above `latency_threshold_seconds` for 5 minutes.
+
+The policies notify nobody until `alert_emails` lists at least one address. All of them read the `serviceruntime.googleapis.com/api/*` metrics of the service.
+{%- else %}
+
+No dashboard or alert policy is created. The Endpoints page of the API in the Cloud console still shows request, error and latency graphs.
+{%- endif %}
+{%- if values.enablePortal %}
+
+## Consumers
+
+Other teams call the API from their own projects. Add them to `api_consumers`:
+
+```hcl
+api_consumers = [
+  "group:partner-developers@example.com",
+  "serviceAccount:orders@other-project.iam.gserviceaccount.com",
+]
+```
+
+Each principal gets the Service Consumer role on the Endpoints service. It can then enable the API in its project (`gcloud services enable ${{ values.apiName }}.endpoints.${{ values.projectId }}.cloud.goog --project <their project>`){% if apiKey %} and create API keys there{% endif %}.
+{%- endif %}
+
+## Gateway
+
+The gateway is the ESPv2 image run as it is, with the name of the Endpoints service in the `ENDPOINTS_SERVICE_NAME` environment variable. An instance loads the latest rolled-out service configuration when it starts and checks for a newer one while it runs (ESPv2's managed rollout strategy). Google's own guides build the configuration into a custom image with the `gcloud_build_image` script instead, and ESPv2 describes the mode used here as not officially supported. To follow the guides, build that image after each change of the API and set `gateway_image` to it; ESPv2 then uses the configuration in the image.
+
+Cloud Run lets every request through to the gateway, because ESPv2 is what authenticates callers.
+{%- if grpc %}
+
+The shared Cloud Run module does not turn on end-to-end HTTP/2 for the gateway. Unary gRPC calls work; streaming methods do not.
+{%- endif %}
+
+## Changing the API
+{%- if grpc %}
+
+Edit `${{ values.grpcSpec }}` and `api_config.yaml` and open a pull request. The pipelines compile the proto and Terraform rolls out a new configuration when the change reaches the main branch.
+{%- else %}
+
+Edit `${{ values.openApiSpec }}` and open a pull request. The CI workflow validates the document and Terraform rolls out a new configuration when the change reaches the main branch.
+{%- endif %}

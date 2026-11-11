@@ -3,13 +3,12 @@ kind: Template
 metadata:
   name: grpc-service-go
   title: gRPC Service (Go)
-  description: Create a production-ready gRPC service in Go with streaming, authentication, and monitoring
+  description: Create a gRPC service in Go with streaming, TLS, interceptors, metrics, tracing and a pipeline that builds and tests it
   tags:
     - grpc
     - go
     - golang
     - microservices
-    - production-ready
     - streaming
 spec:
   owner: platform-team
@@ -20,12 +19,14 @@ spec:
       required:
         - serviceName
         - description
+        - owner
       properties:
         serviceName:
           title: Service Name
           type: string
-          description: Name of the gRPC service (e.g., user-service)
-          pattern: '^[a-z0-9\-]+$'
+          description: Name of the gRPC service in lowercase with hyphens (e.g., user-service)
+          pattern: '^[a-z]([a-z0-9-]*[a-z0-9])?$'
+          maxLength: 50
           ui:autofocus: true
         description:
           title: Description
@@ -35,72 +36,81 @@ spec:
           title: Service Version
           type: string
           description: Service version (semver)
+          pattern: '^[0-9]+\.[0-9]+\.[0-9]+$'
           default: '1.0.0'
+        owner:
+          title: Owner
+          type: string
+          description: Owner of the service
+          ui:field: OwnerPicker
+          ui:options:
+            allowedKinds:
+              - Group
+              - User
 
     - title: Protocol & RPC
       properties:
         enableUnary:
           title: Enable Unary RPC
           type: boolean
-          description: Enable simple request-response RPCs
+          description: Include request-response methods (CreateItem, GetItem)
           default: true
         enableServerStreaming:
           title: Enable Server Streaming
           type: boolean
-          description: Enable server-side streaming
+          description: Include a server-side streaming method (ListItems)
           default: true
         enableClientStreaming:
           title: Enable Client Streaming
           type: boolean
-          description: Enable client-side streaming
+          description: Include a client-side streaming method (ImportItems)
           default: true
         enableBidirectional:
           title: Enable Bidirectional Streaming
           type: boolean
-          description: Enable bidirectional streaming
+          description: Include a bidirectional streaming method (SyncItems)
           default: true
 
     - title: Authentication & Security
       properties:
         enableAuth:
-          title: Enable Authentication
+          title: Enable TLS
           type: boolean
-          description: Enable TLS/SSL authentication
+          description: Serve over TLS when a certificate is configured
           default: true
         enableMTLS:
           title: Enable mTLS
           type: boolean
-          description: Enable mutual TLS
+          description: Require client certificates (mutual TLS). Needs TLS.
           default: true
         enableInterceptors:
           title: Enable Interceptors
           type: boolean
-          description: Enable gRPC interceptors (logging, auth, metrics)
+          description: Include gRPC interceptors for logging, panic recovery and bearer token authentication
           default: true
 
     - title: Service Mesh
       properties:
-        enableServiceMesh:
-          title: Enable Service Mesh
-          type: boolean
-          description: Enable Istio/Linkerd integration
-          default: false
         serviceMeshType:
           title: Service Mesh
           type: string
-          description: Service mesh type
+          description: Service mesh the Kubernetes manifests are prepared for
           default: none
           enum:
             - none
             - istio
             - linkerd
+          enumNames:
+            - None
+            - Istio
+            - Linkerd
 
     - title: Monitoring & Observability
       properties:
         enableMetrics:
           title: Enable Metrics
           type: boolean
-          description: Enable Prometheus metrics
+          description: Serve Prometheus metrics
           default: true
         enableTracing:
           title: Enable Tracing
@@ -110,63 +120,136 @@ spec:
         enableHealthChecks:
           title: Enable Health Checks
           type: boolean
-          description: Enable gRPC health checks
+          description: Serve the standard gRPC health checking protocol
           default: true
 
+    - title: Repository
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
   steps:
-    - id: fetch-infra
-      name: Fetch Infrastructure
+    - id: fetch
+      name: Fetch Service Skeleton
       action: fetch:template
       input:
-        url: ./skeleton/infra
-        targetPath: ./infra
+        url: ./skeleton
+        copyWithoutTemplating:
+          - .github/workflows/*
+        trimBlocks: true
+        lstripBlocks: true
         values:
           serviceName: ${{ parameters.serviceName }}
           description: ${{ parameters.description }}
           serviceVersion: ${{ parameters.serviceVersion }}
+          owner: ${{ parameters.owner }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+          modulePath: ${{ (parameters.repoUrl | parseRepoUrl).host }}/${{ (parameters.repoUrl | parseRepoUrl).owner }}/${{ (parameters.repoUrl | parseRepoUrl).repo }}
+          pkg: ${{ parameters.serviceName | replace('-', '') }}
+          serviceType: ${{ parameters.serviceName | replace('-', ' ') | title | replace(' ', '') | replace(r/Service$/, '') }}Service
           enableUnary: ${{ parameters.enableUnary }}
           enableServerStreaming: ${{ parameters.enableServerStreaming }}
           enableClientStreaming: ${{ parameters.enableClientStreaming }}
           enableBidirectional: ${{ parameters.enableBidirectional }}
           enableAuth: ${{ parameters.enableAuth }}
-          enableMTLS: ${{ parameters.enableMTLS }}
+          enableMTLS: ${{ parameters.enableAuth and parameters.enableMTLS }}
           enableInterceptors: ${{ parameters.enableInterceptors }}
-          enableServiceMesh: ${{ parameters.enableServiceMesh }}
-          serviceMeshType: ${{ parameters.serviceMeshType }}
+          serviceMesh: ${{ parameters.serviceMeshType }}
           enableMetrics: ${{ parameters.enableMetrics }}
           enableTracing: ${{ parameters.enableTracing }}
           enableHealthChecks: ${{ parameters.enableHealthChecks }}
 
-    - id: fetch-proto
-      name: Fetch Protocol Buffer Definition
-      action: fetch:template
+    - id: remove-unary
+      name: Remove Unary RPC Code
+      if: ${{ not parameters.enableUnary }}
+      action: fs:delete
       input:
-        url: ./skeleton/proto
-        targetPath: ./proto
-        values:
-          serviceName: ${{ parameters.serviceName }}
-          enableUnary: ${{ parameters.enableUnary }}
-          enableServerStreaming: ${{ parameters.enableServerStreaming }}
-          enableClientStreaming: ${{ parameters.enableClientStreaming }}
-          enableBidirectional: ${{ parameters.enableBidirectional }}
+        files:
+          - internal/server/unary.go
+          - internal/server/unary_test.go
 
-    - id: fetch-src
-      name: Fetch Go Source Code
-      action: fetch:template
+    - id: remove-server-streaming
+      name: Remove Server Streaming Code
+      if: ${{ not parameters.enableServerStreaming }}
+      action: fs:delete
       input:
-        url: ./skeleton/src
-        targetPath: ./src
-        values:
-          serviceName: ${{ parameters.serviceName }}
-          enableAuth: ${{ parameters.enableAuth }}
-          enableInterceptors: ${{ parameters.enableInterceptors }}
+        files:
+          - internal/server/server_stream.go
+          - internal/server/server_stream_test.go
 
-    - id: fetch-tests
-      name: Fetch Test Suite
-      action: fetch:template
+    - id: remove-client-streaming
+      name: Remove Client Streaming Code
+      if: ${{ not parameters.enableClientStreaming }}
+      action: fs:delete
       input:
-        url: ./skeleton/tests
-        targetPath: ./tests
+        files:
+          - internal/server/client_stream.go
+          - internal/server/client_stream_test.go
+
+    - id: remove-bidirectional
+      name: Remove Bidirectional Streaming Code
+      if: ${{ not parameters.enableBidirectional }}
+      action: fs:delete
+      input:
+        files:
+          - internal/server/bidi.go
+          - internal/server/bidi_test.go
+
+    - id: remove-tls
+      name: Remove TLS Code
+      if: ${{ not parameters.enableAuth }}
+      action: fs:delete
+      input:
+        files:
+          - internal/tlsconfig
+          - scripts/gen-certs.sh
+
+    - id: remove-mtls
+      name: Remove mTLS Tests
+      if: ${{ parameters.enableAuth and not parameters.enableMTLS }}
+      action: fs:delete
+      input:
+        files:
+          - internal/tlsconfig/mtls_test.go
+
+    - id: remove-interceptors
+      name: Remove Interceptors
+      if: ${{ not parameters.enableInterceptors }}
+      action: fs:delete
+      input:
+        files:
+          - internal/interceptors
+
+    - id: remove-metrics
+      name: Remove Metrics
+      if: ${{ not parameters.enableMetrics }}
+      action: fs:delete
+      input:
+        files:
+          - internal/metrics
+
+    - id: remove-tracing
+      name: Remove Tracing
+      if: ${{ not parameters.enableTracing }}
+      action: fs:delete
+      input:
+        files:
+          - internal/tracing
+
+    - id: remove-istio
+      name: Remove Istio Manifests
+      if: ${{ parameters.serviceMeshType != 'istio' }}
+      action: fs:delete
+      input:
+        files:
+          - deploy/k8s/istio.yaml
 
     - id: publish
       name: Publish to Repository
@@ -188,10 +271,9 @@ spec:
     links:
       - title: Repository
         url: ${{ steps.publish.output.remoteUrl }}
+      - title: CI Pipeline
+        icon: github
+        url: https://${{ (parameters.repoUrl | parseRepoUrl).host }}/${{ (parameters.repoUrl | parseRepoUrl).owner }}/${{ (parameters.repoUrl | parseRepoUrl).repo }}/actions
       - title: Open in Catalog
         icon: catalog
         entityRef: ${{ steps.register.output.entityRef }}
-      - title: gRPC Health
-        icon: dashboard
-      - title: Metrics Dashboard
-        icon: bar-chart

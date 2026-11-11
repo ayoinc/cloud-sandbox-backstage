@@ -1,0 +1,17 @@
+{
+  "values": {
+    "projectName": "shop",
+    "environment": "dev",
+    "owner": "group:default/platform-team",
+    "gcpProjectId": "shop-dev-123456",
+    "region": "europe-west1",
+    "vpcCidr": "10.20.0.0/16",
+    "computeType": "gke-autopilot",
+    "databaseEngine": "POSTGRES",
+    "databaseTier": "db-custom-2-4096",
+    "highAvailability": true,
+    "enableCloudArmor": true,
+    "enableCloudCdn": false,
+    "repoUrl": "github.com?owner=example-org&repo=shop-infrastructure"
+  }
+}

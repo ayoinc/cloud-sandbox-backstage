@@ -1,0 +1,10 @@
+site_name: ${{ values.projectName | dump }}
+site_description: ${{ values.description | dump }}
+
+nav:
+  - Overview: index.md
+  - Development: development.md
+  - Operations: operations.md
+
+plugins:
+  - techdocs-core

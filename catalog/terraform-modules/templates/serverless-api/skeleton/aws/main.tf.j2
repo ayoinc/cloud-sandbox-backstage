@@ -1,0 +1,252 @@
+{%- set runtime = values.runtime or 'nodejs24' -%}
+{%- set apiType = 'rest' if values.apiType == 'rest' else ('graphql' if values.apiType == 'graphql' else 'http') -%}
+{%- set authType = values.authType or 'none' -%}
+{%- set interpreted = runtime == 'nodejs24' or runtime == 'python313' -%}
+{%- set sql = values.enableDatabase and values.databaseType == 'sql' -%}
+{%- set nosql = values.enableDatabase and not sql -%}
+{%- set vpc = sql or values.enableCache -%}
+{%- set keyAuthorizer = apiType == 'http' and authType == 'api-key' -%}
+{%- set oidcAuthorizer = apiType == 'rest' and authType == 'oauth2' -%}
+{%- set graphqlKey = apiType == 'graphql' and (authType == 'api-key' or authType == 'none') -%}
+{%- set cloudfront = apiType == 'http' and values.enableWaf -%}
+{%- set waf = values.enableWaf or (apiType == 'graphql' and values.enableThrottling) -%}
+{%- set gradual = values.deploymentStrategy == 'canary' or values.deploymentStrategy == 'linear' -%}
+{%- set modules = 'git::https://github.com/ayoinc/cloud-sandbox-backstage.git//catalog/terraform-modules/aws/resources' -%}
+{%- set ref = '?ref=83f9ff7222d2731d5cc0da4ab1fc1f7c46da3693' -%}
+locals {
+  name = "${var.project_name}-${var.environment}"
+
+  tags = {
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "terraform"
+    Repository  = "${{ values.destination.owner }}/${{ values.destination.repo }}"
+  }
+}
+{%- if vpc %}
+
+# -----------------------------------------------------------------------------
+# Network
+# -----------------------------------------------------------------------------
+
+# The function runs in the private subnets and reaches AWS APIs through the NAT
+# gateway. The database subnets have no route to the internet.
+# trivy:ignore:AVD-AWS-0164 The public subnets hold only the NAT gateways.
+module "vpc" {
+  source = "${{ modules }}/network/vpc${{ ref }}"
+
+  name        = local.name
+  environment = var.environment
+  vpc_cidr    = var.vpc_cidr
+
+  public_subnet_cidrs   = [for index in range(3) : cidrsubnet(var.vpc_cidr, 8, index + 1)]
+  private_subnet_cidrs  = [for index in range(3) : cidrsubnet(var.vpc_cidr, 8, index + 11)]
+  database_subnet_cidrs = [for index in range(3) : cidrsubnet(var.vpc_cidr, 8, index + 21)]
+
+  # One NAT gateway per availability zone in production, a shared one elsewhere.
+  single_nat_gateway       = var.environment != "production"
+  flow_logs_retention_days = var.log_retention_days
+}
+
+resource "aws_security_group" "function" {
+  name        = "${local.name}-function"
+  description = "Network interfaces of the ${local.name} API function"
+  vpc_id      = module.vpc.vpc_id
+}
+
+# trivy:ignore:AVD-AWS-0104 The function calls AWS APIs and external services over HTTPS through the NAT gateway.
+resource "aws_vpc_security_group_egress_rule" "function_https" {
+  security_group_id = aws_security_group.function.id
+  description       = "HTTPS to AWS APIs and external services"
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = "tcp"
+  from_port         = 443
+  to_port           = 443
+}
+{%- endif %}
+{%- if nosql %}
+
+# -----------------------------------------------------------------------------
+# Database (DynamoDB)
+# -----------------------------------------------------------------------------
+
+resource "aws_dynamodb_table" "this" {
+  name         = "${local.name}-data"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "pk"
+  range_key    = "sk"
+
+  deletion_protection_enabled = var.environment == "production"
+
+  attribute {
+    name = "pk"
+    type = "S"
+  }
+
+  attribute {
+    name = "sk"
+    type = "S"
+  }
+
+  point_in_time_recovery {
+    enabled = true
+  }
+
+  server_side_encryption {
+    enabled = true
+  }
+}
+{%- endif %}
+{%- if sql %}
+
+# -----------------------------------------------------------------------------
+# Database (Aurora Serverless v2, PostgreSQL)
+# -----------------------------------------------------------------------------
+
+locals {
+  # RDS identifiers do not accept consecutive hyphens.
+  database_identifier = "${replace(local.name, "/-{2,}/", "-")}-db"
+}
+
+resource "aws_security_group" "database" {
+  name        = "${local.name}-database"
+  description = "Aurora cluster of the ${local.name} API"
+  vpc_id      = module.vpc.vpc_id
+}
+
+resource "aws_vpc_security_group_ingress_rule" "database_from_function" {
+  security_group_id            = aws_security_group.database.id
+  description                  = "PostgreSQL from the API function"
+  referenced_security_group_id = aws_security_group.function.id
+  ip_protocol                  = "tcp"
+  from_port                    = 5432
+  to_port                      = 5432
+}
+
+resource "aws_vpc_security_group_egress_rule" "function_to_database" {
+  security_group_id            = aws_security_group.function.id
+  description                  = "PostgreSQL to the Aurora cluster"
+  referenced_security_group_id = aws_security_group.database.id
+  ip_protocol                  = "tcp"
+  from_port                    = 5432
+  to_port                      = 5432
+}
+
+# Key that encrypts the storage of the cluster.
+module "database_key" {
+  source = "${{ modules }}/security/kms${{ ref }}"
+
+  alias       = "${local.name}-database"
+  description = "Storage encryption of the ${local.name} Aurora cluster"
+}
+
+resource "aws_rds_cluster" "this" {
+  cluster_identifier = local.database_identifier
+  engine             = "aurora-postgresql"
+  engine_mode        = "provisioned"
+  database_name      = var.database_name
+  port               = 5432
+
+  # The master password is generated and rotated by RDS in Secrets Manager.
+  master_username             = "dbadmin"
+  manage_master_user_password = true
+
+  db_subnet_group_name   = module.vpc.database_subnet_group_name
+  vpc_security_group_ids = [aws_security_group.database.id]
+
+  storage_encrypted               = true
+  kms_key_id                      = module.database_key.key_arn
+  backup_retention_period         = var.environment == "production" ? 14 : 7
+  copy_tags_to_snapshot           = true
+  enabled_cloudwatch_logs_exports = ["postgresql"]
+
+  deletion_protection       = var.environment == "production"
+  skip_final_snapshot       = var.environment != "production"
+  final_snapshot_identifier = "${local.database_identifier}-final"
+
+  serverlessv2_scaling_configuration {
+    min_capacity = var.database_min_capacity
+    max_capacity = var.database_max_capacity
+  }
+}
+
+resource "aws_rds_cluster_instance" "this" {
+  identifier         = "${local.database_identifier}-1"
+  cluster_identifier = aws_rds_cluster.this.id
+  engine             = aws_rds_cluster.this.engine
+  engine_version     = aws_rds_cluster.this.engine_version
+  instance_class     = "db.serverless"
+
+  publicly_accessible        = false
+  auto_minor_version_upgrade = true
+}
+{%- endif %}
+{%- if values.enableCache %}
+
+# -----------------------------------------------------------------------------
+# Cache (ElastiCache for Redis OSS)
+# -----------------------------------------------------------------------------
+
+locals {
+  # The module names the replication group "<project>-<environment>-redis".
+  # ElastiCache limits that name to 40 characters without consecutive hyphens.
+  cache_project_name = trimsuffix(substr(replace(var.project_name, "/-{2,}/", "-"), 0, 33 - length(var.environment)), "-")
+}
+
+resource "aws_security_group" "cache" {
+  name        = "${local.name}-cache"
+  description = "ElastiCache replication group of the ${local.name} API"
+  vpc_id      = module.vpc.vpc_id
+}
+
+resource "aws_vpc_security_group_ingress_rule" "cache_from_function" {
+  security_group_id            = aws_security_group.cache.id
+  description                  = "Redis from the API function"
+  referenced_security_group_id = aws_security_group.function.id
+  ip_protocol                  = "tcp"
+  from_port                    = 6379
+  to_port                      = 6379
+}
+
+resource "aws_vpc_security_group_egress_rule" "function_to_cache" {
+  security_group_id            = aws_security_group.function.id
+  description                  = "Redis to the ElastiCache replication group"
+  referenced_security_group_id = aws_security_group.cache.id
+  ip_protocol                  = "tcp"
+  from_port                    = 6379
+  to_port                      = 6379
+}
+
+module "cache" {
+  source = "${{ modules }}/database/elasticache${{ ref }}"
+
+  project_name = local.cache_project_name
+  environment  = var.environment
+
+  engine_version         = "7.1"
+  parameter_group_family = "redis7"
+  node_type              = var.cache_node_type
+  subnet_ids             = module.vpc.database_subnet_ids
+  security_group_ids     = [aws_security_group.cache.id]
+
+  # A primary with a replica in a second availability zone in production, a
+  # single node elsewhere.
+  num_cache_clusters         = var.environment == "production" ? 2 : 1
+  automatic_failover_enabled = var.environment == "production"
+  multi_az_enabled           = var.environment == "production"
+}
+{%- endif %}
+{%- if values.enableStorage %}
+
+# -----------------------------------------------------------------------------
+# Object storage (S3)
+# -----------------------------------------------------------------------------
+
+# The bucket is named <project_name>-<environment>-<account id>.
+module "storage" {
+  source = "${{ modules }}/storage/s3${{ ref }}"
+
+  name        = var.project_name
+  environment = var.environment
+}
+{%- endif %}

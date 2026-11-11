@@ -1,0 +1,91 @@
+{%- set sku = values.sku or "Standard" -%}
+{%- set portal = values.enablePortal !== false -%}
+{%- set portalAuth = values.enablePortalAuth !== false -%}
+{%- set entra = values.enableAzureAD !== false -%}
+{%- set jwt = values.enableJWT !== false -%}
+{%- set rateLimit = values.rateLimiting !== false -%}
+{%- set cors = values.enableCORS !== false -%}
+{%- set caching = values.enableCaching !== false -%}
+{%- set appInsights = values.enableApplicationInsights !== false -%}
+{%- set logAnalytics = values.enableLogAnalytics !== false -%}
+{%- set apis = values.apis or [] -%}
+# ${{ values.serviceName }}
+
+This repository holds the Terraform configuration of the Azure API Management
+instance `${{ values.serviceName }}`. Nothing exists in Azure until the Deploy
+workflow has credentials; see [Deployment](deployment.md).
+
+## Endpoints after deployment
+
+| Endpoint | URL |
+| --- | --- |
+| Gateway | `https://${{ values.serviceName }}.azure-api.net` |
+{%- if portal %}
+| Developer portal | `https://${{ values.serviceName }}.developer.azure-api.net` |
+{%- endif %}
+
+## Settings chosen at creation
+
+The current settings are in `infra/terraform.tfvars` and
+`infra/apis.auto.tfvars.json`; this table is not updated when they change.
+
+| Setting | Value |
+| --- | --- |
+| Pricing tier | ${{ sku }} |
+| Region | `${{ values.location or "eastus" }}` |
+| Developer portal | ${{ "Open" if portal else "Closed" }} |
+| Portal requires sign-in | ${{ "Yes" if portalAuth else "No" }} |
+| Microsoft Entra ID sign-in on the portal | ${{ "Yes" if entra else "No" }} |
+| JWT validation on every API | ${{ "Yes" if jwt else "No" }} |
+| Rate limit per subscription | ${{ (values.callsPerMinute or 1000) ~ " calls per minute" if rateLimit else "None" }} |
+| CORS | ${{ "Yes" if cors else "No" }} |
+| Response caching | ${{ "Yes" if caching else "No" }} |
+| Application Insights | ${{ "Yes" if appInsights else "No" }} |
+| Log Analytics | ${{ (values.logRetention or 90) ~ " days retention" if logAnalytics else "No" }} |
+| APIs | ${{ apis | length }} |
+{% if sku == "Developer" %}
+!!! warning "Developer tier"
+    The Developer tier has no SLA and a single unit. Microsoft does not support
+    it for production traffic.
+{% endif %}
+{%- if sku == "Basic" and entra and portal %}
+!!! warning "No Microsoft Entra ID sign-in in the Basic tier"
+    The Basic tier does not offer Microsoft Entra ID as an identity provider of
+    the developer portal, so the identity provider and its app registration are
+    not created. Developers sign in with a user name and password. Change `sku`
+    to `Developer`, `Standard` or `Premium` to get Microsoft Entra ID sign-in.
+{% endif %}
+{%- if entra and not portal %}
+!!! note "Microsoft Entra ID sign-in needs the portal"
+    Microsoft Entra ID sign-in applies to the developer portal, which is closed
+    here. Set `enable_portal = true` to have the identity provider created.
+{% endif %}
+{%- if appInsights and not logAnalytics %}
+!!! note "Log Analytics workspace"
+    Application Insights stores its data in a Log Analytics workspace, so a
+    workspace is created although Log Analytics is switched off. Gateway logs
+    and metrics are not sent to it.
+{% endif %}
+## What is deployed
+
+| Resource | Created when |
+| --- | --- |
+| Resource group `rg-<service_name>-<environment>-<location>` | Always |
+| API Management instance with a system-assigned identity | Always |
+| Global policy (CORS, JWT validation, caching) | Always; contains only the enabled policies |
+| Product `<service_name>` that requires a subscription | Always |
+| One API per entry of `apis`, attached to the product | Per entry |
+| Product policy with the rate limit | `enable_rate_limiting` |
+| App registration, client secret and Microsoft Entra ID identity provider | `enable_portal` and `enable_azure_ad`, except in the Basic tier |
+| Log Analytics workspace | `enable_log_analytics` or `enable_application_insights` |
+| Diagnostic setting for gateway logs and metrics | `enable_log_analytics` |
+| Application Insights, logger and diagnostic | `enable_application_insights` |
+
+[Configuration](configuration.md) describes each setting.
+
+## Pipelines
+
+| Workflow | Runs | Needs credentials |
+| --- | --- | --- |
+| CI | Formatting, validation, a test against mocked providers, tflint, Trivy and the documentation build | No |
+| Deploy | Terraform plan on every push and pull request, apply on `main` | Yes; plan and apply are skipped until they are configured |

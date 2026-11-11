@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>Api</AssemblyName>
+    <RootNamespace>Api</RootNamespace>
+    <!-- The Lambda runtime needs Api.runtimeconfig.json next to the class library. -->
+    <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
+    <AWSProjectType>Lambda</AWSProjectType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Amazon.Lambda.APIGatewayEvents" Version="3.0.1" />
+    <PackageReference Include="Amazon.Lambda.Core" Version="3.4.0" />
+    <PackageReference Include="Amazon.Lambda.Serialization.SystemTextJson" Version="3.0.1" />
+{%- if values.enableCRUD %}
+    <PackageReference Include="AWSSDK.DynamoDBv2" Version="4.0.110.3" />
+{%- endif %}
+  </ItemGroup>
+</Project>

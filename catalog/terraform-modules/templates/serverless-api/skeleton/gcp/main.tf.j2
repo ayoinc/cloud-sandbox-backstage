@@ -1,0 +1,152 @@
+{%- set runtime = values.runtime or 'nodejs24' -%}
+{%- set interpreted = runtime in ['nodejs24', 'python313'] -%}
+{%- set auth = values.authType or 'jwt' -%}
+{%- set directLb = values.enableWaf and auth == 'none' -%}
+{%- set gateway = not directLb -%}
+{%- set gatewayQuota = gateway and values.enableThrottling and auth == 'api-key' -%}
+{%- set armorThrottle = values.enableWaf and values.enableThrottling and auth != 'api-key' -%}
+{%- set sql = values.enableDatabase and values.databaseType == 'sql' -%}
+{%- set nosql = values.enableDatabase and not sql -%}
+{%- set strategy = values.deploymentStrategy or 'canary' -%}
+{%- set region = values.gcpRegion or 'us-central1' -%}
+locals {
+  name = "${var.project_name}-${var.environment}"
+
+  # Service account IDs, Spanner instance names and VPC connector names are
+  # limited to 30 characters or fewer; a long name is cut and kept unique with
+  # a hash.
+  short_name = length(local.name) <= 20 ? local.name : "${substr(local.name, 0, 15)}-${substr(sha1(local.name), 0, 4)}"
+
+  # Bucket names are global; the hash of the project ID keeps them unique.
+  bucket_suffix = substr(sha1(var.project_id), 0, 8)
+
+  labels = merge(
+    {
+      project     = var.project_name
+      environment = var.environment
+      managed_by  = "terraform"
+    },
+    var.labels,
+  )
+
+  services = [
+    "artifactregistry.googleapis.com",
+    "cloudbuild.googleapis.com",
+    "cloudfunctions.googleapis.com",
+    "iam.googleapis.com",
+    "logging.googleapis.com",
+    "run.googleapis.com",
+    "storage.googleapis.com",
+{%- if gateway %}
+    "apigateway.googleapis.com",
+    "servicecontrol.googleapis.com",
+    "servicemanagement.googleapis.com",
+{%- endif %}
+{%- if gateway and auth == 'api-key' %}
+    "apikeys.googleapis.com",
+{%- endif %}
+{%- if values.enableWaf or values.enableCache %}
+    "compute.googleapis.com",
+{%- endif %}
+{%- if nosql %}
+    "firestore.googleapis.com",
+{%- endif %}
+{%- if sql %}
+    "spanner.googleapis.com",
+{%- endif %}
+{%- if values.enableCache %}
+    "redis.googleapis.com",
+    "secretmanager.googleapis.com",
+    "vpcaccess.googleapis.com",
+{%- endif %}
+{%- if values.enableTracing %}
+    "cloudtrace.googleapis.com",
+{%- endif %}
+{%- if values.enableMetrics or values.enableAlarms %}
+    "monitoring.googleapis.com",
+{%- endif %}
+  ]
+}
+
+# The Service Usage and Cloud Resource Manager APIs must already be enabled;
+# they are needed to enable anything else.
+resource "google_project_service" "enabled" {
+  for_each = toset(local.services)
+
+  project            = var.project_id
+  service            = each.value
+  disable_on_destroy = false
+}
+
+# Identity the function runs as.
+module "function_service_account" {
+  source = "git::https://github.com/ayoinc/cloud-sandbox-backstage.git//catalog/terraform-modules/gcp/resources/core/service-account?ref=83f9ff7222d2731d5cc0da4ab1fc1f7c46da3693"
+
+  project_name = var.project_name
+  project_id   = var.project_id
+  environment  = var.environment
+  account_id   = "${local.short_name}-fn"
+  display_name = "${local.name} function"
+  description  = "Runtime identity of the ${local.name} function"
+
+  project_roles = [
+    "roles/logging.logWriter",
+{%- if values.enableTracing %}
+    "roles/cloudtrace.agent",
+{%- endif %}
+{%- if values.enableMetrics %}
+    "roles/monitoring.metricWriter",
+{%- endif %}
+  ]
+
+  depends_on = [google_project_service.enabled]
+}
+
+# Identity Cloud Build uses to turn the source archive into a container image.
+module "build_service_account" {
+  source = "git::https://github.com/ayoinc/cloud-sandbox-backstage.git//catalog/terraform-modules/gcp/resources/core/service-account?ref=83f9ff7222d2731d5cc0da4ab1fc1f7c46da3693"
+
+  project_name = var.project_name
+  project_id   = var.project_id
+  environment  = var.environment
+  account_id   = "${local.short_name}-build"
+  display_name = "${local.name} function build"
+  description  = "Builds the ${local.name} function from its source archive"
+
+  project_roles = [
+    "roles/artifactregistry.writer",
+    "roles/logging.logWriter",
+    "roles/storage.objectViewer",
+  ]
+
+  depends_on = [google_project_service.enabled]
+}
+{%- if gateway %}
+
+# Identity API Gateway uses to call the function. It is the only principal
+# allowed to invoke it.
+module "gateway_service_account" {
+  source = "git::https://github.com/ayoinc/cloud-sandbox-backstage.git//catalog/terraform-modules/gcp/resources/core/service-account?ref=83f9ff7222d2731d5cc0da4ab1fc1f7c46da3693"
+
+  project_name = var.project_name
+  project_id   = var.project_id
+  environment  = var.environment
+  account_id   = "${local.short_name}-gw"
+  display_name = "${local.name} gateway"
+  description  = "Identity of the ${local.name} API Gateway when it calls the function"
+
+  depends_on = [google_project_service.enabled]
+}
+{%- endif %}
+
+# Newly enabled APIs and new role bindings take a short time to become
+# effective; the first build fails when it starts before that.
+resource "time_sleep" "services_and_roles" {
+  create_duration = "60s"
+
+  depends_on = [
+    google_project_service.enabled,
+    module.function_service_account,
+    module.build_service_account,
+  ]
+}

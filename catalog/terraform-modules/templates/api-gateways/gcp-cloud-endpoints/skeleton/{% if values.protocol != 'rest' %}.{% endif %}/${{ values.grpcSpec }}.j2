@@ -1,0 +1,47 @@
+// gRPC definition of the API. The backend implements these services; Cloud
+// Endpoints serves them according to api_config.yaml.
+syntax = "proto3";
+
+package ${{ values.apiName | replace('-', '_') }}.v1;
+
+// Reports whether the backend answers. Needs no credentials.
+service Health {
+  rpc Check(CheckRequest) returns (CheckResponse);
+}
+
+service Items {
+  // Returns one page of items.
+  rpc ListItems(ListItemsRequest) returns (ListItemsResponse);
+
+  // Returns the item with the given ID.
+  rpc GetItem(GetItemRequest) returns (Item);
+}
+
+message CheckRequest {}
+
+message CheckResponse {
+  string status = 1;
+}
+
+message Item {
+  string id = 1;
+  string name = 2;
+  // RFC 3339 timestamp.
+  string create_time = 3;
+}
+
+message ListItemsRequest {
+  // Maximum number of items to return.
+  int32 page_size = 1;
+  // Token of the page to return, from a previous response.
+  string page_token = 2;
+}
+
+message ListItemsResponse {
+  repeated Item items = 1;
+  string next_page_token = 2;
+}
+
+message GetItemRequest {
+  string item_id = 1;
+}

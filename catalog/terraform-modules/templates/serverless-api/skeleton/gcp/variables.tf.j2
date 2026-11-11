@@ -1,0 +1,366 @@
+{%- set runtime = values.runtime or 'nodejs24' -%}
+{%- set interpreted = runtime in ['nodejs24', 'python313'] -%}
+{%- set auth = values.authType or 'jwt' -%}
+{%- set directLb = values.enableWaf and auth == 'none' -%}
+{%- set gateway = not directLb -%}
+{%- set gatewayQuota = gateway and values.enableThrottling and auth == 'api-key' -%}
+{%- set armorThrottle = values.enableWaf and values.enableThrottling and auth != 'api-key' -%}
+{%- set sql = values.enableDatabase and values.databaseType == 'sql' -%}
+{%- set nosql = values.enableDatabase and not sql -%}
+{%- set strategy = values.deploymentStrategy or 'canary' -%}
+{%- set region = values.gcpRegion or 'us-central1' -%}
+{%- set families = { nodejs24: 'nodejs', python313: 'python', go126: 'go', dotnet10: 'dotnet', java21: 'java' } -%}
+{%- set entryPoints = { nodejs24: 'handler', python313: 'handler', go126: 'Handler', dotnet10: 'Api.Function', java21: 'api.Handler' } -%}
+{%- set gatewayRegions = { 'us-central1': 'us-central1', 'us-east1': 'us-east1', 'europe-west1': 'europe-west1', 'europe-west2': 'europe-west2', 'asia-east1': 'asia-northeast1' } -%}
+variable "project_id" {
+  description = "ID of the Google Cloud project the resources are created in"
+  type        = string
+  default     = ${{ values.gcpProjectId | dump }}
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9-]{4,28}[a-z0-9]$", var.project_id))
+    error_message = "project_id must be a Google Cloud project ID: 6 to 30 lowercase letters, digits and hyphens, starting with a letter."
+  }
+}
+
+variable "project_name" {
+  description = "Name of the API; resource names start with <project_name>-<environment>"
+  type        = string
+  default     = "${{ values.projectName }}"
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9-]*[a-z0-9]$", var.project_name)) && length(var.project_name) <= 24
+    error_message = "project_name must be at most 24 lowercase letters, digits and hyphens, start with a letter and end with a letter or digit."
+  }
+}
+
+variable "environment" {
+  description = "Deployment environment"
+  type        = string
+  default     = "${{ values.environment or 'dev' }}"
+
+  validation {
+    condition     = contains(["dev", "staging", "production"], var.environment)
+    error_message = "environment must be dev, staging or production."
+  }
+}
+
+variable "region" {
+  description = "Region of the function and its regional resources"
+  type        = string
+  default     = "${{ region }}"
+}
+
+variable "labels" {
+  description = "Labels added to every resource that supports them"
+  type        = map(string)
+  default     = {}
+}
+
+variable "function_runtime" {
+  description = "Cloud Functions runtime identifier; a newer version of the same language can be set, the language itself is fixed by the entry point and the placeholder"
+  type        = string
+  default     = "${{ runtime }}"
+
+  validation {
+    condition     = can(regex("^${{ families[runtime] }}[0-9]+$", var.function_runtime))
+    error_message = "function_runtime must be a ${{ families[runtime] }} runtime, for example ${{ runtime }}."
+  }
+}
+
+variable "function_entry_point" {
+  description = "Name of the function (or fully qualified class) in the package that handles requests"
+  type        = string
+  default     = "${{ entryPoints[runtime] }}"
+}
+
+variable "function_memory_mb" {
+  description = "Memory of one function instance in MB"
+  type        = number
+  default     = ${{ values.memorySize or 256 }}
+
+  validation {
+    condition     = var.function_memory_mb >= 128 && var.function_memory_mb <= 32768
+    error_message = "function_memory_mb must be between 128 and 32768."
+  }
+}
+
+variable "function_timeout_seconds" {
+  description = "Maximum duration of one request in seconds"
+  type        = number
+  default     = ${{ values.timeout or 30 }}
+
+  validation {
+    condition     = var.function_timeout_seconds >= 1 && var.function_timeout_seconds <= 3600
+    error_message = "function_timeout_seconds must be between 1 and 3600."
+  }
+}
+
+variable "function_cpu" {
+  description = "vCPUs of one function instance; at least 1 is needed to serve more than one request at a time"
+  type        = string
+  default     = "1"
+}
+
+variable "function_concurrency" {
+  description = "Requests one function instance serves at the same time"
+  type        = number
+  default     = 80
+
+  validation {
+    condition     = var.function_concurrency >= 1 && var.function_concurrency <= 1000
+    error_message = "function_concurrency must be between 1 and 1000."
+  }
+}
+
+variable "function_min_instances" {
+  description = "Function instances kept running when there is no traffic"
+  type        = number
+  default     = 0
+}
+
+variable "function_max_instances" {
+  description = "Upper limit for the number of function instances"
+  type        = number
+  default     = 100
+
+  validation {
+    condition     = var.function_max_instances >= 1
+    error_message = "function_max_instances must be at least 1."
+  }
+}
+
+variable "function_environment" {
+  description = "Additional environment variables for the function"
+  type        = map(string)
+  default     = {}
+}
+
+variable "function_source_archive" {
+  description = "Path of a local zip file with the function source; Terraform uploads it to the source bucket"
+  type        = string
+  default     = ""
+{%- if not interpreted %}
+
+  validation {
+    condition     = var.function_source_archive != "" || var.function_source_bucket != ""
+    error_message = "No function package: ${{ runtime }} has no placeholder in this repository. Set function_source_archive to the path of a zip file with the function source, or set function_source_bucket and function_source_object to a zip file that is already in Cloud Storage."
+  }
+{%- endif %}
+}
+
+variable "function_source_bucket" {
+  description = "Existing Cloud Storage bucket that holds the function source; set together with function_source_object"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = (var.function_source_bucket == "") == (var.function_source_object == "")
+    error_message = "function_source_bucket and function_source_object must be set together."
+  }
+}
+
+variable "function_source_object" {
+  description = "Name of the zip object in function_source_bucket"
+  type        = string
+  default     = ""
+}
+{%- if gateway %}
+
+variable "gateway_region" {
+  description = "Region of the API Gateway; API Gateway is offered in fewer regions than Cloud Functions"
+  type        = string
+  default     = "${{ gatewayRegions[region] }}"
+
+  validation {
+    condition = contains([
+      "asia-northeast1", "australia-southeast1", "europe-west1", "europe-west2", "us-central1",
+      "us-east1", "us-east4", "us-west2", "us-west3", "us-west4",
+    ], var.gateway_region)
+    error_message = "gateway_region must be a region API Gateway is offered in."
+  }
+}
+{%- endif %}
+{%- if values.enableCors %}
+
+variable "cors_allowed_origins" {
+  description = "Origins allowed to call the API from a browser; passed to the function as CORS_ALLOWED_ORIGINS"
+  type        = list(string)
+  default     = ["*"]
+}
+{%- endif %}
+{%- if gatewayQuota or armorThrottle %}
+
+variable "throttle_rate_limit" {
+  description = "Requests per second the API accepts"
+  type        = number
+  default     = ${{ values.throttleRateLimit or 1000 }}
+
+  validation {
+    condition     = var.throttle_rate_limit >= 1
+    error_message = "throttle_rate_limit must be at least 1."
+  }
+}
+{%- endif %}
+{%- if values.enableThrottling %}
+
+variable "throttle_burst_limit" {
+  description = "Requests the function serves at the same time; sets the instance limit"
+  type        = number
+  default     = ${{ values.throttleBurstLimit or 2000 }}
+
+  validation {
+    condition     = var.throttle_burst_limit >= 1
+    error_message = "throttle_burst_limit must be at least 1."
+  }
+}
+{%- endif %}
+{%- if auth == 'jwt' %}
+
+variable "firebase_project_id" {
+  description = "Firebase project whose ID tokens the gateway accepts; empty means project_id"
+  type        = string
+  default     = ""
+}
+{%- endif %}
+{%- if auth == 'oauth2' %}
+
+variable "oauth2_issuer" {
+  description = "Issuer (iss claim) of the tokens the gateway accepts, for example https://login.example.com/"
+  type        = string
+
+  validation {
+    condition     = can(regex("^https://", var.oauth2_issuer))
+    error_message = "oauth2_issuer must be the https URL of the identity provider's issuer."
+  }
+}
+
+variable "oauth2_jwks_uri" {
+  description = "URL of the identity provider's JSON Web Key Set"
+  type        = string
+
+  validation {
+    condition     = can(regex("^https://", var.oauth2_jwks_uri))
+    error_message = "oauth2_jwks_uri must be the https URL of the identity provider's key set."
+  }
+}
+
+variable "oauth2_audiences" {
+  description = "Audiences (aud claim) the gateway accepts, separated by commas without spaces"
+  type        = string
+
+  validation {
+    condition     = can(regex("^[^, ]+(,[^, ]+)*$", var.oauth2_audiences))
+    error_message = "oauth2_audiences must be one or more audiences separated by commas, without spaces."
+  }
+}
+{%- endif %}
+{%- if auth == 'iam' %}
+
+variable "iam_audience" {
+  description = "Audience service accounts request their ID token for; empty means https://<managed service name of the API>"
+  type        = string
+  default     = ""
+}
+
+variable "iam_allowed_callers" {
+  description = "Service account emails allowed to call the API; passed to the function as ALLOWED_CALLERS. Empty accepts every Google identity that presents a valid token"
+  type        = list(string)
+  default     = []
+}
+{%- endif %}
+{%- if values.enableWaf %}
+
+variable "load_balancer_domain" {
+  description = "Domain name served by the load balancer; when set, a Google-managed certificate and an HTTPS listener are created. Empty serves HTTP on the load balancer address"
+  type        = string
+  default     = ""
+}
+{%- endif %}
+{%- if values.enableDatabase %}
+
+variable "database_deletion_protection" {
+  description = "Protect the database against deletion"
+  type        = bool
+  default     = ${{ 'true' if values.environment == 'production' else 'false' }}
+}
+{%- endif %}
+{%- if sql %}
+
+variable "spanner_processing_units" {
+  description = "Compute capacity of the Spanner instance; 100 is the smallest, 1000 equals one node"
+  type        = number
+  default     = 100
+}
+{%- endif %}
+{%- if values.enableCache %}
+
+variable "cache_tier" {
+  description = "Memorystore tier: BASIC (single node) or STANDARD_HA (replicated)"
+  type        = string
+  default     = "${{ 'STANDARD_HA' if values.environment == 'production' else 'BASIC' }}"
+
+  validation {
+    condition     = contains(["BASIC", "STANDARD_HA"], var.cache_tier)
+    error_message = "cache_tier must be BASIC or STANDARD_HA."
+  }
+}
+
+variable "cache_memory_size_gb" {
+  description = "Memory of the Redis instance in GB"
+  type        = number
+  default     = 1
+}
+
+variable "vpc_connector_cidr" {
+  description = "Unused /28 range for the subnet of the Serverless VPC Access connector"
+  type        = string
+  default     = "10.8.0.0/28"
+}
+{%- endif %}
+{%- if values.enableStorage %}
+
+variable "storage_force_destroy" {
+  description = "Allow terraform destroy to delete the storage bucket while it still holds objects"
+  type        = bool
+  default     = ${{ 'false' if values.environment == 'production' else 'true' }}
+}
+{%- endif %}
+{%- if values.enableTracing %}
+
+variable "trace_sampling_ratio" {
+  description = "Share of requests the function traces (0 to 1); passed as OTEL_TRACES_SAMPLER_ARG"
+  type        = number
+  default     = ${{ '0.1' if values.environment == 'production' else '1' }}
+
+  validation {
+    condition     = var.trace_sampling_ratio >= 0 && var.trace_sampling_ratio <= 1
+    error_message = "trace_sampling_ratio must be between 0 and 1."
+  }
+}
+{%- endif %}
+{%- if values.enableAlarms %}
+
+variable "alarm_email" {
+  description = "Address that receives alert notifications; empty creates the alert policies without a notification channel"
+  type        = string
+  default     = ""
+}
+
+variable "alarm_error_threshold" {
+  description = "Server errors (5xx) within five minutes that open an incident"
+  type        = number
+  default     = 5
+}
+{%- endif %}
+
+variable "log_retention_days" {
+  description = "Days the logs of the API are kept in its log bucket"
+  type        = number
+  default     = ${{ values.logRetentionDays or 30 }}
+
+  validation {
+    condition     = var.log_retention_days >= 1 && var.log_retention_days <= 3650
+    error_message = "log_retention_days must be between 1 and 3650."
+  }
+}

@@ -1,0 +1,38 @@
+output "service_name" {
+  description = "Name of the Endpoints service."
+  value       = google_endpoints_service.api.service_name
+}
+
+output "config_id" {
+  description = "ID of the deployed service configuration."
+  value       = google_endpoints_service.api.config_id
+}
+
+output "gateway_url" {
+  description = "URL clients call the API on."
+  value       = module.gateway.service_uri
+}
+
+output "gateway_service_account" {
+  description = "Email of the service account the gateway runs as."
+  value       = module.gateway_service_account.service_account_email
+}
+
+output "endpoints_console_url" {
+  description = "Page of the API in the Google Cloud console."
+  value       = "https://console.cloud.google.com/endpoints/api/${google_endpoints_service.api.service_name}/overview?project=${var.project_id}"
+}
+{%- if values.enableLogging %}
+
+output "log_bucket" {
+  description = "Resource name of the log bucket that stores the logs of the API and its gateway."
+  value       = module.log_bucket.log_bucket_ids[local.log_bucket_id]
+}
+{%- endif %}
+{%- if values.enableMonitoring %}
+
+output "dashboard_id" {
+  description = "Resource name of the Cloud Monitoring dashboard of the API."
+  value       = module.monitoring.dashboard_ids["${var.api_name} API"]
+}
+{%- endif %}

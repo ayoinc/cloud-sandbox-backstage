@@ -1,0 +1,4 @@
+# Tools for the unit tests and the lint check. The function itself only needs
+# boto3, which is part of the Lambda runtime.
+pytest==9.2.0
+ruff==0.17.4

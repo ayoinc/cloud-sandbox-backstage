@@ -1,0 +1,65 @@
+# Development
+
+The function is plain Node.js (${{ 'Node.js 22' if '22' in values.runtime else 'Node.js 24' }}, ES modules) with no
+dependencies to install. The AWS SDK it uses for DynamoDB is part of the
+Lambda runtime.
+
+## Layout
+
+| Path                    | Role                                                              |
+| ----------------------- | ----------------------------------------------------------------- |
+| `src/index.mjs`         | Lambda entry point (`index.handler`)                              |
+| `src/routes.mjs`        | Route table: `"<METHOD> <path>"` to handler                       |
+| `src/router.mjs`        | Routing, JSON responses, body parsing, error handling             |
+{%- if values.enableCRUD %}
+| `src/items/items.mjs`   | Handlers of the `/items` endpoints                                |
+| `src/items/store.mjs`   | Items in the DynamoDB table named by `ITEMS_TABLE`                |
+{%- endif %}
+| `tests/`                | Unit tests (`node:test`), no AWS access needed                    |
+| `scripts/package.sh`    | Writes `build/lambda.zip`                                         |
+
+## Run the tests
+
+```bash
+npm test
+```
+
+## Build the deployment package
+
+```bash
+npm run package
+```
+
+This writes `build/lambda.zip`, the file `infra/` deploys. The pipeline does
+the same through `.github/actions/build-lambda`.
+
+## Implement an endpoint
+
+API Gateway sends every request to the function with the method in
+`event.httpMethod` and the path template in `event.resource` (for example
+`/users/{id}`; the value of `{id}` is in `event.pathParameters.id`).
+`src/routes.mjs` maps `"<METHOD> <path template>"` to a handler.
+
+An endpoint requested when the repository was created starts as a stub that
+answers `501`. Replace the stub with a handler:
+
+```js
+import { json, parseObject } from './router.mjs';
+
+const createUser = async event => {
+  const user = parseObject(event);
+  return json(201, user);
+};
+
+export const routes = {
+  // ...
+  'POST /users': createUser,
+};
+```
+
+Throw `new HttpError(status, message)` from `router.mjs` to answer with an
+error status. Anything else that is thrown is logged and answered with `500`.
+
+To add an endpoint that was not requested at creation, add it to `endpoints`
+in `infra/terraform.tfvars.json` as well, so that API Gateway routes it; see
+[Operations](operations.md#change-the-configuration).

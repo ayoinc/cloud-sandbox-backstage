@@ -1,0 +1,100 @@
+# The API with what it depends on, for local runs and the pipeline's smoke test:
+#   docker compose up --build
+services:
+  api:
+    build: .
+    ports:
+      - '4000:4000'
+    environment:
+{% if values.databaseType == 'postgresql' %}
+      DATABASE_URL: postgres://app:app@db:5432/app
+{% elif values.databaseType == 'mysql' %}
+      DATABASE_URL: mysql://app:app@db:3306/app
+{% else %}
+      DATABASE_URL: /app/data/app.db
+{% endif %}
+{% if values.enableCache %}
+      REDIS_URL: redis://redis:6379
+{% endif %}
+{% if values.enableAuth and values.authProvider == 'jwt' %}
+      JWT_SECRET: ${JWT_SECRET:-local-development-secret-change-me}
+{% elif values.enableAuth %}
+      AUTH_ISSUER: ${AUTH_ISSUER:-https://your-tenant.example.com/}
+      AUTH_AUDIENCE: ${AUTH_AUDIENCE:-${{ values.apiName }}}
+{% endif %}
+{% if values.databaseType != 'sqlite' or values.enableCache %}
+    depends_on:
+{% if values.databaseType != 'sqlite' %}
+      db:
+        condition: service_healthy
+{% endif %}
+{% if values.enableCache %}
+      redis:
+        condition: service_healthy
+{% endif %}
+{% endif %}
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - --eval
+        - "fetch('http://127.0.0.1:4000/readyz').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 5s
+      timeout: 5s
+      retries: 12
+{% if values.databaseType == 'sqlite' %}
+    volumes:
+      - data:/app/data
+{% endif %}
+{% if values.databaseType == 'postgresql' %}
+
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
+    ports:
+      - '5432:5432'
+    healthcheck:
+      test: [CMD-SHELL, pg_isready --username app --dbname app]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    volumes:
+      - data:/var/lib/postgresql/data
+{% elif values.databaseType == 'mysql' %}
+
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_USER: app
+      MYSQL_PASSWORD: app
+      MYSQL_DATABASE: app
+      MYSQL_RANDOM_ROOT_PASSWORD: 'yes'
+    ports:
+      - '3306:3306'
+    healthcheck:
+      # Over TCP: the server only listens there once it has been set up.
+      test: [CMD-SHELL, mysqladmin ping --host 127.0.0.1 --user app --password=app]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+    volumes:
+      - data:/var/lib/mysql
+{% endif %}
+{% if values.enableCache %}
+
+  redis:
+    image: redis:8-alpine
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+{% endif %}
+
+volumes:
+  data:

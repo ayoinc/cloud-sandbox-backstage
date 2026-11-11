@@ -3,7 +3,7 @@ kind: Template
 metadata:
   name: fullstack-ecommerce
   title: Full-Stack E-Commerce Platform
-  description: Create a complete e-commerce platform with React frontend, Node.js backend, database, and full cloud infrastructure
+  description: Create an online store with a React storefront, a Node.js API, a PostgreSQL database, cloud infrastructure in Terraform and a pipeline that tests all of it
   tags:
     - recommended
     - fullstack
@@ -11,7 +11,6 @@ metadata:
     - react
     - nodejs
     - terraform
-    - production-ready
 spec:
   owner: platform-team
   type: service
@@ -23,17 +22,19 @@ spec:
         - environment
         - businessUnit
         - description
+        - owner
       properties:
         projectName:
           title: Project Name
           type: string
-          description: Name of the e-commerce project (e.g., acme-store)
-          pattern: '^[a-z0-9\-]+$'
+          description: Name of the e-commerce project in lowercase with hyphens (e.g., acme-store)
+          pattern: '^[a-z]([a-z0-9-]*[a-z0-9])?$'
+          maxLength: 24
           ui:autofocus: true
         environment:
           title: Environment
           type: string
-          description: Deployment environment
+          description: Environment the infrastructure code is set up for
           enum:
             - dev
             - stg
@@ -59,16 +60,24 @@ spec:
           title: Description
           type: string
           description: Description of the e-commerce platform
+        owner:
+          title: Owner
+          type: string
+          description: Owner of the store
+          ui:field: OwnerPicker
+          ui:options:
+            allowedKinds:
+              - Group
+              - User
 
     - title: Cloud Provider & Region
       required:
         - provider
-        - region
       properties:
         provider:
           title: Cloud Provider
           type: string
-          description: Cloud provider for infrastructure
+          description: Cloud provider the infrastructure code is written for
           enum:
             - azure
             - aws
@@ -77,117 +86,177 @@ spec:
             - Microsoft Azure
             - Amazon Web Services
             - Google Cloud Platform
-        region:
-          title: Primary Region
-          type: string
-          description: Primary deployment region
-          default: eastus
-        enableMultiRegion:
-          title: Enable Multi-Region
-          type: boolean
-          description: Deploy to multiple regions (production only)
-          default: false
+      dependencies:
+        provider:
+          oneOf:
+            - required:
+                - region
+              properties:
+                provider:
+                  enum:
+                    - azure
+                region:
+                  title: Primary Region
+                  type: string
+                  description: Azure region to deploy to
+                  default: eastus
+                  enum:
+                    - eastus
+                    - eastus2
+                    - westus2
+                    - westeurope
+                    - northeurope
+                    - uksouth
+                    - southeastasia
+                    - australiaeast
+            - required:
+                - region
+              properties:
+                provider:
+                  enum:
+                    - aws
+                region:
+                  title: Primary Region
+                  type: string
+                  description: AWS region to deploy to
+                  default: us-east-1
+                  enum:
+                    - us-east-1
+                    - us-east-2
+                    - us-west-2
+                    - eu-west-1
+                    - eu-west-2
+                    - eu-central-1
+                    - ap-southeast-1
+                    - ap-southeast-2
+            - required:
+                - region
+              properties:
+                provider:
+                  enum:
+                    - gcp
+                region:
+                  title: Primary Region
+                  type: string
+                  description: Google Cloud region to deploy to
+                  default: us-central1
+                  enum:
+                    - us-central1
+                    - us-east1
+                    - us-west1
+                    - europe-west1
+                    - europe-west2
+                    - europe-west3
+                    - asia-southeast1
+                    - australia-southeast1
 
     - title: Platform Features
       properties:
         enableCMS:
-          title: CMS for Products
+          title: Product Management
           type: boolean
-          description: Include headless CMS for product management
+          description: Include the admin API and admin page for managing products
           default: true
         enablePayments:
-          title: Payment Integration
+          title: Payment Step
           type: boolean
-          description: Include payment gateway integration
+          description: Include a payment step at checkout with a pluggable payment provider (a sandbox provider is included)
           default: true
         enableSearch:
-          title: Search Service
+          title: Search
           type: boolean
-          description: Include Elasticsearch/Algolia for product search
+          description: Include product search in the catalogue
           default: true
         enableReviews:
           title: Product Reviews
           type: boolean
-          description: Include customer review system
+          description: Include customer reviews and ratings
           default: true
         enableInventory:
           title: Inventory Management
           type: boolean
-          description: Include inventory tracking
+          description: Include stock levels that orders reduce and cannot exceed
           default: true
         enableAnalytics:
           title: Analytics Dashboard
           type: boolean
-          description: Include analytics and reporting dashboard
+          description: Include sales figures on the admin page
           default: true
 
     - title: Scalability & Performance
       properties:
         enableCDN:
-          title: CDN for Static Assets
+          title: CDN for the Storefront
           type: boolean
-          description: Use CDN for images and static content
+          description: Put a content delivery network in front of the storefront
           default: true
         enableCaching:
           title: Redis Cache
           type: boolean
-          description: Include Redis for caching
+          description: Cache catalogue reads in Redis
           default: true
         autoScaling:
           title: Auto-Scaling
           type: boolean
-          description: Enable auto-scaling for frontend and backend
+          description: Scale the storefront and the API with the load
           default: true
 
+    - title: Repository
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
   steps:
-    - id: fetch-infra
-      name: Fetch Infrastructure
+    - id: fetch
+      name: Fetch Store Skeleton
       action: fetch:template
       input:
-        url: ./skeleton/infra
-        targetPath: ./infra
+        url: ./skeleton
+        copyWithoutTemplating:
+          - .github/workflows/release.yaml
+        trimBlocks: true
+        lstripBlocks: true
         values:
           projectName: ${{ parameters.projectName }}
+          appTitle: ${{ parameters.projectName | replace('-', ' ') | title }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
           environment: ${{ parameters.environment }}
           businessUnit: ${{ parameters.businessUnit }}
-          description: ${{ parameters.description }}
           provider: ${{ parameters.provider }}
           region: ${{ parameters.region }}
-          enableMultiRegion: ${{ parameters.enableMultiRegion }}
-
-    - id: fetch-backend
-      name: Fetch Backend API
-      action: fetch:template
-      input:
-        url: ./skeleton/backend
-        targetPath: ./backend
-        values:
-          projectName: ${{ parameters.projectName }}
-          environment: ${{ parameters.environment }}
-          projectDescription: ${{ parameters.description }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
           enableCMS: ${{ parameters.enableCMS }}
           enablePayments: ${{ parameters.enablePayments }}
           enableSearch: ${{ parameters.enableSearch }}
           enableReviews: ${{ parameters.enableReviews }}
           enableInventory: ${{ parameters.enableInventory }}
           enableAnalytics: ${{ parameters.enableAnalytics }}
-          enableCaching: ${{ parameters.enableCaching }}
-          apiBasePath: '/api/v1'
-
-    - id: fetch-frontend
-      name: Fetch Frontend App
-      action: fetch:template
-      input:
-        url: ./skeleton/frontend
-        targetPath: ./frontend
-        values:
-          projectName: ${{ parameters.projectName }}
-          appTitle: ${{ parameters.projectName | capitalize }} Store
-          apiBaseUrl: '/api/v1'
-          enableCMS: ${{ parameters.enableCMS }}
-          enablePayments: ${{ parameters.enablePayments }}
-          enableAnalytics: ${{ parameters.enableAnalytics }}
           enableCDN: ${{ parameters.enableCDN }}
+          enableCaching: ${{ parameters.enableCaching }}
+          autoScaling: ${{ parameters.autoScaling }}
+
+    - id: select-infra
+      name: Select Infrastructure for the Cloud Provider
+      action: fs:rename
+      input:
+        files:
+          - from: infra-${{ parameters.provider }}
+            to: infra
+
+    - id: remove-other-infra
+      name: Remove Infrastructure of Other Providers
+      action: fs:delete
+      input:
+        files:
+          - infra-*
 
     - id: publish
       name: Publish to Repository
@@ -205,34 +274,25 @@ spec:
         repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
         catalogInfoPath: '/catalog-info.yaml'
 
-    - id: create-comment
-      name: Post-Generation Instructions
+    - id: next-steps
+      name: Next Steps
       action: debug:log
       input:
         message: |
-          🎉 E-Commerce Platform Created Successfully!
+          The store was created and its pipeline is running.
 
-          Next Steps:
-          1. Configure your cloud provider credentials
-          2. cd infra && terraform init
-          3. terraform plan -var-file=environments/${{ parameters.environment }}.tfvars
-          4. terraform apply -var-file=environments/${{ parameters.environment }}.tfvars
-          5. cd ../backend && npm install && npm run dev
-          6. cd ../frontend && npm install && npm run dev
-
-          Access your store at: http://localhost:3000
-          API docs at: http://localhost:8080/api-docs
+          Run it locally: docker compose up --build, then open http://localhost:3000
+          Deploy it: see docs/operations.md
+            cd infra && terraform init
+            terraform apply -var-file=environments/${{ parameters.environment }}.tfvars
 
   output:
     links:
       - title: Repository
         url: ${{ steps.publish.output.remoteUrl }}
+      - title: CI Pipeline
+        icon: github
+        url: https://${{ (parameters.repoUrl | parseRepoUrl).host }}/${{ (parameters.repoUrl | parseRepoUrl).owner }}/${{ (parameters.repoUrl | parseRepoUrl).repo }}/actions
       - title: Open in Catalog
         icon: catalog
         entityRef: ${{ steps.register.output.entityRef }}
-      - title: Store Frontend
-        url: http://localhost:3000
-        icon: storefront
-      - title: API Documentation
-        url: http://localhost:8080/api-docs
-        icon: docs

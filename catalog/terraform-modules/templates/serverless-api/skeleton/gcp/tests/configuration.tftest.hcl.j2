@@ -1,0 +1,133 @@
+{%- set runtime = values.runtime or 'nodejs24' -%}
+{%- set interpreted = runtime in ['nodejs24', 'python313'] -%}
+{%- set auth = values.authType or 'jwt' -%}
+{%- set directLb = values.enableWaf and auth == 'none' -%}
+{%- set gateway = not directLb -%}
+{%- set gatewayQuota = gateway and values.enableThrottling and auth == 'api-key' -%}
+{%- set armorThrottle = values.enableWaf and values.enableThrottling and auth != 'api-key' -%}
+{%- set sql = values.enableDatabase and values.databaseType == 'sql' -%}
+{%- set nosql = values.enableDatabase and not sql -%}
+{%- set strategy = values.deploymentStrategy or 'canary' -%}
+{%- set region = values.gcpRegion or 'us-central1' -%}
+# Plans the configuration with its default values against mocked Google
+# providers. No credentials are used and nothing is created.
+
+mock_provider "google" {}
+{%- if gateway %}
+
+mock_provider "google-beta" {}
+{%- endif %}
+{%- if not interpreted or auth == 'oauth2' %}
+
+variables {
+{%- if not interpreted %}
+  # ${{ runtime }} has no placeholder; the plan needs a package location.
+  function_source_bucket = "example-function-packages"
+  function_source_object = "function.zip"
+{%- endif %}
+{%- if not interpreted and auth == 'oauth2' %}
+{% endif %}
+{%- if auth == 'oauth2' %}
+  oauth2_issuer    = "https://login.example.com/"
+  oauth2_jwks_uri  = "https://login.example.com/.well-known/jwks.json"
+  oauth2_audiences = "api://example"
+{%- endif %}
+}
+{%- endif %}
+
+run "default_values" {
+  command = plan
+
+  assert {
+    condition = (
+      google_cloudfunctions2_function.api.name == "${var.project_name}-${var.environment}" &&
+      google_cloudfunctions2_function.api.build_config[0].runtime == var.function_runtime &&
+      google_cloudfunctions2_function.api.service_config[0].available_memory == "${var.function_memory_mb}M" &&
+      google_cloudfunctions2_function.api.service_config[0].timeout_seconds == var.function_timeout_seconds
+    )
+    error_message = "The function does not use the configured name, runtime, memory and timeout."
+  }
+
+  assert {
+    condition     = google_cloudfunctions2_function.api.service_config[0].all_traffic_on_latest_revision == ${{ 'true' if strategy == 'all-at-once' else 'false' }}
+    error_message = "The traffic setting does not match the ${{ strategy }} deployment strategy."
+  }
+
+  assert {
+    condition     = google_cloudfunctions2_function.api.service_config[0].max_instance_count == ${{ 'min(var.function_max_instances, ceil(var.throttle_burst_limit / var.function_concurrency))' if values.enableThrottling else 'var.function_max_instances' }}
+    error_message = "The instance limit does not follow ${{ 'the burst limit' if values.enableThrottling else 'function_max_instances' }}."
+  }
+
+  assert {
+    condition = alltrue([
+      for name in [
+        "API_TYPE",
+{%- if values.enableCors %}
+        "CORS_ALLOWED_ORIGINS",
+{%- endif %}
+{%- if auth == 'iam' %}
+        "ALLOWED_CALLERS",
+{%- endif %}
+{%- if nosql %}
+        "FIRESTORE_DATABASE",
+{%- endif %}
+{%- if sql %}
+        "SPANNER_DATABASE",
+{%- endif %}
+{%- if values.enableCache %}
+        "REDIS_HOST",
+{%- endif %}
+{%- if values.enableStorage %}
+        "STORAGE_BUCKET",
+{%- endif %}
+{%- if values.enableTracing %}
+        "OTEL_TRACES_SAMPLER",
+{%- endif %}
+{%- if values.enableMetrics %}
+        "CUSTOM_METRICS_PREFIX",
+{%- endif %}
+      ] : contains(keys(local.function_environment), name)
+    ])
+    error_message = "The function environment misses a variable of a selected option."
+  }
+{%- if gateway %}
+
+  assert {
+    condition = (
+      google_api_gateway_gateway.api.region == var.gateway_region &&
+      google_cloudfunctions2_function.api.service_config[0].ingress_settings == "ALLOW_ALL" &&
+      google_cloud_run_service_iam_member.gateway_invoker.role == "roles/run.invoker"
+    )
+    error_message = "The gateway must be in gateway_region and be the principal that invokes the function."
+  }
+{%- else %}
+
+  assert {
+    condition     = google_cloudfunctions2_function.api.service_config[0].ingress_settings == "ALLOW_INTERNAL_AND_GCLB"
+    error_message = "Without a gateway the function must accept requests from the load balancer only."
+  }
+{%- endif %}
+{%- if values.enableWaf %}
+
+  assert {
+    condition = (
+      google_compute_backend_service.api.load_balancing_scheme == "EXTERNAL_MANAGED" &&
+      length(google_compute_target_http_proxy.api) == (var.load_balancer_domain == "" ? 1 : 0) &&
+      length(google_compute_target_https_proxy.api) == (var.load_balancer_domain == "" ? 0 : 1)
+    )
+    error_message = "The load balancer must have exactly one listener set: HTTP without a domain, HTTPS with one."
+  }
+{%- endif %}
+{%- if sql %}
+
+  assert {
+    condition     = module.spanner.instance_name == "${local.short_name}-db"
+    error_message = "The Spanner instance name must fit the 30 character limit."
+  }
+{%- endif %}
+
+  assert {
+    condition     = length(local.short_name) <= 20 && length("${local.name}-source-${local.bucket_suffix}") <= 63
+    error_message = "Derived resource names exceed the limits of service accounts or buckets."
+  }
+}

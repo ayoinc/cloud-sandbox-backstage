@@ -1,0 +1,25 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.projectName }}
+  description: ${{ values.description | dump }}
+  annotations:
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
+    backstage.io/techdocs-ref: dir:.
+  labels:
+    business-unit: ${{ values.businessUnit }}
+    environment: ${{ values.environment }}
+  tags:
+    - ecommerce
+    - react
+    - nodejs
+    - terraform
+    - ${{ values.provider }}
+  links:
+    - url: https://${{ values.destination.host }}/${{ values.destination.owner }}/${{ values.destination.repo }}/actions
+      title: CI pipeline
+      icon: github
+spec:
+  type: website
+  lifecycle: experimental
+  owner: ${{ values.owner | dump }}

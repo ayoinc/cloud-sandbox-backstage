@@ -1,22 +1,20 @@
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
-  name: ${{ values.projectName }}-infrastructure
-  description: GCP 3-Tier Infrastructure for ${{ values.projectName }}
+  name: ${{ values.destination.repo }}
+  description: GCP three-tier infrastructure for ${{ values.projectName }} (${{ values.environment }})
   annotations:
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
     backstage.io/techdocs-ref: dir:.
-    github.com/project-slug: ${{ values.repoUrl | replace("github.com?repo=", "") | replace("&owner=", "/") }}
   tags:
     - terraform
     - gcp
-    - infrastructure
     - three-tier
   links:
-    - url: https://console.cloud.google.com/home/dashboard?project=${{ values.gcpProjectId }}
-      title: GCP Console
-      icon: cloud
+    - url: https://console.cloud.google.com/net-services/loadbalancing/list/loadBalancers?project=${{ values.gcpProjectId }}
+      title: Load balancers in the Google Cloud console
+      icon: dashboard
 spec:
   type: infrastructure
-  lifecycle: production
-  owner: platform-team
-  system: ${{ values.projectName }}
+  lifecycle: ${{ 'production' if values.environment == 'production' else 'experimental' }}
+  owner: ${{ values.owner | dump }}

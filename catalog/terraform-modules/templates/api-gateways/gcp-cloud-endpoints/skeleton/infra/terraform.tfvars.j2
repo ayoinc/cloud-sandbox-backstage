@@ -1,0 +1,29 @@
+{%- set authType = values.authType if values.enableAuth else 'none' -%}
+# Values entered when the repository was created. Terraform loads this file
+# automatically; see variables.tf for every setting and its default.
+
+project_id = "${{ values.projectId }}"
+
+api_name = "${{ values.apiName }}"
+
+backend_url = "${{ values.backendUrl }}"
+
+log_level = "${{ values.logLevel }}"
+{%- if values.enableQuotas %}
+
+quota_limit = ${{ values.quotaLimit }}
+{%- endif %}
+{%- if authType == 'jwt' %}
+
+# Required before the first deployment: the issuer, key set and audiences of
+# the tokens the API accepts.
+# jwt_issuer    = "https://login.example.com/"
+# jwt_jwks_uri  = "https://login.example.com/.well-known/jwks.json"
+# jwt_audiences = ["${{ values.apiName }}"]
+{%- endif %}
+{%- if authType == 'oauth2' %}
+
+# Required before the first deployment: the OAuth 2.0 client IDs whose Google
+# ID tokens the API accepts.
+# oauth_client_ids = ["1234567890-abc123.apps.googleusercontent.com"]
+{%- endif %}

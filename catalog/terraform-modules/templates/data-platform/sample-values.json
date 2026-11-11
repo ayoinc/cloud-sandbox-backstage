@@ -1,0 +1,25 @@
+{
+  "values": {
+    "projectName": "lakehouse",
+    "environment": "dev",
+    "owner": "group:default/platform-team",
+    "cloudProvider": "aws",
+    "awsRegion": "eu-west-1",
+    "enableDataLake": true,
+    "dataLakeStorageClass": "standard",
+    "enableDataCatalog": true,
+    "enableDataWarehouse": true,
+    "warehouseSize": "small",
+    "enableEtlPipelines": true,
+    "etlEngine": "native",
+    "enableOrchestration": true,
+    "enableStreaming": false,
+    "streamingRetention": 24,
+    "enableBiTools": false,
+    "enableMlPlatform": false,
+    "enableEncryption": true,
+    "enableDataLineage": true,
+    "enableAccessControl": true,
+    "repoUrl": "github.com?owner=example-org&repo=lakehouse-data-platform"
+  }
+}

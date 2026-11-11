@@ -1,0 +1,521 @@
+{%- set runtime = values.runtime or 'nodejs24' -%}
+{%- set interpreted = runtime in ['nodejs24', 'python313'] -%}
+{%- set auth = values.authType or 'jwt' -%}
+{%- set directLb = values.enableWaf and auth == 'none' -%}
+{%- set gateway = not directLb -%}
+{%- set gatewayQuota = gateway and values.enableThrottling and auth == 'api-key' -%}
+{%- set armorThrottle = values.enableWaf and values.enableThrottling and auth != 'api-key' -%}
+{%- set sql = values.enableDatabase and values.databaseType == 'sql' -%}
+{%- set nosql = values.enableDatabase and not sql -%}
+{%- set strategy = values.deploymentStrategy or 'canary' -%}
+{%- set region = values.gcpRegion or 'us-central1' -%}
+{%- set entryPoints = { nodejs24: 'handler', python313: 'handler', go126: 'Handler', dotnet10: 'Api.Function', java21: 'api.Handler' } -%}
+{%- set gatewayRegions = { 'us-central1': 'us-central1', 'us-east1': 'us-east1', 'europe-west1': 'europe-west1', 'europe-west2': 'europe-west2', 'asia-east1': 'asia-northeast1' } -%}
+{%- set name = values.projectName + '-' + (values.environment or 'dev') -%}
+{%- set apiType = values.apiType or 'http' -%}
+{%- set timeout = values.timeout or 30 -%}
+# Infrastructure
+
+Terraform in the repository root creates a serverless API in the Google Cloud
+project `${{ values.gcpProjectId }}`, region `${{ region }}`. Resource names
+start with `${{ name }}`.
+
+## Request path
+
+{% if directLb -%}
+```text
+client -> external Application Load Balancer + Cloud Armor -> Cloud Function
+```
+
+No API Gateway is created. API Gateway cannot refuse requests sent straight to
+its own `gateway.dev` address, so a firewall in front of it can be bypassed.
+With authentication set to `none` nothing else would stop such a request, so
+the load balancer is connected to the function directly and the function
+accepts requests from the load balancer only (`ALLOW_INTERNAL_AND_GCLB`). The
+function is invocable by `allUsers`; an organisation policy that restricts
+IAM members to your domain has to allow that for this project.
+{%- elif values.enableWaf -%}
+```text
+client -> external Application Load Balancer + Cloud Armor -> API Gateway -> Cloud Function
+```
+
+Clients call the load balancer (`api_url` output). The connection between a
+load balancer and API Gateway is a Preview feature of API Gateway.
+
+API Gateway cannot refuse requests sent straight to its own `gateway.dev`
+address (`gateway_url` output). Such requests skip Cloud Armor but still pass
+the gateway's `${{ auth }}` authentication. Publish only the load balancer
+address.
+{%- else -%}
+```text
+client -> API Gateway -> Cloud Function
+```
+{%- endif %}
+
+## What was created
+
+| Form option | Resources |
+| ----------- | --------- |
+| Runtime `${{ runtime }}`, ${{ values.memorySize or 256 }} MB, ${{ timeout }} s | Cloud Function (2nd gen) `${{ name }}` with 1 vCPU and up to 80 concurrent requests per instance, its service account, a build service account and a source bucket |
+{%- if gateway %}
+| API type `${{ apiType }}` | API Gateway API, API config and gateway `${{ name }}`; the config is the OpenAPI 2.0 document `api/openapi.yaml.tftpl` |
+{%- else %}
+| API type `${{ apiType }}` | No API Gateway, see [Request path](#request-path) |
+{%- endif %}
+{%- if values.enableCors %}
+| CORS | {% if gateway %}`OPTIONS` routes without authentication in the API config; the{% else %}The{% endif %} function answers preflight requests and reads the allowed origins from `CORS_ALLOWED_ORIGINS` |
+{%- endif %}
+{%- if values.enableThrottling %}
+| Throttling | {% if gatewayQuota %}API Gateway quota{% elif armorThrottle %}Cloud Armor throttle rule{% else %}Instance limit of the function only{% endif %}, see [Throttling](#throttling) |
+{%- endif %}
+| Authentication `${{ auth }}` | {% if auth == 'none' %}None{% elif auth == 'api-key' %}API key requirement in the API config, the API's managed service enabled in the project, one API key{% elif auth == 'jwt' %}Firebase ID token requirement in the API config{% elif auth == 'oauth2' %}Token requirement for an external identity provider in the API config{% else %}Google ID token requirement in the API config{% endif %}{% if gateway %}; only the gateway's service account may invoke the function{% endif %} |
+{%- if values.enableWaf %}
+| WAF | Cloud Armor security policy `${{ name }}-waf`, global external Application Load Balancer with a serverless network endpoint group |
+{%- endif %}
+{%- if nosql %}
+| Database `nosql` | Firestore database `${{ name }}` (Native mode) and a `roles/datastore.user` binding limited to it |
+{%- endif %}
+{%- if sql %}
+| Database `sql` | Spanner instance with 100 processing units, database `app`, `roles/spanner.databaseUser` on the database |
+{%- endif %}
+{%- if values.enableCache %}
+| Cache | Memorystore for Redis instance `${{ name }}`, a VPC network, a Serverless VPC Access connector, a Secret Manager secret with the Redis AUTH string |
+{%- endif %}
+{%- if values.enableStorage %}
+| Object storage | Cloud Storage bucket with `roles/storage.objectUser` for the function |
+{%- endif %}
+{%- if values.enableTracing %}
+| Tracing | `roles/cloudtrace.agent` for the function and OpenTelemetry sampler settings in its environment |
+{%- endif %}
+{%- if values.enableMetrics %}
+| Custom metrics | `roles/monitoring.metricWriter` for the function, `CUSTOM_METRICS_*` in its environment, log-based metric `${{ name }}-function-errors` |
+{%- endif %}
+{%- if values.enableAlarms %}
+| Alarms | Alert policies for function errors and latency{% if gateway %} and for gateway errors{% endif %}; an email notification channel when `alarm_email` is set |
+{%- endif %}
+| Log retention ${{ values.logRetentionDays or 30 }} days | Log bucket `${{ name }}-logs`, a sink that routes the API's logs into it and an exclusion that keeps them out of `_Default` |
+| Deployment strategy `${{ strategy }}` | See [Traffic shift](#traffic-shift) |
+
+The APIs these resources need are enabled in the project. The Service Usage
+API and the Cloud Resource Manager API must already be enabled.
+
+`tests/configuration.tftest.hcl` plans the configuration against mocked
+providers (`terraform test`); the `CI` workflow runs it without credentials.
+
+### API type
+{% if apiType == 'graphql' %}
+Google Cloud has no managed GraphQL service. The function is the GraphQL
+server{% if gateway %} and the gateway publishes `POST /graphql` and `GET /graphql`{% else %}; Cloud Armor rejects every path except `/graphql` with 404{% endif %}.
+The function decides what a `GET` request does (queries in the URL, or a
+GraphQL IDE). The schema lives with the function code, not in this repository.
+{%- else %}
+API Gateway is one product; there is no separate REST and HTTP flavour on
+Google Cloud, so `rest` and `http` create the same resources. The function
+receives the choice as `API_TYPE`.{% if gateway %} The gateway forwards `GET`, `POST`, `PUT`,
+`PATCH` and `DELETE` on every path to the function with the path unchanged.{% endif %}
+{%- endif %}
+{%- if gateway and timeout > 600 %}
+
+The gateway waits for the function for at most 600 seconds, the maximum API
+Gateway accepts. The function itself may run for ${{ timeout }} seconds, but a
+caller gets a gateway timeout after 600.
+{%- elif gateway %}
+
+The gateway waits for the function as long as the function timeout
+(`function_timeout_seconds`, at most 600 seconds at the gateway).
+{%- endif %}
+{%- if gateway and region == 'asia-east1' %}
+
+API Gateway is not offered in `asia-east1`. The gateway{% if values.enableWaf %} and the load balancer's endpoint group{% endif %}
+are created in `asia-northeast1` (`gateway_region`); everything else is in
+`asia-east1`.
+{%- endif %}
+{%- if values.enableThrottling %}
+
+### Throttling
+{% if gatewayQuota %}
+The API config defines a quota of `throttle_rate_limit` x 60 requests per
+minute. API Gateway counts per minute and per consumer project, that is per
+project that owns the calling API key: give each client a key from its own
+project to limit clients separately.
+{%- elif armorThrottle %}
+API Gateway quotas need an API key to identify the caller, so with
+authentication `${{ auth }}` the rate limit is a Cloud Armor throttle rule
+instead: `throttle_rate_limit` x 60 requests per minute for each client IP
+address (Cloud Armor accepts at most 1,000,000 per interval); excess requests
+get status 429.{% if gateway %} Requests sent straight to the gateway address are not counted.{% endif %}
+{%- else %}
+API Gateway quotas need an API key to identify the caller, and no WAF was
+selected that could count requests per client address. With authentication
+`${{ auth }}` and no WAF the rate limit of ${{ values.throttleRateLimit or 1000 }} requests per second
+is therefore **not enforced** and has no variable; only the burst limit below
+applies. A rate limit needs API key authentication or the WAF.
+{%- endif %}
+
+Google Cloud has no token bucket with a burst size. `throttle_burst_limit` is
+the number of requests the function serves at the same time: its instance
+limit is `throttle_burst_limit / function_concurrency`, rounded up and capped
+by `function_max_instances`. Requests beyond that wait briefly for a free
+instance and then get status 429.
+{%- endif %}
+{%- if auth != 'none' %}
+
+### Authentication
+{% if auth == 'api-key' %}
+Clients send an API key in the `x-api-key` header. Terraform creates one key,
+restricted to this API; read it with `terraform output -raw api_key`. Create
+further keys in **APIs & Services > Credentials** and restrict them to the
+managed service shown by the `api_managed_service` output.
+{%- elif auth == 'jwt' %}
+Clients send a Firebase Authentication ID token as
+`Authorization: Bearer <token>`. The gateway accepts tokens issued for the
+Firebase project `firebase_project_id` (default: this project). Firebase
+Authentication (Identity Platform) has to be set up in that project before
+tokens can be issued; Terraform does not do that, because it is a project-wide
+setting that cannot be removed again.
+{%- elif auth == 'oauth2' %}
+Clients send an access or ID token of your identity provider as
+`Authorization: Bearer <token>`. The gateway checks signature, issuer and
+audience against the required variables `oauth2_issuer`, `oauth2_jwks_uri` and
+`oauth2_audiences`. They have no defaults: plan and apply fail until they are
+set.
+{%- else %}
+Callers are Google service accounts. They send a Google-signed ID token as
+`Authorization: Bearer <token>` whose audience is the `iam_audience` output:
+
+```bash
+gcloud auth print-identity-token \
+  --impersonate-service-account=CALLER@PROJECT.iam.gserviceaccount.com \
+  --audiences="$(terraform output -raw iam_audience)" --include-email
+```
+
+The gateway checks that Google signed the token for that audience. It cannot
+check IAM roles, so every Google identity with such a token passes. List the
+service accounts that may call the API in `iam_allowed_callers`: the function
+receives them as `ALLOWED_CALLERS` and has to compare them with the `email`
+claim (the placeholder does).
+{%- endif %}
+
+The gateway replaces the `Authorization` header with its own token for the
+function. The verified claims of the caller arrive base64url encoded in
+`X-Apigateway-Api-Userinfo`, the original header in
+`X-Forwarded-Authorization`.
+{%- endif %}
+{%- if values.enableWaf %}
+
+### WAF
+
+The Cloud Armor policy blocks requests that match the preconfigured rule sets
+for SQL injection, cross-site scripting, local and remote file inclusion and
+remote code execution (sensitivity 1).
+
+Without `load_balancer_domain` the load balancer has no certificate and serves
+**plain HTTP** on its IP address (`load_balancer_ip` output). Use that for a
+first test only. For real traffic set `load_balancer_domain`, apply, and point
+the domain's DNS A record at `load_balancer_ip`: Terraform then creates a
+Google-managed certificate and an HTTPS listener (TLS 1.2 or newer) and
+redirects HTTP to HTTPS. The certificate becomes active after the DNS record
+resolves, which can take up to an hour.
+{%- endif %}
+{%- if values.enableCache %}
+
+### Cache
+
+Redis is reachable only inside the VPC network. The function sends traffic for
+private addresses through the connector and connects with TLS and AUTH:
+`REDIS_HOST`, `REDIS_PORT`, `REDIS_CA_CERT` (certificate authority to trust)
+and `REDIS_AUTH_STRING` (from Secret Manager). The connector runs two to three
+`e2-micro` instances and is billed while it exists.
+{%- endif %}
+
+### Logs
+
+The logs of the function{% if gateway %}, the gateway{% endif %}{% if values.enableWaf %} and the load balancer{% endif %} are stored in
+the log bucket `${{ name }}-logs` for `log_retention_days` days. They are
+excluded from the project's `_Default` bucket so that its retention does not
+apply to them. The Logs Explorer shows them as before.
+
+## Function package
+
+The repository holds no application code. The function runs a zip archive of
+**source code**; Cloud Build builds it when the function is created or the
+archive changes. Supply the archive in one of two ways:
+
+| Variable | Use |
+| -------- | --- |
+| `function_source_archive` | Path of a zip file on the machine that runs Terraform. Terraform uploads it to the source bucket |
+| `function_source_bucket` and `function_source_object` | A zip file that is already in Cloud Storage, for example uploaded by the application's pipeline. The build service account (`${{ name }}` function build) needs read access to that bucket |
+
+The archive contains the source at its top level, with the dependency file of
+the language ({% if runtime == 'nodejs24' %}`package.json`{% elif runtime == 'python313' %}`requirements.txt` next to `main.py`{% elif runtime == 'go126' %}`go.mod`{% elif runtime == 'java21' %}`pom.xml` or `build.gradle`{% else %}a `.csproj` file{% endif %}). `function_entry_point` names
+the function in it (default `${{ entryPoints[runtime] }}`).
+{%- if interpreted %}
+
+While none of these variables is set, Terraform packages the placeholder in
+`placeholder/${{ 'nodejs' if runtime == 'nodejs24' else 'python' }}/` and deploys that, so the first apply works without a
+build. The placeholder answers every request with a short JSON document and
+shows how to read the environment variables and headers described here.
+{%- else %}
+
+`${{ runtime }}` has no placeholder in this repository. **Plan and apply fail with
+"No function package" until one of the variables above is set.** Everything
+else (`terraform validate`, the `CI` workflow) works without it.
+{%- endif %}
+
+### Environment of the function
+
+| Variable | Content |
+| -------- | ------- |
+| `API_TYPE` | `${{ apiType }}` |
+| `ENVIRONMENT`, `PROJECT_ID` | Environment name and project ID |
+{%- if values.enableCors %}
+| `CORS_ALLOWED_ORIGINS` | Comma-separated origins from `cors_allowed_origins` |
+{%- endif %}
+{%- if auth == 'iam' %}
+| `ALLOWED_CALLERS` | Comma-separated service account emails from `iam_allowed_callers` |
+{%- endif %}
+{%- if nosql %}
+| `FIRESTORE_DATABASE` | Name of the Firestore database |
+{%- endif %}
+{%- if sql %}
+| `SPANNER_INSTANCE`, `SPANNER_DATABASE` | Spanner instance and database |
+{%- endif %}
+{%- if values.enableCache %}
+| `REDIS_HOST`, `REDIS_PORT`, `REDIS_CA_CERT`, `REDIS_AUTH_STRING` | Redis endpoint, certificate authority and AUTH string |
+{%- endif %}
+{%- if values.enableStorage %}
+| `STORAGE_BUCKET` | Name of the storage bucket |
+{%- endif %}
+{%- if values.enableTracing %}
+| `OTEL_SERVICE_NAME`, `OTEL_TRACES_SAMPLER`, `OTEL_TRACES_SAMPLER_ARG` | OpenTelemetry settings; export spans to Cloud Trace |
+{%- endif %}
+{%- if values.enableMetrics %}
+| `CUSTOM_METRICS_ENABLED`, `CUSTOM_METRICS_PREFIX` | Write custom metrics under this metric type prefix |
+{%- endif %}
+| anything in `function_environment` | Your own variables |
+
+## Variables
+
+All variables have defaults taken from the form{% if auth == 'oauth2' %}, except the three
+`oauth2_*` variables{% endif %}. Set others in a `terraform.tfvars` file or as
+`TF_VAR_<name>`.
+
+| Variable | Default | Purpose |
+| -------- | ------- | ------- |
+| `project_id`, `region` | `${{ values.gcpProjectId }}`, `${{ region }}` | Target project and region |
+| `project_name`, `environment` | `${{ values.projectName }}`, `${{ values.environment or 'dev' }}` | Name prefix of every resource |
+| `function_runtime` | `${{ runtime }}` | Runtime version |
+| `function_entry_point` | `${{ entryPoints[runtime] }}` | Handler in the package |
+| `function_memory_mb`, `function_timeout_seconds` | ${{ values.memorySize or 256 }}, ${{ timeout }} | Size and timeout |
+| `function_cpu`, `function_concurrency` | `1`, 80 | vCPUs and concurrent requests per instance |
+| `function_min_instances`, `function_max_instances` | 0, 100 | Scaling limits |
+| `function_environment` | `{}` | Extra environment variables |
+| `function_source_archive`, `function_source_bucket`, `function_source_object` | empty | [Function package](#function-package) |
+{%- if gateway %}
+| `gateway_region` | `${{ gatewayRegions[region] }}` | Region of the gateway |
+{%- endif %}
+{%- if values.enableCors %}
+| `cors_allowed_origins` | `["*"]` | Origins allowed by CORS |
+{%- endif %}
+{%- if gatewayQuota or armorThrottle %}
+| `throttle_rate_limit` | ${{ values.throttleRateLimit or 1000 }} | Requests per second, see [Throttling](#throttling) |
+{%- endif %}
+{%- if values.enableThrottling %}
+| `throttle_burst_limit` | ${{ values.throttleBurstLimit or 2000 }} | Concurrent requests, see [Throttling](#throttling) |
+{%- endif %}
+{%- if auth == 'jwt' %}
+| `firebase_project_id` | this project | Firebase project that issues the tokens |
+{%- endif %}
+{%- if auth == 'oauth2' %}
+| `oauth2_issuer`, `oauth2_jwks_uri`, `oauth2_audiences` | none, required | Identity provider; audiences separated by commas |
+{%- endif %}
+{%- if auth == 'iam' %}
+| `iam_audience`, `iam_allowed_callers` | `https://<managed service>`, `[]` | Token audience and allowed service accounts |
+{%- endif %}
+{%- if values.enableWaf %}
+| `load_balancer_domain` | empty | Domain for the HTTPS listener |
+{%- endif %}
+{%- if values.enableDatabase %}
+| `database_deletion_protection` | `${{ 'true' if values.environment == 'production' else 'false' }}` | Refuse to delete the database |
+{%- endif %}
+{%- if sql %}
+| `spanner_processing_units` | 100 | Spanner capacity |
+{%- endif %}
+{%- if values.enableCache %}
+| `cache_tier`, `cache_memory_size_gb` | `${{ 'STANDARD_HA' if values.environment == 'production' else 'BASIC' }}`, 1 | Redis size |
+| `vpc_connector_cidr` | `10.8.0.0/28` | Range of the connector subnet |
+{%- endif %}
+{%- if values.enableStorage %}
+| `storage_force_destroy` | `${{ 'false' if values.environment == 'production' else 'true' }}` | Delete the bucket with its objects on destroy |
+{%- endif %}
+{%- if values.enableTracing %}
+| `trace_sampling_ratio` | ${{ '0.1' if values.environment == 'production' else '1' }} | Share of traced requests |
+{%- endif %}
+{%- if values.enableAlarms %}
+| `alarm_email`, `alarm_error_threshold` | empty, 5 | Alert recipient and 5xx count per five minutes |
+{%- endif %}
+| `log_retention_days` | ${{ values.logRetentionDays or 30 }} | Retention of the log bucket |
+| `labels` | `{}` | Extra labels |
+
+## Outputs
+
+| Output | Content |
+| ------ | ------- |
+| `api_url` | Base URL clients call |
+{%- if gateway %}
+| `gateway_url`, `api_managed_service` | Address of the gateway and managed service name of the API |
+{%- endif %}
+{%- if values.enableWaf %}
+| `load_balancer_ip`, `waf_policy` | Load balancer address and Cloud Armor policy |
+{%- endif %}
+{%- if gateway and auth == 'api-key' %}
+| `api_key` | API key of the first client (sensitive) |
+{%- endif %}
+{%- if auth == 'iam' %}
+| `iam_audience` | Audience for ID tokens |
+{%- endif %}
+| `function_name`, `function_uri`, `function_service_account`, `function_source` | Function, its service account and the deployed archive |
+{%- if nosql %}
+| `firestore_database` | Firestore database |
+{%- endif %}
+{%- if sql %}
+| `spanner_instance`, `spanner_database` | Spanner instance and database |
+{%- endif %}
+{%- if values.enableCache %}
+| `redis_host`, `redis_port` | Redis endpoint |
+{%- endif %}
+{%- if values.enableStorage %}
+| `storage_bucket` | Storage bucket |
+{%- endif %}
+| `log_bucket` | Log bucket |
+
+## Deployment
+
+### State backend
+
+The configuration declares an empty `gcs` backend. Create a bucket for the
+state once and pass it at init time:
+
+```bash
+terraform init \
+  -backend-config="bucket=<state bucket>" \
+  -backend-config="prefix=${{ values.destination.repo }}"
+terraform plan
+terraform apply
+```
+{%- if values.enableCicd %}
+
+### Deploy workflow
+
+`.github/workflows/deploy.yml` plans on pull requests and applies on `main`
+(job `apply`, environment `production`). It logs in with Workload Identity
+Federation, without a service account key. Until the three required settings
+exist it reports that and skips plan and apply.
+
+| Setting | Kind | Content |
+| ------- | ---- | ------- |
+| `GCP_WORKLOAD_IDENTITY_PROVIDER` | secret or variable, required | `projects/<number>/locations/global/workloadIdentityPools/<pool>/providers/<provider>` |
+| `GCP_SERVICE_ACCOUNT` | secret or variable, required | Email of the service account the workflow impersonates |
+| `TF_STATE_BUCKET` | variable, required | Bucket for the Terraform state; the state prefix is the repository name |
+| `FUNCTION_SOURCE_BUCKET`, `FUNCTION_SOURCE_OBJECT` | variables{% if not interpreted %}, required for `${{ runtime }}`{% endif %} | [Function package](#function-package) in Cloud Storage |
+{%- if auth == 'oauth2' %}
+| `OAUTH2_ISSUER`, `OAUTH2_JWKS_URI`, `OAUTH2_AUDIENCES` | variables, required | Identity provider settings |
+{%- endif %}
+{%- if values.enableWaf %}
+| `LOAD_BALANCER_DOMAIN` | variable | Domain for the HTTPS listener |
+{%- endif %}
+{%- if values.enableAlarms %}
+| `ALARM_EMAIL` | variable | Recipient of alert notifications |
+{%- endif %}
+{%- if strategy != 'all-at-once' %}
+| `ROLLOUT_STEP_SECONDS` | variable | Wait between traffic steps, default 300 |
+{%- endif %}
+
+The identity provider must allow this repository
+(`attribute.repository == "${{ values.destination.owner }}/${{ values.destination.repo }}"`), and the
+repository's principal needs `roles/iam.workloadIdentityUser` on the service
+account.
+{%- endif %}
+
+### Required permissions
+
+The identity that runs Terraform{% if values.enableCicd %} (`GCP_SERVICE_ACCOUNT`){% endif %} needs these roles on the
+project, or `roles/owner` on a sandbox project:
+
+| Role | Needed for |
+| ---- | ---------- |
+| `roles/serviceusage.serviceUsageAdmin` | Enabling APIs |
+| `roles/iam.serviceAccountAdmin`, `roles/iam.serviceAccountUser`, `roles/resourcemanager.projectIamAdmin` | Service accounts and their roles |
+| `roles/cloudfunctions.admin`, `roles/run.admin`, `roles/storage.admin` | Function, its Cloud Run service, source and state buckets |
+{%- if gateway %}
+| `roles/apigateway.admin` | API Gateway |
+{%- endif %}
+{%- if gateway and auth == 'api-key' %}
+| `roles/serviceusage.apiKeysAdmin` | API key |
+{%- endif %}
+{%- if values.enableWaf or values.enableCache %}
+| `roles/compute.networkAdmin`, `roles/compute.securityAdmin`{% if values.enableWaf %}, `roles/compute.instanceAdmin.v1`{% endif %} | {% if values.enableWaf %}Load balancer, endpoint group and Cloud Armor{% endif %}{% if values.enableWaf and values.enableCache %}; {% endif %}{% if values.enableCache %}VPC network and firewall rules{% endif %} |
+{%- endif %}
+{%- if nosql %}
+| `roles/datastore.owner` | Firestore database |
+{%- endif %}
+{%- if sql %}
+| `roles/spanner.admin` | Spanner |
+{%- endif %}
+{%- if values.enableCache %}
+| `roles/redis.admin`, `roles/vpcaccess.admin`, `roles/secretmanager.admin` | Redis, connector and secret |
+{%- endif %}
+| `roles/logging.admin` | Log bucket, sink, exclusion{% if values.enableMetrics %}, log-based metric{% endif %} |
+{%- if values.enableAlarms %}
+| `roles/monitoring.editor` | Alert policies and notification channel |
+{%- endif %}
+
+### Traffic shift
+{% if strategy == 'all-at-once' %}
+A new function revision takes all traffic as soon as it is ready
+(`all_traffic_on_latest_revision = true`).
+{%- else %}
+A 2nd gen function is a Cloud Run service, and Cloud Run splits traffic
+between revisions. Terraform cannot express a staged shift for a function: it
+only sets `all_traffic_on_latest_revision = false`, which stops a deployment
+from overriding the traffic split of the service. The shift itself is done
+with `gcloud`
+{%- if values.enableCicd %} by the `apply` job of the Deploy workflow:
+
+1. Before the apply it assigns all traffic to the serving revision by name, so
+   the new revision starts with no traffic.
+2. After the apply it gives the new revision ${{ '10%' if strategy == 'canary' else '25%, then 50%, then 75%' }} and waits
+   `ROLLOUT_STEP_SECONDS` (default 300)${{ ' after each step' if strategy == 'linear' else '' }}.
+3. It sends all traffic to the latest revision.
+
+Cancel the run during a wait to stop the rollout, then roll back:
+
+```bash
+gcloud run services update-traffic ${{ name }} --region ${{ region }} \
+  --to-revisions <previous revision>=100
+```
+
+The workflow does not look at error rates; watch the{% if values.enableAlarms %} alert policies{% else %} function's metrics{% endif %}
+during the wait. A `terraform apply` outside the workflow does not shift in
+steps: the new revision takes whatever share the service gives to its latest
+revision, which is all traffic after a completed rollout. After a rollout
+`terraform plan` may report `all_traffic_on_latest_revision` changing from
+`true` to `false`; that is the same setting being applied again.
+{%- else %}. No deployment workflow was requested, so run the steps yourself:
+
+```bash
+# Before terraform apply: keep traffic on the serving revision
+gcloud run services update-traffic ${{ name }} --region ${{ region }} \
+  --to-revisions <serving revision>=100
+terraform apply
+# After it: ${{ 'give the new revision 10%, check, then everything' if strategy == 'canary' else 'raise the share of the new revision in steps (25, 50, 75), then everything' }}
+gcloud run services update-traffic ${{ name }} --region ${{ region }} \
+  --to-revisions LATEST=${{ '10' if strategy == 'canary' else '25' }}
+gcloud run services update-traffic ${{ name }} --region ${{ region }} --to-latest
+```
+
+Without the first command the new revision takes all traffic at once, because
+a service that follows its latest revision switches as soon as that revision
+is ready.
+{%- endif %}
+{%- endif %}

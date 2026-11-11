@@ -1,0 +1,238 @@
+{%- set slots = values.deploymentStrategy in ['canary', 'linear'] -%}
+{%- set cosmos = values.enableDatabase and values.databaseType == 'nosql' -%}
+{%- set sql = values.enableDatabase and values.databaseType == 'sql' -%}
+{%- set insights = values.enableTracing or values.enableMetrics -%}
+{%- set graphql = values.apiType == 'graphql' -%}
+{%- set client_config = values.authType in ['jwt', 'iam'] or sql -%}
+# Plans the configuration with the committed variable values against mocked
+# providers. No Azure credentials are used and nothing is created.
+{% if client_config or values.enableWaf %}
+mock_provider "azurerm" {
+{%- if client_config %}
+  mock_data "azurerm_client_config" {
+    defaults = {
+      tenant_id       = "00000000-0000-0000-0000-000000000000"
+      subscription_id = "00000000-0000-0000-0000-000000000000"
+      object_id       = "00000000-0000-0000-0000-000000000000"
+    }
+  }
+{%- endif %}
+{%- if client_config and values.enableWaf %}
+{% endif %}
+{%- if values.enableWaf %}
+  # The API policy contains the Front Door profile's ID, so it gets a value
+  # while planning instead of staying unknown.
+  mock_resource "azurerm_cdn_frontdoor_profile" {
+    override_during = plan
+
+    defaults = {
+      id            = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-mock/providers/Microsoft.Cdn/profiles/mock"
+      resource_guid = "00000000-0000-0000-0000-000000000000"
+    }
+  }
+{%- endif %}
+}
+{%- else %}
+mock_provider "azurerm" {}
+{%- endif %}
+
+mock_provider "random" {
+  # A fixed suffix makes the resource names known while planning, so their
+  # length and character rules are checked.
+  mock_resource "random_string" {
+    override_during = plan
+
+    defaults = {
+      result = "abc123"
+    }
+  }
+}
+
+{%- if values.authType == 'oauth2' %}
+
+# The identity provider is not known when the repository is created.
+variables {
+  oauth2_openid_configuration_url = "https://idp.example.com/.well-known/openid-configuration"
+  oauth2_audience                 = "api://example"
+}
+{%- endif %}
+
+run "committed_values" {
+  command = plan
+
+  assert {
+    condition = alltrue([
+      can(regex("^[a-z0-9]{3,24}$", azurerm_storage_account.function.name)),
+{%- if values.enableStorage %}
+      can(regex("^[a-z0-9]{3,24}$", azurerm_storage_account.data.name)),
+{%- endif %}
+{%- if sql %}
+      can(regex("^[a-z][a-z0-9]{2,23}$", azurerm_key_vault.main.name)),
+{%- endif %}
+      can(regex("^[a-z][a-z0-9-]{0,30}[a-z0-9]$", local.function_app_name)),
+      can(regex("^[a-z][a-z0-9-]{0,48}[a-z0-9]$", azurerm_api_management.main.name)),
+    ])
+    error_message = "A generated resource name breaks the naming rules of its service."
+  }
+{%- if slots %}
+
+  assert {
+    condition = (
+      azurerm_service_plan.function.sku_name == var.premium_plan_sku &&
+      azurerm_linux_function_app_slot.staging.name == "staging" &&
+      length(local.function_principal_ids) == 2
+    )
+    error_message = "The ${{ values.deploymentStrategy }} strategy needs an Elastic Premium plan and a staging slot."
+  }
+
+  assert {
+    condition = (
+      azurerm_api_management_backend.function_staging.name == "function-staging" &&
+      azurerm_api_management_named_value.staging_traffic_percent.value == "0" &&
+      length(regexall("<set-backend-service ", azurerm_api_management_api_policy.main.xml_content)) == 2
+    )
+    error_message = "The gateway must be able to split traffic between production and the staging slot, starting with none for staging."
+  }
+{%- else %}
+
+  assert {
+    condition = (
+      azurerm_service_plan.function.sku_name == "FC1" &&
+      azurerm_function_app_flex_consumption.main.instance_memory_in_mb == var.function_memory_mb &&
+      azurerm_function_app_flex_consumption.main.runtime_name == "${{ {'python313': 'python', 'dotnet10': 'dotnet-isolated', 'java21': 'java', 'go126': 'custom'}[values.runtime] or 'node' }}" &&
+      length(local.function_principal_ids) == 1
+    )
+    error_message = "The function must run on Flex Consumption with the configured memory and runtime."
+  }
+
+  assert {
+    condition     = length(regexall("<set-backend-service ", azurerm_api_management_api_policy.main.xml_content)) == 1
+    error_message = "The gateway must send every request to the function app."
+  }
+{%- endif %}
+
+  assert {
+    condition = (
+      can(regex("^\\d{2}:[0-5]\\d:[0-5]\\d$", local.function_app_settings["AzureFunctionsJobHost__functionTimeout"])) &&
+      local.gateway_timeout_seconds == min(var.function_timeout_seconds, 230) &&
+      length(regexall("<forward-request timeout=\"${local.gateway_timeout_seconds}\" />", azurerm_api_management_api_policy.main.xml_content)) == 1
+    )
+    error_message = "The timeout must reach the function host and the gateway."
+  }
+
+  assert {
+    condition = (
+      azurerm_api_management.main.sku_name == "Consumption_0" &&
+      azurerm_api_management_api.main.api_type == "${{ 'graphql' if graphql else 'http' }}" &&
+      azurerm_api_management_api.main.subscription_required == ${{ 'true' if values.authType == 'api-key' else 'false' }} &&
+{%- if graphql %}
+      length(azurerm_api_management_api_schema.graphql.value) > 0
+{%- else %}
+      length(azurerm_api_management_api_operation.proxy) == 5
+{%- endif %}
+    )
+    error_message = "The API does not match the selected API type and authentication."
+  }
+
+  assert {
+    condition = (
+      startswith(azurerm_api_management_api_policy.main.xml_content, "<policies>") &&
+      endswith(trimspace(azurerm_api_management_api_policy.main.xml_content), "</policies>") &&
+      length(regexall("<check-header ", azurerm_api_management_api_policy.main.xml_content)) == ${{ 1 if values.enableWaf else 0 }} &&
+      length(regexall("<cors ", azurerm_api_management_api_policy.main.xml_content)) == ${{ 1 if values.enableCors else 0 }} &&
+      length(regexall("<validate-jwt ", azurerm_api_management_api_policy.main.xml_content)) == ${{ 1 if values.authType in ['jwt', 'oauth2'] else 0 }} &&
+      length(regexall("<validate-azure-ad-token ", azurerm_api_management_api_policy.main.xml_content)) == ${{ 1 if values.authType == 'iam' else 0 }} &&
+      length(regexall("<rate-limit ", azurerm_api_management_api_policy.main.xml_content)) == ${{ 1 if values.enableThrottling else 0 }} &&
+      length(regexall("<limit-concurrency ", azurerm_api_management_api_policy.main.xml_content)) == ${{ 1 if values.enableThrottling else 0 }} &&
+      length(regexall("<validate-graphql-request ", azurerm_api_management_api_policy.main.xml_content)) == ${{ 1 if graphql else 0 }} &&
+      length(regexall("<emit-metric ", azurerm_api_management_api_policy.main.xml_content)) == ${{ 1 if values.enableMetrics else 0 }}
+    )
+    error_message = "The API policy does not contain exactly the policies of the selected options."
+  }
+{%- if values.enableCors %}
+
+  assert {
+    condition     = length(regexall("<origin>", azurerm_api_management_api_policy.main.xml_content)) == length(var.cors_allowed_origins)
+    error_message = "Every entry of cors_allowed_origins must become one allowed origin."
+  }
+{%- endif %}
+{%- if values.enableWaf %}
+
+  assert {
+    condition = (
+      azurerm_cdn_frontdoor_profile.main.sku_name == "Premium_AzureFrontDoor" &&
+      azurerm_cdn_frontdoor_firewall_policy.main.mode == "Prevention" &&
+      length(azurerm_cdn_frontdoor_firewall_policy.main.managed_rule) == 2
+    )
+    error_message = "The WAF needs Front Door Premium with managed rules in prevention mode."
+  }
+{%- endif %}
+{%- if cosmos %}
+
+  assert {
+    condition = (
+      [for capability in azurerm_cosmosdb_account.main.capabilities : capability.name] == ["EnableServerless"] &&
+      azurerm_cosmosdb_account.main.local_authentication_enabled == false &&
+      length(azurerm_cosmosdb_sql_role_assignment.function) == length(local.function_principal_ids)
+    )
+    error_message = "Cosmos DB must be serverless, without account keys, and give every function identity data access."
+  }
+{%- endif %}
+{%- if sql %}
+
+  assert {
+    condition = (
+      keys(module.sql.database_ids) == [local.sql_database_name] &&
+      azurerm_key_vault_secret.sql_administrator_password.name == "sql-administrator-password" &&
+      azurerm_key_vault.main.purge_protection_enabled
+    )
+    error_message = "The SQL server needs one database and its administrator password in the Key Vault."
+  }
+{%- endif %}
+{%- if values.enableCache %}
+
+  assert {
+    condition = (
+      azurerm_managed_redis.main.default_database[0].access_keys_authentication_enabled == false &&
+      length(azurerm_managed_redis_access_policy_assignment.function) == length(local.function_principal_ids)
+    )
+    error_message = "Redis must reject access keys and give every function identity access."
+  }
+{%- endif %}
+{%- if values.enableStorage %}
+
+  assert {
+    condition = (
+      azurerm_storage_account.data.shared_access_key_enabled == false &&
+      azurerm_storage_container.data.container_access_type == "private" &&
+      length(azurerm_role_assignment.function_blob_data) == length(local.function_principal_ids)
+    )
+    error_message = "The data container must be private, without account keys, and give every function identity access."
+  }
+{%- endif %}
+
+  assert {
+    condition     = azurerm_log_analytics_workspace.main.retention_in_days == var.log_retention_days
+    error_message = "The Log Analytics workspace does not use log_retention_days."
+  }
+{%- if insights %}
+
+  assert {
+    condition = (
+      azurerm_api_management_api_diagnostic.application_insights.metrics_enabled == ${{ 'true' if values.enableMetrics else 'false' }} &&
+      azurerm_api_management_api_diagnostic.application_insights.sampling_percentage == ${{ 100 if values.enableTracing else 0 }}
+    )
+    error_message = "The gateway diagnostic does not match the tracing and custom metrics selection."
+  }
+{%- endif %}
+{%- if values.enableAlarms %}
+
+  assert {
+    condition = (
+      length(azurerm_monitor_action_group.alerts.email_receiver) == (var.alert_email != "" ? 1 : 0) &&
+      length(azurerm_monitor_action_group.alerts.short_name) <= 12
+    )
+    error_message = "The action group must have a receiver exactly when alert_email is set."
+  }
+{%- endif %}
+}

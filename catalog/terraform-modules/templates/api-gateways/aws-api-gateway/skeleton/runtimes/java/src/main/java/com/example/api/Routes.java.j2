@@ -1,0 +1,41 @@
+package com.example.api;
+{% if values.enableCRUD %}
+import com.example.api.items.DynamoDbItemStore;
+import com.example.api.items.Items;
+{%- endif %}
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+/** The route table of the function. */
+public final class Routes {
+  private Routes() {}
+
+  private static Response health(Request request) {
+    Map<String, String> body = new LinkedHashMap<>();
+    body.put("status", "ok");
+    body.put("service", System.getenv().getOrDefault("API_NAME", ${{ values.apiName | dump }}));
+    body.put("version", System.getenv().getOrDefault("API_VERSION", ${{ (values.apiVersion or '1.0.0') | dump }}));
+    return Router.json(200, body);
+  }
+
+  /**
+   * Route table: {@code "<METHOD> <API Gateway resource path>"} to handler. A
+   * handler takes the {@link Request} and returns a {@link Response}; use
+   * {@link Router#json}. To implement an endpoint, replace its
+   * {@link Router#NOT_IMPLEMENTED} stub with a handler.
+   */
+  public static Map<String, Route> table() {
+    Map<String, Route> routes = new LinkedHashMap<>();
+    routes.put("GET /health", Routes::health);
+{%- if values.enableCRUD %}
+    routes.putAll(Items.routes(new DynamoDbItemStore()));
+{%- endif %}
+{%- for endpoint in values.endpoints or [] %}
+{%- if endpoint.description %}
+    // ${{ endpoint.description | replace('\\', '\\\\') | replace('\n', ' ') | replace('\r', ' ') }}
+{%- endif %}
+    routes.put(${{ (endpoint.method + ' ' + endpoint.path) | dump }}, Router.NOT_IMPLEMENTED);
+{%- endfor %}
+    return routes;
+  }
+}

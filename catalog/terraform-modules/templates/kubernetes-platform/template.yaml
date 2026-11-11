@@ -20,14 +20,25 @@ spec:
       required:
         - projectName
         - environment
+        - owner
         - cloudProvider
       properties:
         projectName:
           title: Project Name
           type: string
-          description: Name for the Kubernetes platform (lowercase, hyphens allowed)
-          pattern: '^[a-z0-9-]+$'
+          description: Name for the Kubernetes platform, used as a prefix for resource names (lowercase letters, digits and hyphens, at most 16 characters)
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          maxLength: 16
           ui:autofocus: true
+        owner:
+          title: Owner
+          type: string
+          description: Team or user that owns this infrastructure
+          ui:field: OwnerPicker
+          ui:options:
+            allowedKinds:
+              - Group
+              - User
         environment:
           title: Environment
           type: string
@@ -48,14 +59,13 @@ spec:
             - Microsoft Azure (AKS)
             - Google Cloud Platform (GKE)
           default: aws
-
-    - title: AWS Configuration
       dependencies:
         cloudProvider:
           oneOf:
             - properties:
                 cloudProvider:
-                  const: aws
+                  enum:
+                    - aws
                 awsRegion:
                   title: AWS Region
                   type: string
@@ -66,14 +76,10 @@ spec:
                     - eu-central-1
                     - ap-southeast-1
                   default: us-east-1
-
-    - title: Azure Configuration
-      dependencies:
-        cloudProvider:
-          oneOf:
             - properties:
                 cloudProvider:
-                  const: azure
+                  enum:
+                    - azure
                 azureRegion:
                   title: Azure Region
                   type: string
@@ -87,14 +93,14 @@ spec:
                 azureSubscriptionId:
                   title: Azure Subscription ID
                   type: string
-
-    - title: GCP Configuration
-      dependencies:
-        cloudProvider:
-          oneOf:
-            - properties:
+                  description: Subscription the resources are created in. Leave empty to use the subscription of the pipeline's credentials.
+                  pattern: '^([0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12})?$'
+            - required:
+                - gcpProjectId
+              properties:
                 cloudProvider:
-                  const: gcp
+                  enum:
+                    - gcp
                 gcpRegion:
                   title: GCP Region
                   type: string
@@ -108,6 +114,8 @@ spec:
                 gcpProjectId:
                   title: GCP Project ID
                   type: string
+                  description: ID of the Google Cloud project the resources are created in
+                  pattern: '^[a-z][a-z0-9-]{4,28}[a-z0-9]$'
 
     - title: Cluster Configuration
       properties:
@@ -115,21 +123,25 @@ spec:
           title: Kubernetes Version
           type: string
           enum:
-            - '1.29'
-            - '1.28'
-            - '1.27'
-          default: '1.29'
+            - '1.37'
+            - '1.36'
+            - '1.35'
+          default: '1.36'
         nodePoolConfig:
           title: Node Pool Configuration
           type: object
           properties:
             minNodes:
               title: Minimum Nodes
-              type: number
+              type: integer
+              minimum: 1
+              maximum: 100
               default: 3
             maxNodes:
               title: Maximum Nodes
-              type: number
+              type: integer
+              minimum: 1
+              maximum: 100
               default: 10
             nodeSize:
               title: Node Size
@@ -172,13 +184,18 @@ spec:
           default: true
           description: Install external-dns for automatic DNS management
         enableIngress:
-          title: Enable Ingress Controller
+          title: Ingress Controller
           type: string
+          description: Traefik is maintained. ingress-nginx was retired by the Kubernetes project in March 2026 and gets no further releases; choose it only for existing setups.
           enum:
-            - nginx
             - traefik
+            - nginx
             - none
-          default: nginx
+          enumNames:
+            - Traefik
+            - ingress-nginx (retired)
+            - None
+          default: traefik
 
     - title: Security Configuration
       properties:
@@ -213,33 +230,45 @@ spec:
               - github.com
 
   steps:
-    - id: fetch
-      name: Fetch Template
+    - id: fetch-platform
+      name: Fetch Platform Components
       action: fetch:template
       input:
-        url: ./skeleton
-        templateFileExtension: '.j2'
-        values:
+        url: ./skeleton/common
+        values: &values
           projectName: ${{ parameters.projectName }}
           environment: ${{ parameters.environment }}
           cloudProvider: ${{ parameters.cloudProvider }}
-          awsRegion: ${{ parameters.awsRegion }}
-          azureRegion: ${{ parameters.azureRegion }}
+          awsRegion: ${{ parameters.awsRegion or 'us-east-1' }}
+          azureRegion: ${{ parameters.azureRegion or 'eastus' }}
           azureSubscriptionId: ${{ parameters.azureSubscriptionId }}
-          gcpRegion: ${{ parameters.gcpRegion }}
+          gcpRegion: ${{ parameters.gcpRegion or 'us-central1' }}
           gcpProjectId: ${{ parameters.gcpProjectId }}
-          kubernetesVersion: ${{ parameters.kubernetesVersion }}
-          nodePoolConfig: ${{ parameters.nodePoolConfig }}
-          enableGitOps: ${{ parameters.enableGitOps }}
-          enableObservability: ${{ parameters.enableObservability }}
-          enableServiceMesh: ${{ parameters.enableServiceMesh }}
-          enableCertManager: ${{ parameters.enableCertManager }}
-          enableExternalDns: ${{ parameters.enableExternalDns }}
-          enableIngress: ${{ parameters.enableIngress }}
-          enablePodSecurityPolicies: ${{ parameters.enablePodSecurityPolicies }}
-          enableNetworkPolicies: ${{ parameters.enableNetworkPolicies }}
-          enableOPA: ${{ parameters.enableOPA }}
-          enableVaultIntegration: ${{ parameters.enableVaultIntegration }}
+          kubernetesVersion: ${{ parameters.kubernetesVersion or '1.36' }}
+          minNodes: ${{ parameters.nodePoolConfig.minNodes or 3 }}
+          maxNodes: ${{ parameters.nodePoolConfig.maxNodes or 10 }}
+          nodeSize: ${{ parameters.nodePoolConfig.nodeSize or 'medium' }}
+          enableGitOps: ${{ parameters.enableGitOps if parameters.enableGitOps is defined else true }}
+          enableObservability: ${{ parameters.enableObservability if parameters.enableObservability is defined else true }}
+          enableServiceMesh: ${{ parameters.enableServiceMesh if parameters.enableServiceMesh is defined else false }}
+          enableCertManager: ${{ parameters.enableCertManager if parameters.enableCertManager is defined else true }}
+          enableExternalDns: ${{ parameters.enableExternalDns if parameters.enableExternalDns is defined else true }}
+          enableIngress: ${{ parameters.enableIngress or 'traefik' }}
+          enablePodSecurityPolicies: ${{ parameters.enablePodSecurityPolicies if parameters.enablePodSecurityPolicies is defined else true }}
+          enableNetworkPolicies: ${{ parameters.enableNetworkPolicies if parameters.enableNetworkPolicies is defined else true }}
+          enableOPA: ${{ parameters.enableOPA if parameters.enableOPA is defined else false }}
+          enableVaultIntegration: ${{ parameters.enableVaultIntegration if parameters.enableVaultIntegration is defined else false }}
+          owner: ${{ parameters.owner }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+          # Commit of github.com/ayoinc/cloud-sandbox-backstage the Terraform modules are taken from
+          moduleRef: 83f9ff7222d2731d5cc0da4ab1fc1f7c46da3693
+
+    - id: fetch-cluster
+      name: Fetch Cluster for the Chosen Cloud
+      action: fetch:template
+      input:
+        url: ./skeleton/${{ parameters.cloudProvider }}
+        values: *values
 
     - id: publish
       name: Publish to GitHub

@@ -1,0 +1,139 @@
+{%- set insights = values.enableTracing or values.enableMetrics -%}
+resource "azurerm_log_analytics_workspace" "main" {
+  name                = "log-${local.name}"
+  resource_group_name = module.resource_group.name
+  location            = module.resource_group.location
+  sku                 = "PerGB2018"
+  retention_in_days   = var.log_retention_days
+  tags                = local.tags
+}
+
+# Function host and application logs.
+resource "azurerm_monitor_diagnostic_setting" "function" {
+  name                       = "function-logs"
+  target_resource_id         = local.function_app_id
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+
+  enabled_log {
+    category = "FunctionAppLogs"
+  }
+}
+{%- if insights %}
+
+resource "azurerm_application_insights" "main" {
+  name                = "appi-${local.name}"
+  resource_group_name = module.resource_group.name
+  location            = module.resource_group.location
+  application_type    = "web"
+  workspace_id        = azurerm_log_analytics_workspace.main.id
+  tags                = local.tags
+}
+
+locals {
+  application_insights_connection_string = azurerm_application_insights.main.connection_string
+}
+{%- else %}
+
+locals {
+  # Neither tracing nor custom metrics was selected: no Application Insights.
+  application_insights_connection_string = null
+}
+{%- endif %}
+{%- if values.enableAlarms %}
+
+resource "azurerm_monitor_action_group" "alerts" {
+  name                = "ag-${local.name}"
+  resource_group_name = module.resource_group.name
+  short_name          = substr(local.compact, 0, 12)
+
+  dynamic "email_receiver" {
+    for_each = var.alert_email != "" ? [var.alert_email] : []
+
+    content {
+      name                    = "email"
+      email_address           = email_receiver.value
+      use_common_alert_schema = true
+    }
+  }
+
+  tags = local.tags
+}
+
+resource "azurerm_monitor_metric_alert" "gateway_errors" {
+  name                = "alert-${local.name}-gateway-5xx"
+  resource_group_name = module.resource_group.name
+  scopes              = [azurerm_api_management.main.id]
+  description         = "The gateway answered with 5xx responses."
+  severity            = 2
+  frequency           = "PT1M"
+  window_size         = "PT5M"
+
+  criteria {
+    metric_namespace = "Microsoft.ApiManagement/service"
+    metric_name      = "Requests"
+    aggregation      = "Total"
+    operator         = "GreaterThan"
+    threshold        = var.alert_error_threshold
+
+    dimension {
+      name     = "GatewayResponseCodeCategory"
+      operator = "Include"
+      values   = ["5xx"]
+    }
+  }
+
+  action {
+    action_group_id = azurerm_monitor_action_group.alerts.id
+  }
+
+  tags = local.tags
+}
+
+resource "azurerm_monitor_metric_alert" "gateway_latency" {
+  name                = "alert-${local.name}-gateway-latency"
+  resource_group_name = module.resource_group.name
+  scopes              = [azurerm_api_management.main.id]
+  description         = "Average request duration is above 80% of the gateway timeout."
+  severity            = 3
+  frequency           = "PT1M"
+  window_size         = "PT5M"
+
+  criteria {
+    metric_namespace = "Microsoft.ApiManagement/service"
+    metric_name      = "Duration"
+    aggregation      = "Average"
+    operator         = "GreaterThan"
+    threshold        = local.gateway_timeout_seconds * 800
+  }
+
+  action {
+    action_group_id = azurerm_monitor_action_group.alerts.id
+  }
+
+  tags = local.tags
+}
+
+resource "azurerm_monitor_metric_alert" "function_errors" {
+  name                = "alert-${local.name}-function-5xx"
+  resource_group_name = module.resource_group.name
+  scopes              = [local.function_app_id]
+  description         = "The function app answered with 5xx responses."
+  severity            = 2
+  frequency           = "PT1M"
+  window_size         = "PT5M"
+
+  criteria {
+    metric_namespace = "Microsoft.Web/sites"
+    metric_name      = "Http5xx"
+    aggregation      = "Total"
+    operator         = "GreaterThan"
+    threshold        = var.alert_error_threshold
+  }
+
+  action {
+    action_group_id = azurerm_monitor_action_group.alerts.id
+  }
+
+  tags = local.tags
+}
+{%- endif %}

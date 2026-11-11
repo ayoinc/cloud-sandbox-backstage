@@ -1,0 +1,15 @@
+# Build output
+/bin/
+
+# Code generated from proto/ by `make generate`
+/gen/
+
+# Development certificates written by `make certs`
+/certs/
+
+# Documentation built by mkdocs
+/site/
+
+# Test and coverage output
+*.test
+*.out

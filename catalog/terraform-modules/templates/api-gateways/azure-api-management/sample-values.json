@@ -1,0 +1,34 @@
+{
+  "values": {
+    "serviceName": "corp-api-mgmt",
+    "description": "Central API gateway for the commerce platform's \"partner\" and mobile APIs: orders, inventory & pricing",
+    "sku": "Standard",
+    "location": "eastus",
+    "enableAzureAD": true,
+    "enableJWT": true,
+    "rateLimiting": true,
+    "callsPerMinute": 1000,
+    "enablePortal": true,
+    "enablePortalAuth": true,
+    "enableApplicationInsights": true,
+    "enableLogAnalytics": true,
+    "logRetention": 90,
+    "apis": [
+      {
+        "name": "Orders API",
+        "backend_url": "https://orders.internal.example.com",
+        "description": "Order placement and tracking",
+        "open_api_spec": "https://raw.githubusercontent.com/OAI/OpenAPI-Specification/3.0.3/examples/v3.0/petstore.yaml"
+      },
+      {
+        "name": "Inventory API",
+        "backend_url": "https://inventory.internal.example.com",
+        "description": "Stock levels per warehouse"
+      }
+    ],
+    "enableCORS": true,
+    "enableCaching": true,
+    "owner": "group:default/platform-team",
+    "repoUrl": "github.com?owner=example-org&repo=corp-api-mgmt"
+  }
+}

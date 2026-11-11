@@ -1,0 +1,211 @@
+{%- set runtime = values.runtime or 'nodejs24' -%}
+{%- set interpreted = runtime in ['nodejs24', 'python313'] -%}
+{%- set auth = values.authType or 'jwt' -%}
+{%- set directLb = values.enableWaf and auth == 'none' -%}
+{%- set gateway = not directLb -%}
+{%- set gatewayQuota = gateway and values.enableThrottling and auth == 'api-key' -%}
+{%- set armorThrottle = values.enableWaf and values.enableThrottling and auth != 'api-key' -%}
+{%- set sql = values.enableDatabase and values.databaseType == 'sql' -%}
+{%- set nosql = values.enableDatabase and not sql -%}
+{%- set strategy = values.deploymentStrategy or 'canary' -%}
+{%- set region = values.gcpRegion or 'us-central1' -%}
+locals {
+  use_source_object = var.function_source_bucket != ""
+{%- if interpreted %}
+  use_placeholder   = !local.use_source_object && var.function_source_archive == ""
+
+  source_archive_path = var.function_source_archive != "" ? var.function_source_archive : one(data.archive_file.placeholder[*].output_path)
+  source_archive_hash = var.function_source_archive != "" ? filemd5(var.function_source_archive) : one(data.archive_file.placeholder[*].output_md5)
+{%- else %}
+
+  source_archive_path = var.function_source_archive
+  source_archive_hash = var.function_source_archive != "" ? filemd5(var.function_source_archive) : ""
+{%- endif %}
+{%- if values.enableThrottling %}
+
+  # The burst limit is the number of requests served at the same time:
+  # instances x requests per instance.
+  function_max_instances = min(var.function_max_instances, ceil(var.throttle_burst_limit / var.function_concurrency))
+{%- else %}
+
+  function_max_instances = var.function_max_instances
+{%- endif %}
+
+  function_environment = merge(
+    {
+      API_TYPE         = "${{ values.apiType or 'http' }}"
+      ENVIRONMENT      = var.environment
+      LOG_EXECUTION_ID = "true"
+      PROJECT_ID       = var.project_id
+    },
+{%- if values.enableCors %}
+    {
+      CORS_ALLOWED_ORIGINS = join(",", var.cors_allowed_origins)
+    },
+{%- endif %}
+{%- if auth == 'iam' %}
+    {
+      ALLOWED_CALLERS = join(",", var.iam_allowed_callers)
+    },
+{%- endif %}
+{%- if values.enableTracing %}
+    {
+      OTEL_SERVICE_NAME       = local.name
+      OTEL_TRACES_SAMPLER     = "parentbased_traceidratio"
+      OTEL_TRACES_SAMPLER_ARG = tostring(var.trace_sampling_ratio)
+    },
+{%- endif %}
+{%- if values.enableMetrics %}
+    {
+      CUSTOM_METRICS_ENABLED = "true"
+      CUSTOM_METRICS_PREFIX  = "custom.googleapis.com/${local.name}"
+    },
+{%- endif %}
+    local.data_environment,
+    var.function_environment,
+  )
+}
+{%- if interpreted %}
+
+# Placeholder handler, packaged so that the first apply works before a real
+# package exists.
+data "archive_file" "placeholder" {
+  count = local.use_placeholder ? 1 : 0
+
+  type        = "zip"
+  source_dir  = "${path.module}/placeholder/${{ 'nodejs' if runtime == 'nodejs24' else 'python' }}"
+  output_path = "${path.module}/build/function-placeholder.zip"
+}
+{%- endif %}
+
+# Bucket for the source archives Terraform uploads. Not created when the
+# package comes from an existing bucket.
+resource "google_storage_bucket" "source" {
+  count = local.use_source_object ? 0 : 1
+
+  project                     = var.project_id
+  name                        = "${local.name}-source-${local.bucket_suffix}"
+  location                    = var.region
+  uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
+  force_destroy               = true
+  labels                      = local.labels
+
+  # Archives are named after their content; old ones are not needed.
+  lifecycle_rule {
+    action {
+      type = "Delete"
+    }
+    condition {
+      age = 90
+    }
+  }
+
+  depends_on = [google_project_service.enabled]
+}
+
+# The object name contains the hash of the archive, so a changed package is a
+# new object and triggers a new build.
+resource "google_storage_bucket_object" "function_source" {
+  count = local.use_source_object ? 0 : 1
+
+  name   = "function-${local.source_archive_hash}.zip"
+  bucket = google_storage_bucket.source[0].name
+  source = local.source_archive_path
+}
+
+resource "google_cloudfunctions2_function" "api" {
+  project     = var.project_id
+  name        = local.name
+  location    = var.region
+  description = "${{ values.apiType or 'http' }} API of ${var.project_name} (${var.environment})"
+  labels      = local.labels
+
+  build_config {
+    runtime         = var.function_runtime
+    entry_point     = var.function_entry_point
+    service_account = module.build_service_account.service_account_id
+
+    source {
+      storage_source {
+        bucket = local.use_source_object ? var.function_source_bucket : google_storage_bucket.source[0].name
+        object = local.use_source_object ? var.function_source_object : google_storage_bucket_object.function_source[0].name
+      }
+    }
+  }
+
+  service_config {
+    available_memory                 = "${var.function_memory_mb}M"
+    available_cpu                    = var.function_cpu
+    timeout_seconds                  = var.function_timeout_seconds
+    min_instance_count               = var.function_min_instances
+    max_instance_count               = local.function_max_instances
+    max_instance_request_concurrency = var.function_concurrency
+    service_account_email            = module.function_service_account.service_account_email
+    environment_variables            = local.function_environment
+{%- if directLb %}
+
+    # Only the load balancer (and callers inside the project's network) can
+    # reach the function, so Cloud Armor sees every request.
+    ingress_settings = "ALLOW_INTERNAL_AND_GCLB"
+{%- else %}
+
+    # API Gateway calls the function from outside the project's network.
+    # Access is restricted with IAM instead: see the invoker binding below.
+    ingress_settings = "ALLOW_ALL"
+{%- endif %}
+{%- if strategy == 'all-at-once' %}
+
+    all_traffic_on_latest_revision = true
+{%- else %}
+
+    # A new revision does not take over the traffic split of the underlying
+    # Cloud Run service; the staged shift is described in
+    # docs/infrastructure.md.
+    all_traffic_on_latest_revision = false
+{%- endif %}
+{%- if values.enableCache %}
+
+    vpc_connector                 = google_vpc_access_connector.function.id
+    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+
+    secret_environment_variables {
+      key        = "REDIS_AUTH_STRING"
+      project_id = var.project_id
+      secret     = google_secret_manager_secret.cache_auth.secret_id
+      version    = "latest"
+    }
+{%- endif %}
+  }
+
+  depends_on = [
+    time_sleep.services_and_roles,
+{%- if values.enableCache %}
+    google_secret_manager_secret_version.cache_auth,
+    google_secret_manager_secret_iam_member.function_cache_auth,
+{%- endif %}
+  ]
+}
+{%- if directLb %}
+
+# The API is public by choice (no authentication was selected). Requests still
+# have to come through the load balancer because of the ingress setting.
+resource "google_cloud_run_service_iam_member" "public_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.api.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+{%- else %}
+
+# 2nd gen functions are Cloud Run services; invoking one needs run.invoker on
+# that service.
+resource "google_cloud_run_service_iam_member" "gateway_invoker" {
+  project  = var.project_id
+  location = var.region
+  service  = google_cloudfunctions2_function.api.name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${module.gateway_service_account.service_account_email}"
+}
+{%- endif %}

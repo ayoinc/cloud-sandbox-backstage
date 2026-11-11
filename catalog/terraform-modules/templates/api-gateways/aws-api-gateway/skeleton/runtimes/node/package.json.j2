@@ -1,0 +1,14 @@
+{
+  "name": ${{ values.apiName | dump }},
+  "version": ${{ (values.apiVersion or '1.0.0') | dump }},
+  "description": ${{ values.description | dump }},
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=${{ '22' if '22' in values.runtime else '24' }}"
+  },
+  "scripts": {
+    "test": "node --test \"tests/**/*.test.mjs\"",
+    "package": "bash scripts/package.sh"
+  }
+}

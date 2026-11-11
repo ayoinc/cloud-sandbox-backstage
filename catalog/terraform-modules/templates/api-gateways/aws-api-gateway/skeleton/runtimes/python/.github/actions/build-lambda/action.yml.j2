@@ -1,0 +1,27 @@
+name: Build Lambda package
+description: Lints and tests the function and writes build/lambda.zip
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v7
+      with:
+        python-version: '${{ '3.13' if '3.13' in values.runtime else '3.14' }}'
+        cache: pip
+        cache-dependency-path: requirements-dev.txt
+
+    - name: Install the test tools
+      shell: bash
+      run: python -m pip install --disable-pip-version-check -r requirements-dev.txt
+
+    - name: Lint
+      shell: bash
+      run: ruff check .
+
+    - name: Run unit tests
+      shell: bash
+      run: pytest
+
+    - name: Package the function
+      shell: bash
+      run: bash scripts/package.sh

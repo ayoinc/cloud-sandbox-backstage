@@ -1,0 +1,20 @@
+{
+  "values": {
+    "serviceName": "sample-grpc-service",
+    "description": "Sample gRPC service managing items",
+    "serviceVersion": "1.0.0",
+    "owner": "group:default/platform-team",
+    "enableUnary": true,
+    "enableServerStreaming": true,
+    "enableClientStreaming": true,
+    "enableBidirectional": true,
+    "enableAuth": true,
+    "enableMTLS": true,
+    "enableInterceptors": true,
+    "serviceMeshType": "istio",
+    "enableMetrics": true,
+    "enableTracing": true,
+    "enableHealthChecks": true,
+    "repoUrl": "github.com?owner=example-org&repo=sample-grpc-service"
+  }
+}

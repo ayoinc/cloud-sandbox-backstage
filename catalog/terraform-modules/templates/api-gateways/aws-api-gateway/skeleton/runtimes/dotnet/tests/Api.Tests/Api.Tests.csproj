@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- xUnit.net v3 test projects are executables. -->
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Api.Tests</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Amazon.Lambda.TestUtilities" Version="4.3.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.11.1" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="4.0.1" />
+    <!-- xUnit.net v3 without Microsoft.Testing.Platform: "dotnet test" runs
+         the tests through VSTest and xunit.runner.visualstudio. -->
+    <PackageReference Include="xunit.v3.mtp-off" Version="4.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Api/Api.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,25 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.serviceName | dump }}
+  description: ${{ values.description | dump }}
+  annotations:
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - azure
+    - api-management
+    - terraform
+  links:
+    - url: https://${{ values.serviceName }}.azure-api.net
+      title: Gateway (after deployment)
+      icon: dashboard
+{%- if values.enablePortal !== false %}
+    - url: https://${{ values.serviceName }}.developer.azure-api.net
+      title: Developer portal (after deployment)
+      icon: docs
+{%- endif %}
+spec:
+  type: infrastructure
+  lifecycle: production
+  owner: ${{ values.owner | dump }}

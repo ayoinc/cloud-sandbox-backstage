@@ -20,14 +20,25 @@ spec:
       required:
         - projectName
         - environment
+        - owner
         - gcpProjectId
       properties:
         projectName:
           title: Project Name
           type: string
-          description: Name for the project (lowercase, hyphens allowed)
-          pattern: '^[a-z0-9-]+$'
+          description: Name for the project, used as a prefix for resource names (lowercase letters, digits and hyphens, at most 16 characters)
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          maxLength: 16
           ui:autofocus: true
+        owner:
+          title: Owner
+          type: string
+          description: Team or user that owns this infrastructure
+          ui:field: OwnerPicker
+          ui:options:
+            allowedKinds:
+              - Group
+              - User
         environment:
           title: Environment
           type: string
@@ -39,7 +50,8 @@ spec:
         gcpProjectId:
           title: GCP Project ID
           type: string
-          description: Your GCP project ID
+          description: ID of the existing Google Cloud project the infrastructure is created in
+          pattern: '^[a-z][a-z0-9-]{4,28}[a-z0-9]$'
         region:
           title: GCP Region
           type: string
@@ -59,7 +71,8 @@ spec:
           title: VPC CIDR Block
           type: string
           default: '10.0.0.0/16'
-          description: Primary CIDR range for the VPC
+          description: Address range the subnet, the GKE pod and service ranges and the database peering range are carved from (prefix length 16 to 20)
+          pattern: '^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])/(1[6-9]|20)$'
 
     - title: Compute Configuration
       required:
@@ -77,19 +90,38 @@ spec:
             - GKE Standard
             - Managed Instance Group
           default: gke-autopilot
-        machineType:
-          title: Machine Type
-          type: string
-          default: e2-medium
-          description: GCE machine type (for GKE Standard or MIG)
-        minNodes:
-          title: Minimum Nodes
-          type: number
-          default: 2
-        maxNodes:
-          title: Maximum Nodes
-          type: number
-          default: 10
+      dependencies:
+        computeType:
+          oneOf:
+            - properties:
+                computeType:
+                  enum:
+                    - gke-autopilot
+            - properties:
+                computeType:
+                  enum:
+                    - gke-standard
+                    - mig
+                machineType:
+                  title: Machine Type
+                  type: string
+                  default: e2-medium
+                  description: Compute Engine machine type of the GKE nodes or the instances
+                  pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)+$'
+                minNodes:
+                  title: Minimum Nodes
+                  type: integer
+                  default: 2
+                  minimum: 1
+                  maximum: 100
+                  description: Lower bound of the autoscaler (GKE nodes or instances)
+                maxNodes:
+                  title: Maximum Nodes
+                  type: integer
+                  default: 10
+                  minimum: 1
+                  maximum: 100
+                  description: Upper bound of the autoscaler (GKE nodes or instances)
 
     - title: Database Configuration
       required:
@@ -110,6 +142,7 @@ spec:
           type: string
           default: db-custom-2-4096
           description: Cloud SQL machine tier
+          pattern: '^db-[a-z0-9]+(-[a-z0-9]+)*$'
         highAvailability:
           title: Enable High Availability
           type: boolean
@@ -146,22 +179,25 @@ spec:
       action: fetch:template
       input:
         url: ./skeleton
-        templateFileExtension: '.j2'
         values:
           projectName: ${{ parameters.projectName }}
           environment: ${{ parameters.environment }}
           gcpProjectId: ${{ parameters.gcpProjectId }}
-          region: ${{ parameters.region }}
-          vpcCidr: ${{ parameters.vpcCidr }}
+          region: ${{ parameters.region or 'us-central1' }}
+          vpcCidr: ${{ parameters.vpcCidr or '10.0.0.0/16' }}
           computeType: ${{ parameters.computeType }}
-          machineType: ${{ parameters.machineType }}
-          minNodes: ${{ parameters.minNodes }}
-          maxNodes: ${{ parameters.maxNodes }}
+          machineType: ${{ parameters.machineType or 'e2-medium' }}
+          minNodes: ${{ parameters.minNodes or 2 }}
+          maxNodes: ${{ parameters.maxNodes or 10 }}
           databaseEngine: ${{ parameters.databaseEngine }}
-          databaseTier: ${{ parameters.databaseTier }}
-          highAvailability: ${{ parameters.highAvailability }}
-          enableCloudArmor: ${{ parameters.enableCloudArmor }}
-          enableCloudCdn: ${{ parameters.enableCloudCdn }}
+          databaseTier: ${{ parameters.databaseTier or 'db-custom-2-4096' }}
+          highAvailability: ${{ parameters.highAvailability if parameters.highAvailability is defined else true }}
+          enableCloudArmor: ${{ parameters.enableCloudArmor if parameters.enableCloudArmor is defined else true }}
+          enableCloudCdn: ${{ parameters.enableCloudCdn if parameters.enableCloudCdn is defined else false }}
+          owner: ${{ parameters.owner }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+          # Commit of github.com/ayoinc/cloud-sandbox-backstage the Terraform modules are taken from
+          moduleRef: 83f9ff7222d2731d5cc0da4ab1fc1f7c46da3693
 
     - id: publish
       name: Publish to GitHub

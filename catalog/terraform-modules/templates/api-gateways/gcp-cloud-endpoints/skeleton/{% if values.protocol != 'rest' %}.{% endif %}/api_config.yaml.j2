@@ -1,0 +1,107 @@
+{%- set private = values.backendType == 'compute-engine' or values.backendType == 'gke' -%}
+{%- set authType = values.authType if values.enableAuth else 'none' -%}
+{%- set apiKey = values.enableQuotas or authType == 'apikey' -%}
+{%- set tokenProvider = { 'jwt': 'jwt', 'firebase': 'firebase', 'oauth2': 'google_id_token' }[authType] -%}
+{%- set package = (values.apiName | replace('-', '_')) + '.v1' -%}
+# Cloud Endpoints configuration of the gRPC services in ${{ values.grpcSpec }}.
+# Terraform deploys it together with the compiled descriptor and fills in the
+# dollar-brace placeholders (host, backend_address and so on) from
+# local.api_definition_values in infra/main.tf.
+type: google.api.Service
+config_version: 3
+name: "${host}"
+title: ${{ values.apiName }}
+documentation:
+  summary: ${{ values.description | replace('${', '$${') | replace('%{', '%%{') | dump }}
+
+apis:
+  - name: ${{ package }}.Health
+  - name: ${{ package }}.Items
+
+# Whether a call needs an API key of a project that has enabled this API.
+usage:
+  rules:
+    - selector: "*"
+      allow_unregistered_calls: ${{ 'false' if apiKey else 'true' }}
+{%- if apiKey %}
+    - selector: ${{ package }}.Health.Check
+      allow_unregistered_calls: true
+{%- endif %}
+{%- if tokenProvider %}
+
+authentication:
+  providers:
+{%- if authType == 'jwt' %}
+    # Tokens of the identity provider configured with the jwt_* Terraform variables.
+    - id: jwt
+      issuer: "${jwt_issuer}"
+      jwks_uri: "${jwt_jwks_uri}"
+      audiences: "${jwt_audiences}"
+{%- endif %}
+{%- if authType == 'firebase' %}
+    # Firebase Authentication ID tokens of the project.
+    - id: firebase
+      issuer: "https://securetoken.google.com/${project_id}"
+      jwks_uri: "https://www.googleapis.com/service_accounts/v1/metadata/x509/securetoken@system.gserviceaccount.com"
+      audiences: "${project_id}"
+{%- endif %}
+{%- if authType == 'oauth2' %}
+    # Google ID tokens issued to the OAuth clients in the oauth_client_ids Terraform variable.
+    - id: google_id_token
+      issuer: "https://accounts.google.com"
+      jwks_uri: "https://www.googleapis.com/oauth2/v3/certs"
+      audiences: "${oauth_client_ids}"
+{%- endif %}
+  rules:
+    - selector: "*"
+      requirements:
+        - provider_id: ${{ tokenProvider }}
+    - selector: ${{ package }}.Health.Check
+      allow_without_credential: true
+{%- endif %}
+
+backend:
+  rules:
+    - selector: "*"
+      address: "${backend_address}"
+{%- if private %}
+      # The backend is reached by its network address and gets no ID token.
+      disable_auth: true
+{%- else %}
+      # The gateway adds an ID token of its service account for this audience.
+      jwt_audience: "${backend_jwt_audience}"
+{%- endif %}
+{%- if values.protocol == 'grpc-rest' %}
+
+# JSON over HTTP for the gRPC methods. The gateway converts the requests to
+# gRPC before it forwards them.
+http:
+  rules:
+    - selector: ${{ package }}.Health.Check
+      get: /healthz
+    - selector: ${{ package }}.Items.ListItems
+      get: /v1/items
+    - selector: ${{ package }}.Items.GetItem
+      get: "/v1/items/{item_id}"
+{%- endif %}
+{%- if values.enableQuotas %}
+
+# Each consumer project, identified by its API key, may send this many calls
+# per minute to the methods that have a metric cost.
+metrics:
+  - name: requests
+    display_name: Requests
+    value_type: INT64
+    metric_kind: DELTA
+quota:
+  limits:
+    - name: requests-per-minute
+      metric: requests
+      unit: "1/min/{project}"
+      values:
+        STANDARD: ${quota_limit}
+  metric_rules:
+    - selector: ${{ package }}.Items.*
+      metric_costs:
+        requests: 1
+{%- endif %}

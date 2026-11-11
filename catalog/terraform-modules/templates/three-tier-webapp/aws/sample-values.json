@@ -1,0 +1,19 @@
+{
+  "values": {
+    "projectName": "shop",
+    "environment": "dev",
+    "owner": "group:default/platform-team",
+    "region": "eu-west-1",
+    "vpcCidr": "10.20.0.0/16",
+    "computeType": "ecs-fargate",
+    "instanceType": "t3.medium",
+    "minCapacity": 2,
+    "maxCapacity": 6,
+    "databaseEngine": "postgres",
+    "databaseInstanceClass": "db.t3.medium",
+    "multiAz": true,
+    "enableWaf": true,
+    "enableCloudfront": false,
+    "repoUrl": "github.com?owner=example-org&repo=shop-infrastructure"
+  }
+}

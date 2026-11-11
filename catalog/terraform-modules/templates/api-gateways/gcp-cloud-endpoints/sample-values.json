@@ -1,0 +1,23 @@
+{
+  "values": {
+    "apiName": "product-api",
+    "description": "Product catalogue API: the storefront's \"source of truth\" for partner integrations",
+    "projectId": "acme-storefront-prod",
+    "protocol": "rest",
+    "openApiSpec": "./openapi.yaml",
+    "grpcSpec": "./service.proto",
+    "backendType": "cloud-run",
+    "backendUrl": "https://product-service-7hq2xkd3la-ew.a.run.app",
+    "enableAuth": true,
+    "authType": "jwt",
+    "enableCORS": true,
+    "enableMonitoring": true,
+    "enableLogging": true,
+    "logLevel": "INFO",
+    "enableQuotas": true,
+    "quotaLimit": 1000,
+    "enablePortal": true,
+    "owner": "group:default/platform-team",
+    "repoUrl": "github.com?owner=example-org&repo=product-api-gateway"
+  }
+}

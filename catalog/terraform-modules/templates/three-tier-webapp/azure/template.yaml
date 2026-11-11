@@ -3,7 +3,7 @@ kind: Template
 metadata:
   name: azure-three-tier-webapp
   title: Azure 3-Tier Web Application
-  description: Production-ready 3-tier architecture with Application Gateway, AKS/VMSS, and Azure SQL/PostgreSQL
+  description: Production-ready 3-tier architecture with Application Gateway, AKS/VMSS/Container Apps, and Azure SQL/PostgreSQL/Cosmos DB
   tags:
     - azure
     - three-tier
@@ -20,21 +20,41 @@ spec:
       required:
         - projectName
         - environment
+        - owner
       properties:
         projectName:
           title: Project Name
           type: string
-          pattern: '^[a-z0-9-]+$'
+          description: Name for the project, used as a prefix for resource names (lowercase letters, digits and hyphens, at most 16 characters)
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          maxLength: 16
           ui:autofocus: true
+        owner:
+          title: Owner
+          type: string
+          description: Team or user that owns this infrastructure
+          ui:field: OwnerPicker
+          ui:options:
+            allowedKinds:
+              - Group
+              - User
         environment:
           title: Environment
           type: string
-          enum: [dev, staging, production]
+          enum:
+            - dev
+            - staging
+            - production
           default: dev
         location:
           title: Azure Region
           type: string
-          enum: [eastus, westus2, westeurope, northeurope, southeastasia]
+          enum:
+            - eastus
+            - westus2
+            - westeurope
+            - northeurope
+            - southeastasia
           default: eastus
 
     - title: Network Configuration
@@ -43,6 +63,9 @@ spec:
           title: VNet Address Space
           type: string
           default: '10.0.0.0/16'
+          description: Private address space of the virtual network in CIDR notation (inside 10.0.0.0/8, 172.16.0.0/12 or 192.168.0.0/16), /18 or larger
+          pattern: '^(10\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])/([89]|1[0-8])|172\.(1[6-9]|2[0-9]|3[01])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])/1[2-8]|192\.168\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])/1[6-8])$'
+          maxLength: 18
 
     - title: Compute Configuration
       required:
@@ -51,21 +74,36 @@ spec:
         computeType:
           title: Compute Type
           type: string
-          enum: [aks, vmss, container-apps]
-          enumNames: [Azure Kubernetes Service, VM Scale Set, Container Apps]
+          enum:
+            - aks
+            - vmss
+            - container-apps
+          enumNames:
+            - Azure Kubernetes Service
+            - VM Scale Set
+            - Container Apps
           default: aks
         vmSize:
           title: VM Size
           type: string
           default: Standard_D2s_v3
+          description: Size of the AKS nodes or the scale set instances (not used by Container Apps)
+          pattern: '^[A-Za-z][A-Za-z0-9_-]*$'
+          maxLength: 64
         minNodes:
           title: Minimum Nodes
-          type: number
+          type: integer
           default: 2
+          minimum: 1
+          maximum: 100
+          description: Smallest number of AKS nodes, scale set instances or Container App replicas
         maxNodes:
           title: Maximum Nodes
-          type: number
+          type: integer
           default: 10
+          minimum: 1
+          maximum: 100
+          description: Largest number of AKS nodes, scale set instances or Container App replicas. The minimum is used when this is below it.
 
     - title: Database Configuration
       required:
@@ -74,13 +112,55 @@ spec:
         databaseType:
           title: Database Type
           type: string
-          enum: [sql-database, postgresql, cosmos-db]
-          enumNames: [Azure SQL Database, PostgreSQL Flexible Server, Cosmos DB]
+          enum:
+            - sql-database
+            - postgresql
+            - cosmos-db
+          enumNames:
+            - Azure SQL Database
+            - PostgreSQL Flexible Server
+            - Cosmos DB
           default: postgresql
-        databaseSku:
-          title: Database SKU
-          type: string
-          default: GP_Gen5_2
+      dependencies:
+        databaseType:
+          oneOf:
+            - properties:
+                databaseType:
+                  enum:
+                    - sql-database
+                databaseSku:
+                  title: Database SKU
+                  type: string
+                  default: GP_Gen5_2
+                  description: Azure SQL Database SKU, for example GP_Gen5_2 (General Purpose, 2 vCores), GP_S_Gen5_1 (serverless), S0 or Basic
+                  pattern: '^(Basic|S(0|1|2|3|4|6|7|9|12)|P(1|2|4|6|11|15)|GP_S_Gen5_[0-9]{1,2}|(GP|BC)_Gen5_[0-9]{1,3})$'
+                  maxLength: 64
+            - properties:
+                databaseType:
+                  enum:
+                    - postgresql
+                databaseSku:
+                  title: Database SKU
+                  type: string
+                  default: GP_Standard_D2s_v3
+                  description: PostgreSQL flexible server SKU, for example GP_Standard_D2s_v3 (General Purpose), B_Standard_B1ms (Burstable) or MO_Standard_E4s_v3 (Memory Optimized)
+                  pattern: '^(B|GP|MO)_Standard_[A-Za-z0-9]+(_v[0-9]+)?$'
+                  maxLength: 64
+            - properties:
+                databaseType:
+                  enum:
+                    - cosmos-db
+                databaseSku:
+                  title: Capacity Mode
+                  type: string
+                  enum:
+                    - serverless
+                    - autoscale
+                  enumNames:
+                    - Serverless (billed per request)
+                    - Provisioned throughput with autoscale
+                  default: serverless
+                  description: Cosmos DB has no SKU. Choose how its capacity is billed.
 
     - title: Security & CDN
       properties:
@@ -88,10 +168,12 @@ spec:
           title: Enable WAF
           type: boolean
           default: true
+          description: Run the Application Gateway on the WAF_v2 SKU with the OWASP rule set in Prevention mode
         enableFrontDoor:
           title: Enable Front Door
           type: boolean
           default: false
+          description: Put Azure Front Door in front of the Application Gateway for global distribution
 
     - title: Repository Configuration
       required:
@@ -102,7 +184,8 @@ spec:
           type: string
           ui:field: RepoUrlPicker
           ui:options:
-            allowedHosts: [github.com]
+            allowedHosts:
+              - github.com
 
   steps:
     - id: fetch
@@ -113,16 +196,21 @@ spec:
         values:
           projectName: ${{ parameters.projectName }}
           environment: ${{ parameters.environment }}
-          location: ${{ parameters.location }}
-          vnetAddressSpace: ${{ parameters.vnetAddressSpace }}
-          computeType: ${{ parameters.computeType }}
-          vmSize: ${{ parameters.vmSize }}
-          minNodes: ${{ parameters.minNodes }}
-          maxNodes: ${{ parameters.maxNodes }}
-          databaseType: ${{ parameters.databaseType }}
-          databaseSku: ${{ parameters.databaseSku }}
-          enableWaf: ${{ parameters.enableWaf }}
-          enableFrontDoor: ${{ parameters.enableFrontDoor }}
+          location: ${{ parameters.location or 'eastus' }}
+          vnetAddressSpace: ${{ parameters.vnetAddressSpace or '10.0.0.0/16' }}
+          computeType: ${{ parameters.computeType or 'aks' }}
+          vmSize: ${{ parameters.vmSize or 'Standard_D2s_v3' }}
+          minNodes: ${{ parameters.minNodes or 2 }}
+          maxNodes: ${{ parameters.maxNodes or 10 }}
+          databaseType: ${{ parameters.databaseType or 'postgresql' }}
+          # The default SKU depends on the database type
+          databaseSku: ${{ parameters.databaseSku or ('GP_Gen5_2' if parameters.databaseType == 'sql-database' else ('serverless' if parameters.databaseType == 'cosmos-db' else 'GP_Standard_D2s_v3')) }}
+          enableWaf: ${{ parameters.enableWaf if parameters.enableWaf is defined else true }}
+          enableFrontDoor: ${{ parameters.enableFrontDoor if parameters.enableFrontDoor is defined else false }}
+          owner: ${{ parameters.owner }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+          # Commit of github.com/ayoinc/cloud-sandbox-backstage the Terraform modules are taken from
+          moduleRef: 83f9ff7222d2731d5cc0da4ab1fc1f7c46da3693
 
     - id: publish
       name: Publish to GitHub

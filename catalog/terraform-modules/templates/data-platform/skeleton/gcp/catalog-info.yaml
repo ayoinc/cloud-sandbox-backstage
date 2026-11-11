@@ -1,0 +1,23 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.destination.repo }}
+  description: Google Cloud data platform for ${{ values.projectName }} (${{ values.environment }})
+  annotations:
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - terraform
+    - gcp
+    - data-platform
+  links:
+    - url: https://console.cloud.google.com/storage/browser?project=${{ values.gcpProjectId }}
+      title: Cloud Storage in the Google Cloud console
+      icon: dashboard
+    - url: https://console.cloud.google.com/bigquery?project=${{ values.gcpProjectId }}
+      title: BigQuery in the Google Cloud console
+      icon: dashboard
+spec:
+  type: infrastructure
+  lifecycle: ${{ 'production' if values.environment == 'production' else 'experimental' }}
+  owner: ${{ values.owner | dump }}

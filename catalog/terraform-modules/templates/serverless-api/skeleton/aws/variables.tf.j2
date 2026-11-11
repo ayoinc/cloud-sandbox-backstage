@@ -1,0 +1,275 @@
+{%- set runtime = values.runtime or 'nodejs24' -%}
+{%- set apiType = 'rest' if values.apiType == 'rest' else ('graphql' if values.apiType == 'graphql' else 'http') -%}
+{%- set authType = values.authType or 'none' -%}
+{%- set interpreted = runtime == 'nodejs24' or runtime == 'python313' -%}
+{%- set sql = values.enableDatabase and values.databaseType == 'sql' -%}
+{%- set nosql = values.enableDatabase and not sql -%}
+{%- set vpc = sql or values.enableCache -%}
+{%- set keyAuthorizer = apiType == 'http' and authType == 'api-key' -%}
+{%- set oidcAuthorizer = apiType == 'rest' and authType == 'oauth2' -%}
+{%- set graphqlKey = apiType == 'graphql' and (authType == 'api-key' or authType == 'none') -%}
+{%- set cloudfront = apiType == 'http' and values.enableWaf -%}
+{%- set waf = values.enableWaf or (apiType == 'graphql' and values.enableThrottling) -%}
+{%- set gradual = values.deploymentStrategy == 'canary' or values.deploymentStrategy == 'linear' -%}
+{%- set runtimes = {'nodejs24': 'nodejs24.x', 'python313': 'python3.13', 'go126': 'provided.al2023', 'dotnet10': 'dotnet10', 'java21': 'java21'} -%}
+{%- set handlers = {'nodejs24': 'index.handler', 'python313': 'index.handler', 'go126': 'bootstrap', 'dotnet10': 'Api::Api.Function::FunctionHandler', 'java21': 'example.Handler::handleRequest'} -%}
+variable "project_name" {
+  description = "Name of the API. Resource names start with <project_name>-<environment>."
+  type        = string
+  default     = "${{ values.projectName }}"
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9-]*[a-z0-9]$", var.project_name)) && length(var.project_name) <= 24
+    error_message = "project_name must be at most 24 lowercase letters, digits and hyphens, start with a letter and end with a letter or digit."
+  }
+}
+
+variable "environment" {
+  description = "Deployment environment."
+  type        = string
+  default     = "${{ values.environment or 'dev' }}"
+
+  validation {
+    condition     = contains(["dev", "staging", "production"], var.environment)
+    error_message = "environment must be dev, staging or production."
+  }
+}
+
+variable "aws_region" {
+  description = "Region the resources are created in."
+  type        = string
+  default     = "${{ values.awsRegion or 'us-east-1' }}"
+}
+
+variable "function_runtime" {
+  description = "Lambda runtime identifier of the function."
+  type        = string
+  default     = "${{ runtimes[runtime] }}"
+}
+
+variable "function_handler" {
+  description = "Entry point of the function inside the deployment package."
+  type        = string
+  default     = "${{ handlers[runtime] }}"
+}
+
+variable "function_architecture" {
+  description = "Instruction set the deployment package is built for."
+  type        = string
+  default     = "x86_64"
+
+  validation {
+    condition     = contains(["x86_64", "arm64"], var.function_architecture)
+    error_message = "function_architecture must be x86_64 or arm64."
+  }
+}
+
+variable "memory_size" {
+  description = "Memory of the function in MB."
+  type        = number
+  default     = ${{ values.memorySize or 256 }}
+
+  validation {
+    condition     = var.memory_size >= 128 && var.memory_size <= 10240
+    error_message = "memory_size must be between 128 and 10240 MB."
+  }
+}
+
+variable "timeout" {
+  description = "Timeout of the function in seconds.{% if apiType != 'graphql' %} API Gateway stops waiting after ${{ '29' if apiType == 'rest' else '30' }} seconds whatever this value is.{% endif %}"
+  type        = number
+  default     = ${{ values.timeout or 30 }}
+
+  validation {
+    condition     = var.timeout >= 1 && var.timeout <= 900
+    error_message = "timeout must be between 1 and 900 seconds."
+  }
+}
+
+variable "deployment_package" {
+  description = "Path to the zip file with the function code.{% if interpreted %} When this and deployment_package_s3 are both null the placeholder handler in placeholder/ is deployed.{% else %} Required unless deployment_package_s3 is set: the ${{ runtime }} runtime has no placeholder handler.{% endif %}"
+  type        = string
+  default     = null
+}
+
+variable "deployment_package_s3" {
+  description = "Location of the zip file with the function code in S3. Use a new key or pass object_version for every build so that a change is detected."
+  type = object({
+    bucket         = string
+    key            = string
+    object_version = optional(string)
+  })
+  default = null
+
+  validation {
+    condition     = var.deployment_package == null || var.deployment_package_s3 == null
+    error_message = "Set only one of deployment_package and deployment_package_s3."
+  }
+  {%- if not interpreted %}
+
+  validation {
+    condition     = var.deployment_package != null || var.deployment_package_s3 != null
+    error_message = "The ${{ runtime }} runtime needs a built package: set deployment_package (path to a zip file) or deployment_package_s3 (bucket and key of an uploaded zip file). See docs/infrastructure.md, section \"Function package\"."
+  }
+  {%- endif %}
+}
+
+variable "function_environment" {
+  description = "Additional environment variables for the function. Do not put secrets here: they end up in the Terraform state."
+  type        = map(string)
+  default     = {}
+}
+
+variable "log_retention_days" {
+  description = "Days to keep the logs of the function{% if apiType != 'rest' %} and the API{% else %} and, when enabled, the access logs of the API{% endif %}."
+  type        = number
+  default     = ${{ values.logRetentionDays or 30 }}
+
+  validation {
+    condition     = contains([1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1096, 1827, 2192, 2557, 2922, 3288, 3653], var.log_retention_days)
+    error_message = "log_retention_days must be a retention period that CloudWatch Logs supports (for example 7, 14, 30, 60, 90, 180 or 365)."
+  }
+}
+{%- if values.enableCors and apiType == 'http' %}
+
+variable "cors_allowed_origins" {
+  description = "Origins that browsers may call the API from."
+  type        = list(string)
+  default     = ["*"]
+}
+{%- endif %}
+{%- if values.enableCors and apiType == 'rest' %}
+
+variable "cors_allowed_origin" {
+  description = "Origin that browsers may call the API from. A REST API answers with one fixed Access-Control-Allow-Origin value."
+  type        = string
+  default     = "*"
+}
+{%- endif %}
+{%- if values.enableThrottling %}
+
+variable "throttle_rate_limit" {
+  description = "{% if apiType == 'graphql' %}Requests per second that one client IP address may send, averaged over five minutes.{% else %}Steady-state requests per second the API accepts.{% endif %}"
+  type        = number
+  default     = ${{ values.throttleRateLimit or 1000 }}
+
+  validation {
+    condition     = var.throttle_rate_limit >= 1
+    error_message = "throttle_rate_limit must be at least 1."
+  }
+}
+{%- endif %}
+{%- if values.enableThrottling and apiType != 'graphql' %}
+
+variable "throttle_burst_limit" {
+  description = "Requests the API accepts in a burst above the steady-state rate."
+  type        = number
+  default     = ${{ values.throttleBurstLimit or 2000 }}
+
+  validation {
+    condition     = var.throttle_burst_limit >= 1
+    error_message = "throttle_burst_limit must be at least 1."
+  }
+}
+{%- endif %}
+{%- if authType == 'jwt' %}
+
+variable "allow_self_sign_up" {
+  description = "Let users register in the Cognito user pool themselves. When false only administrators create users."
+  type        = bool
+  default     = false
+}
+{%- endif %}
+{%- if authType == 'oauth2' %}
+
+variable "oauth2_issuer" {
+  description = "Issuer URL of the OpenID Connect identity provider, exactly as it appears in the iss claim of its tokens."
+  type        = string
+
+  validation {
+    condition     = startswith(var.oauth2_issuer, "https://")
+    error_message = "oauth2_issuer must be an https:// URL."
+  }
+}
+
+variable "oauth2_audience" {
+  description = "Audience (aud claim) that tokens must carry to be accepted by the API."
+  type        = string
+
+  validation {
+    condition     = length(var.oauth2_audience) > 0
+    error_message = "oauth2_audience must not be empty."
+  }
+}
+{%- endif %}
+{%- if apiType == 'rest' %}
+
+variable "api_access_logging" {
+  description = "Write access logs of the REST API to CloudWatch Logs. Needs the account-level API Gateway CloudWatch Logs role, which this configuration does not manage."
+  type        = bool
+  default     = false
+}
+{%- endif %}
+{%- if vpc %}
+
+variable "vpc_cidr" {
+  description = "IPv4 range of the VPC as a /16 block. The subnets are /24 blocks inside it."
+  type        = string
+  default     = "10.0.0.0/16"
+
+  validation {
+    condition     = can(cidrhost(var.vpc_cidr, 0)) && endswith(var.vpc_cidr, "/16")
+    error_message = "vpc_cidr must be a valid /16 IPv4 CIDR block."
+  }
+}
+{%- endif %}
+{%- if sql %}
+
+variable "database_name" {
+  description = "Name of the database created in the Aurora cluster."
+  type        = string
+  default     = "app"
+}
+
+variable "database_min_capacity" {
+  description = "Minimum Aurora capacity units of the cluster. 0 lets an idle cluster pause."
+  type        = number
+  default     = 0.5
+}
+
+variable "database_max_capacity" {
+  description = "Maximum Aurora capacity units of the cluster."
+  type        = number
+  default     = 2
+}
+{%- endif %}
+{%- if values.enableCache %}
+
+variable "cache_node_type" {
+  description = "Node type of the ElastiCache replication group."
+  type        = string
+  default     = "cache.t3.micro"
+}
+{%- endif %}
+{%- if values.enableAlarms %}
+
+variable "alarm_email" {
+  description = "Address that receives alarm notifications. The recipient has to confirm the subscription. null creates the topic without a subscription."
+  type        = string
+  default     = null
+}
+
+variable "alarm_latency_threshold_ms" {
+  description = "Average API latency in milliseconds over five minutes that raises the latency alarm."
+  type        = number
+  default     = 2000
+}
+{%- endif %}
+{%- if gradual %}
+
+variable "deployment_config_name" {
+  description = "CodeDeploy deployment configuration that moves traffic to a new function version."
+  type        = string
+  default     = "${{ 'CodeDeployDefault.LambdaLinear10PercentEvery1Minute' if values.deploymentStrategy == 'linear' else 'CodeDeployDefault.LambdaCanary10Percent5Minutes' }}"
+}
+{%- endif %}

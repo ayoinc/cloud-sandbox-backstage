@@ -1,0 +1,82 @@
+{%- set private = values.backendType == 'compute-engine' or values.backendType == 'gke' -%}
+locals {
+  gateway_name = "${var.api_name}-gateway"
+
+  # Start-up flags of the Extensible Service Proxy.
+  espv2_args = concat(
+{%- if values.enableCORS %}
+    [
+      "--cors_preset=basic",
+      "--cors_allow_origin=${var.cors_allow_origin}",
+      "--cors_allow_headers=${var.cors_allow_headers}",
+    ],
+{%- endif %}
+    var.log_level == "DEBUG" ? ["--enable_debug"] : [],
+    var.espv2_extra_args,
+  )
+}
+
+# Identity the gateway runs as. It reads the service configuration, reports
+# requests to Service Control and writes traces
+{%- if not private %}, and calls the backend with an ID token{% endif %}.
+module "gateway_service_account" {
+  source = "git::https://github.com/ayoinc/cloud-sandbox-backstage.git//catalog/terraform-modules/gcp/resources/core/service-account?ref=${{ values.moduleRef }}"
+
+  project_name = var.api_name
+  project_id   = var.project_id
+  environment  = var.environment
+  account_id   = "${substr(var.api_name, 0, 22)}-gateway"
+  display_name = "ESPv2 gateway of ${var.api_name}"
+  description  = "Runs the Cloud Endpoints gateway of ${local.service_name}."
+
+  project_roles = [
+    "roles/cloudtrace.agent",
+    "roles/servicemanagement.serviceController",
+{%- if values.backendType == 'cloud-run' %}
+    "roles/run.invoker",
+{%- endif %}
+{%- if values.backendType == 'serverless' %}
+    "roles/cloudfunctions.invoker",
+    "roles/run.invoker",
+{%- endif %}
+  ]
+}
+
+# ESPv2 on Cloud Run. It loads the latest configuration of the Endpoints
+# service when an instance starts and enforces it on every request.
+module "gateway" {
+  source = "git::https://github.com/ayoinc/cloud-sandbox-backstage.git//catalog/terraform-modules/gcp/resources/compute/cloud-run?ref=${{ values.moduleRef }}"
+
+  project_name = var.api_name
+  project_id   = var.project_id
+  environment  = var.environment
+  region       = var.region
+
+  service_name          = local.gateway_name
+  description           = "ESPv2 gateway of ${local.service_name}"
+  image                 = var.gateway_image
+  service_account_email = module.gateway_service_account.service_account_email
+  min_instance_count    = var.gateway_min_instances
+  max_instance_count    = var.gateway_max_instances
+
+  # ESPv2 authenticates the callers itself, so Cloud Run lets every request through to it.
+  allow_unauthenticated = true
+
+  # ESPv2_ARGS is only set when there are flags. It starts with ^++^ to use ++
+  # as the separator, because flag values contain commas.
+  env_vars = merge(
+    { ENDPOINTS_SERVICE_NAME = google_endpoints_service.api.service_name },
+    { for flags in [join("++", local.espv2_args)] : "ESPv2_ARGS" => "^++^${flags}" if flags != "" },
+  )
+{%- if private %}
+
+  vpc_access_connector = var.vpc_connector
+  vpc_access_egress    = var.vpc_egress
+{%- endif %}
+
+  # The proxy fails to start until its service is enabled and its account may read the configuration.
+  depends_on = [
+    google_project_service.api,
+    module.gateway_service_account,
+  ]
+}

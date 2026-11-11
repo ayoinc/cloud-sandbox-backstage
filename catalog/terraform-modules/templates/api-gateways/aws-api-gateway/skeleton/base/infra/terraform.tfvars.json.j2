@@ -1,0 +1,22 @@
+{
+  "api_name": ${{ values.apiName | dump }},
+  "description": ${{ values.description | dump }},
+  "api_version": ${{ values.apiVersion | default('1.0.0', true) | dump }},
+  "aws_region": ${{ values.awsRegion | default('us-east-1', true) | dump }},
+  "enable_auth": ${{ values.enableAuth | default(true) | dump }},
+  "auth_type": ${{ values.authType | default('jwt', true) | dump }},
+  "jwt_issuer": ${{ values.jwtIssuer | default('', true) | dump }},
+  "jwt_audience": ${{ values.jwtAudience | default('', true) | dump }},
+  "enable_waf": ${{ values.enableWAF | default(true) | dump }},
+  "enable_rate_limiting": ${{ values.rateLimiting | default(true) | dump }},
+  "requests_per_second": ${{ values.requestsPerSecond | default(100, true) | dump }},
+  "lambda_runtime": ${{ values.runtime | default('nodejs24.x', true) | dump }},
+  "lambda_handler": {% if 'python' in values.runtime %}"handler.handler"{% elif 'java' in values.runtime %}"com.example.api.Handler::handleRequest"{% elif 'dotnet' in values.runtime %}"Api::Api.Function::FunctionHandler"{% else %}"index.handler"{% endif %},
+  "lambda_memory_size": ${{ values.memorySize | default(512, true) | dump }},
+  "lambda_timeout": ${{ values.timeout | default(30, true) | dump }},
+  "enable_crud": ${{ values.enableCRUD | default(true) | dump }},
+  "endpoints": ${{ values.endpoints | default([], true) | dump }},
+  "enable_monitoring": ${{ values.enableMonitoring | default(true) | dump }},
+  "enable_xray": ${{ values.enableXRay | default(true) | dump }},
+  "log_retention_days": ${{ values.logRetention | default(30, true) | dump }}
+}

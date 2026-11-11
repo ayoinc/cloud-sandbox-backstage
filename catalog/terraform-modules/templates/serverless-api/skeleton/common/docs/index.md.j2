@@ -1,0 +1,55 @@
+# ${{ values.projectName }} serverless API
+
+Infrastructure for a serverless API on
+{%- if values.cloudProvider == 'aws' %} Amazon Web Services
+{%- elif values.cloudProvider == 'azure' %} Microsoft Azure
+{%- else %} Google Cloud
+{%- endif %}, managed with Terraform.
+
+## Selected options
+
+| Option              | Value |
+| ------------------- | ----- |
+| Environment         | `${{ values.environment }}` |
+| Cloud provider      | `${{ values.cloudProvider }}` |
+| Region              | `${{ values.awsRegion if values.cloudProvider == 'aws' else (values.azureRegion if values.cloudProvider == 'azure' else values.gcpRegion) }}` |
+| Runtime             | `${{ values.runtime }}` |
+| Memory              | ${{ values.memorySize }} MB |
+| Timeout             | ${{ values.timeout }} s |
+| API type            | `${{ values.apiType }}` |
+| CORS                | ${{ 'enabled' if values.enableCors else 'disabled' }} |
+| Throttling          | {% if values.enableThrottling %}${{ values.throttleRateLimit }} requests/s, burst ${{ values.throttleBurstLimit }}{% else %}disabled{% endif %} |
+| Authentication      | `${{ values.authType }}` |
+| WAF                 | ${{ 'enabled' if values.enableWaf else 'disabled' }} |
+| Database            | {% if values.enableDatabase %}`${{ values.databaseType }}`{% else %}none{% endif %} |
+| Cache               | ${{ 'enabled' if values.enableCache else 'disabled' }} |
+| Object storage      | ${{ 'enabled' if values.enableStorage else 'disabled' }} |
+| Tracing             | ${{ 'enabled' if values.enableTracing else 'disabled' }} |
+| Custom metrics      | ${{ 'enabled' if values.enableMetrics else 'disabled' }} |
+| Alarms              | ${{ 'enabled' if values.enableAlarms else 'disabled' }} |
+| Log retention       | ${{ values.logRetentionDays }} days |
+| Deployment pipeline | ${{ 'included' if values.enableCicd else 'not included' }} |
+| Deployment strategy | `${{ values.deploymentStrategy }}` |
+
+What each option provisions, the inputs of the configuration and its outputs
+are described in [Infrastructure](infrastructure.md).
+
+## Pipeline
+
+Every push and pull request runs the `CI` workflow:
+
+1. `terraform fmt -check`, `terraform init -backend=false` and
+   `terraform validate`
+2. `terraform test`: a plan of the configuration against mocked providers
+   (`tests/`)
+3. TFLint with the rules in `.tflint.hcl`
+4. A Trivy scan of the configuration that fails on high and critical findings
+5. `mkdocs build --strict` of this documentation
+
+None of these steps needs a cloud account.
+{%- if values.enableCicd %}
+
+The `Deploy` workflow plans on pull requests and applies on `main`. Until its
+credentials are configured it reports that and skips plan and apply; see
+[Infrastructure](infrastructure.md#deployment).
+{%- endif %}

@@ -1,0 +1,227 @@
+{%- set runtime = values.runtime or 'nodejs24' -%}
+{%- set interpreted = runtime in ['nodejs24', 'python313'] -%}
+{%- set auth = values.authType or 'jwt' -%}
+{%- set directLb = values.enableWaf and auth == 'none' -%}
+{%- set gateway = not directLb -%}
+{%- set gatewayQuota = gateway and values.enableThrottling and auth == 'api-key' -%}
+{%- set armorThrottle = values.enableWaf and values.enableThrottling and auth != 'api-key' -%}
+{%- set sql = values.enableDatabase and values.databaseType == 'sql' -%}
+{%- set nosql = values.enableDatabase and not sql -%}
+{%- set strategy = values.deploymentStrategy or 'canary' -%}
+{%- set region = values.gcpRegion or 'us-central1' -%}
+locals {
+{%- if nosql or sql or values.enableCache or values.enableStorage %}
+  # Tells the function where its data services are.
+  data_environment = merge(
+{%- if nosql %}
+    {
+      FIRESTORE_DATABASE = google_firestore_database.main.name
+    },
+{%- endif %}
+{%- if sql %}
+    {
+      SPANNER_DATABASE = local.spanner_database
+      SPANNER_INSTANCE = module.spanner.instance_name
+    },
+{%- endif %}
+{%- if values.enableCache %}
+    {
+      REDIS_CA_CERT = google_redis_instance.cache.server_ca_certs[0].cert
+      REDIS_HOST    = google_redis_instance.cache.host
+      REDIS_PORT    = tostring(google_redis_instance.cache.port)
+    },
+{%- endif %}
+{%- if values.enableStorage %}
+    {
+      STORAGE_BUCKET = google_storage_bucket.data.name
+    },
+{%- endif %}
+  )
+{%- else %}
+  # No database, cache or object storage was selected.
+  data_environment = {}
+{%- endif %}
+{%- if sql %}
+
+  spanner_database = "app"
+
+  # The Spanner module uses the member in resource keys, which must be known
+  # before the service account exists.
+  function_service_account_member = "serviceAccount:${local.short_name}-fn@${var.project_id}.iam.gserviceaccount.com"
+{%- endif %}
+}
+{%- if nosql %}
+
+resource "google_firestore_database" "main" {
+  project     = var.project_id
+  name        = local.name
+  location_id = var.region
+  type        = "FIRESTORE_NATIVE"
+
+  point_in_time_recovery_enablement = var.environment == "production" ? "POINT_IN_TIME_RECOVERY_ENABLED" : "POINT_IN_TIME_RECOVERY_DISABLED"
+  delete_protection_state           = var.database_deletion_protection ? "DELETE_PROTECTION_ENABLED" : "DELETE_PROTECTION_DISABLED"
+  deletion_policy                   = "DELETE"
+
+  depends_on = [google_project_service.enabled]
+}
+
+# Read and write access to this database only.
+resource "google_project_iam_member" "function_firestore" {
+  project = var.project_id
+  role    = "roles/datastore.user"
+  member  = "serviceAccount:${module.function_service_account.service_account_email}"
+
+  condition {
+    title       = "${local.name}-database"
+    description = "Limits the role to the ${local.name} Firestore database"
+    expression  = "resource.name == \"projects/${var.project_id}/databases/${google_firestore_database.main.name}\""
+  }
+}
+{%- endif %}
+{%- if sql %}
+
+module "spanner" {
+  source = "git::https://github.com/ayoinc/cloud-sandbox-backstage.git//catalog/terraform-modules/gcp/resources/database/spanner?ref=83f9ff7222d2731d5cc0da4ab1fc1f7c46da3693"
+
+  project_name     = var.project_name
+  project_id       = var.project_id
+  environment      = var.environment
+  instance_name    = "${local.short_name}-db"
+  display_name     = "${local.short_name}-db"
+  config           = "regional-${var.region}"
+  processing_units = var.spanner_processing_units
+  labels           = local.labels
+
+  databases = [
+    {
+      name                = local.spanner_database
+      deletion_protection = var.database_deletion_protection
+    },
+  ]
+
+  database_iam_bindings = [
+    {
+      database = local.spanner_database
+      role     = "roles/spanner.databaseUser"
+      members  = [local.function_service_account_member]
+    },
+  ]
+
+  depends_on = [
+    google_project_service.enabled,
+    module.function_service_account,
+  ]
+}
+{%- endif %}
+{%- if values.enableCache %}
+
+# Memorystore has no public endpoint. The function reaches it through a
+# Serverless VPC Access connector in this network.
+module "network" {
+  source = "git::https://github.com/ayoinc/cloud-sandbox-backstage.git//catalog/terraform-modules/gcp/resources/network/vpc?ref=83f9ff7222d2731d5cc0da4ab1fc1f7c46da3693"
+
+  project_id  = var.project_id
+  name        = var.project_name
+  environment = var.environment
+  region      = var.region
+  enable_nat  = false
+  labels      = local.labels
+
+  subnets = {
+    connector = {
+      ip_cidr_range = var.vpc_connector_cidr
+    }
+  }
+
+  depends_on = [google_project_service.enabled]
+}
+
+resource "google_vpc_access_connector" "function" {
+  project       = var.project_id
+  name          = "${local.short_name}-vpc"
+  region        = var.region
+  machine_type  = "e2-micro"
+  min_instances = 2
+  max_instances = 3
+
+  subnet {
+    name = basename(module.network.subnet_ids["connector"])
+  }
+}
+
+resource "google_redis_instance" "cache" {
+  project        = var.project_id
+  name           = local.name
+  region         = var.region
+  tier           = var.cache_tier
+  memory_size_gb = var.cache_memory_size_gb
+  redis_version  = "REDIS_7_2"
+  labels         = local.labels
+
+  authorized_network      = module.network.network_id
+  connect_mode            = "DIRECT_PEERING"
+  auth_enabled            = true
+  transit_encryption_mode = "SERVER_AUTHENTICATION"
+}
+
+# The AUTH string reaches the function as a secret, not as a plain environment
+# variable.
+resource "google_secret_manager_secret" "cache_auth" {
+  project   = var.project_id
+  secret_id = "${local.name}-redis-auth"
+  labels    = local.labels
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.enabled]
+}
+
+resource "google_secret_manager_secret_version" "cache_auth" {
+  secret      = google_secret_manager_secret.cache_auth.id
+  secret_data = google_redis_instance.cache.auth_string
+}
+
+resource "google_secret_manager_secret_iam_member" "function_cache_auth" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.cache_auth.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${module.function_service_account.service_account_email}"
+}
+{%- endif %}
+{%- if values.enableStorage %}
+
+resource "google_storage_bucket" "data" {
+  project                     = var.project_id
+  name                        = "${local.name}-data-${local.bucket_suffix}"
+  location                    = var.region
+  uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
+  force_destroy               = var.storage_force_destroy
+  labels                      = local.labels
+
+  versioning {
+    enabled = true
+  }
+
+  # Keeps the five newest versions of an overwritten or deleted object.
+  lifecycle_rule {
+    action {
+      type = "Delete"
+    }
+    condition {
+      num_newer_versions = 5
+      with_state         = "ARCHIVED"
+    }
+  }
+
+  depends_on = [google_project_service.enabled]
+}
+
+resource "google_storage_bucket_iam_member" "function_data" {
+  bucket = google_storage_bucket.data.name
+  role   = "roles/storage.objectUser"
+  member = "serviceAccount:${module.function_service_account.service_account_email}"
+}
+{%- endif %}

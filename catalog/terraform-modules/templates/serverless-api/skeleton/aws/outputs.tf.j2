@@ -1,0 +1,188 @@
+{%- set runtime = values.runtime or 'nodejs24' -%}
+{%- set apiType = 'rest' if values.apiType == 'rest' else ('graphql' if values.apiType == 'graphql' else 'http') -%}
+{%- set authType = values.authType or 'none' -%}
+{%- set interpreted = runtime == 'nodejs24' or runtime == 'python313' -%}
+{%- set sql = values.enableDatabase and values.databaseType == 'sql' -%}
+{%- set nosql = values.enableDatabase and not sql -%}
+{%- set vpc = sql or values.enableCache -%}
+{%- set keyAuthorizer = apiType == 'http' and authType == 'api-key' -%}
+{%- set oidcAuthorizer = apiType == 'rest' and authType == 'oauth2' -%}
+{%- set graphqlKey = apiType == 'graphql' and (authType == 'api-key' or authType == 'none') -%}
+{%- set cloudfront = apiType == 'http' and values.enableWaf -%}
+{%- set waf = values.enableWaf or (apiType == 'graphql' and values.enableThrottling) -%}
+{%- set gradual = values.deploymentStrategy == 'canary' or values.deploymentStrategy == 'linear' -%}
+output "api_endpoint" {
+  description = "URL that clients call."
+  {%- if cloudfront %}
+  value       = "https://${aws_cloudfront_distribution.api.domain_name}"
+  {%- elif apiType == 'http' %}
+  value       = aws_apigatewayv2_api.this.api_endpoint
+  {%- elif apiType == 'rest' %}
+  value       = aws_api_gateway_stage.this.invoke_url
+  {%- else %}
+  value       = aws_appsync_graphql_api.this.uris["GRAPHQL"]
+  {%- endif %}
+}
+
+output "api_id" {
+  description = "Identifier of the API."
+  {%- if apiType == 'http' %}
+  value       = aws_apigatewayv2_api.this.id
+  {%- elif apiType == 'rest' %}
+  value       = aws_api_gateway_rest_api.this.id
+  {%- else %}
+  value       = aws_appsync_graphql_api.this.id
+  {%- endif %}
+}
+{%- if cloudfront %}
+
+output "api_origin_endpoint" {
+  description = "URL of the HTTP API behind CloudFront. Requests sent here do not pass the web ACL."
+  value       = aws_apigatewayv2_api.this.api_endpoint
+}
+
+output "cloudfront_distribution_id" {
+  description = "Identifier of the CloudFront distribution in front of the API."
+  value       = aws_cloudfront_distribution.api.id
+}
+{%- endif %}
+{%- if waf %}
+
+output "web_acl_arn" {
+  description = "ARN of the web ACL that filters requests to the API."
+  value       = module.waf.web_acl_arn
+}
+{%- endif %}
+{%- if keyAuthorizer %}
+
+output "api_key" {
+  description = "Key that callers send in the x-api-key header."
+  value       = random_password.api_key.result
+  sensitive   = true
+}
+{%- elif apiType == 'rest' and authType == 'api-key' %}
+
+output "api_key" {
+  description = "Key that callers send in the x-api-key header."
+  value       = aws_api_gateway_api_key.this.value
+  sensitive   = true
+}
+{%- elif graphqlKey %}
+
+output "api_key" {
+  description = "Key that callers send in the x-api-key header."
+  value       = aws_appsync_api_key.this.key
+  sensitive   = true
+}
+
+output "api_key_expires" {
+  description = "Time at which the API key stops working unless the configuration is applied again."
+  value       = aws_appsync_api_key.this.expires
+}
+{%- endif %}
+{%- if authType == 'jwt' %}
+
+output "cognito_user_pool_id" {
+  description = "Identifier of the Cognito user pool whose users may call the API."
+  value       = aws_cognito_user_pool.this.id
+}
+
+output "cognito_client_id" {
+  description = "Identifier of the app client that signs users in."
+  value       = aws_cognito_user_pool_client.this.id
+}
+
+output "jwt_issuer" {
+  description = "Issuer of the tokens the API accepts."
+  value       = "https://${aws_cognito_user_pool.this.endpoint}"
+}
+{%- endif %}
+
+output "function_name" {
+  description = "Name of the Lambda function."
+  value       = module.function.function_name
+}
+
+output "function_arn" {
+  description = "ARN of the Lambda function."
+  value       = module.function.function_arn
+}
+
+output "function_version" {
+  description = "Newest published version of the function."
+  value       = module.function.version
+}
+
+output "function_alias_arn" {
+  description = "ARN of the alias that the API calls."
+  value       = aws_lambda_alias.live.arn
+}
+
+output "function_role_arn" {
+  description = "ARN of the execution role of the function."
+  value       = module.function_role.role_arn
+}
+
+output "function_log_group" {
+  description = "CloudWatch log group of the function."
+  value       = module.monitoring.log_group_name
+}
+{%- if gradual %}
+
+output "codedeploy_application" {
+  description = "CodeDeploy application that shifts traffic to a new function version."
+  value       = aws_codedeploy_app.function.name
+}
+
+output "codedeploy_deployment_group" {
+  description = "CodeDeploy deployment group of the function."
+  value       = aws_codedeploy_deployment_group.function.deployment_group_name
+}
+{%- endif %}
+{%- if nosql %}
+
+output "table_name" {
+  description = "Name of the DynamoDB table."
+  value       = aws_dynamodb_table.this.name
+}
+{%- endif %}
+{%- if sql %}
+
+output "database_endpoint" {
+  description = "Writer endpoint of the Aurora cluster."
+  value       = aws_rds_cluster.this.endpoint
+}
+
+output "database_secret_arn" {
+  description = "ARN of the Secrets Manager secret with the master user name and password of the database."
+  value       = aws_rds_cluster.this.master_user_secret[0].secret_arn
+}
+{%- endif %}
+{%- if values.enableCache %}
+
+output "cache_endpoint" {
+  description = "Primary endpoint of the ElastiCache replication group."
+  value       = module.cache.primary_endpoint_address
+}
+{%- endif %}
+{%- if values.enableStorage %}
+
+output "bucket_name" {
+  description = "Name of the S3 bucket."
+  value       = module.storage.bucket_name
+}
+{%- endif %}
+{%- if values.enableMetrics %}
+
+output "metrics_namespace" {
+  description = "CloudWatch namespace of the custom metrics."
+  value       = local.metrics_namespace
+}
+{%- endif %}
+{%- if values.enableAlarms %}
+
+output "alarm_topic_arn" {
+  description = "ARN of the SNS topic the alarms notify."
+  value       = module.alarm_topic.topic_arn
+}
+{%- endif %}

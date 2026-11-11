@@ -1,0 +1,52 @@
+{%- set grpc = values.protocol != 'rest' -%}
+{%- set authType = values.authType if values.enableAuth else 'none' -%}
+# ${{ values.apiName }}
+
+${{ values.description }}
+
+The API is served by [Cloud Endpoints](https://cloud.google.com/endpoints/docs) in the Google Cloud project `${{ values.projectId }}`:
+
+- Endpoints service `${{ values.apiName }}.endpoints.${{ values.projectId }}.cloud.goog`, configured from {% if grpc %}`${{ values.grpcSpec }}` and `api_config.yaml`{% else %}`${{ values.openApiSpec }}`{% endif %}
+- ESPv2 gateway `${{ values.apiName }}-gateway` on Cloud Run, in front of the backend at `${{ values.backendUrl }}`
+{%- if values.enableMonitoring %}
+- Cloud Monitoring dashboard and alert policies
+{%- endif %}
+{%- if values.enableLogging %}
+- Log bucket `${{ values.apiName }}-api-logs`
+{%- endif %}
+
+## Layout
+
+| Path | Content |
+| --- | --- |
+{%- if grpc %}
+| `${{ values.grpcSpec }}` | gRPC services and messages |
+| `api_config.yaml` | Endpoints configuration of the gRPC services |
+{%- else %}
+| `${{ values.openApiSpec }}` | OpenAPI 2.0 definition of the API |
+| `scripts/validate_openapi.py` | Check of the OpenAPI document |
+{%- endif %}
+| `infra/` | Terraform configuration; settings are in `infra/terraform.tfvars` |
+| `.github/workflows/` | `ci.yml` checks every push, `deploy.yml` plans and applies |
+| `docs/` | Documentation, shown in the portal as TechDocs |
+
+## Pipelines
+
+- **CI** runs without credentials: Terraform formatting, validation, a plan against a mocked provider (`terraform test`) and lint, a Trivy scan, {% if grpc %}compilation of the proto{% else %}validation of the OpenAPI document{% endif %} and a build of the documentation.
+- **Deploy** plans and applies the Terraform configuration once the repository variables `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT` and `TF_STATE_BUCKET` exist. Until then its plan and apply jobs are skipped.
+
+## Before the first deployment
+
+1. Create the state bucket and the deployment identity and add the three repository variables: [docs/deployment.md](docs/deployment.md#one-time-setup).
+{%- if authType == 'jwt' %}
+2. Set `jwt_issuer`, `jwt_jwks_uri` and `jwt_audiences` in `infra/terraform.tfvars`: [docs/configuration.md](docs/configuration.md#authentication).
+{%- endif %}
+{%- if authType == 'oauth2' %}
+2. Set `oauth_client_ids` in `infra/terraform.tfvars`: [docs/configuration.md](docs/configuration.md#authentication).
+{%- endif %}
+
+## Documentation
+
+- [Overview](docs/index.md): what is deployed and how a request is handled
+- [Configuration](docs/configuration.md): variables, backend, authentication, quota, logging, monitoring
+- [Deployment](docs/deployment.md): pipelines, one-time setup, local use, calling and removing the API

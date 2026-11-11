@@ -1,0 +1,130 @@
+{%- set grpc = values.protocol != 'rest' -%}
+{%- set private = values.backendType == 'compute-engine' or values.backendType == 'gke' -%}
+{%- set authType = values.authType if values.enableAuth else 'none' -%}
+locals {
+  service_name = "${var.api_name}.endpoints.${var.project_id}.cloud.goog"
+{%- if not private %}
+
+  # Cloud Run and Cloud Functions serve HTTPS only, so an http:// URL is read as https://.
+  backend_url = replace(var.backend_url, "/^http:/", "https:")
+{%- if grpc or values.backendType != 'serverless' %}
+
+  # Scheme and host of the backend, without a path.
+  backend_origin = regex("^https://[^/]+", local.backend_url)
+{%- endif %}
+{%- endif %}
+{%- if grpc %}
+{%- if private %}
+
+  # gRPC address of the backend: grpcs://host for https, grpc://host for http.
+  backend_address = replace(regex("^https?://[^/]+", var.backend_url), "/^http/", "grpc")
+{%- else %}
+
+  # gRPC address of the backend.
+  backend_address = replace(local.backend_origin, "/^https/", "grpcs")
+{%- endif %}
+
+  # Descriptor set protoc compiles from ${{ values.grpcSpec }}. It is a build product and is not committed.
+  descriptor_file = "${path.module}/api_descriptor.pb"
+{%- else %}
+
+  # The gateway appends the request path to this address.
+  backend_address = trimsuffix(${{ 'var.backend_url' if private else 'local.backend_url' }}, "/")
+{%- endif %}
+{%- if not private %}
+{%- if values.backendType == 'serverless' and not grpc %}
+
+  # Cloud Functions expect the URL of the function as the audience of the ID token.
+  backend_jwt_audience = coalesce(var.backend_jwt_audience, local.backend_address)
+{%- else %}
+
+  # Cloud Run expects the URL of the service, without a path, as the audience of the ID token.
+  backend_jwt_audience = coalesce(var.backend_jwt_audience, local.backend_origin)
+{%- endif %}
+{%- endif %}
+
+  # Values for the placeholders in ${{ 'api_config.yaml' if grpc else values.openApiSpec }}.
+  api_definition_values = {
+    host = local.service_name
+
+    backend_address = local.backend_address
+{%- if not private %}
+
+    backend_jwt_audience = local.backend_jwt_audience
+{%- endif %}
+{%- if authType == 'jwt' %}
+
+    jwt_issuer = var.jwt_issuer
+
+    jwt_jwks_uri = var.jwt_jwks_uri
+
+    jwt_audiences = join(",", var.jwt_audiences)
+{%- endif %}
+{%- if authType == 'firebase' %}
+
+    project_id = var.project_id
+{%- endif %}
+{%- if authType == 'oauth2' %}
+
+    oauth_client_ids = join(",", var.oauth_client_ids)
+{%- endif %}
+{%- if values.enableQuotas %}
+
+    quota_limit = var.quota_limit
+{%- endif %}
+  }
+}
+
+# APIs the Endpoints service and its gateway need in the project.
+resource "google_project_service" "required" {
+  for_each = toset([
+    "endpoints.googleapis.com",
+    "run.googleapis.com",
+    "servicecontrol.googleapis.com",
+    "servicemanagement.googleapis.com",
+  ])
+
+  project            = var.project_id
+  service            = each.value
+  disable_on_destroy = false
+}
+
+resource "google_endpoints_service" "api" {
+  project      = var.project_id
+  service_name = local.service_name
+{%- if grpc %}
+
+  grpc_config          = templatefile("${path.module}/../api_config.yaml", local.api_definition_values)
+  protoc_output_base64 = fileexists(local.descriptor_file) ? filebase64(local.descriptor_file) : null
+
+  lifecycle {
+    precondition {
+      condition     = fileexists(local.descriptor_file)
+      error_message = "infra/api_descriptor.pb does not exist. Compile it from the repository root: protoc --include_imports --include_source_info --descriptor_set_out=infra/api_descriptor.pb ${{ values.grpcSpec }}"
+    }
+  }
+{%- else %}
+
+  openapi_config = templatefile("${path.module}/../${{ values.openApiSpec }}", local.api_definition_values)
+{%- endif %}
+
+  depends_on = [google_project_service.required]
+}
+
+# A managed service has to be enabled in its own project before it accepts calls.
+resource "google_project_service" "api" {
+  project            = var.project_id
+  service            = google_endpoints_service.api.service_name
+  disable_on_destroy = false
+}
+{%- if values.enablePortal %}
+
+# Lets the listed principals enable the API in their own projects and call it with their API keys.
+resource "google_endpoints_service_iam_member" "consumers" {
+  for_each = toset(var.api_consumers)
+
+  service_name = google_endpoints_service.api.service_name
+  role         = "roles/servicemanagement.serviceConsumer"
+  member       = each.value
+}
+{%- endif %}

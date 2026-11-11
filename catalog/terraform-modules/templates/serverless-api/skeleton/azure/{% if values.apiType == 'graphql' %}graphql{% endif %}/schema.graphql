@@ -1,0 +1,10 @@
+# Schema the gateway publishes and validates requests against. Replace it with
+# the schema the function implements, then apply.
+type Query {
+  status: Status!
+}
+
+type Status {
+  ok: Boolean!
+  version: String
+}

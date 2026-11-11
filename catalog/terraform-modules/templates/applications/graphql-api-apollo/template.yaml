@@ -3,13 +3,13 @@ kind: Template
 metadata:
   name: graphql-api-apollo
   title: GraphQL API (Apollo Server)
-  description: Create a production-ready GraphQL API using Apollo Server with authentication, subscriptions, and monitoring
+  description: Create a GraphQL API with Apollo Server and TypeScript, with a database, authentication, subscriptions, caching, monitoring and a pipeline that tests it
   tags:
     - graphql
     - apollo
     - api
     - nodejs
-    - production-ready
+    - typescript
     - subscriptions
 spec:
   owner: platform-team
@@ -20,12 +20,14 @@ spec:
       required:
         - apiName
         - description
+        - owner
       properties:
         apiName:
           title: API Name
           type: string
-          description: Name of the GraphQL API (e.g., product-catalog-api)
-          pattern: '^[a-z0-9\-]+$'
+          description: Name of the GraphQL API in lowercase with hyphens (e.g., product-catalog-api)
+          pattern: '^[a-z]([a-z0-9-]*[a-z0-9])?$'
+          maxLength: 50
           ui:autofocus: true
         description:
           title: Description
@@ -35,24 +37,37 @@ spec:
           title: API Version
           type: string
           description: API version (semver)
+          pattern: '^[0-9]+\.[0-9]+\.[0-9]+$'
           default: '1.0.0'
+        owner:
+          title: Owner
+          type: string
+          description: Owner of the API
+          ui:field: OwnerPicker
+          ui:options:
+            allowedKinds:
+              - Group
+              - User
 
     - title: Database & Data
       properties:
         databaseType:
           title: Database Type
           type: string
-          description: Primary database
+          description: Database the API stores its data in
           default: postgresql
           enum:
             - postgresql
-            - mongodb
             - mysql
             - sqlite
+          enumNames:
+            - PostgreSQL
+            - MySQL
+            - SQLite
         enableCache:
           title: Enable Redis Cache
           type: boolean
-          description: Include Redis for query caching
+          description: Cache query responses, in Redis when one is configured
           default: true
 
     - title: GraphQL Features
@@ -62,20 +77,11 @@ spec:
           type: boolean
           description: Enable real-time subscriptions with WebSockets
           default: true
-        enableFederation:
-          title: Enable Apollo Federation
-          type: boolean
-          description: Enable Apollo Federation for microservices
-          default: false
-        enableFileUpload:
-          title: Enable File Upload
-          type: boolean
-          description: Enable GraphQL file uploads
-          default: true
         queryComplexity:
           title: Query Complexity Limit
-          type: number
+          type: integer
           description: Maximum query complexity score
+          minimum: 1
           default: 1000
 
     - title: Authentication & Authorization
@@ -83,43 +89,36 @@ spec:
         enableAuth:
           title: Enable Authentication
           type: boolean
-          description: Enable JWT authentication
+          description: Require a token for mutations
           default: true
         authProvider:
           title: Auth Provider
           type: string
-          description: Authentication provider
+          description: How tokens are verified
           default: jwt
           enum:
             - jwt
             - oauth2
+          enumNames:
+            - JWT signed with a shared secret
+            - OAuth 2.0 identity provider (JWKS)
         enableRBAC:
           title: Enable RBAC
           type: boolean
-          description: Enable role-based access control
+          description: Require the admin role for mutations (role-based access control)
           default: true
-        enableABAC:
-          title: Enable ABAC
-          type: boolean
-          description: Enable attribute-based access control
-          default: false
 
     - title: Monitoring & Tracing
       properties:
-        enableMonitoring:
-          title: Enable Monitoring
+        enableMetrics:
+          title: Enable Metrics
           type: boolean
-          description: Enable GraphQL query monitoring
+          description: Serve Prometheus metrics of the GraphQL requests
           default: true
         enableTracing:
           title: Enable Tracing
           type: boolean
           description: Enable distributed tracing (OpenTelemetry)
-          default: true
-        enableMetrics:
-          title: Enable Metrics
-          type: boolean
-          description: Enable GraphQL metrics collection
           default: true
 
     - title: Development Tools
@@ -127,66 +126,68 @@ spec:
         enablePlayground:
           title: Enable GraphQL Playground
           type: boolean
-          description: Include GraphQL Playground for testing
-          default: true
-        enableCodegen:
-          title: Enable Code Generation
-          type: boolean
-          description: Include GraphQL code generator
+          description: Serve Apollo Sandbox on the API for trying out queries
           default: true
         enableSchemaRegistry:
           title: Enable Schema Registry
           type: boolean
-          description: Enable Apollo Schema Registry
+          description: Add a pipeline job that checks and publishes the schema to the Apollo GraphOS schema registry once its credentials are configured
           default: true
 
+    - title: Repository
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
   steps:
-    - id: fetch-infra
-      name: Fetch Infrastructure
+    - id: fetch
+      name: Fetch API Skeleton
       action: fetch:template
       input:
-        url: ./skeleton/infra
-        targetPath: ./infra
+        url: ./skeleton
+        copyWithoutTemplating:
+          - .github/workflows/release.yaml
+        trimBlocks: true
+        lstripBlocks: true
         values:
           apiName: ${{ parameters.apiName }}
           description: ${{ parameters.description }}
           apiVersion: ${{ parameters.apiVersion }}
+          owner: ${{ parameters.owner }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
           databaseType: ${{ parameters.databaseType }}
           enableCache: ${{ parameters.enableCache }}
           enableSubscriptions: ${{ parameters.enableSubscriptions }}
-          enableFederation: ${{ parameters.enableFederation }}
-          enableFileUpload: ${{ parameters.enableFileUpload }}
           queryComplexity: ${{ parameters.queryComplexity }}
           enableAuth: ${{ parameters.enableAuth }}
           authProvider: ${{ parameters.authProvider }}
           enableRBAC: ${{ parameters.enableRBAC }}
-          enableABAC: ${{ parameters.enableABAC }}
-          enableMonitoring: ${{ parameters.enableMonitoring }}
-          enableTracing: ${{ parameters.enableTracing }}
           enableMetrics: ${{ parameters.enableMetrics }}
+          enableTracing: ${{ parameters.enableTracing }}
           enablePlayground: ${{ parameters.enablePlayground }}
-          enableCodegen: ${{ parameters.enableCodegen }}
           enableSchemaRegistry: ${{ parameters.enableSchemaRegistry }}
 
-    - id: fetch-src
-      name: Fetch Source Code
-      action: fetch:template
+    - id: lockfile
+      name: Select Lockfile for the Database Driver
+      action: fs:rename
       input:
-        url: ./skeleton/src
-        targetPath: ./src
-        values:
-          apiName: ${{ parameters.apiName }}
-          databaseType: ${{ parameters.databaseType }}
-          enableSubscriptions: ${{ parameters.enableSubscriptions }}
-          enableFederation: ${{ parameters.enableFederation }}
-          enableAuth: ${{ parameters.enableAuth }}
+        files:
+          - from: locks/package-lock.${{ parameters.databaseType }}.json
+            to: package-lock.json
 
-    - id: fetch-tests
-      name: Fetch Test Suite
-      action: fetch:template
+    - id: remove-lockfiles
+      name: Remove Unused Lockfiles
+      action: fs:delete
       input:
-        url: ./skeleton/tests
-        targetPath: ./tests
+        files:
+          - locks
 
     - id: publish
       name: Publish to Repository
@@ -208,10 +209,9 @@ spec:
     links:
       - title: Repository
         url: ${{ steps.publish.output.remoteUrl }}
+      - title: CI Pipeline
+        icon: github
+        url: https://${{ (parameters.repoUrl | parseRepoUrl).host }}/${{ (parameters.repoUrl | parseRepoUrl).owner }}/${{ (parameters.repoUrl | parseRepoUrl).repo }}/actions
       - title: Open in Catalog
         icon: catalog
         entityRef: ${{ steps.register.output.entityRef }}
-      - title: GraphQL Playground
-        icon: graphql
-      - title: API Documentation
-        icon: docs

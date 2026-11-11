@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+.env
+
+# Terraform working files; commit .terraform.lock.hcl after the first init.
+.terraform/
+*.tfstate
+*.tfstate.*
+
+# Documentation built by mkdocs
+site/

@@ -1,0 +1,20 @@
+{
+  "values": {
+    "apiName": "sample-graphql-api",
+    "description": "The team's \"main\" product catalog: products, prices & stock",
+    "apiVersion": "1.0.0",
+    "owner": "group:default/platform-team",
+    "databaseType": "postgresql",
+    "enableCache": true,
+    "enableSubscriptions": true,
+    "queryComplexity": 1000,
+    "enableAuth": true,
+    "authProvider": "jwt",
+    "enableRBAC": true,
+    "enableMetrics": true,
+    "enableTracing": true,
+    "enablePlayground": true,
+    "enableSchemaRegistry": true,
+    "repoUrl": "github.com?owner=example-org&repo=sample-graphql-api"
+  }
+}

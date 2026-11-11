@@ -1,0 +1,357 @@
+{%- set slots = values.deploymentStrategy in ['canary', 'linear'] -%}
+{%- set insights = values.enableTracing or values.enableMetrics -%}
+{%- set graphql = values.apiType == 'graphql' -%}
+locals {
+  # The platform closes an HTTP request to a function after 230 seconds, so
+  # the gateway never waits longer than that for a response.
+  gateway_timeout_seconds = min(var.function_timeout_seconds, 230)
+{%- if values.enableWaf %}
+
+  api_gateway_hostname = trimprefix(azurerm_api_management.main.gateway_url, "https://")
+{%- endif %}
+{%- if graphql %}
+
+  # The function serves GraphQL on the route "graphql".
+  function_backend_path = "/api/graphql"
+{%- else %}
+
+  function_backend_path = "/api"
+{%- endif %}
+{%- if values.authType in ['jwt', 'iam'] %}
+
+  entra_tenant_id = var.entra_tenant_id != "" ? var.entra_tenant_id : data.azurerm_client_config.current.tenant_id
+  api_audience    = var.api_audience != "" ? var.api_audience : "api://${local.name}"
+{%- endif %}
+
+  api_policy_values = merge(
+    {
+      timeout_seconds = local.gateway_timeout_seconds
+    },
+{%- if values.enableWaf %}
+    {
+      front_door_id = azurerm_cdn_frontdoor_profile.main.resource_guid
+    },
+{%- endif %}
+{%- if values.enableCors %}
+    {
+      cors_allowed_origins = var.cors_allowed_origins
+    },
+{%- endif %}
+{%- if values.enableThrottling %}
+    {
+      rate_limit  = var.throttle_rate_limit
+      burst_limit = var.throttle_burst_limit
+    },
+{%- endif %}
+{%- if values.authType == 'jwt' %}
+    {
+      tenant_id = local.entra_tenant_id
+      audience  = local.api_audience
+    },
+{%- elif values.authType == 'iam' %}
+    {
+      tenant_id              = local.entra_tenant_id
+      audience               = local.api_audience
+      client_application_ids = var.allowed_client_application_ids
+    },
+{%- elif values.authType == 'oauth2' %}
+    {
+      openid_configuration_url = replace(var.oauth2_openid_configuration_url, "&", "&amp;")
+      audience                 = var.oauth2_audience
+    },
+{%- endif %}
+{%- if values.enableMetrics %}
+    {
+      metric_namespace = local.name
+    },
+{%- endif %}
+  )
+}
+
+resource "azurerm_api_management" "main" {
+  name                = "apim-${local.name}-${local.suffix}"
+  resource_group_name = module.resource_group.name
+  location            = module.resource_group.location
+  publisher_name      = var.api_publisher_name
+  publisher_email     = var.api_publisher_email
+  sku_name            = "Consumption_0"
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  tags = local.tags
+}
+
+# The gateway calls the function with the function app's default host key, so
+# the function accepts requests that come through the gateway only when its
+# handlers use the authorisation level "function".
+data "azurerm_function_app_host_keys" "main" {
+  name                = local.function_app_name
+  resource_group_name = module.resource_group.name
+}
+
+resource "azurerm_api_management_named_value" "function_key" {
+  name                = "function-key"
+  resource_group_name = module.resource_group.name
+  api_management_name = azurerm_api_management.main.name
+  display_name        = "function-key"
+  secret              = true
+  value               = data.azurerm_function_app_host_keys.main.default_function_key
+}
+
+resource "azurerm_api_management_backend" "function" {
+  name                = "function"
+  resource_group_name = module.resource_group.name
+  api_management_name = azurerm_api_management.main.name
+  protocol            = "http"
+  url                 = "https://${local.function_app_hostname}${local.function_backend_path}"
+
+  credentials {
+    header = {
+      "x-functions-key" = "{{function-key}}"
+    }
+  }
+
+  depends_on = [azurerm_api_management_named_value.function_key]
+}
+{%- if slots %}
+
+# Host key of the staging slot. Terraform cannot read a slot's keys: the
+# release pipeline writes the value and Terraform leaves it alone afterwards.
+resource "azurerm_api_management_named_value" "function_staging_key" {
+  name                = "function-staging-key"
+  resource_group_name = module.resource_group.name
+  api_management_name = azurerm_api_management.main.name
+  display_name        = "function-staging-key"
+  secret              = true
+  value               = "set-by-the-release-pipeline"
+
+  lifecycle {
+    ignore_changes = [value]
+  }
+}
+
+# Share of requests (0 to 100) the gateway sends to the staging slot. The
+# release pipeline changes the value during a rollout.
+resource "azurerm_api_management_named_value" "staging_traffic_percent" {
+  name                = "staging-traffic-percent"
+  resource_group_name = module.resource_group.name
+  api_management_name = azurerm_api_management.main.name
+  display_name        = "staging-traffic-percent"
+  value               = "0"
+
+  lifecycle {
+    ignore_changes = [value]
+  }
+}
+
+resource "azurerm_api_management_backend" "function_staging" {
+  name                = "function-staging"
+  resource_group_name = module.resource_group.name
+  api_management_name = azurerm_api_management.main.name
+  protocol            = "http"
+  url                 = "https://${azurerm_linux_function_app_slot.staging.default_hostname}${local.function_backend_path}"
+
+  credentials {
+    header = {
+      "x-functions-key" = "{{function-staging-key}}"
+    }
+  }
+
+  depends_on = [azurerm_api_management_named_value.function_staging_key]
+}
+{%- endif %}
+
+resource "azurerm_api_management_api" "main" {
+  name                  = local.name
+  resource_group_name   = module.resource_group.name
+  api_management_name   = azurerm_api_management.main.name
+  revision              = "1"
+  display_name          = "${var.project_name} (${var.environment})"
+  path                  = ""
+  protocols             = ["https"]
+  api_type              = "${{ 'graphql' if graphql else 'http' }}"
+  service_url           = azurerm_api_management_backend.function.url
+  subscription_required = ${{ 'true' if values.authType == 'api-key' else 'false' }}
+}
+{%- if graphql %}
+
+resource "azurerm_api_management_api_schema" "graphql" {
+  schema_id           = "graphql"
+  resource_group_name = module.resource_group.name
+  api_management_name = azurerm_api_management.main.name
+  api_name            = azurerm_api_management_api.main.name
+  content_type        = "application/vnd.ms-azure-apim.graphql.schema"
+  value               = file("${path.module}/graphql/schema.graphql")
+}
+{%- else %}
+
+# Every path and method is forwarded to the function, which does the routing.
+resource "azurerm_api_management_api_operation" "proxy" {
+  for_each = toset(["GET", "POST", "PUT", "PATCH", "DELETE"])
+
+  operation_id        = "proxy-${lower(each.key)}"
+  resource_group_name = module.resource_group.name
+  api_management_name = azurerm_api_management.main.name
+  api_name            = azurerm_api_management_api.main.name
+  display_name        = "${each.key} /*"
+  method              = each.key
+  url_template        = "/*"
+}
+{%- endif %}
+
+resource "azurerm_api_management_api_policy" "main" {
+  resource_group_name = module.resource_group.name
+  api_management_name = azurerm_api_management.main.name
+  api_name            = azurerm_api_management_api.main.name
+  xml_content         = templatefile("${path.module}/policies/api.xml.tftpl", local.api_policy_values)
+
+  depends_on = [
+    azurerm_api_management_backend.function,
+{%- if slots %}
+    azurerm_api_management_backend.function_staging,
+    azurerm_api_management_named_value.staging_traffic_percent,
+{%- endif %}
+{%- if graphql %}
+    azurerm_api_management_api_schema.graphql,
+{%- endif %}
+{%- if values.enableMetrics %}
+    azurerm_api_management_api_diagnostic.application_insights,
+{%- endif %}
+  ]
+}
+{%- if values.authType == 'api-key' %}
+
+# Callers send this subscription's key in the Ocp-Apim-Subscription-Key header.
+resource "azurerm_api_management_subscription" "default" {
+  resource_group_name = module.resource_group.name
+  api_management_name = azurerm_api_management.main.name
+  display_name        = "${local.name}-default"
+  api_id              = replace(azurerm_api_management_api.main.id, "/;rev=.*/", "")
+  state               = "active"
+  allow_tracing       = false
+}
+{%- endif %}
+{%- if insights %}
+
+resource "azurerm_api_management_logger" "application_insights" {
+  name                = "application-insights"
+  resource_group_name = module.resource_group.name
+  api_management_name = azurerm_api_management.main.name
+  resource_id         = azurerm_application_insights.main.id
+
+  application_insights {
+    connection_string = azurerm_application_insights.main.connection_string
+  }
+}
+
+resource "azurerm_api_management_api_diagnostic" "application_insights" {
+  identifier               = "applicationinsights"
+  resource_group_name      = module.resource_group.name
+  api_management_name      = azurerm_api_management.main.name
+  api_name                 = azurerm_api_management_api.main.name
+  api_management_logger_id = azurerm_api_management_logger.application_insights.id
+{% if values.enableTracing %}
+  # Every request is recorded and correlated with the function's telemetry.
+  sampling_percentage       = 100
+  always_log_errors         = true
+  http_correlation_protocol = "W3C"
+  verbosity                 = "information"
+{%- else %}
+  # Tracing was not selected: the gateway records no requests and only sends
+  # the custom metric.
+  sampling_percentage = 0
+  always_log_errors   = false
+{%- endif %}
+
+  # Needed by the emit-metric policy.
+  metrics_enabled = ${{ 'true' if values.enableMetrics else 'false' }}
+}
+{%- endif %}
+{%- if values.enableWaf %}
+
+# Front Door Premium with a WAF policy in front of the gateway. The API policy
+# rejects requests that do not carry this profile's X-Azure-FDID header.
+resource "azurerm_cdn_frontdoor_profile" "main" {
+  name                = "afd-${local.name}"
+  resource_group_name = module.resource_group.name
+  sku_name            = "Premium_AzureFrontDoor"
+  tags                = local.tags
+}
+
+resource "azurerm_cdn_frontdoor_endpoint" "api" {
+  name                     = local.name
+  cdn_frontdoor_profile_id = azurerm_cdn_frontdoor_profile.main.id
+  tags                     = local.tags
+}
+
+resource "azurerm_cdn_frontdoor_origin_group" "api" {
+  name                     = "api"
+  cdn_frontdoor_profile_id = azurerm_cdn_frontdoor_profile.main.id
+
+  load_balancing {}
+}
+
+resource "azurerm_cdn_frontdoor_origin" "api" {
+  name                           = "api-management"
+  cdn_frontdoor_origin_group_id  = azurerm_cdn_frontdoor_origin_group.api.id
+  enabled                        = true
+  host_name                      = local.api_gateway_hostname
+  origin_host_header             = local.api_gateway_hostname
+  https_port                     = 443
+  certificate_name_check_enabled = true
+}
+
+resource "azurerm_cdn_frontdoor_route" "api" {
+  name                          = "api"
+  cdn_frontdoor_endpoint_id     = azurerm_cdn_frontdoor_endpoint.api.id
+  cdn_frontdoor_origin_group_id = azurerm_cdn_frontdoor_origin_group.api.id
+  cdn_frontdoor_origin_ids      = [azurerm_cdn_frontdoor_origin.api.id]
+  patterns_to_match             = ["/*"]
+  supported_protocols           = ["Http", "Https"]
+  https_redirect_enabled        = true
+  forwarding_protocol           = "HttpsOnly"
+  link_to_default_domain        = true
+}
+
+resource "azurerm_cdn_frontdoor_firewall_policy" "main" {
+  name                = "waf${replace(local.name, "-", "")}"
+  resource_group_name = module.resource_group.name
+  sku_name            = azurerm_cdn_frontdoor_profile.main.sku_name
+  mode                = "Prevention"
+
+  managed_rule {
+    type    = "Microsoft_DefaultRuleSet"
+    version = "2.1"
+    action  = "Block"
+  }
+
+  managed_rule {
+    type    = "Microsoft_BotManagerRuleSet"
+    version = "1.1"
+    action  = "Block"
+  }
+
+  tags = local.tags
+}
+
+resource "azurerm_cdn_frontdoor_security_policy" "waf" {
+  name                     = "waf"
+  cdn_frontdoor_profile_id = azurerm_cdn_frontdoor_profile.main.id
+
+  security_policies {
+    firewall {
+      cdn_frontdoor_firewall_policy_id = azurerm_cdn_frontdoor_firewall_policy.main.id
+
+      association {
+        patterns_to_match = ["/*"]
+
+        domain {
+          cdn_frontdoor_domain_id = azurerm_cdn_frontdoor_endpoint.api.id
+        }
+      }
+    }
+  }
+}
+{%- endif %}

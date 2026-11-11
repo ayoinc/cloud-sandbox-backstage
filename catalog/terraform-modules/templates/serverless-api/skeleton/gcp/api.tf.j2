@@ -1,0 +1,369 @@
+{%- set runtime = values.runtime or 'nodejs24' -%}
+{%- set interpreted = runtime in ['nodejs24', 'python313'] -%}
+{%- set auth = values.authType or 'jwt' -%}
+{%- set directLb = values.enableWaf and auth == 'none' -%}
+{%- set gateway = not directLb -%}
+{%- set gatewayQuota = gateway and values.enableThrottling and auth == 'api-key' -%}
+{%- set armorThrottle = values.enableWaf and values.enableThrottling and auth != 'api-key' -%}
+{%- set sql = values.enableDatabase and values.databaseType == 'sql' -%}
+{%- set nosql = values.enableDatabase and not sql -%}
+{%- set strategy = values.deploymentStrategy or 'canary' -%}
+{%- set region = values.gcpRegion or 'us-central1' -%}
+{%- if gateway -%}
+locals {
+  openapi_document = templatefile("${path.module}/api/openapi.yaml.tftpl", {
+    title           = local.name
+    description     = "${var.project_name} (${var.environment})"
+    backend_address = google_cloudfunctions2_function.api.service_config[0].uri
+
+    # API Gateway ends a request after 15 seconds unless a deadline is set,
+    # and accepts at most 600 seconds.
+    backend_deadline = min(var.function_timeout_seconds, 600)
+{%- if auth == 'jwt' %}
+
+    firebase_project_id = var.firebase_project_id != "" ? var.firebase_project_id : var.project_id
+{%- endif %}
+{%- if auth == 'oauth2' %}
+
+    oauth2_issuer    = var.oauth2_issuer
+    oauth2_jwks_uri  = var.oauth2_jwks_uri
+    oauth2_audiences = var.oauth2_audiences
+{%- endif %}
+{%- if auth == 'iam' %}
+
+    iam_audience = local.iam_audience
+{%- endif %}
+{%- if gatewayQuota %}
+
+    # API Gateway counts per minute and per consumer project.
+    requests_per_minute = var.throttle_rate_limit * 60
+{%- endif %}
+  })
+{%- if auth == 'iam' %}
+
+  iam_audience = var.iam_audience != "" ? var.iam_audience : "https://${google_api_gateway_api.api.managed_service}"
+{%- endif %}
+}
+
+resource "google_api_gateway_api" "api" {
+  provider = google-beta
+
+  project      = var.project_id
+  api_id       = local.name
+  display_name = local.name
+  labels       = local.labels
+
+  depends_on = [google_project_service.enabled]
+}
+
+# An API config cannot be changed after creation. A changed OpenAPI document
+# creates a new config, the gateway switches to it and the old one is deleted.
+resource "google_api_gateway_api_config" "api" {
+  provider = google-beta
+
+  project              = var.project_id
+  api                  = google_api_gateway_api.api.api_id
+  api_config_id_prefix = "${local.name}-"
+  labels               = local.labels
+
+  openapi_documents {
+    document {
+      path     = "openapi.yaml"
+      contents = base64encode(local.openapi_document)
+    }
+  }
+
+  gateway_config {
+    backend_config {
+      google_service_account = module.gateway_service_account.service_account_email
+    }
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "google_api_gateway_gateway" "api" {
+  provider = google-beta
+
+  project      = var.project_id
+  region       = var.gateway_region
+  gateway_id   = local.name
+  display_name = local.name
+  api_config   = google_api_gateway_api_config.api.id
+  labels       = local.labels
+
+  depends_on = [google_cloud_run_service_iam_member.gateway_invoker]
+}
+{%- if auth == 'api-key' %}
+
+# API keys are checked against the managed service of the API, which has to be
+# enabled in the project that owns the keys.
+resource "google_project_service" "api" {
+  project            = var.project_id
+  service            = google_api_gateway_api.api.managed_service
+  disable_on_destroy = false
+
+  depends_on = [google_api_gateway_api_config.api]
+}
+
+# First client key, valid for this API only. Create one key per client; the
+# quota is counted per project that owns the key.
+resource "google_apikeys_key" "client" {
+  project      = var.project_id
+  name         = "${local.name}-client"
+  display_name = "${local.name} client"
+
+  restrictions {
+    api_targets {
+      service = google_api_gateway_api.api.managed_service
+    }
+  }
+
+  depends_on = [google_project_service.api]
+}
+{%- endif %}
+{%- endif %}
+{%- if values.enableWaf %}
+{%- if gateway %}
+
+{% endif -%}
+resource "google_compute_security_policy" "waf" {
+  project     = var.project_id
+  name        = "${local.name}-waf"
+  description = "Web application firewall of the ${local.name} API"
+  type        = "CLOUD_ARMOR"
+{%- for rule in [['sqli', 'SQL injection'], ['xss', 'Cross-site scripting'], ['lfi', 'Local file inclusion'], ['rfi', 'Remote file inclusion'], ['rce', 'Remote code execution']] %}
+
+  rule {
+    action      = "deny(403)"
+    priority    = ${{ 1000 + loop.index0 }}
+    description = "${{ rule[1] }}"
+
+    match {
+      expr {
+        expression = "evaluatePreconfiguredWaf('${{ rule[0] }}-v33-stable', {'sensitivity': 1})"
+      }
+    }
+  }
+{%- endfor %}
+{%- if directLb and values.apiType == 'graphql' %}
+
+  rule {
+    action      = "deny(404)"
+    priority    = 900
+    description = "Only the GraphQL endpoint is published"
+
+    match {
+      expr {
+        expression = "request.path != '/graphql'"
+      }
+    }
+  }
+{%- endif %}
+{%- if armorThrottle %}
+
+  rule {
+    action      = "throttle"
+    priority    = 2000
+    description = "Request rate per client address"
+
+    match {
+      versioned_expr = "SRC_IPS_V1"
+
+      config {
+        src_ip_ranges = ["*"]
+      }
+    }
+
+    rate_limit_options {
+      conform_action = "allow"
+      exceed_action  = "deny(429)"
+      enforce_on_key = "IP"
+
+      rate_limit_threshold {
+        # Cloud Armor accepts at most 1,000,000 requests per interval.
+        count        = min(var.throttle_rate_limit * 60, 1000000)
+        interval_sec = 60
+      }
+    }
+  }
+{%- endif %}
+
+  rule {
+    action      = "allow"
+    priority    = 2147483647
+    description = "Default rule"
+
+    match {
+      versioned_expr = "SRC_IPS_V1"
+
+      config {
+        src_ip_ranges = ["*"]
+      }
+    }
+  }
+
+  depends_on = [google_project_service.enabled]
+}
+
+resource "google_compute_global_address" "load_balancer" {
+  project = var.project_id
+  name    = local.name
+
+  depends_on = [google_project_service.enabled]
+}
+{%- if gateway %}
+
+# Serverless endpoint group that points at the gateway (a Preview feature of
+# API Gateway).
+resource "google_compute_region_network_endpoint_group" "api" {
+  provider = google-beta
+
+  project               = var.project_id
+  name                  = local.name
+  region                = var.gateway_region
+  network_endpoint_type = "SERVERLESS"
+
+  serverless_deployment {
+    platform = "apigateway.googleapis.com"
+    resource = google_api_gateway_gateway.api.gateway_id
+  }
+}
+{%- else %}
+
+# Serverless endpoint group that points at the Cloud Run service of the
+# function.
+resource "google_compute_region_network_endpoint_group" "api" {
+  project               = var.project_id
+  name                  = local.name
+  region                = var.region
+  network_endpoint_type = "SERVERLESS"
+
+  cloud_run {
+    service = google_cloudfunctions2_function.api.name
+  }
+
+  depends_on = [google_project_service.enabled]
+}
+{%- endif %}
+
+resource "google_compute_backend_service" "api" {
+  project               = var.project_id
+  name                  = local.name
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+  protocol              = "HTTPS"
+  security_policy       = google_compute_security_policy.waf.id
+
+  backend {
+    group = google_compute_region_network_endpoint_group.api.id
+  }
+
+  log_config {
+    enable      = true
+    sample_rate = 1
+  }
+}
+
+resource "google_compute_url_map" "api" {
+  project         = var.project_id
+  name            = local.name
+  default_service = google_compute_backend_service.api.id
+}
+
+# Without a domain there is no certificate, and the load balancer serves plain
+# HTTP on its address.
+resource "google_compute_target_http_proxy" "api" {
+  count = var.load_balancer_domain == "" ? 1 : 0
+
+  project = var.project_id
+  name    = local.name
+  url_map = google_compute_url_map.api.id
+}
+
+resource "google_compute_global_forwarding_rule" "http" {
+  count = var.load_balancer_domain == "" ? 1 : 0
+
+  project               = var.project_id
+  name                  = "${local.name}-http"
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+  ip_address            = google_compute_global_address.load_balancer.id
+  port_range            = "80"
+  target                = google_compute_target_http_proxy.api[0].id
+}
+
+# With a domain: Google-managed certificate, HTTPS listener, and HTTP only as
+# a redirect to HTTPS.
+resource "google_compute_managed_ssl_certificate" "api" {
+  count = var.load_balancer_domain == "" ? 0 : 1
+
+  project = var.project_id
+  name    = local.name
+
+  managed {
+    domains = [var.load_balancer_domain]
+  }
+}
+
+resource "google_compute_ssl_policy" "api" {
+  count = var.load_balancer_domain == "" ? 0 : 1
+
+  project         = var.project_id
+  name            = local.name
+  profile         = "MODERN"
+  min_tls_version = "TLS_1_2"
+}
+
+resource "google_compute_target_https_proxy" "api" {
+  count = var.load_balancer_domain == "" ? 0 : 1
+
+  project          = var.project_id
+  name             = local.name
+  url_map          = google_compute_url_map.api.id
+  ssl_certificates = [google_compute_managed_ssl_certificate.api[0].id]
+  ssl_policy       = google_compute_ssl_policy.api[0].id
+}
+
+resource "google_compute_global_forwarding_rule" "https" {
+  count = var.load_balancer_domain == "" ? 0 : 1
+
+  project               = var.project_id
+  name                  = "${local.name}-https"
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+  ip_address            = google_compute_global_address.load_balancer.id
+  port_range            = "443"
+  target                = google_compute_target_https_proxy.api[0].id
+}
+
+resource "google_compute_url_map" "https_redirect" {
+  count = var.load_balancer_domain == "" ? 0 : 1
+
+  project = var.project_id
+  name    = "${local.name}-https-redirect"
+
+  default_url_redirect {
+    https_redirect = true
+    strip_query    = false
+  }
+}
+
+resource "google_compute_target_http_proxy" "https_redirect" {
+  count = var.load_balancer_domain == "" ? 0 : 1
+
+  project = var.project_id
+  name    = "${local.name}-https-redirect"
+  url_map = google_compute_url_map.https_redirect[0].id
+}
+
+resource "google_compute_global_forwarding_rule" "https_redirect" {
+  count = var.load_balancer_domain == "" ? 0 : 1
+
+  project               = var.project_id
+  name                  = "${local.name}-https-redirect"
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+  ip_address            = google_compute_global_address.load_balancer.id
+  port_range            = "80"
+  target                = google_compute_target_http_proxy.https_redirect[0].id
+}
+{%- endif %}

@@ -1,0 +1,18 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.destination.repo }}
+  title: ${{ values.projectName }} serverless API (${{ values.environment }})
+  description: Serverless API infrastructure for ${{ values.projectName }} on ${{ values.cloudProvider | upper }} (${{ values.environment }})
+  annotations:
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - terraform
+    - serverless
+    - api
+    - ${{ values.cloudProvider }}
+spec:
+  type: infrastructure
+  lifecycle: ${{ 'production' if values.environment == 'production' else 'experimental' }}
+  owner: ${{ values.owner }}

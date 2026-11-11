@@ -1,0 +1,131 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-{% raw %}${{ github.ref }}{% endraw %}
+  cancel-in-progress: false
+
+env:
+  TF_IN_AUTOMATION: 'true'
+  TF_INPUT: '0'
+  ARM_USE_OIDC: 'true'
+  ARM_USE_AZUREAD: 'true'
+  ARM_CLIENT_ID: {% raw %}${{ secrets.AZURE_CLIENT_ID || vars.AZURE_CLIENT_ID }}{% endraw %}
+  ARM_TENANT_ID: {% raw %}${{ secrets.AZURE_TENANT_ID || vars.AZURE_TENANT_ID }}{% endraw %}
+{%- if values.azureSubscriptionId %}
+  # The subscription chosen when the repository was created; variables.tf uses the same value.
+  ARM_SUBSCRIPTION_ID: ${{ values.azureSubscriptionId | dump }}
+{%- else %}
+  ARM_SUBSCRIPTION_ID: {% raw %}${{ secrets.AZURE_SUBSCRIPTION_ID || vars.AZURE_SUBSCRIPTION_ID }}{% endraw %}
+{%- endif %}
+{%- if values.authType == 'oauth2' %}
+  TF_VAR_oauth2_openid_configuration_url: {% raw %}${{ vars.OAUTH2_OPENID_CONFIGURATION_URL }}{% endraw %}
+  TF_VAR_oauth2_audience: {% raw %}${{ vars.OAUTH2_AUDIENCE }}{% endraw %}
+{%- endif %}
+{%- if values.enableAlarms %}
+  TF_VAR_alert_email: {% raw %}${{ vars.ALERT_EMAIL }}{% endraw %}
+{%- endif %}
+{% raw %}
+jobs:
+  credentials:
+    name: Deployment credentials
+    runs-on: ubuntu-latest
+    outputs:
+      available: ${{ steps.check.outputs.available }}
+    steps:
+      - name: Check that an identity and a state storage account are configured
+        id: check
+        env:
+          TF_STATE_STORAGE_ACCOUNT: ${{ vars.TF_STATE_STORAGE_ACCOUNT }}
+        run: |
+          missing=""
+          [ -n "$ARM_CLIENT_ID" ] || missing="$missing AZURE_CLIENT_ID"
+          [ -n "$ARM_TENANT_ID" ] || missing="$missing AZURE_TENANT_ID"
+          [ -n "$ARM_SUBSCRIPTION_ID" ] || missing="$missing AZURE_SUBSCRIPTION_ID"
+          [ -n "$TF_STATE_STORAGE_ACCOUNT" ] || missing="$missing TF_STATE_STORAGE_ACCOUNT"{% endraw %}
+{%- if values.authType == 'oauth2' %}
+          [ -n "$TF_VAR_oauth2_openid_configuration_url" ] || missing="$missing OAUTH2_OPENID_CONFIGURATION_URL"
+          [ -n "$TF_VAR_oauth2_audience" ] || missing="$missing OAUTH2_AUDIENCE"
+{%- endif %}
+{% raw %}          if [ -z "$missing" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Plan and apply are skipped until these are configured:$missing"
+          fi
+
+  plan:
+    name: Plan
+    needs: credentials
+    if: needs.credentials.outputs.available == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ env.ARM_CLIENT_ID }}
+          tenant-id: ${{ env.ARM_TENANT_ID }}
+          subscription-id: ${{ env.ARM_SUBSCRIPTION_ID }}
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.17.1
+
+      - name: Initialise
+        run: >
+          terraform init
+          -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}"
+          -backend-config="container_name=${{ vars.TF_STATE_CONTAINER || 'tfstate' }}"
+          -backend-config="key=${{ github.event.repository.name }}/terraform.tfstate"
+
+      - name: Plan
+        run: terraform plan -out=tfplan
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: tfplan
+          path: tfplan
+
+  apply:
+    name: Apply
+    needs: plan
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ env.ARM_CLIENT_ID }}
+          tenant-id: ${{ env.ARM_TENANT_ID }}
+          subscription-id: ${{ env.ARM_SUBSCRIPTION_ID }}
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.17.1
+
+      - name: Initialise
+        run: >
+          terraform init
+          -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}"
+          -backend-config="container_name=${{ vars.TF_STATE_CONTAINER || 'tfstate' }}"
+          -backend-config="key=${{ github.event.repository.name }}/terraform.tfstate"
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: tfplan
+
+      - name: Apply
+        run: terraform apply tfplan
+{% endraw %}

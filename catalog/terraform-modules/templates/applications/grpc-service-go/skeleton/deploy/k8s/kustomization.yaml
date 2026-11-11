@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - deployment.yaml
+  - service.yaml
+{% if values.serviceMesh == 'istio' %}
+  - istio.yaml
+{% endif %}
+
+# Release pipelines set the tag with: kustomize edit set image ...
+images:
+  - name: ghcr.io/${{ values.destination.owner | lower }}/${{ values.destination.repo | lower }}
+    newTag: ${{ values.serviceVersion | dump }}

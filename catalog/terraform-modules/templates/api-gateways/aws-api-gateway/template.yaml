@@ -24,7 +24,8 @@ spec:
           title: API Name
           type: string
           description: Name of the API (e.g., user-service-api)
-          pattern: '^[a-z0-9\-]+$'
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          maxLength: 40
           ui:autofocus: true
         description:
           title: Description
@@ -33,15 +34,27 @@ spec:
         apiVersion:
           title: API Version
           type: string
-          description: API version (semver)
+          description: API version (semver). The major version names the deployed stage (1.0.0 is served under /v1).
+          pattern: '^[0-9]+\.[0-9]+\.[0-9]+$'
           default: '1.0.0'
+        awsRegion:
+          title: AWS Region
+          type: string
+          description: Region the API is deployed to
+          default: us-east-1
+          enum:
+            - us-east-1
+            - us-west-2
+            - eu-west-1
+            - eu-central-1
+            - ap-southeast-1
 
     - title: Authentication & Security
       properties:
         enableAuth:
           title: Enable Authentication
           type: boolean
-          description: Enable JWT/API Key authentication
+          description: Require callers to authenticate with the mechanism selected below
           default: true
         authType:
           title: Authentication Type
@@ -73,6 +86,32 @@ spec:
           type: number
           description: Max requests per second per client
           default: 100
+          minimum: 1
+          maximum: 10000
+      dependencies:
+        authType:
+          oneOf:
+            - properties:
+                authType:
+                  enum:
+                    - apikey
+                    - cognito
+                    - none
+            - required:
+                - jwtIssuer
+                - jwtAudience
+              properties:
+                authType:
+                  const: jwt
+                jwtIssuer:
+                  title: JWT Issuer
+                  type: string
+                  description: Issuer (iss claim) of the tokens the API accepts, e.g. https://login.example.com/. Its keys are read from <issuer>/.well-known/jwks.json.
+                  pattern: '^https://.+'
+                jwtAudience:
+                  title: JWT Audience
+                  type: string
+                  description: Audience (aud claim) the tokens must carry
 
     - title: Lambda Configuration
       properties:
@@ -80,15 +119,23 @@ spec:
           title: Lambda Runtime
           type: string
           description: Lambda runtime environment
-          default: nodejs18.x
+          default: nodejs24.x
           enum:
-            - nodejs18.x
-            - nodejs16.x
-            - python3.11
-            - python3.10
-            - java17
-            - java11
-            - dotnet6
+            - nodejs24.x
+            - nodejs22.x
+            - python3.14
+            - python3.13
+            - java25
+            - java21
+            - dotnet10
+          enumNames:
+            - Node.js 24
+            - Node.js 22
+            - Python 3.14
+            - Python 3.13
+            - Java 25
+            - Java 21
+            - .NET 10
         memorySize:
           title: Lambda Memory (MB)
           type: number
@@ -103,7 +150,7 @@ spec:
         timeout:
           title: Lambda Timeout (seconds)
           type: number
-          description: Lambda execution timeout
+          description: Lambda execution timeout. API Gateway waits at most 29 seconds for a response.
           default: 30
           enum:
             - 3
@@ -117,19 +164,23 @@ spec:
         enableCRUD:
           title: Enable CRUD Endpoints
           type: boolean
-          description: Auto-generate CRUD endpoints
+          description: Generate create, read, update and delete endpoints under /items, stored in a DynamoDB table
           default: true
         endpoints:
           title: Custom Endpoints
           type: array
-          description: Additional custom endpoints
+          description: Additional endpoints. Each one is routed to the Lambda function and answers 501 until it is implemented.
           items:
             type: object
+            required:
+              - path
+              - method
             properties:
               path:
                 title: Path
                 type: string
-                description: Endpoint path (e.g., /users)
+                description: Endpoint path (e.g., /users or /users/{id})
+                pattern: '^(/([a-zA-Z0-9._-]+|\{[a-zA-Z0-9_]+\}))+$'
               method:
                 title: HTTP Method
                 type: string
@@ -147,7 +198,7 @@ spec:
         enableMonitoring:
           title: Enable CloudWatch Monitoring
           type: boolean
-          description: Enable detailed monitoring
+          description: Detailed metrics, access logs, alarms and a dashboard
           default: true
         enableXRay:
           title: Enable X-Ray Tracing
@@ -168,24 +219,50 @@ spec:
     - title: CI/CD
       properties:
         enableCICD:
-          title: Enable CI/CD Pipeline
+          title: Enable Deployment Pipeline
           type: boolean
-          description: Include GitHub Actions workflow
+          description: Include the GitHub Actions workflow that plans and applies the API once AWS credentials are configured. The validation workflow is always included.
           default: true
 
+    - title: Repository
+      required:
+        - repoUrl
+        - owner
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+        owner:
+          title: Owner
+          type: string
+          description: Team or user that owns the API
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind:
+                - Group
+                - User
+
   steps:
-    - id: fetch-infra
-      name: Fetch Infrastructure
+    - id: fetch-base
+      name: Fetch Infrastructure and Documentation
       action: fetch:template
       input:
-        url: ./skeleton/infra
-        targetPath: ./infra
-        values:
+        url: ./skeleton/base
+        templateFileExtension: '.j2'
+        values: &values
           apiName: ${{ parameters.apiName }}
           description: ${{ parameters.description }}
           apiVersion: ${{ parameters.apiVersion }}
+          awsRegion: ${{ parameters.awsRegion }}
           enableAuth: ${{ parameters.enableAuth }}
           authType: ${{ parameters.authType }}
+          jwtIssuer: ${{ parameters.jwtIssuer }}
+          jwtAudience: ${{ parameters.jwtAudience }}
           enableWAF: ${{ parameters.enableWAF }}
           rateLimiting: ${{ parameters.rateLimiting }}
           requestsPerSecond: ${{ parameters.requestsPerSecond }}
@@ -197,27 +274,63 @@ spec:
           enableMonitoring: ${{ parameters.enableMonitoring }}
           enableXRay: ${{ parameters.enableXRay }}
           logRetention: ${{ parameters.logRetention }}
+          enableCICD: ${{ parameters.enableCICD }}
+          owner: ${{ parameters.owner }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
 
-    - id: fetch-src
-      name: Fetch Lambda Source Code
+    - id: fetch-node
+      name: Fetch Node.js Lambda Source Code and Tests
+      if: ${{ 'nodejs' in parameters.runtime }}
       action: fetch:template
       input:
-        url: ./skeleton/src
-        targetPath: ./src
-        values:
-          apiName: ${{ parameters.apiName }}
-          runtime: ${{ parameters.runtime }}
-          enableAuth: ${{ parameters.enableAuth }}
-          authType: ${{ parameters.authType }}
-          enableCRUD: ${{ parameters.enableCRUD }}
-          endpoints: ${{ parameters.endpoints }}
+        url: ./skeleton/runtimes/node
+        templateFileExtension: '.j2'
+        values: *values
 
-    - id: fetch-tests
-      name: Fetch Test Suite
+    - id: fetch-python
+      name: Fetch Python Lambda Source Code and Tests
+      if: ${{ 'python' in parameters.runtime }}
       action: fetch:template
       input:
-        url: ./skeleton/tests
-        targetPath: ./tests
+        url: ./skeleton/runtimes/python
+        templateFileExtension: '.j2'
+        values: *values
+
+    - id: fetch-java
+      name: Fetch Java Lambda Source Code and Tests
+      if: ${{ 'java' in parameters.runtime }}
+      action: fetch:template
+      input:
+        url: ./skeleton/runtimes/java
+        templateFileExtension: '.j2'
+        values: *values
+
+    - id: fetch-dotnet
+      name: Fetch .NET Lambda Source Code and Tests
+      if: ${{ 'dotnet' in parameters.runtime }}
+      action: fetch:template
+      input:
+        url: ./skeleton/runtimes/dotnet
+        templateFileExtension: '.j2'
+        values: *values
+
+    - id: fetch-authorizer
+      name: Fetch JWT Authorizer
+      if: ${{ parameters.enableAuth and parameters.authType == 'jwt' }}
+      action: fetch:template
+      input:
+        url: ./skeleton/authorizer
+        templateFileExtension: '.j2'
+        values: *values
+
+    - id: fetch-deploy
+      name: Fetch Deployment Pipeline
+      if: ${{ parameters.enableCICD }}
+      action: fetch:template
+      input:
+        url: ./skeleton/deploy
+        templateFileExtension: '.j2'
+        values: *values
 
     - id: publish
       name: Publish to Repository
@@ -239,10 +352,9 @@ spec:
     links:
       - title: Repository
         url: ${{ steps.publish.output.remoteUrl }}
+      - title: Pipeline Runs
+        icon: github
+        url: ${{ steps.publish.output.remoteUrl }}/actions
       - title: Open in Catalog
         icon: catalog
         entityRef: ${{ steps.register.output.entityRef }}
-      - title: API Gateway URL
-        icon: docs
-      - title: API Documentation
-        icon: docs

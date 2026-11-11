@@ -1,0 +1,20 @@
+[project]
+name = ${{ values.apiName | dump }}
+version = ${{ (values.apiVersion or '1.0.0') | dump }}
+description = ${{ values.description | dump }}
+requires-python = ">=${{ '3.13' if '3.13' in values.runtime else '3.14' }}"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+src = ["src"]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# The route table holds endpoint paths and descriptions of any length.
+"src/routes.py" = ["E501"]

@@ -1,0 +1,12 @@
+# Terraform working files
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+tfplan
+
+# Descriptor compiled from the .proto file by protoc
+infra/api_descriptor.pb
+
+# Output of mkdocs build
+site/

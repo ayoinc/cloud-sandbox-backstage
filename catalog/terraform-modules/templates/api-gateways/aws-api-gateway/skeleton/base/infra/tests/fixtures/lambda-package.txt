@@ -1,0 +1,2 @@
+Stands in for build/lambda.zip when the configuration is planned by
+"terraform test", which runs before the function is packaged.

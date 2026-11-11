@@ -1,0 +1,9 @@
+site_name: ${{ values.projectName }} Kubernetes platform
+site_description: Kubernetes platform for ${{ values.projectName }} on ${{ values.cloudProvider }} (${{ values.environment }})
+
+nav:
+  - Overview: index.md
+  - Platform components: components.md
+
+plugins:
+  - techdocs-core

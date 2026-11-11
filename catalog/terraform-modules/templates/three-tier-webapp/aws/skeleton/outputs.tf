@@ -1,58 +1,59 @@
-# VPC Outputs
 output "vpc_id" {
   description = "ID of the VPC"
   value       = module.vpc.vpc_id
 }
 
 output "public_subnet_ids" {
-  description = "IDs of public subnets"
+  description = "IDs of the public subnets"
   value       = module.vpc.public_subnet_ids
 }
 
 output "private_subnet_ids" {
-  description = "IDs of private subnets"
+  description = "IDs of the private subnets"
   value       = module.vpc.private_subnet_ids
 }
 
-# Load Balancer Outputs
 output "alb_dns_name" {
-  description = "DNS name of the Application Load Balancer"
+  description = "DNS name of the application load balancer"
   value       = module.alb.lb_dns_name
 }
 
 output "alb_zone_id" {
-  description = "Zone ID of the Application Load Balancer"
+  description = "Route 53 zone ID of the application load balancer"
   value       = module.alb.lb_zone_id
 }
 
-# Database Outputs
+output "ecs_cluster_name" {
+  description = "Name of the ECS cluster (ecs-fargate and ecs-ec2)"
+  value       = one(module.ecs[*].cluster_name)
+}
+
+output "autoscaling_group_name" {
+  description = "Name of the Auto Scaling group (ecs-ec2 and ec2-asg)"
+  value       = one(module.instances[*].autoscaling_group_name)
+}
+
 output "database_endpoint" {
-  description = "RDS database endpoint"
-  value       = module.rds.endpoint
+  description = "Endpoint of the database"
+  value       = module.rds.db_instance_endpoint
 }
 
 output "database_port" {
-  description = "RDS database port"
-  value       = module.rds.port
+  description = "Port of the database"
+  value       = module.rds.db_instance_port
 }
 
-{%- if values.enableCloudfront %}
-# CloudFront Outputs
-output "cloudfront_domain_name" {
-  description = "CloudFront distribution domain name"
-  value       = module.cloudfront.distribution_domain_name
+output "database_master_user_secret_arn" {
+  description = "ARN of the Secrets Manager secret that holds the database master password"
+  value       = module.rds.master_user_secret_arn
 }
 
-output "cloudfront_distribution_id" {
-  description = "CloudFront distribution ID"
-  value       = module.cloudfront.distribution_id
-}
-{%- endif %}
-
-{%- if values.enableWaf %}
-# WAF Outputs
 output "waf_web_acl_arn" {
-  description = "WAF Web ACL ARN"
-  value       = module.waf.web_acl_arn
+  description = "ARN of the WAF web ACL, when enable_waf is true"
+  value       = one(module.waf[*].web_acl_arn)
 }
-{%- endif %}
+
+output "cloudfront_domain_name" {
+  description = "Domain name of the CloudFront distribution, when enable_cloudfront is true"
+  value       = one(module.cloudfront[*].distribution_domain_name)
+}

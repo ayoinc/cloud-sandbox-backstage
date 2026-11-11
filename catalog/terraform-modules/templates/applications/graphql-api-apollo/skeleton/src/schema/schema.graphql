@@ -1,0 +1,48 @@
+enum CacheControlScope {
+  PUBLIC
+  PRIVATE
+}
+
+directive @cacheControl(
+  maxAge: Int
+  scope: CacheControlScope
+  inheritMaxAge: Boolean
+) on FIELD_DEFINITION | OBJECT | INTERFACE | UNION
+
+type Product {
+  id: ID!
+  name: String!
+  description: String
+  "Price in the smallest unit of the currency, for example cents."
+  priceCents: Int!
+  inStock: Boolean!
+  "When the product was created, as an ISO 8601 timestamp."
+  createdAt: String!
+}
+
+"The caller of the request."
+type Viewer {
+  id: ID!
+  roles: [String!]!
+}
+
+type Query {
+  "Products, newest first."
+  products(limit: Int = 20, offset: Int = 0): [Product!]!
+  product(id: ID!): Product
+  "The caller, or null when the request carries no token."
+  viewer: Viewer @cacheControl(maxAge: 0, scope: PRIVATE)
+}
+
+input CreateProductInput {
+  name: String!
+  description: String
+  priceCents: Int!
+  inStock: Boolean = true
+}
+
+type Mutation {
+  createProduct(input: CreateProductInput!): Product!
+  "Returns false when there was no product with that ID."
+  deleteProduct(id: ID!): Boolean!
+}

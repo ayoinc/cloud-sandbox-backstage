@@ -1,0 +1,174 @@
+{%- set grpc = values.protocol != 'rest' -%}
+{%- set transcoding = values.protocol == 'grpc-rest' -%}
+{%- set authType = values.authType if values.enableAuth else 'none' -%}
+{%- set apiKey = values.enableQuotas or authType == 'apikey' -%}
+{%- set tokenAuth = authType != 'none' and authType != 'apikey' -%}
+{%- set package = (values.apiName | replace('-', '_')) + '.v1' -%}
+{%- set repo = values.destination.owner + '/' + values.destination.repo -%}
+{%- set protoc = 'protoc --include_imports --include_source_info --descriptor_set_out=infra/api_descriptor.pb ' + values.grpcSpec -%}
+# Deployment
+
+## Pipelines
+
+Two GitHub Actions workflows run on every push to `main`, on every pull request and on demand.
+
+**CI** (`.github/workflows/ci.yml`) needs no credentials:
+
+| Job | Checks |
+| --- | --- |
+| Terraform | {% if grpc %}Compiles `${{ values.grpcSpec }}` with `protoc`, then `terraform fmt -check`{% else %}`terraform fmt -check`{% endif %}, `terraform init -backend=false`, `terraform validate`, `terraform test`, `tflint` |
+| Security scan | Trivy scan of `infra/`; fails on HIGH and CRITICAL findings |
+{%- if not grpc %}
+| API definition | `scripts/validate_openapi.py`: `${{ values.openApiSpec }}` is valid OpenAPI 2.0 and every operation has an `operationId` |
+{%- endif %}
+| Documentation | `mkdocs build --strict` with the TechDocs plugins |
+
+**Deploy** (`.github/workflows/deploy.yml`):
+
+| Job | Runs | Does |
+| --- | --- | --- |
+| Deployment credentials | always | Checks whether the three settings below exist |
+| Plan | when they exist | {% if grpc %}Compiles the descriptor, then `terraform plan`{% else %}`terraform plan`{% endif %}; the plan is kept as an artifact |
+| Apply | after Plan, on `main` only | `terraform apply` of that plan, in the `production` environment |
+
+Until the settings exist, Plan and Apply are skipped and the workflow ends successfully. Nothing is deployed by creating the repository.
+
+## One-time setup
+
+The commands use the project `${{ values.projectId }}` and the repository `${{ repo }}`.
+
+### 1. Enable the bootstrap APIs
+
+Terraform enables the Endpoints and Cloud Run APIs itself, but it needs these to do so:
+
+```bash
+gcloud services enable --project ${{ values.projectId }} \
+  cloudresourcemanager.googleapis.com serviceusage.googleapis.com \
+  iam.googleapis.com iamcredentials.googleapis.com sts.googleapis.com
+```
+
+### 2. Create the state bucket
+
+```bash
+gcloud storage buckets create gs://${{ values.projectId }}-tfstate \
+  --project ${{ values.projectId }} --location europe-west1 \
+  --uniform-bucket-level-access
+gcloud storage buckets update gs://${{ values.projectId }}-tfstate --versioning
+```
+
+Any bucket works; the state is stored under the prefix `${{ values.destination.repo }}`.
+
+### 3. Create the deployment identity
+
+GitHub Actions signs in with Workload Identity Federation: no key is stored anywhere.
+
+```bash
+PROJECT_ID=${{ values.projectId }}
+PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format 'value(projectNumber)')
+DEPLOYER="terraform-deployer@$PROJECT_ID.iam.gserviceaccount.com"
+
+gcloud iam service-accounts create terraform-deployer --project "$PROJECT_ID"
+
+gcloud iam workload-identity-pools create github \
+  --project "$PROJECT_ID" --location global
+gcloud iam workload-identity-pools providers create-oidc github \
+  --project "$PROJECT_ID" --location global --workload-identity-pool github \
+  --issuer-uri https://token.actions.githubusercontent.com \
+  --attribute-mapping "google.subject=assertion.sub,attribute.repository=assertion.repository" \
+  --attribute-condition "assertion.repository == '${{ repo }}'"
+
+gcloud iam service-accounts add-iam-policy-binding "$DEPLOYER" \
+  --project "$PROJECT_ID" --role roles/iam.workloadIdentityUser \
+  --member "principalSet://iam.googleapis.com/projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/github/attribute.repository/${{ repo }}"
+```
+
+Grant the deployer these roles on the project (`gcloud projects add-iam-policy-binding "$PROJECT_ID" --member "serviceAccount:$DEPLOYER" --role <role>`):
+
+| Role | Needed for |
+| --- | --- |
+| `roles/servicemanagement.admin` | The Endpoints service, its configurations and its IAM policy |
+| `roles/serviceusage.serviceUsageAdmin` | Enabling APIs |
+| `roles/run.admin` | The gateway on Cloud Run |
+| `roles/iam.serviceAccountAdmin` | The service account of the gateway |
+| `roles/iam.serviceAccountUser` | Deploying the gateway with that service account |
+| `roles/resourcemanager.projectIamAdmin` | Granting the gateway's service account its roles |
+{%- if values.enableMonitoring %}
+| `roles/monitoring.editor` | Dashboard, alert policies, notification channels |
+{%- endif %}
+{%- if values.enableLogging %}
+| `roles/logging.configWriter` | Log bucket and sink |
+{%- endif %}
+
+and `roles/storage.objectAdmin` on the state bucket.
+
+### 4. Tell the repository
+
+Under **Settings > Secrets and variables > Actions** of the repository add three variables (the first two may be secrets instead):
+
+| Name | Value |
+| --- | --- |
+| `GCP_WORKLOAD_IDENTITY_PROVIDER` | `projects/<project number>/locations/global/workloadIdentityPools/github/providers/github` |
+| `GCP_SERVICE_ACCOUNT` | `terraform-deployer@${{ values.projectId }}.iam.gserviceaccount.com` |
+| `TF_STATE_BUCKET` | `${{ values.projectId }}-tfstate` |
+
+Apply runs in the GitHub environment `production`, which is created on first use. Add required reviewers to it under **Settings > Environments** if an apply should wait for approval.
+{%- if authType == 'jwt' or authType == 'oauth2' %}
+
+### 5. Set the authentication variables
+
+{% if authType == 'jwt' %}`jwt_issuer`, `jwt_jwks_uri` and `jwt_audiences` have{% else %}`oauth_client_ids` has{% endif %} no default. Set {% if authType == 'jwt' %}them{% else %}it{% endif %} in `infra/terraform.tfvars` as described under [Authentication](configuration.md#authentication); the Plan job fails until then.
+{%- endif %}
+
+The next push to `main`, or a manual run of the Deploy workflow, deploys the API.
+
+## Run Terraform locally
+
+Requires Terraform 1.9 or later{% if grpc %}, `protoc`{% endif %} and `gcloud auth application-default login`.
+
+```bash
+{%- if grpc %}
+${{ protoc }}
+{%- endif %}
+cd infra
+terraform init -backend-config="bucket=${{ values.projectId }}-tfstate" -backend-config="prefix=${{ values.destination.repo }}"
+terraform plan
+```
+{%- if grpc %}
+
+`infra/api_descriptor.pb` is the compiled form of `${{ values.grpcSpec }}` that Endpoints needs. It is a build product and is not committed: compile it again whenever the proto changes. `terraform validate` works without it; `terraform plan` stops with a message if it is missing.
+{%- endif %}
+
+The checks of the CI workflow can be run the same way: `terraform fmt -check -recursive`, `terraform init -backend=false && terraform validate && terraform test`, `tflint --init && tflint` and `trivy config --severity HIGH,CRITICAL infra`.
+
+`terraform test` runs `infra/tests/configuration.tftest.hcl`: it plans the configuration with the values of `terraform.tfvars` against a mocked Google provider, without credentials, so a value that Terraform would reject at plan time fails the pull request.
+
+## Call the API
+
+```bash
+GATEWAY=$(terraform -chdir=infra output -raw gateway_url)
+{%- if not grpc or transcoding %}
+
+curl "$GATEWAY/healthz"
+curl{% if apiKey %} -H "x-api-key: $API_KEY"{% endif %}{% if tokenAuth %} -H "Authorization: Bearer $TOKEN"{% endif %} "$GATEWAY/v1/items"
+{%- endif %}
+{%- if grpc %}
+
+# gRPC, with https://github.com/fullstorydev/grpcurl
+grpcurl -proto ${{ values.grpcSpec }} "${GATEWAY#https://}:443" ${{ package }}.Health/Check
+grpcurl -proto ${{ values.grpcSpec }}{% if apiKey %} -H "x-api-key: $API_KEY"{% endif %}{% if tokenAuth %} -H "Authorization: Bearer $TOKEN"{% endif %} \
+  "${GATEWAY#https://}:443" ${{ package }}.Items/ListItems
+{%- endif %}
+```
+{%- if apiKey %}
+
+`API_KEY` is a Google Cloud API key of a project that has enabled the API; see [Configuration](configuration.md).
+{%- endif %}
+
+A new gateway instance needs a few seconds to download the service configuration, so the first request after a period without traffic is slower. Set `gateway_min_instances` to `1` to keep an instance running.
+
+## Remove the API
+
+`terraform destroy` removes everything except two things:
+
+- The gateway. The shared Cloud Run module leaves Cloud Run's deletion protection on, so Terraform refuses to delete the service. Delete it first with `gcloud run services delete ${{ values.apiName }}-gateway --project ${{ values.projectId }} --region europe-west1`, then run `terraform state rm 'module.gateway.google_cloud_run_v2_service.this'` and `terraform destroy`.
+- The name of the Endpoints service. A deleted service can be restored for 30 days and its name cannot be reused during that time.

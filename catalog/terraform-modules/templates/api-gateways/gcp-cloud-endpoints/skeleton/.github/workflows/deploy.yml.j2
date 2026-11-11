@@ -1,0 +1,132 @@
+{%- set grpc = values.protocol != 'rest' -%}
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: {% raw %}deploy-${{ github.ref }}{% endraw %}
+  cancel-in-progress: false
+
+env:
+  TF_IN_AUTOMATION: 'true'
+  TF_INPUT: '0'
+
+jobs:
+  credentials:
+    name: Deployment credentials
+    runs-on: ubuntu-latest
+    outputs:
+      available: {% raw %}${{ steps.check.outputs.available }}{% endraw %}
+    steps:
+      - name: Check that an identity and a state bucket are configured
+        id: check
+        env:
+          GCP_WORKLOAD_IDENTITY_PROVIDER: {% raw %}${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER || vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}{% endraw %}
+          GCP_SERVICE_ACCOUNT: {% raw %}${{ secrets.GCP_SERVICE_ACCOUNT || vars.GCP_SERVICE_ACCOUNT }}{% endraw %}
+          TF_STATE_BUCKET: {% raw %}${{ vars.TF_STATE_BUCKET }}{% endraw %}
+        run: |
+          if [ -n "$GCP_WORKLOAD_IDENTITY_PROVIDER" ] && [ -n "$GCP_SERVICE_ACCOUNT" ] && [ -n "$TF_STATE_BUCKET" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Plan and apply are skipped until GCP_WORKLOAD_IDENTITY_PROVIDER, GCP_SERVICE_ACCOUNT and TF_STATE_BUCKET are configured."
+          fi
+
+  plan:
+    name: Plan
+    needs: credentials
+    if: needs.credentials.outputs.available == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: {% raw %}${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER || vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}{% endraw %}
+          service_account: {% raw %}${{ secrets.GCP_SERVICE_ACCOUNT || vars.GCP_SERVICE_ACCOUNT }}{% endraw %}
+{%- if grpc %}
+
+      - name: Install protoc
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends protobuf-compiler
+
+      # Terraform uploads the descriptor with the service configuration.
+      - name: Compile the API descriptor
+        working-directory: .
+        run: >
+          protoc --include_imports --include_source_info
+          --descriptor_set_out=infra/api_descriptor.pb
+          ${{ values.grpcSpec }}
+{%- endif %}
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.17.1
+
+      - name: Initialise
+        run: >
+          terraform init
+          -backend-config="bucket={% raw %}${{ vars.TF_STATE_BUCKET }}{% endraw %}"
+          -backend-config="prefix={% raw %}${{ github.event.repository.name }}{% endraw %}"
+
+      - name: Plan
+        run: terraform plan -out=tfplan
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: tfplan
+{%- if grpc %}
+          # The apply job needs the descriptor the plan was made with.
+          path: |
+            infra/tfplan
+            infra/api_descriptor.pb
+{%- else %}
+          path: infra/tfplan
+{%- endif %}
+
+  apply:
+    name: Apply
+    needs: plan
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: {% raw %}${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER || vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}{% endraw %}
+          service_account: {% raw %}${{ secrets.GCP_SERVICE_ACCOUNT || vars.GCP_SERVICE_ACCOUNT }}{% endraw %}
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.17.1
+
+      - name: Initialise
+        run: >
+          terraform init
+          -backend-config="bucket={% raw %}${{ vars.TF_STATE_BUCKET }}{% endraw %}"
+          -backend-config="prefix={% raw %}${{ github.event.repository.name }}{% endraw %}"
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: tfplan
+          path: infra
+
+      - name: Apply
+        run: terraform apply tfplan

@@ -1,0 +1,416 @@
+{%- set slots = values.deploymentStrategy in ['canary', 'linear'] -%}
+{%- set cosmos = values.enableDatabase and values.databaseType == 'nosql' -%}
+{%- set sql = values.enableDatabase and values.databaseType == 'sql' -%}
+{%- set insights = values.enableTracing or values.enableMetrics -%}
+{%- set graphql = values.apiType == 'graphql' -%}
+{%- set memory = values.memorySize or 256 -%}
+{%- set timeout = values.timeout or 30 -%}
+{%- set retention = values.logRetentionDays or 30 -%}
+{%- set repo = values.destination.owner + '/' + values.destination.repo -%}
+# Infrastructure
+
+Everything is created in one resource group,
+`rg-${{ values.projectName }}-${{ 'prod' if values.environment == 'production' else values.environment }}-${{ values.azureRegion or 'eastus' }}`.
+Names of resources that must be unique across Azure end in a random
+six-character suffix that Terraform generates on the first apply.
+
+## Request path
+
+{% if values.enableWaf %}Client → Front Door Premium (WAF) → API Management (Consumption) → function app{% else %}Client → API Management (Consumption) → function app{% endif %}
+
+The function app can also be reached on its own hostname. The gateway
+authenticates to it with the function app's host key, so the handlers must
+use the authorisation level `function`: with `anonymous` a caller can go
+around the gateway.
+
+## What is provisioned
+
+### Function
+
+| Form option | Result |
+| ----------- | ------ |
+{%- if values.runtime == 'python313' %}
+| Runtime `python313` | Python 3.13 |
+{%- elif values.runtime == 'dotnet10' %}
+| Runtime `dotnet10` | .NET 10, isolated worker model |
+{%- elif values.runtime == 'java21' %}
+| Runtime `java21` | Java 21 |
+{%- elif values.runtime == 'go126' %}
+| Runtime `go126` | Custom handler. Azure Functions has no Go worker: the package must contain the compiled Linux binary and a `host.json` whose `customHandler.description.defaultExecutablePath` names it. The Go version is the one the binary was built with. |
+{%- else %}
+| Runtime `nodejs24` | Node.js 24 |
+{%- endif %}
+{%- if slots %}
+| Deployment strategy `${{ values.deploymentStrategy }}` | Linux function app on an Elastic Premium plan (`premium_plan_sku`, default `EP1`) with a deployment slot `staging`. See [Releasing a new version](#releasing-a-new-version). |
+| Memory ${{ memory }} MB | Not applied. Deployment slots need the Elastic Premium plan, whose smallest instance (`EP1`) has 3.5 GB. `premium_plan_sku` selects a larger instance. |
+{%- else %}
+| Deployment strategy `all-at-once` | Function app on a Flex Consumption plan (`FC1`). A deployment replaces the running version. |
+| Memory ${{ memory }} MB | `function_memory_mb = ${{ 512 if memory <= 512 else 2048 }}`. Flex Consumption instances come with 512, 2048 or 4096 MB{% if not (memory in [512, 2048]) %}; ${{ memory }} MB is rounded up to the next size{% endif %}. |
+{%- endif %}
+| Timeout ${{ timeout }} s | `function_timeout_seconds = ${{ timeout }}`: the host setting `functionTimeout` (app setting `AzureFunctionsJobHost__functionTimeout`) and the time the gateway waits for the function{% if timeout > 230 %}. Azure closes an HTTP request to a function after 230 seconds, so the gateway waits 230 seconds; the full ${{ timeout }} seconds apply to work that is not bound to an HTTP response{% endif %}. |
+
+The function app has a system-assigned managed identity{% if slots %} per slot{% endif %} and a storage
+account for the Functions host (`st…fn…`).
+
+### API
+
+| Form option | Result |
+| ----------- | ------ |
+{%- if graphql %}
+| API type `graphql` | Pass-through GraphQL API in API Management. The schema is `graphql/schema.graphql`; requests are validated against it (at most 100 KB and 10 levels deep) and forwarded to the function route `/api/graphql`. Replace the placeholder schema with the one the function implements. |
+{%- else %}
+| API type `${{ values.apiType }}` | HTTP API in API Management with one wildcard operation (`/*`) for each of GET, POST, PUT, PATCH and DELETE, forwarded to the function under `/api`. API Management has one kind of HTTP API: `rest` and `http` give the same result on Azure. |
+{%- endif %}
+{%- if values.enableCors %}
+| CORS enabled | `cors` policy that answers preflight requests. Origins come from `cors_allowed_origins` (default `*`); all methods and headers are allowed, credentials are not. |
+{%- else %}
+| CORS disabled | No `cors` policy: browsers on other origins cannot call the API. |
+{%- endif %}
+{%- if values.enableThrottling %}
+| Throttling, ${{ values.throttleRateLimit or 1000 }} requests/s | `rate-limit` policy: `throttle_rate_limit` calls per second, then HTTP 429. {% if values.authType == 'api-key' %}The limit is counted per subscription key.{% else %}The limit is counted for all callers together; the Consumption tier has no per-client limit without subscription keys.{% endif %} |
+| Burst limit ${{ values.throttleBurstLimit or 2000 }} | `limit-concurrency` policy: at most `throttle_burst_limit` requests are in flight to the function at the same time, further ones get HTTP 429. API Management has no token bucket, so the burst limit caps concurrency instead. |
+{%- else %}
+| Throttling disabled | No `rate-limit` or `limit-concurrency` policy. |
+{%- endif %}
+{%- if values.authType == 'none' %}
+| Authentication `none` | The API is public: no subscription key and no token validation. |
+{%- elif values.authType == 'api-key' %}
+| Authentication `api-key` | The API requires a subscription key in the `Ocp-Apim-Subscription-Key` header. One subscription is created; its key is the output `api_subscription_key`. |
+{%- elif values.authType == 'jwt' %}
+| Authentication `jwt` | `validate-jwt` policy against the Microsoft Entra ID tenant (`entra_tenant_id`, default: the tenant of the deploying identity). A token must carry the audience `api_audience` (default `api://${{ values.projectName }}-${{ values.environment }}`). The app registration that exposes this audience is not created here; set `api_audience` to the Application ID URI or client ID of yours. |
+{%- elif values.authType == 'oauth2' %}
+| Authentication `oauth2` | `validate-jwt` policy against an external identity provider: signing keys and issuer come from `oauth2_openid_configuration_url`, the audience from `oauth2_audience`. Both variables are required. |
+{%- elif values.authType == 'iam' %}
+| Authentication `iam` | `validate-azure-ad-token` policy: callers are applications and managed identities of the Entra ID tenant (`entra_tenant_id`) that present a token for `api_audience` (default `api://${{ values.projectName }}-${{ values.environment }}`). `allowed_client_application_ids` restricts the callers to the listed client IDs. The app registration that exposes the audience is not created here. |
+{%- endif %}
+{%- if values.enableWaf %}
+| WAF enabled | Front Door Premium profile with a WAF policy in prevention mode (Microsoft default rule set 2.1 and bot manager rule set 1.1) in front of API Management. The API policy rejects requests without this profile's `X-Azure-FDID` header, so the gateway URL cannot be used to go around the WAF. The public URL is the Front Door endpoint (output `api_url`). |
+{%- else %}
+| WAF disabled | No Front Door; the public URL is the API Management gateway URL. |
+{%- endif %}
+
+All of these policies are in `policies/api.xml.tftpl`, which Terraform fills
+in and attaches to the API.
+
+### Data
+{% if not (values.enableDatabase or values.enableCache or values.enableStorage) %}
+No database, cache or object storage was selected.
+{%- else %}
+| Form option | Result | Function app settings |
+| ----------- | ------ | --------------------- |
+{%- if cosmos %}
+| Database `nosql` | Cosmos DB account in serverless mode with a database `app` and a container `items` (partition key `/id`). Account keys are disabled; the function's identity has the role *Cosmos DB Built-in Data Contributor*. | `COSMOS_ENDPOINT`, `COSMOS_DATABASE`, `COSMOS_CONTAINER` |
+{%- endif %}
+{%- if sql %}
+| Database `sql` | Azure SQL server with a database `app` on the General Purpose serverless tier (`GP_S_Gen5_1`, 0.5 to 1 vCore, paused after 60 idle minutes). The administrator password is generated and stored in a Key Vault (secret `sql-administrator-password`). The Entra ID administrator is `sql_entra_admin_object_id` (default: the deploying identity). | `SQL_SERVER`, `SQL_DATABASE` |
+{%- endif %}
+{%- if values.enableCache %}
+| Cache enabled | Azure Managed Redis (`redis_sku`, default `Balanced_B0`) with a single endpoint (clustering policy `EnterpriseCluster`), TLS only, access keys disabled; the function's identity is assigned the default access policy and signs in with Entra ID. Azure Cache for Redis is not used: it retires on 30 September 2028 and is closed to tenants that had no instance before 1 April 2026. High availability is on in `production` only. | `REDIS_HOST`, `REDIS_PORT` |
+{%- endif %}
+{%- if values.enableStorage %}
+| Object storage enabled | Storage account (`st…da…`) with a private blob container `data`. Account keys are disabled; the function's identity has the role *Storage Blob Data Contributor* on the container. | `STORAGE_BLOB_ENDPOINT`, `STORAGE_CONTAINER_NAME` |
+{%- endif %}
+{%- endif %}
+{%- if sql %}
+
+Azure SQL has no role assignment for database access. To let the function
+connect with its managed identity, an Entra ID administrator of the server
+runs this once in the database `app` (the user name is the function app's
+name, output `function_app_name`):
+
+```sql
+CREATE USER [<function app name>] FROM EXTERNAL PROVIDER;
+ALTER ROLE db_datareader ADD MEMBER [<function app name>];
+ALTER ROLE db_datawriter ADD MEMBER [<function app name>];
+```
+{%- if slots %}
+
+The staging slot has its own identity, named `<function app name>/slots/staging`;
+create a user for it in the same way.
+{%- endif %}
+{%- endif %}
+{%- if cosmos or sql or values.enableStorage %}
+
+Resources that hold application data have `prevent_destroy = true`. Remove
+that line from `data.tf` before destroying the environment.
+{%- endif %}
+
+### Observability
+
+| Form option | Result |
+| ----------- | ------ |
+| Log retention ${{ retention }} days | Log Analytics workspace with `log_retention_days = ${{ retention if retention >= 30 else 30 }}`; it receives the function app's logs (`FunctionAppLogs`){% if insights %} and the Application Insights data{% endif %}{% if retention < 30 %}. Log Analytics keeps data for at least 30 days, so ${{ retention }} days is raised to 30{% endif %}. |
+{%- if values.enableTracing %}
+| Tracing enabled | Application Insights connected to the function app and to API Management: the gateway records every request and passes the W3C trace context to the function, so a request shows as one trace. |
+{%- elif values.enableMetrics %}
+| Tracing disabled | Application Insights exists because custom metrics are stored there. The gateway records no requests in it, and dependency tracking and trace correlation are switched off in the function host. |
+{%- else %}
+| Tracing disabled | No Application Insights. |
+{%- endif %}
+{%- if values.enableMetrics %}
+| Custom metrics enabled | The gateway emits the custom metric `Requests` (namespace `${{ values.projectName }}-${{ values.environment }}`, dimensions API ID and Operation ID) to Application Insights. The function app has the Application Insights connection string, so metrics tracked in the function's code arrive in the same place. To chart custom metrics by dimension, switch on *Custom metrics with dimensions* in the Application Insights resource (Usage and estimated costs); Terraform has no setting for it. |
+{%- else %}
+| Custom metrics disabled | No `emit-metric` policy; platform metrics only. |
+{%- endif %}
+{%- if values.enableAlarms %}
+| Alarms enabled | Action group and three metric alerts: 5xx responses of the gateway, average gateway duration above 80% of the gateway timeout, 5xx responses of the function app. Notifications go to `alert_email`; while it is empty the alerts fire without notifying anyone. |
+{%- else %}
+| Alarms disabled | No alerts and no action group. |
+{%- endif %}
+
+## Variables
+
+The form values are the defaults in `variables.tf`. Override them with a
+`terraform.tfvars` file or `TF_VAR_<name>` environment variables.
+
+| Variable | Default | Purpose |
+| -------- | ------- | ------- |
+| `api_publisher_email` | `${{ values.azurePublisherEmail }}` | Address API Management sends service notifications to |
+| `api_publisher_name` | `${{ values.projectName }}` | Publisher name shown by API Management |
+| `location` | `${{ values.azureRegion or 'eastus' }}` | Region |
+| `subscription_id` | {% if values.azureSubscriptionId %}`${{ values.azureSubscriptionId }}`{% else %}empty{% endif %} | Subscription; empty takes it from `ARM_SUBSCRIPTION_ID` |
+| `tags` | `{}` | Additional tags |
+| `function_timeout_seconds` | `${{ timeout }}` | Function timeout |
+{%- if slots %}
+| `premium_plan_sku` | `EP1` | Instance size of the Elastic Premium plan |
+| `function_maximum_instance_count` | `20` | Scale-out limit |
+{%- else %}
+| `function_memory_mb` | `${{ 512 if memory <= 512 else 2048 }}` | Instance memory |
+| `function_maximum_instance_count` | `100` | Scale-out limit |
+| `function_package_path` | `null` | Zip package to deploy during apply |
+{%- endif %}
+| `function_app_settings` | `{}` | Additional application settings |
+{%- if values.enableCors %}
+| `cors_allowed_origins` | `["*"]` | Allowed origins |
+{%- endif %}
+{%- if values.enableThrottling %}
+| `throttle_rate_limit` | `${{ values.throttleRateLimit or 1000 }}` | Requests per second |
+| `throttle_burst_limit` | `${{ values.throttleBurstLimit or 2000 }}` | Concurrent requests |
+{%- endif %}
+{%- if values.authType in ['jwt', 'iam'] %}
+| `entra_tenant_id` | tenant of the deploying identity | Tenant whose tokens are accepted |
+| `api_audience` | `api://${{ values.projectName }}-${{ values.environment }}` | Required token audience |
+{%- endif %}
+{%- if values.authType == 'iam' %}
+| `allowed_client_application_ids` | `[]` | Client IDs allowed to call the API |
+{%- endif %}
+{%- if values.authType == 'oauth2' %}
+| `oauth2_openid_configuration_url` | none, required | OpenID Connect discovery document of the identity provider |
+| `oauth2_audience` | none, required | Required token audience |
+{%- endif %}
+{%- if sql %}
+| `sql_administrator_login` | `sqladmin` | SQL administrator login |
+| `sql_entra_admin_object_id` | deploying identity | Entra ID administrator of the SQL server |
+| `sql_entra_admin_name` | `sql-administrators` | Display name of that administrator |
+| `sql_max_size_gb` | `32` | Maximum database size |
+{%- endif %}
+{%- if values.enableCache %}
+| `redis_sku` | `Balanced_B0` | Azure Managed Redis SKU |
+{%- endif %}
+| `log_retention_days` | `${{ retention if retention >= 30 else 30 }}` | Log Analytics retention |
+{%- if values.enableAlarms %}
+| `alert_email` | empty | Receiver of alert notifications |
+| `alert_error_threshold` | `5` | 5xx responses in five minutes that raise an alert |
+{%- endif %}
+
+## Outputs
+
+| Output | Content |
+| ------ | ------- |
+| `api_url` | Public base URL of the API |
+| `api_management_name`, `api_management_gateway_url` | API Management instance |
+| `function_app_name`, `function_app_hostname` | Function app |
+| `function_principal_ids` | Object IDs of the function app's managed identities |
+{%- if slots %}
+| `function_staging_hostname` | Hostname of the staging slot |
+| `staging_traffic_steps` | Traffic percentages of a rollout: `${{ '[10]' if values.deploymentStrategy == 'canary' else '[10, 25, 50, 75]' }}` |
+{%- endif %}
+{%- if values.authType == 'api-key' %}
+| `api_subscription_key` | Subscription key (sensitive; `terraform output -raw api_subscription_key`) |
+{%- endif %}
+{%- if values.authType in ['jwt', 'iam'] %}
+| `api_audience` | Audience tokens must carry |
+{%- endif %}
+{%- if cosmos %}
+| `cosmos_endpoint` | Cosmos DB endpoint |
+{%- endif %}
+{%- if sql %}
+| `sql_server_fqdn`, `sql_database_name` | SQL server and database |
+| `key_vault_name` | Key Vault with the SQL administrator password |
+{%- endif %}
+{%- if values.enableCache %}
+| `redis_hostname` | Azure Managed Redis hostname |
+{%- endif %}
+{%- if values.enableStorage %}
+| `storage_account_name`, `storage_container_name` | Storage for application data |
+{%- endif %}
+{%- if insights %}
+| `application_insights_name` | Application Insights resource |
+{%- endif %}
+| `resource_group_name`, `log_analytics_workspace_id` | Resource group and Log Analytics workspace |
+
+## Function package
+
+This repository creates the function app without code; the first apply needs
+no package. The code is built in the application's repository and deployed
+as a zip package.
+{%- if values.runtime == 'go126' %}
+For Go the package contains the compiled binary (`GOOS=linux GOARCH=amd64`),
+`host.json` with the `customHandler` section and one folder with a
+`function.json` per function.
+{%- endif %}
+{%- if graphql %}
+The function has to serve GraphQL on the HTTP route `graphql` (`/api/graphql`).
+{%- endif %}
+{%- if not slots %}
+
+Either of these supplies the package:
+
+- From the application's pipeline, after signing in to Azure:
+
+    ```bash
+    az functionapp deployment source config-zip \
+      --resource-group "$(terraform output -raw resource_group_name)" \
+      --name "$(terraform output -raw function_app_name)" \
+      --src app.zip
+    ```
+
+- Through Terraform: set `function_package_path` to the path of the zip file.
+  The package is deployed during `terraform apply` whenever the path changes.
+
+The new package replaces the running version at once.
+{%- else %}
+
+### Releasing a new version
+
+Terraform creates the production app, the slot `staging`, one API Management
+backend for each of them and two named values in API Management:
+`staging-traffic-percent` (starts at `0`) and `function-staging-key`.
+The API policy sends that percentage of requests to the staging slot and the
+rest to production. Terraform does not change either value after creating
+it. A release is done by the application's pipeline:
+
+```bash
+RG="$(terraform output -raw resource_group_name)"
+APP="$(terraform output -raw function_app_name)"
+APIM="$(terraform output -raw api_management_name)"
+
+# 1. Deploy the new package to the staging slot.
+az functionapp deployment source config-zip \
+  --resource-group "$RG" --name "$APP" --slot staging --src app.zip
+
+# 2. Give the gateway the staging slot's host key. Needed on the first
+#    release and after a key of the slot was renewed.
+KEY="$(az functionapp keys list --resource-group "$RG" --name "$APP" \
+  --slot staging --query functionKeys.default --output tsv)"
+az apim nv update --resource-group "$RG" --service-name "$APIM" \
+  --named-value-id function-staging-key --secret true --value "$KEY"
+
+# 3. Shift traffic to the staging slot and watch the error rate.
+{%- if values.deploymentStrategy == 'canary' %}
+az apim nv update --resource-group "$RG" --service-name "$APIM" \
+  --named-value-id staging-traffic-percent --value 10
+{%- else %}
+for percent in 10 25 50 75; do
+  az apim nv update --resource-group "$RG" --service-name "$APIM" \
+    --named-value-id staging-traffic-percent --value "$percent"
+  sleep 600
+done
+{%- endif %}
+
+# 4. Swap the slots, then send all traffic to production again.
+az functionapp deployment slot swap --resource-group "$RG" --name "$APP" \
+  --slot staging --target-slot production
+az apim nv update --resource-group "$RG" --service-name "$APIM" \
+  --named-value-id staging-traffic-percent --value 0
+```
+
+To roll back before the swap, set `staging-traffic-percent` to `0`. After
+the swap the previous version is in the staging slot: swap again.
+{%- if values.deploymentStrategy == 'canary' %}
+`canary` gives the new version 10% of the traffic before the swap.
+{%- else %}
+`linear` raises the share in the steps 10, 25, 50 and 75% (output
+`staging_traffic_steps`); the pause between the steps is the pipeline's choice.
+{%- endif %}
+{%- endif %}
+
+## Deployment
+
+### State backend
+
+`versions.tf` declares an empty `azurerm` backend. Its settings are passed
+to `terraform init`:
+
+```bash
+terraform init \
+  -backend-config="storage_account_name=<storage account>" \
+  -backend-config="container_name=tfstate" \
+  -backend-config="key=${{ values.destination.repo }}/terraform.tfstate" \
+  -backend-config="use_azuread_auth=true"
+```
+
+The storage account and the container must exist; this configuration does
+not create them.
+
+### Required permissions
+
+The identity that runs Terraform needs:
+
+- `Contributor` on the subscription (the resource group is created by
+  Terraform){% if values.enableStorage %};
+- `Role Based Access Control Administrator` (or `User Access Administrator`)
+  on the subscription, to give the function's identity access to the blob
+  container{% endif %};
+- `Storage Blob Data Contributor` on the state container.
+{%- if values.authType in ['jwt', 'iam'] %}
+
+The app registration for `api_audience` is managed outside this repository
+and needs permissions in Microsoft Entra ID, not in the subscription.
+{%- endif %}
+{%- if values.enableCicd %}
+
+### Deploy workflow
+
+`.github/workflows/deploy.yml` signs in with OpenID Connect (`azure/login`),
+plans on pull requests and on `main`, and applies on `main` in the GitHub
+environment `production`. It reads:
+
+| Name | Kind | Content |
+| ---- | ---- | ------- |
+| `AZURE_CLIENT_ID` | secret or variable | Client ID of the app registration or managed identity the workflow signs in as |
+| `AZURE_TENANT_ID` | secret or variable | Its tenant |
+{%- if values.azureSubscriptionId %}
+| subscription | fixed | `${{ values.azureSubscriptionId }}`, the subscription entered when the repository was created. To change it, edit `subscription_id` in `variables.tf` and `ARM_SUBSCRIPTION_ID` in the workflow. |
+{%- else %}
+| `AZURE_SUBSCRIPTION_ID` | secret or variable | Subscription to deploy into; no subscription was entered when the repository was created |
+{%- endif %}
+| `TF_STATE_STORAGE_ACCOUNT` | variable | Storage account of the Terraform state |
+| `TF_STATE_CONTAINER` | variable, optional | State container, default `tfstate` |
+{%- if values.authType == 'oauth2' %}
+| `OAUTH2_OPENID_CONFIGURATION_URL` | variable | Value of `oauth2_openid_configuration_url` |
+| `OAUTH2_AUDIENCE` | variable | Value of `oauth2_audience` |
+{%- endif %}
+{%- if values.enableAlarms %}
+| `ALERT_EMAIL` | variable, optional | Value of `alert_email` |
+{%- endif %}
+
+Until every name that is not optional is set, the workflow reports which
+ones are missing and skips plan and apply; the run still succeeds.
+
+The identity needs a federated credential for each of these subjects:
+
+- `repo:${{ repo }}:ref:refs/heads/main` (plan on `main`)
+- `repo:${{ repo }}:pull_request` (plan on pull requests)
+- `repo:${{ repo }}:environment:production` (apply)
+
+The state key is `<repository name>/terraform.tfstate`.
+{%- else %}
+
+### Applying
+
+No deployment workflow was requested. Sign in (`az login` or the `ARM_*`
+environment variables){% if values.authType == 'oauth2' %}, set `oauth2_openid_configuration_url` and `oauth2_audience`{% endif %}{% if not values.azureSubscriptionId %}, set `ARM_SUBSCRIPTION_ID`{% endif %}, then run
+`terraform init` with the backend settings above, `terraform plan` and
+`terraform apply`.
+{%- endif %}

@@ -1,0 +1,119 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${{ values.serviceName }}
+  labels:
+    app.kubernetes.io/name: ${{ values.serviceName }}
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ${{ values.serviceName }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ${{ values.serviceName }}
+{% if values.serviceMesh == 'istio' %}
+        sidecar.istio.io/inject: 'true'
+{% endif %}
+{% if values.enableMetrics or values.serviceMesh == 'linkerd' %}
+      annotations:
+{% endif %}
+{% if values.serviceMesh == 'linkerd' %}
+        linkerd.io/inject: enabled
+{% if values.enableAuth %}
+        # The server speaks TLS itself, so the proxy must not parse the port.
+        config.linkerd.io/opaque-ports: '50051'
+{% endif %}
+{% endif %}
+{% if values.enableMetrics %}
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '9090'
+        prometheus.io/path: /metrics
+{% endif %}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: server
+          image: ghcr.io/${{ values.destination.owner | lower }}/${{ values.destination.repo | lower }}
+          ports:
+            - name: grpc
+              containerPort: 50051
+{% if values.enableMetrics %}
+            - name: metrics
+              containerPort: 9090
+{% endif %}
+{% if values.enableAuth or values.enableInterceptors %}
+          env:
+{% endif %}
+{% if values.enableAuth %}
+            - name: TLS_CERT_FILE
+              value: /etc/tls/tls.crt
+            - name: TLS_KEY_FILE
+              value: /etc/tls/tls.key
+{% if values.enableMTLS %}
+            - name: TLS_CLIENT_CA_FILE
+              value: /etc/tls/ca.crt
+{% endif %}
+{% endif %}
+{% if values.enableInterceptors %}
+            # Calls need this bearer token once the secret exists.
+            - name: AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: ${{ values.serviceName }}-auth
+                  key: token
+                  optional: true
+{% endif %}
+{% if values.enableHealthChecks and not values.enableAuth %}
+          readinessProbe:
+            grpc:
+              port: 50051
+            periodSeconds: 10
+          livenessProbe:
+            grpc:
+              port: 50051
+            periodSeconds: 20
+{% else %}
+{% if values.enableHealthChecks %}
+          # The kubelet cannot speak TLS to a gRPC health service, so the
+          # probes only check that the port accepts connections.
+{% else %}
+          # The service has no gRPC health checks, so the probes only check
+          # that the port accepts connections.
+{% endif %}
+          readinessProbe:
+            tcpSocket:
+              port: grpc
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: grpc
+            periodSeconds: 20
+{% endif %}
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+{% if values.enableAuth %}
+          volumeMounts:
+            - name: tls
+              mountPath: /etc/tls
+              readOnly: true
+      volumes:
+        # A kubernetes.io/tls secret, for example one issued by cert-manager.
+        - name: tls
+          secret:
+            secretName: ${{ values.serviceName }}-tls
+{% endif %}

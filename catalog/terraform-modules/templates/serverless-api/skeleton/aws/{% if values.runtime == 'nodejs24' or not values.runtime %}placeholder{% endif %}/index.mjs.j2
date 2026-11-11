@@ -1,0 +1,57 @@
+// Placeholder handler. Terraform deploys it until a package with the real code
+// is supplied (docs/infrastructure.md, section "Function package").
+{%- if values.apiType == 'graphql' %}
+//
+// AppSync calls the function once for every resolved field and expects the
+// value of that field as the result.
+export const handler = async (event) => {
+  const field = `${event.info?.parentTypeName}.${event.info?.fieldName}`;
+
+  if (field === 'Query.status') {
+    return {
+      service: process.env.PROJECT_NAME,
+      environment: process.env.ENVIRONMENT,
+      placeholder: true,
+    };
+  }
+
+  throw new Error(`No resolver for ${field}`);
+};
+{%- elif values.apiType == 'rest' %}
+//
+// The event is an API Gateway REST API proxy event (payload format 1.0).
+export const handler = async (event) => {
+  const headers = { 'content-type': 'application/json' };
+
+  // A REST API does not add CORS headers to the responses of the function.
+  if (process.env.CORS_ALLOW_ORIGIN) {
+    headers['access-control-allow-origin'] = process.env.CORS_ALLOW_ORIGIN;
+  }
+
+  return {
+    statusCode: 200,
+    headers,
+    body: JSON.stringify({
+      service: process.env.PROJECT_NAME,
+      environment: process.env.ENVIRONMENT,
+      placeholder: true,
+      method: event.httpMethod,
+      path: event.path,
+    }),
+  };
+};
+{%- else %}
+//
+// The event is an API Gateway HTTP API event (payload format 2.0).
+export const handler = async (event) => ({
+  statusCode: 200,
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({
+    service: process.env.PROJECT_NAME,
+    environment: process.env.ENVIRONMENT,
+    placeholder: true,
+    method: event.requestContext?.http?.method,
+    path: event.rawPath,
+  }),
+});
+{%- endif %}

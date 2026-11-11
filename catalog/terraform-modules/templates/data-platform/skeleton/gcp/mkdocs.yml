@@ -1,0 +1,8 @@
+site_name: ${{ values.projectName }} data platform
+site_description: Google Cloud data platform for ${{ values.projectName }}
+
+nav:
+  - Overview: index.md
+
+plugins:
+  - techdocs-core

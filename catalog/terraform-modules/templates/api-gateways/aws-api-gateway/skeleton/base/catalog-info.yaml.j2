@@ -1,0 +1,146 @@
+{%- set endpoints = values.endpoints or [] -%}
+{%- set authType = values.authType if values.enableAuth else 'none' -%}
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.destination.repo }}
+  title: ${{ values.apiName }}
+  description: ${{ values.description | dump }}
+  annotations:
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - api-gateway
+    - aws
+    - lambda
+    - terraform
+spec:
+  type: service
+  lifecycle: production
+  owner: ${{ values.owner }}
+  providesApis:
+    - ${{ values.destination.repo }}
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: ${{ values.destination.repo }}
+  title: ${{ values.apiName }} ${{ values.apiVersion }}
+  description: ${{ values.description | dump }}
+  annotations:
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - rest
+    - aws
+spec:
+  type: openapi
+  lifecycle: production
+  owner: ${{ values.owner }}
+  definition: |
+    openapi: 3.0.1
+    info:
+      title: ${{ values.apiName }}
+      description: ${{ values.description | dump }}
+      version: ${{ values.apiVersion | dump }}
+    paths:
+      /health:
+        get:
+          summary: Health check
+          security: []
+          responses:
+            '200':
+              description: The API is up
+{%- if values.enableCRUD %}
+      /items:
+        get:
+          summary: List items
+          responses:
+            '200':
+              description: Up to 100 items
+        post:
+          summary: Create an item
+          requestBody:
+            required: true
+            content:
+              application/json:
+                schema:
+                  type: object
+          responses:
+            '201':
+              description: The stored item
+            '400':
+              description: The body is not a JSON object
+      /items/{id}:
+        parameters:
+          - name: id
+            in: path
+            required: true
+            schema:
+              type: string
+        get:
+          summary: Get an item
+          responses:
+            '200':
+              description: The item
+            '404':
+              description: No item has this id
+        put:
+          summary: Replace an item
+          requestBody:
+            required: true
+            content:
+              application/json:
+                schema:
+                  type: object
+          responses:
+            '200':
+              description: The stored item
+            '400':
+              description: The body is not a JSON object
+            '404':
+              description: No item has this id
+        delete:
+          summary: Delete an item
+          responses:
+            '204':
+              description: The item was deleted
+            '404':
+              description: No item has this id
+{%- endif %}
+{%- for path, group in endpoints | groupby('path') %}
+      ${{ path }}:
+{%- if '{' in path %}
+        parameters:
+{%- for segment in path.split('/') %}{% if segment[0] == '{' %}
+          - name: ${{ segment | replace('{', '') | replace('}', '') }}
+            in: path
+            required: true
+            schema:
+              type: string
+{%- endif %}{% endfor %}
+{%- endif %}
+{%- for endpoint in group %}
+        ${{ endpoint.method | lower }}:
+          summary: ${{ (endpoint.description or (endpoint.method + ' ' + endpoint.path)) | dump }}
+          responses:
+            '501':
+              description: Not implemented yet
+{%- endfor %}
+{%- endfor %}
+{%- if authType != 'none' %}
+    security:
+      - ${{ authType }}: []
+    components:
+      securitySchemes:
+        ${{ authType }}:
+{%- if authType == 'apikey' %}
+          type: apiKey
+          in: header
+          name: x-api-key
+{%- else %}
+          type: http
+          scheme: bearer
+          bearerFormat: JWT
+{%- endif %}
+{%- endif %}

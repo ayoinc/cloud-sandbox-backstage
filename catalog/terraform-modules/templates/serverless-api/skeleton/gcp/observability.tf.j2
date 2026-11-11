@@ -1,0 +1,195 @@
+{%- set runtime = values.runtime or 'nodejs24' -%}
+{%- set interpreted = runtime in ['nodejs24', 'python313'] -%}
+{%- set auth = values.authType or 'jwt' -%}
+{%- set directLb = values.enableWaf and auth == 'none' -%}
+{%- set gateway = not directLb -%}
+{%- set gatewayQuota = gateway and values.enableThrottling and auth == 'api-key' -%}
+{%- set armorThrottle = values.enableWaf and values.enableThrottling and auth != 'api-key' -%}
+{%- set sql = values.enableDatabase and values.databaseType == 'sql' -%}
+{%- set nosql = values.enableDatabase and not sql -%}
+{%- set strategy = values.deploymentStrategy or 'canary' -%}
+{%- set region = values.gcpRegion or 'us-central1' -%}
+locals {
+  log_bucket_id = "${local.name}-logs"
+
+  log_filter = join(" OR ", [
+    "(resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"${local.name}\")",
+{%- if gateway %}
+    "(resource.type=\"apigateway.googleapis.com/Gateway\" AND resource.labels.gateway_id=\"${local.name}\")",
+{%- endif %}
+{%- if values.enableWaf %}
+    "(resource.type=\"http_load_balancer\" AND resource.labels.url_map_name=\"${local.name}\")",
+{%- endif %}
+  ])
+}
+
+# Log bucket with the retention chosen for this API.
+module "log_bucket" {
+  source = "git::https://github.com/ayoinc/cloud-sandbox-backstage.git//catalog/terraform-modules/gcp/resources/monitoring/cloud-logging?ref=83f9ff7222d2731d5cc0da4ab1fc1f7c46da3693"
+
+  project_name = var.project_name
+  project_id   = var.project_id
+  environment  = var.environment
+
+  log_buckets = [
+    {
+      bucket_id      = local.log_bucket_id
+      location       = var.region
+      retention_days = var.log_retention_days
+      description    = "Logs of the ${local.name} API"
+    },
+  ]
+
+  depends_on = [google_project_service.enabled]
+}
+
+# Routes the logs of the API into that bucket and keeps them out of the
+# project's _Default bucket, whose retention would apply otherwise.
+module "log_routing" {
+  source = "git::https://github.com/ayoinc/cloud-sandbox-backstage.git//catalog/terraform-modules/gcp/resources/monitoring/cloud-logging?ref=83f9ff7222d2731d5cc0da4ab1fc1f7c46da3693"
+
+  project_name = var.project_name
+  project_id   = var.project_id
+  environment  = var.environment
+
+  log_sinks = [
+    {
+      name                   = local.log_bucket_id
+      destination            = "logging.googleapis.com/${module.log_bucket.log_bucket_ids[local.log_bucket_id]}"
+      filter                 = local.log_filter
+      unique_writer_identity = true
+    },
+  ]
+
+  log_exclusions = [
+    {
+      name        = local.log_bucket_id
+      filter      = local.log_filter
+      description = "Stored in the ${local.log_bucket_id} log bucket instead"
+      disabled    = false
+    },
+  ]
+{%- if values.enableMetrics %}
+
+  # Counts error log entries of the function.
+  log_metrics = [
+    {
+      name   = "${local.name}-function-errors"
+      filter = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"${local.name}\" AND severity>=ERROR"
+      metric_descriptor = {
+        metric_kind = "DELTA"
+        value_type  = "INT64"
+        labels      = []
+      }
+    },
+  ]
+{%- endif %}
+}
+{%- if values.enableAlarms %}
+
+locals {
+  alarm_channel  = "${local.name} alerts"
+  alarm_channels = var.alarm_email != "" ? [local.alarm_channel] : []
+}
+
+module "alerts" {
+  source = "git::https://github.com/ayoinc/cloud-sandbox-backstage.git//catalog/terraform-modules/gcp/resources/monitoring/cloud-monitoring?ref=83f9ff7222d2731d5cc0da4ab1fc1f7c46da3693"
+
+  project_name = var.project_name
+  project_id   = var.project_id
+  environment  = var.environment
+
+  notification_channels = var.alarm_email != "" ? [
+    {
+      display_name = local.alarm_channel
+      type         = "email"
+      labels       = { email_address = var.alarm_email }
+    },
+  ] : []
+
+  alert_policies = [
+    {
+      display_name          = "${local.name} function errors"
+      combiner              = "OR"
+      notification_channels = local.alarm_channels
+      documentation = {
+        content = "The ${local.name} function answered more than ${var.alarm_error_threshold} requests with a 5xx status within five minutes."
+      }
+      conditions = [
+        {
+          display_name = "5xx responses of the function"
+          condition_threshold = {
+            filter          = "resource.type = \"cloud_run_revision\" AND resource.labels.service_name = \"${local.name}\" AND metric.type = \"run.googleapis.com/request_count\" AND metric.labels.response_code_class = \"5xx\""
+            duration        = "0s"
+            comparison      = "COMPARISON_GT"
+            threshold_value = var.alarm_error_threshold
+            aggregations = [
+              {
+                alignment_period     = "300s"
+                per_series_aligner   = "ALIGN_SUM"
+                cross_series_reducer = "REDUCE_SUM"
+              },
+            ]
+          }
+        },
+      ]
+    },
+    {
+      display_name          = "${local.name} function latency"
+      combiner              = "OR"
+      notification_channels = local.alarm_channels
+      documentation = {
+        content = "The 95th percentile of the ${local.name} function's request latency stayed above 80% of its timeout for five minutes."
+      }
+      conditions = [
+        {
+          display_name = "95th percentile latency of the function"
+          condition_threshold = {
+            filter          = "resource.type = \"cloud_run_revision\" AND resource.labels.service_name = \"${local.name}\" AND metric.type = \"run.googleapis.com/request_latencies\""
+            duration        = "300s"
+            comparison      = "COMPARISON_GT"
+            threshold_value = var.function_timeout_seconds * 800
+            aggregations = [
+              {
+                alignment_period     = "60s"
+                per_series_aligner   = "ALIGN_PERCENTILE_95"
+                cross_series_reducer = "REDUCE_MAX"
+              },
+            ]
+          }
+        },
+      ]
+    },
+{%- if gateway %}
+    {
+      display_name          = "${local.name} gateway errors"
+      combiner              = "OR"
+      notification_channels = local.alarm_channels
+      documentation = {
+        content = "The ${local.name} API Gateway answered more than ${var.alarm_error_threshold} requests with a 5xx status within five minutes."
+      }
+      conditions = [
+        {
+          display_name = "5xx responses of the gateway"
+          condition_threshold = {
+            filter          = "resource.type = \"apigateway.googleapis.com/Gateway\" AND resource.labels.gateway_id = \"${local.name}\" AND metric.type = \"apigateway.googleapis.com/proxy/request_count\" AND metric.labels.response_code_class = \"5xx\""
+            duration        = "0s"
+            comparison      = "COMPARISON_GT"
+            threshold_value = var.alarm_error_threshold
+            aggregations = [
+              {
+                alignment_period     = "300s"
+                per_series_aligner   = "ALIGN_SUM"
+                cross_series_reducer = "REDUCE_SUM"
+              },
+            ]
+          }
+        },
+      ]
+    },
+{%- endif %}
+  ]
+
+  depends_on = [google_project_service.enabled]
+}
+{%- endif %}

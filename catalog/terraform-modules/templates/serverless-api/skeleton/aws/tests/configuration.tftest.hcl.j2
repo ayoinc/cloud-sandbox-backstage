@@ -1,0 +1,241 @@
+{%- set runtime = values.runtime or 'nodejs24' -%}
+{%- set apiType = 'rest' if values.apiType == 'rest' else ('graphql' if values.apiType == 'graphql' else 'http') -%}
+{%- set authType = values.authType or 'none' -%}
+{%- set interpreted = runtime == 'nodejs24' or runtime == 'python313' -%}
+{%- set sql = values.enableDatabase and values.databaseType == 'sql' -%}
+{%- set nosql = values.enableDatabase and not sql -%}
+{%- set vpc = sql or values.enableCache -%}
+{%- set keyAuthorizer = apiType == 'http' and authType == 'api-key' -%}
+{%- set oidcAuthorizer = apiType == 'rest' and authType == 'oauth2' -%}
+{%- set graphqlKey = apiType == 'graphql' and (authType == 'api-key' or authType == 'none') -%}
+{%- set cloudfront = apiType == 'http' and values.enableWaf -%}
+{%- set waf = values.enableWaf or (apiType == 'graphql' and values.enableThrottling) -%}
+{%- set gradual = values.deploymentStrategy == 'canary' or values.deploymentStrategy == 'linear' -%}
+{%- set region = values.awsRegion or 'us-east-1' -%}
+# Plans the configuration against a mocked AWS provider. No credentials are
+# used and nothing is created.
+
+mock_provider "aws" {
+  mock_data "aws_caller_identity" {
+    defaults = {
+      account_id = "123456789012"
+    }
+  }
+
+  mock_data "aws_partition" {
+    defaults = {
+      partition = "aws"
+    }
+  }
+  {%- if vpc %}
+
+  mock_data "aws_region" {
+    defaults = {
+      name   = "${{ region }}"
+      region = "${{ region }}"
+    }
+  }
+
+  mock_data "aws_availability_zones" {
+    defaults = {
+      names = ["${{ region }}a", "${{ region }}b", "${{ region }}c"]
+    }
+  }
+  {%- endif %}
+}
+{%- if cloudfront %}
+
+mock_provider "aws" {
+  alias = "us_east_1"
+}
+{%- endif %}
+{%- if authType == 'oauth2' or not interpreted %}
+
+# Values for the variables that have no usable default.
+variables {
+  {%- if authType == 'oauth2' %}
+  oauth2_issuer   = "https://login.example.com/"
+  oauth2_audience = "api://${{ values.projectName }}"
+  {%- endif %}
+  {%- if authType == 'oauth2' and not interpreted %}
+{% endif %}
+  {%- if not interpreted %}
+  deployment_package_s3 = {
+    bucket = "example-artifacts"
+    key    = "${{ values.projectName }}/function.zip"
+  }
+  {%- endif %}
+}
+{%- endif %}
+
+run "chosen_options" {
+  command = plan
+
+  assert {
+    condition = (
+      module.function.function_name == "${{ values.projectName }}-${{ values.environment or 'dev' }}-api" &&
+      module.monitoring.log_group_name == "/aws/lambda/${{ values.projectName }}-${{ values.environment or 'dev' }}-api" &&
+      aws_lambda_alias.live.name == "live"
+    )
+    error_message = "The function, its log group and the alias do not have the expected names."
+  }
+  {%- if interpreted %}
+
+  assert {
+    condition     = length(data.archive_file.placeholder) == 1
+    error_message = "The placeholder handler must be packaged while no deployment package is supplied."
+  }
+  {%- endif %}
+  {%- if apiType == 'http' %}
+
+  assert {
+    condition = (
+      aws_apigatewayv2_api.this.protocol_type == "HTTP" &&
+      aws_apigatewayv2_route.default.authorization_type == "${{ {'jwt': 'JWT', 'oauth2': 'JWT', 'api-key': 'CUSTOM', 'iam': 'AWS_IAM', 'none': 'NONE'}[authType] }}" &&
+      length(aws_apigatewayv2_api.this.cors_configuration) == ${{ 1 if values.enableCors else 0 }}
+    )
+    error_message = "The HTTP API does not have the chosen authorization and CORS settings."
+  }
+  {%- if values.enableThrottling %}
+
+  assert {
+    condition = (
+      aws_apigatewayv2_stage.default.default_route_settings[0].throttling_rate_limit == var.throttle_rate_limit &&
+      aws_apigatewayv2_stage.default.default_route_settings[0].throttling_burst_limit == var.throttle_burst_limit
+    )
+    error_message = "The stage does not apply the throttling limits."
+  }
+  {%- endif %}
+  {%- elif apiType == 'rest' %}
+
+  assert {
+    condition = alltrue([
+      for method in aws_api_gateway_method.function :
+      method.authorization == "${{ {'jwt': 'COGNITO_USER_POOLS', 'oauth2': 'CUSTOM', 'api-key': 'NONE', 'iam': 'AWS_IAM', 'none': 'NONE'}[authType] }}" && coalesce(method.api_key_required, false) == ${{ 'true' if authType == 'api-key' else 'false' }}
+    ])
+    error_message = "The methods of the REST API do not have the chosen authorization."
+  }
+
+  assert {
+    condition     = aws_api_gateway_stage.this.stage_name == var.environment && aws_api_gateway_stage.this.xray_tracing_enabled == ${{ 'true' if values.enableTracing else 'false' }}
+    error_message = "The stage does not have the expected name and tracing setting."
+  }
+  {%- if values.enableThrottling %}
+
+  assert {
+    condition = (
+      aws_api_gateway_method_settings.all.settings[0].throttling_rate_limit == var.throttle_rate_limit &&
+      aws_api_gateway_method_settings.all.settings[0].throttling_burst_limit == var.throttle_burst_limit
+    )
+    error_message = "The stage does not apply the throttling limits."
+  }
+  {%- endif %}
+  {%- else %}
+
+  assert {
+    condition = (
+      aws_appsync_graphql_api.this.authentication_type == "${{ {'jwt': 'AMAZON_COGNITO_USER_POOLS', 'oauth2': 'OPENID_CONNECT', 'api-key': 'API_KEY', 'iam': 'AWS_IAM', 'none': 'API_KEY'}[authType] }}" &&
+      aws_appsync_graphql_api.this.xray_enabled == ${{ 'true' if values.enableTracing else 'false' }} &&
+      aws_appsync_datasource.function.type == "AWS_LAMBDA"
+    )
+    error_message = "The GraphQL API does not have the chosen authorization and tracing settings."
+  }
+  {%- endif %}
+  {%- if nosql %}
+
+  assert {
+    condition = (
+      aws_dynamodb_table.this.name == "${{ values.projectName }}-${{ values.environment or 'dev' }}-data" &&
+      aws_dynamodb_table.this.point_in_time_recovery[0].enabled &&
+      aws_dynamodb_table.this.server_side_encryption[0].enabled
+    )
+    error_message = "The DynamoDB table must be encrypted and have point-in-time recovery."
+  }
+  {%- endif %}
+  {%- if sql %}
+
+  assert {
+    condition = (
+      aws_rds_cluster.this.storage_encrypted &&
+      aws_rds_cluster.this.manage_master_user_password &&
+      aws_rds_cluster_instance.this.instance_class == "db.serverless" &&
+      !aws_rds_cluster_instance.this.publicly_accessible
+    )
+    error_message = "The Aurora cluster must be serverless, encrypted and private, with its password in Secrets Manager."
+  }
+  {%- endif %}
+  {%- if gradual %}
+
+  assert {
+    condition = (
+      aws_codedeploy_deployment_group.function.deployment_config_name == "${{ 'CodeDeployDefault.LambdaLinear10PercentEvery1Minute' if values.deploymentStrategy == 'linear' else 'CodeDeployDefault.LambdaCanary10Percent5Minutes' }}" &&
+      aws_codedeploy_app.function.compute_platform == "Lambda"
+    )
+    error_message = "CodeDeploy does not use the deployment configuration of the chosen strategy."
+  }
+  {%- endif %}
+
+  assert {
+    condition     = length(module.monitoring.alarm_arns) == ${{ 4 if values.enableAlarms else 0 }}
+    error_message = "The alarms do not follow the alarm option."
+  }
+}
+
+# The longest project name the portal accepts, in the environment with the
+# longest name.
+run "longest_names" {
+  command = plan
+
+  variables {
+    project_name = "a23456789-b23456789-c234"
+    environment  = "production"
+  }
+
+  assert {
+    condition     = length(module.function_role.role_name) <= 64 && length(module.function.function_name) <= 64
+    error_message = "The names of the function and its role exceed 64 characters."
+  }
+  {%- if sql %}
+
+  assert {
+    condition     = length(aws_rds_cluster.this.cluster_identifier) <= 63 && length(aws_rds_cluster_instance.this.identifier) <= 63
+    error_message = "The identifiers of the Aurora cluster exceed 63 characters."
+  }
+  {%- endif %}
+  {%- if values.enableCache %}
+
+  assert {
+    condition     = length("${local.cache_project_name}-${var.environment}-redis") == 40
+    error_message = "The name of the replication group must be cut to the 40 characters ElastiCache allows."
+  }
+  {%- endif %}
+}
+{%- if interpreted %}
+
+run "supplied_package" {
+  command = plan
+
+  variables {
+    deployment_package_s3 = {
+      bucket = "example-artifacts"
+      key    = "${{ values.projectName }}/function.zip"
+    }
+  }
+
+  assert {
+    condition     = length(data.archive_file.placeholder) == 0
+    error_message = "The placeholder handler must not be packaged when a deployment package is supplied."
+  }
+}
+{%- else %}
+
+run "package_is_required" {
+  command = plan
+
+  variables {
+    deployment_package_s3 = null
+  }
+
+  expect_failures = [var.deployment_package_s3]
+}
+{%- endif %}

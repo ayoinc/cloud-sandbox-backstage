@@ -1,0 +1,89 @@
+syntax = "proto3";
+
+package ${{ values.pkg }}.v1;
+
+option go_package = "${{ values.modulePath }}/gen/${{ values.pkg }}/v1;${{ values.pkg }}v1";
+
+{% if values.enableUnary or values.enableServerStreaming or values.enableClientStreaming or values.enableBidirectional %}
+// ${{ values.serviceType }} manages items.
+service ${{ values.serviceType }} {
+{% if values.enableUnary %}
+  // CreateItem stores a new item and returns it with its assigned ID.
+  rpc CreateItem(CreateItemRequest) returns (CreateItemResponse);
+  // GetItem returns one item by ID.
+  rpc GetItem(GetItemRequest) returns (GetItemResponse);
+{% endif %}
+{% if values.enableServerStreaming %}
+  // ListItems streams every stored item to the caller.
+  rpc ListItems(ListItemsRequest) returns (stream ListItemsResponse);
+{% endif %}
+{% if values.enableClientStreaming %}
+  // ImportItems stores each item it receives and returns how many it stored.
+  rpc ImportItems(stream ImportItemsRequest) returns (ImportItemsResponse);
+{% endif %}
+{% if values.enableBidirectional %}
+  // SyncItems stores each item it receives and answers with the stored item.
+  rpc SyncItems(stream SyncItemsRequest) returns (stream SyncItemsResponse);
+{% endif %}
+}
+{% else %}
+// ${{ values.serviceType }} has no methods yet. Add the first rpc here.
+service ${{ values.serviceType }} {}
+{% endif %}
+
+// Item is the resource this service manages.
+message Item {
+  // Assigned by the server when the item is first stored.
+  string id = 1;
+  string name = 2;
+  string description = 3;
+}
+{% if values.enableUnary %}
+
+message CreateItemRequest {
+  string name = 1;
+  string description = 2;
+}
+
+message CreateItemResponse {
+  Item item = 1;
+}
+
+message GetItemRequest {
+  string id = 1;
+}
+
+message GetItemResponse {
+  Item item = 1;
+}
+{% endif %}
+{% if values.enableServerStreaming %}
+
+message ListItemsRequest {}
+
+message ListItemsResponse {
+  Item item = 1;
+}
+{% endif %}
+{% if values.enableClientStreaming %}
+
+message ImportItemsRequest {
+  string name = 1;
+  string description = 2;
+}
+
+message ImportItemsResponse {
+  int32 imported_count = 1;
+}
+{% endif %}
+{% if values.enableBidirectional %}
+
+message SyncItemsRequest {
+  // An item without an ID is stored as a new item.
+  Item item = 1;
+}
+
+message SyncItemsResponse {
+  Item item = 1;
+}
+{% endif %}

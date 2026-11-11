@@ -1,78 +1,40 @@
-# GCP 3-Tier Web Application Infrastructure
+# ${{ values.projectName }} infrastructure
 
-Production-ready 3-tier architecture with Cloud Load Balancer, GKE/MIG, and Cloud SQL on Google Cloud Platform.
+GCP three-tier web application infrastructure for **${{ values.projectName }}** (${{ values.environment }}) in project `${{ values.gcpProjectId }}`, managed with Terraform.
 
-## Architecture
+| Tier        | What is created                                                                 |
+| ----------- | ------------------------------------------------------------------------------- |
+| Network     | VPC with a subnet in `${{ values.region }}` carved from `${{ values.vpcCidr }}`, Cloud NAT, private service access |
+| Web         | Global external Application Load Balancer{% if values.enableCloudArmor %} protected by Cloud Armor{% endif %}{% if values.enableCloudCdn %}, with Cloud CDN{% endif %} |
+| Application | {% if values.computeType == 'gke-autopilot' %}GKE Autopilot cluster{% elif values.computeType == 'gke-standard' %}GKE Standard cluster with ${{ values.minNodes }} to ${{ values.maxNodes }} `${{ values.machineType }}` nodes{% else %}Managed instance group of ${{ values.minNodes }} to ${{ values.maxNodes }} `${{ values.machineType }}` instances{% endif %} |
+| Data        | Cloud SQL ${{ 'PostgreSQL' if values.databaseEngine == 'POSTGRES' else 'MySQL' }} on `${{ values.databaseTier }}` with a private address{% if values.highAvailability %}, highly available{% endif %} |
 
-```
-                                    ┌─────────────────────────────────────────────────────┐
-                                    │                   Google Cloud                       │
-                                    │                                                      │
-┌──────────┐                        │  ┌────────────────────────────────────────────────┐ │
-│          │    HTTPS               │  │              Cloud Armor (WAF)                  │ │
-│  Users   │──────────────────────▶│  │  ┌──────────────────────────────────────────┐  │ │
-│          │                        │  │  │         Global Load Balancer              │  │ │
-└──────────┘                        │  │  │           (HTTPS/HTTP)                    │  │ │
-                                    │  │  └─────────────────┬────────────────────────┘  │ │
-                                    │  └────────────────────┼────────────────────────────┘ │
-                                    │                       │                              │
-                                    │  ┌────────────────────▼────────────────────────────┐ │
-                                    │  │                  VPC Network                     │ │
-                                    │  │                                                  │ │
-                                    │  │  ┌──────────────────────────────────────────┐  │ │
-                                    │  │  │            Compute (GKE/MIG)              │  │ │
-                                    │  │  │  ┌─────────┐ ┌─────────┐ ┌─────────┐     │  │ │
-                                    │  │  │  │  Pod/   │ │  Pod/   │ │  Pod/   │     │  │ │
-                                    │  │  │  │   VM    │ │   VM    │ │   VM    │     │  │ │
-                                    │  │  │  └────┬────┘ └────┬────┘ └────┬────┘     │  │ │
-                                    │  │  └───────┼──────────┼──────────┼──────────┘  │ │
-                                    │  │          │          │          │              │ │
-                                    │  │  ┌───────▼──────────▼──────────▼──────────┐  │ │
-                                    │  │  │              Cloud SQL                   │  │ │
-                                    │  │  │      (PostgreSQL / MySQL)                │  │ │
-                                    │  │  │           Private IP                     │  │ │
-                                    │  │  └──────────────────────────────────────────┘  │ │
-                                    │  └──────────────────────────────────────────────────┘ │
-                                    │                                                      │
-                                    │  ┌──────────────────────────────────────────────────┐ │
-                                    │  │              Secret Manager                       │ │
-                                    │  │        (Database Credentials)                     │ │
-                                    │  └──────────────────────────────────────────────────┘ │
-                                    └─────────────────────────────────────────────────────┘
+The values chosen in the portal are in [`terraform.tfvars`](terraform.tfvars). The full description is in [`docs/index.md`](docs/index.md).
+
+## Pipeline
+
+`.github/workflows/terraform.yml` runs on every push and pull request:
+
+- `terraform fmt -check`, `terraform validate` and TFLint
+- `terraform test`, which plans every compute type against mocked providers (`tests/stack.tftest.hcl`)
+- a Trivy scan of the configuration for high and critical findings
+
+Plan and apply need access to the Google Cloud project and stay skipped until it is configured:
+
+| Setting                          | Kind     | Purpose                                                         |
+| -------------------------------- | -------- | --------------------------------------------------------------- |
+| `GCP_WORKLOAD_IDENTITY_PROVIDER` | secret   | Workload identity provider that trusts this repository          |
+| `GCP_SERVICE_ACCOUNT`            | secret   | Service account the workflow acts as                            |
+| `TF_STATE_BUCKET`                | variable | Cloud Storage bucket that holds the Terraform state             |
+| `INFRACOST_API_KEY`              | secret   | Optional. Enables the cost estimate on pushes to `main`         |
+
+With those set, every push to `main` produces a plan. To apply, run the workflow manually from the Actions tab with **Apply** ticked.
+
+## Working locally
+
+```bash
+terraform init -backend-config="bucket=<state bucket>"
+terraform plan
 ```
 
-## Components
-
-| Layer    | Component              | Description                       |
-| -------- | ---------------------- | --------------------------------- |
-| Edge     | Cloud Armor            | WAF and DDoS protection           |
-| Edge     | Global Load Balancer   | HTTPS/HTTP traffic distribution   |
-| Compute  | GKE Autopilot          | Serverless Kubernetes (default)   |
-| Compute  | GKE Standard           | Standard Kubernetes cluster       |
-| Compute  | Managed Instance Group | VM-based compute                  |
-| Database | Cloud SQL              | Managed PostgreSQL/MySQL          |
-| Security | Secret Manager         | Secrets storage                   |
-| Network  | VPC                    | Private networking with Cloud NAT |
-
-## Usage
-
-1. Select this template in Backstage
-2. Configure your project settings
-3. Choose compute type (GKE Autopilot, GKE Standard, or MIG)
-4. Configure database settings
-5. Enable/disable optional features
-
-## Prerequisites
-
-- GCP Project with billing enabled
-- Terraform >= 1.0
-- gcloud CLI configured
-
-## Outputs
-
-After deployment, you'll receive:
-
-- Load Balancer IP address
-- Cluster credentials (for GKE)
-- Database connection string
-- Cloud Armor policy ID (if enabled)
+Use `terraform init -backend=false` to validate without access to the state bucket.

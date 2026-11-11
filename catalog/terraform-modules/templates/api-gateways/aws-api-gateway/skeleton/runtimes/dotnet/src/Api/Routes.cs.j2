@@ -1,0 +1,48 @@
+using System.Text.Json.Nodes;
+using Amazon.Lambda.APIGatewayEvents;
+{%- if values.enableCRUD %}
+using Api.Items;
+{%- endif %}
+
+namespace Api;
+
+// Route table: "<METHOD> <API Gateway resource path>" -> handler(request).
+// A handler returns an APIGatewayProxyResponse; use Router.Json() to build it.
+// To implement an endpoint, replace its Router.NotImplemented stub with a handler.
+public static class Routes
+{
+    public static Dictionary<string, RouteHandler> Create()
+    {
+        var routes = new Dictionary<string, RouteHandler>
+        {
+            ["GET /health"] = Health,
+        };
+{%- if values.enableCRUD %}
+
+        foreach (var (key, handler) in ItemRoutes.Create(new DynamoDbItemStore()))
+        {
+            routes[key] = handler;
+        }
+{%- endif %}
+{%- for endpoint in values.endpoints or [] %}{% if loop.first %}
+{% endif %}
+{%- if endpoint.description %}
+        // ${{ endpoint.description | replace('\n', ' ') | replace('\r', ' ') | trim }}
+{%- endif %}
+        routes[${{ (endpoint.method + ' ' + endpoint.path) | dump }}] = Router.NotImplemented;
+{%- endfor %}
+
+        return routes;
+    }
+
+    private static Task<APIGatewayProxyResponse> Health(APIGatewayProxyRequest request)
+    {
+        var body = new JsonObject
+        {
+            ["status"] = "ok",
+            ["service"] = Environment.GetEnvironmentVariable("API_NAME") ?? ${{ values.apiName | dump }},
+            ["version"] = Environment.GetEnvironmentVariable("API_VERSION") ?? ${{ (values.apiVersion or '1.0.0') | dump }},
+        };
+        return Task.FromResult(Router.Json(200, body));
+    }
+}

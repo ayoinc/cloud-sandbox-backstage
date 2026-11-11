@@ -1,0 +1,42 @@
+# ${{ values.serviceName }}
+
+${{ values.description }}
+
+Terraform configuration for the Azure API Management instance `${{ values.serviceName }}`
+(${{ values.sku or "Standard" }} tier, region `${{ values.location or "eastus" }}`).
+
+## Layout
+
+| Path | Content |
+| --- | --- |
+| `infra/` | Terraform root configuration |
+| `infra/terraform.tfvars` | Settings of this instance |
+| `infra/apis.auto.tfvars.json` | APIs published through the gateway |
+| `infra/tests/` | Test that applies the configuration against mocked providers |
+| `docs/` | Documentation, shown in the portal under TechDocs |
+| `.github/workflows/ci.yml` | Formatting, validation, test, lint, security scan and documentation build |
+| `.github/workflows/deploy.yml` | Plan and apply, skipped until Azure credentials are configured |
+
+## Getting started
+
+1. Read `docs/deployment.md` and configure the Azure identity and the state storage account.
+2. Review `infra/terraform.tfvars` and replace the placeholder values of
+   `publisher_name` and `publisher_email`.
+3. Push to `main`. The Deploy workflow plans and applies the configuration.
+
+## Local checks
+
+```bash
+cd infra
+terraform fmt -check -recursive
+terraform init -backend=false
+terraform validate
+terraform test
+```
+
+## Documentation
+
+- `docs/index.md`: what is deployed
+- `docs/configuration.md`: every setting and what it creates
+- `docs/deployment.md`: credentials and pipelines
+- `docs/operations.md`: tasks after the first deployment

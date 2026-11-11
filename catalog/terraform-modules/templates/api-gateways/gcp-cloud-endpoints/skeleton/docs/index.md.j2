@@ -1,0 +1,133 @@
+{%- set grpc = values.protocol != 'rest' -%}
+{%- set transcoding = values.protocol == 'grpc-rest' -%}
+{%- set private = values.backendType == 'compute-engine' or values.backendType == 'gke' -%}
+{%- set authType = values.authType if values.enableAuth else 'none' -%}
+{%- set apiKey = values.enableQuotas or authType == 'apikey' -%}
+{%- set serviceName = values.apiName + '.endpoints.' + values.projectId + '.cloud.goog' -%}
+{%- set package = (values.apiName | replace('-', '_')) + '.v1' -%}
+{%- set backendNames = { 'cloud-run': 'Cloud Run', 'compute-engine': 'Compute Engine', 'gke': 'Google Kubernetes Engine', 'serverless': 'Cloud Functions' } -%}
+{%- set authNames = { 'none': 'None, anonymous calls are accepted', 'jwt': 'JSON Web Tokens of your identity provider', 'firebase': 'Firebase Authentication ID tokens', 'oauth2': 'Google ID tokens of your OAuth clients', 'apikey': 'Google Cloud API key' } -%}
+# ${{ values.apiName }}
+
+${{ values.description }}
+
+This repository deploys the API to [Cloud Endpoints](https://cloud.google.com/endpoints/docs) in the Google Cloud project `${{ values.projectId }}`. The API is described in `${{ values.grpcSpec if grpc else values.openApiSpec }}`{% if grpc %} and `api_config.yaml`{% endif %}, the infrastructure in Terraform under `infra/`, and GitHub Actions checks and deploys both.
+
+## What is deployed
+
+| Resource | Name | Purpose |
+| --- | --- | --- |
+| Endpoints service | `${{ serviceName }}` | Holds the API configuration: {% if grpc %}the gRPC services{% else %}the operations{% endif %}, the backend address{% if authType != 'none' %}, the authentication rules{% endif %}{% if values.enableQuotas %}, the quota{% endif %} |
+| Project services | Endpoints, Service Management, Service Control, Cloud Run | APIs the service and its gateway need; the Endpoints service itself is enabled as well |
+| Service account | `${{ values.apiName | truncate(22, true, '') }}-gateway` | Identity of the gateway |
+| Cloud Run service | `${{ values.apiName }}-gateway` | Runs the Extensible Service Proxy (ESPv2), the gateway clients call |
+{%- if values.enableMonitoring %}
+| Monitoring dashboard | `${{ values.apiName }} API` | Request rate by response class and by method, latency |
+| Alert policies | `${{ values.apiName }}: 5xx responses`, `${{ values.apiName }}: slow responses` | Fire on the 5xx ratio and on the 95th percentile latency |
+{%- endif %}
+{%- if values.enableLogging %}
+| Log bucket and sink | `${{ values.apiName }}-api-logs` | Store the request logs of the API and the logs of the gateway |
+{%- endif %}
+{%- if values.enablePortal %}
+| IAM members on the service | from the `api_consumers` variable | Principals that may enable the API in their own projects |
+{%- endif %}
+
+## How a request is handled
+
+1. A client calls the URL of the gateway (the `gateway_url` Terraform output, a `run.app` address).
+{%- if apiKey and authType != 'none' and authType != 'apikey' %}
+2. ESPv2 checks the API key in the `x-api-key` header and the token in the `Authorization: Bearer` header, and counts the call against the quota of the project the key belongs to.
+{%- elif apiKey and values.enableQuotas %}
+2. ESPv2 checks the API key in the `x-api-key` header and counts the call against the quota of the project the key belongs to.
+{%- elif apiKey %}
+2. ESPv2 checks the API key in the `x-api-key` header.
+{%- elif authType != 'none' %}
+2. ESPv2 checks the token in the `Authorization: Bearer` header.
+{%- else %}
+2. ESPv2 accepts the call without credentials.
+{%- endif %}
+{%- if transcoding %}
+3. A JSON request is converted to the gRPC method its path is mapped to; a gRPC request is passed on as it is.
+{%- endif %}
+{%- if private %}
+${{ 4 if transcoding else 3 }}. ESPv2 forwards the request to the backend at `${{ values.backendUrl }}`. No ID token is added; a private address is reached through the Serverless VPC Access connector set in `vpc_connector`.
+{%- else %}
+${{ 4 if transcoding else 3 }}. ESPv2 forwards the request to the backend at `${{ values.backendUrl }}` with an ID token of the gateway's service account, so the backend can stay closed to anonymous callers.
+{%- endif %}
+${{ 5 if transcoding else 4 }}. ESPv2 reports the call to Service Control, which writes the request log and the metrics of the API.
+
+{% if grpc %}`${{ package }}.Health.Check`{% else %}`GET /healthz`{% endif %} is exempt from step 2: it needs no credentials{% if values.enableQuotas %} and does not count against the quota{% endif %}.
+
+## The API
+
+The repository starts with a small working definition. Replace it with your own.
+{%- if grpc %}
+
+| Method | {% if transcoding %}HTTP mapping | {% endif %}Purpose |
+| --- | {% if transcoding %}--- | {% endif %}--- |
+| `${{ package }}.Health.Check` | {% if transcoding %}`GET /healthz` | {% endif %}Reports whether the backend answers |
+| `${{ package }}.Items.ListItems` | {% if transcoding %}`GET /v1/items` | {% endif %}Returns one page of items |
+| `${{ package }}.Items.GetItem` | {% if transcoding %}`GET /v1/items/{item_id}` | {% endif %}Returns one item |
+
+- `${{ values.grpcSpec }}` defines the services and messages. The backend has to implement them.
+- `api_config.yaml` is the Endpoints configuration: which services are served, the backend address{% if authType != 'none' %}, the authentication rules{% endif %}{% if values.enableQuotas %}, the quota{% endif %}{% if transcoding %}, and the `http` rules that map HTTP paths to methods{% endif %}. A service or method added to the proto has to be listed under `apis`{% if transcoding %} and, to be reachable over HTTP, under `http`{% endif %}.
+- Endpoints needs the proto as a compiled descriptor. The pipelines compile it; see [Deployment](deployment.md#run-terraform-locally) for the command.
+{%- else %}
+
+| Operation | Purpose |
+| --- | --- |
+| `GET /healthz` | Reports whether the backend answers |
+| `GET /v1/items` | Returns one page of items |
+| `GET /v1/items/{itemId}` | Returns one item |
+
+Rules for `${{ values.openApiSpec }}`:
+
+- It is an OpenAPI 2.0 (Swagger) document. Cloud Endpoints does not accept OpenAPI 3.
+- Every operation needs an `operationId`.
+- Values written as `${name}` are filled in by Terraform from `local.api_definition_values` in `infra/main.tf`. Write `$${` for a literal `${`.
+{%- if values.enableQuotas %}
+- An operation counts against the quota only if it has an `x-google-quota` block.
+{%- endif %}
+- `python scripts/validate_openapi.py ${{ values.openApiSpec }}` checks the document; the CI workflow runs it on every push.
+{%- endif %}
+
+## Options chosen when the repository was created
+
+| Option | Value |
+| --- | --- |
+| Protocol | {% if transcoding %}gRPC with JSON over HTTP transcoding{% elif grpc %}gRPC{% else %}REST (OpenAPI 2.0){% endif %} |
+| Backend | ${{ backendNames[values.backendType] }} at `${{ values.backendUrl }}` |
+| Authentication | ${{ authNames[authType] }} |
+| CORS | {% if values.enableCORS %}Answered by the gateway{% else %}Not handled by the gateway{% endif %} |
+| Monitoring | {% if values.enableMonitoring %}Dashboard and alert policies{% else %}Off{% endif %} |
+| Logging | {% if values.enableLogging %}Dedicated log bucket, entries from ${{ values.logLevel }} upwards{% else %}Default project logging only{% endif %} |
+| Quota | {% if values.enableQuotas %}${{ values.quotaLimit }} requests per minute for each consumer project{% else %}Off{% endif %} |
+| Portal | {% if values.enablePortal %}API entity in this portal, consumers managed in Terraform{% else %}Component only{% endif %} |
+
+[Configuration](configuration.md) explains each option and how to change it. [Deployment](deployment.md) covers the pipelines, the one-time setup and how to call the API.
+{%- if values.enablePortal %}
+
+## The API in this portal
+
+Google has shut down the Cloud Endpoints developer portal, so this portal takes its place:
+
+- `catalog-info.yaml` registers an API entity next to the component. Its definition is read from `${{ values.grpcSpec if grpc else values.openApiSpec }}` on the main branch, so the API page shows what is deployed.
+- Consumers are managed in Terraform. A principal in the `api_consumers` variable gets the Service Consumer role on the Endpoints service and can then enable the API in its own project{% if apiKey %} and create API keys for it{% endif %}.
+{%- endif %}
+
+## Repository layout
+
+| Path | Content |
+| --- | --- |
+{%- if grpc %}
+| `${{ values.grpcSpec }}` | gRPC services and messages |
+| `api_config.yaml` | Endpoints configuration of the gRPC services |
+{%- else %}
+| `${{ values.openApiSpec }}` | OpenAPI definition of the API |
+| `scripts/validate_openapi.py` | Check of the OpenAPI document |
+{%- endif %}
+| `infra/` | Terraform configuration; `terraform.tfvars` holds the settings |
+| `.github/workflows/ci.yml` | Checks on every push and pull request |
+| `.github/workflows/deploy.yml` | Terraform plan and apply |
+| `docs/`, `mkdocs.yml` | This documentation |
+| `catalog-info.yaml` | Registration in the portal |

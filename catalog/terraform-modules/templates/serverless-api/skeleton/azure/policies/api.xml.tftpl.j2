@@ -1,0 +1,97 @@
+{%- set slots = values.deploymentStrategy in ['canary', 'linear'] -%}
+<policies>
+  <inbound>
+    <base />
+{%- if values.enableWaf %}
+    <check-header name="X-Azure-FDID" failed-check-httpcode="403" failed-check-error-message="Forbidden" ignore-case="true">
+      <value>${front_door_id}</value>
+    </check-header>
+{%- endif %}
+{%- if values.enableCors %}
+    <cors allow-credentials="false">
+      <allowed-origins>
+%{ for origin in cors_allowed_origins ~}
+        <origin>${origin}</origin>
+%{ endfor ~}
+      </allowed-origins>
+      <allowed-methods preflight-result-max-age="300">
+        <method>*</method>
+      </allowed-methods>
+      <allowed-headers>
+        <header>*</header>
+      </allowed-headers>
+    </cors>
+{%- endif %}
+{%- if values.authType == 'jwt' %}
+    <validate-jwt header-name="Authorization" require-scheme="Bearer" failed-validation-httpcode="401" failed-validation-error-message="Unauthorized">
+      <openid-config url="https://login.microsoftonline.com/${tenant_id}/v2.0/.well-known/openid-configuration" />
+      <audiences>
+        <audience>${audience}</audience>
+      </audiences>
+      <issuers>
+        <issuer>https://login.microsoftonline.com/${tenant_id}/v2.0</issuer>
+        <issuer>https://sts.windows.net/${tenant_id}/</issuer>
+      </issuers>
+    </validate-jwt>
+{%- elif values.authType == 'oauth2' %}
+    <validate-jwt header-name="Authorization" require-scheme="Bearer" failed-validation-httpcode="401" failed-validation-error-message="Unauthorized">
+      <openid-config url="${openid_configuration_url}" />
+      <audiences>
+        <audience>${audience}</audience>
+      </audiences>
+    </validate-jwt>
+{%- elif values.authType == 'iam' %}
+    <validate-azure-ad-token tenant-id="${tenant_id}" header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="Unauthorized">
+%{ if length(client_application_ids) > 0 ~}
+      <client-application-ids>
+%{ for id in client_application_ids ~}
+        <application-id>${id}</application-id>
+%{ endfor ~}
+      </client-application-ids>
+%{ endif ~}
+      <audiences>
+        <audience>${audience}</audience>
+      </audiences>
+    </validate-azure-ad-token>
+{%- endif %}
+{%- if values.enableThrottling %}
+    <rate-limit calls="${rate_limit}" renewal-period="1" />
+{%- endif %}
+{%- if values.apiType == 'graphql' %}
+    <validate-graphql-request error-variable-name="graphql-error" max-size="102400" max-depth="10" />
+{%- endif %}
+{%- if values.enableMetrics %}
+    <emit-metric name="Requests" value="1" namespace="${metric_namespace}">
+      <dimension name="API ID" />
+      <dimension name="Operation ID" />
+    </emit-metric>
+{%- endif %}
+{%- if slots %}
+    <choose>
+      <when condition="@({{staging-traffic-percent}} > new Random().Next(100))">
+        <set-backend-service backend-id="function-staging" />
+      </when>
+      <otherwise>
+        <set-backend-service backend-id="function" />
+      </otherwise>
+    </choose>
+{%- else %}
+    <set-backend-service backend-id="function" />
+{%- endif %}
+  </inbound>
+  <backend>
+{%- if values.enableThrottling %}
+    <limit-concurrency key="backend" max-count="${burst_limit}">
+      <forward-request timeout="${timeout_seconds}" />
+    </limit-concurrency>
+{%- else %}
+    <forward-request timeout="${timeout_seconds}" />
+{%- endif %}
+  </backend>
+  <outbound>
+    <base />
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>

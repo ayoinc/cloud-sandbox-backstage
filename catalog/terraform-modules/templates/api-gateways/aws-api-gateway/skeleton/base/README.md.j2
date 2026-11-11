@@ -1,0 +1,43 @@
+# ${{ values.apiName }}
+
+${{ values.description }}
+
+An Amazon API Gateway REST API backed by one AWS Lambda function
+(`${{ values.runtime }}`), defined with Terraform.
+
+## Layout
+
+| Path                                 | Contents                                                        |
+| ------------------------------------ | --------------------------------------------------------------- |
+| {% if 'java' in values.runtime %}`src/`, `pom.xml`  {% else %}`src/`, `tests/`    {% endif %}                 | The Lambda function and its unit tests                          |
+| `infra/`                             | Terraform configuration of the API, the function and the rest   |
+| `infra/terraform.tfvars.json`        | The choices made when the repository was created                |
+| `.github/actions/build-lambda/`      | Tests the function and writes `build/lambda.zip`                |
+| `.github/workflows/ci.yml`           | Validation on every push and pull request                       |
+{%- if values.enableCICD %}
+| `.github/workflows/deploy.yml`       | Plan and apply, once AWS credentials are configured             |
+{%- endif %}
+{%- if values.enableAuth and values.authType == 'jwt' %}
+| `authorizer/`                        | Lambda authorizer that verifies bearer tokens                   |
+{%- endif %}
+| `docs/`                              | Documentation shown in the portal (TechDocs)                    |
+| `catalog-info.yaml`                  | Registration of the service and its API in the portal           |
+
+## Documentation
+
+- [Overview](docs/index.md): what was created and why
+- [API](docs/api.md): endpoints, authentication, rate limits
+- [Development](docs/development.md): run the tests, build the package, add an endpoint
+- [Operations](docs/operations.md): deploy, monitor, change settings
+
+## Pipeline
+
+`ci.yml` needs no AWS account. It tests and packages the function, checks the
+Terraform formatting, validates the configuration, plans it against mocked
+providers, lints it, scans it with Trivy and builds the documentation.
+{%- if values.enableCICD %}
+
+`deploy.yml` plans on pull requests and applies on `main`. It skips both until
+the role and state bucket described in [Operations](docs/operations.md) are
+configured.
+{%- endif %}

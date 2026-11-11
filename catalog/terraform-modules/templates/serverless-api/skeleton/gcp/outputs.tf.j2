@@ -1,0 +1,121 @@
+{%- set runtime = values.runtime or 'nodejs24' -%}
+{%- set interpreted = runtime in ['nodejs24', 'python313'] -%}
+{%- set auth = values.authType or 'jwt' -%}
+{%- set directLb = values.enableWaf and auth == 'none' -%}
+{%- set gateway = not directLb -%}
+{%- set gatewayQuota = gateway and values.enableThrottling and auth == 'api-key' -%}
+{%- set armorThrottle = values.enableWaf and values.enableThrottling and auth != 'api-key' -%}
+{%- set sql = values.enableDatabase and values.databaseType == 'sql' -%}
+{%- set nosql = values.enableDatabase and not sql -%}
+{%- set strategy = values.deploymentStrategy or 'canary' -%}
+{%- set region = values.gcpRegion or 'us-central1' -%}
+output "api_url" {
+  description = "Base URL clients call"
+{%- if values.enableWaf %}
+  value       = var.load_balancer_domain != "" ? "https://${var.load_balancer_domain}" : "http://${google_compute_global_address.load_balancer.address}"
+{%- else %}
+  value       = "https://${google_api_gateway_gateway.api.default_hostname}"
+{%- endif %}
+}
+{%- if gateway %}
+
+output "gateway_url" {
+  description = "URL of the API Gateway itself"
+  value       = "https://${google_api_gateway_gateway.api.default_hostname}"
+}
+
+output "api_managed_service" {
+  description = "Managed service name of the API, used for API keys, quotas and as token audience"
+  value       = google_api_gateway_api.api.managed_service
+}
+{%- endif %}
+{%- if values.enableWaf %}
+
+output "load_balancer_ip" {
+  description = "Address of the load balancer; point the DNS record of load_balancer_domain at it"
+  value       = google_compute_global_address.load_balancer.address
+}
+
+output "waf_policy" {
+  description = "Self link of the Cloud Armor security policy"
+  value       = google_compute_security_policy.waf.id
+}
+{%- endif %}
+{%- if gateway and auth == 'api-key' %}
+
+output "api_key" {
+  description = "API key of the first client; send it in the x-api-key header"
+  value       = google_apikeys_key.client.key_string
+  sensitive   = true
+}
+{%- endif %}
+{%- if auth == 'iam' %}
+
+output "iam_audience" {
+  description = "Audience a service account requests its ID token for"
+  value       = local.iam_audience
+}
+{%- endif %}
+
+output "function_name" {
+  description = "Name of the function and of its Cloud Run service"
+  value       = google_cloudfunctions2_function.api.name
+}
+
+output "function_uri" {
+  description = "URL of the function itself; ${{ 'reachable only through the load balancer' if directLb else 'only the gateway may invoke it' }}"
+  value       = google_cloudfunctions2_function.api.service_config[0].uri
+}
+
+output "function_service_account" {
+  description = "Email of the service account the function runs as"
+  value       = module.function_service_account.service_account_email
+}
+
+output "function_source" {
+  description = "Cloud Storage location of the deployed source archive"
+  value       = "gs://${google_cloudfunctions2_function.api.build_config[0].source[0].storage_source[0].bucket}/${google_cloudfunctions2_function.api.build_config[0].source[0].storage_source[0].object}"
+}
+{%- if nosql %}
+
+output "firestore_database" {
+  description = "Name of the Firestore database"
+  value       = google_firestore_database.main.name
+}
+{%- endif %}
+{%- if sql %}
+
+output "spanner_instance" {
+  description = "Name of the Spanner instance"
+  value       = module.spanner.instance_name
+}
+
+output "spanner_database" {
+  description = "Name of the Spanner database"
+  value       = local.spanner_database
+}
+{%- endif %}
+{%- if values.enableCache %}
+
+output "redis_host" {
+  description = "Private address of the Redis instance"
+  value       = google_redis_instance.cache.host
+}
+
+output "redis_port" {
+  description = "Port of the Redis instance"
+  value       = google_redis_instance.cache.port
+}
+{%- endif %}
+{%- if values.enableStorage %}
+
+output "storage_bucket" {
+  description = "Name of the storage bucket"
+  value       = google_storage_bucket.data.name
+}
+{%- endif %}
+
+output "log_bucket" {
+  description = "Log bucket that holds the logs of the API"
+  value       = module.log_bucket.log_bucket_ids[local.log_bucket_id]
+}

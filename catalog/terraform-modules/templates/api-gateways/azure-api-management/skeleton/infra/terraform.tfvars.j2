@@ -1,0 +1,27 @@
+# Values chosen when this repository was created. Edit them here; every
+# variable, including those not listed, is described in variables.tf.
+# The APIs are in apis.auto.tfvars.json.
+
+service_name = ${{ values.serviceName | dump }}
+description  = ${{ values.description | dump | replace("${", "$${") | replace("%{", "%%{") }}
+location     = ${{ (values.location or "eastus") | dump }}
+sku          = ${{ (values.sku or "Standard") | dump }}
+
+# Placeholders. Set the organisation name and a monitored mailbox before the
+# first deployment; Azure sends the notifications of the instance there.
+publisher_name  = "Platform Team"
+publisher_email = "platform-team@example.com"
+
+enable_portal      = ${{ false if values.enablePortal === false else true }}
+enable_portal_auth = ${{ false if values.enablePortalAuth === false else true }}
+enable_azure_ad    = ${{ false if values.enableAzureAD === false else true }}
+
+enable_jwt           = ${{ false if values.enableJWT === false else true }}
+enable_rate_limiting = ${{ false if values.rateLimiting === false else true }}
+calls_per_minute     = ${{ values.callsPerMinute or 1000 }}
+enable_cors          = ${{ false if values.enableCORS === false else true }}
+enable_caching       = ${{ false if values.enableCaching === false else true }}
+
+enable_application_insights = ${{ false if values.enableApplicationInsights === false else true }}
+enable_log_analytics        = ${{ false if values.enableLogAnalytics === false else true }}
+log_retention_days          = ${{ values.logRetention or 90 }}

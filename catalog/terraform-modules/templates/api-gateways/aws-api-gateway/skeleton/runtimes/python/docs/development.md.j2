@@ -1,0 +1,74 @@
+# Development
+
+The function is plain Python (${{ 'Python 3.13' if '3.13' in values.runtime else 'Python 3.14' }}) with no dependencies to
+package. `boto3`, which it uses for DynamoDB, is part of the Lambda runtime.
+
+## Layout
+
+| Path                    | Role                                                              |
+| ----------------------- | ----------------------------------------------------------------- |
+| `src/handler.py`        | Lambda entry point (`handler.handler`)                            |
+| `src/routes.py`         | Route table: `"<METHOD> <path>"` to handler                       |
+| `src/router.py`         | Routing, JSON responses, body parsing, error handling             |
+{%- if values.enableCRUD %}
+| `src/items/handlers.py` | Handlers of the `/items` endpoints                                |
+| `src/items/store.py`    | Items in the DynamoDB table named by `ITEMS_TABLE`                |
+{%- endif %}
+| `tests/`                | Unit tests (pytest), no AWS access needed                         |
+| `scripts/package.sh`    | Writes `build/lambda.zip`                                         |
+| `requirements-dev.txt`  | pytest and ruff, the only tools to install                        |
+
+## Run the checks
+
+```bash
+python -m venv .venv && . .venv/bin/activate
+pip install -r requirements-dev.txt
+ruff check .
+pytest
+```
+
+## Build the deployment package
+
+```bash
+bash scripts/package.sh
+```
+
+This writes `build/lambda.zip`, the file `infra/` deploys. The pipeline does
+the same through `.github/actions/build-lambda`.
+
+## Implement an endpoint
+
+API Gateway sends every request to the function with the method in
+`event["httpMethod"]` and the path template in `event["resource"]` (for
+example `/users/{id}`; the value of `{id}` is in
+`event["pathParameters"]["id"]`). `src/routes.py` maps
+`"<METHOD> <path template>"` to a handler.
+
+An endpoint requested when the repository was created starts as a stub that
+answers `501`. Replace the stub with a handler:
+
+```python
+from router import json_response, parse_object
+
+
+def create_user(event):
+    user = parse_object(event)
+    return json_response(201, user)
+
+
+ROUTES = {
+    # ...
+    "POST /users": create_user,
+}
+```
+
+Raise `HttpError(status, message)` from `router.py` to answer with an error
+status. Any other exception is logged and answered with `500`.
+
+A third-party package has to be installed into `src/` before packaging
+(`pip install --target src <package>`), because the archive is the content of
+that directory.
+
+To add an endpoint that was not requested at creation, add it to `endpoints`
+in `infra/terraform.tfvars.json` as well, so that API Gateway routes it; see
+[Operations](operations.md#change-the-configuration).

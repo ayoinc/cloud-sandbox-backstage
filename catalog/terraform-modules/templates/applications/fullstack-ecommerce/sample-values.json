@@ -1,0 +1,21 @@
+{
+  "values": {
+    "projectName": "sample-store",
+    "environment": "dev",
+    "businessUnit": "ecommerce",
+    "description": "The team's \"main\" online store: catalogue, cart & checkout",
+    "owner": "group:default/platform-team",
+    "provider": "azure",
+    "region": "eastus",
+    "enableCMS": true,
+    "enablePayments": true,
+    "enableSearch": true,
+    "enableReviews": true,
+    "enableInventory": true,
+    "enableAnalytics": true,
+    "enableCDN": true,
+    "enableCaching": true,
+    "autoScaling": true,
+    "repoUrl": "github.com?owner=example-org&repo=sample-store"
+  }
+}

@@ -1,0 +1,122 @@
+{%- set slots = values.deploymentStrategy in ['canary', 'linear'] -%}
+{%- set insights = values.enableTracing or values.enableMetrics -%}
+output "resource_group_name" {
+  description = "Resource group that holds every resource of this API."
+  value       = module.resource_group.name
+}
+
+output "api_url" {
+  description = "Public base URL of the API{% if values.enableWaf %} (Front Door endpoint){% endif %}."
+{%- if values.enableWaf %}
+  value       = "https://${azurerm_cdn_frontdoor_endpoint.api.host_name}"
+{%- else %}
+  value       = azurerm_api_management.main.gateway_url
+{%- endif %}
+}
+
+output "api_management_name" {
+  description = "Name of the API Management instance."
+  value       = azurerm_api_management.main.name
+}
+
+output "api_management_gateway_url" {
+  description = "Gateway URL of API Management{% if values.enableWaf %}; it only accepts requests that come through Front Door{% endif %}."
+  value       = azurerm_api_management.main.gateway_url
+}
+
+output "function_app_name" {
+  description = "Name of the function app; the target of code deployments."
+  value       = local.function_app_name
+}
+
+output "function_app_hostname" {
+  description = "Default hostname of the function app."
+  value       = local.function_app_hostname
+}
+
+output "function_principal_ids" {
+  description = "Object IDs of the function app's managed identities, by slot."
+  value       = local.function_principal_ids
+}
+{%- if slots %}
+
+output "function_staging_hostname" {
+  description = "Hostname of the staging slot."
+  value       = azurerm_linux_function_app_slot.staging.default_hostname
+}
+
+output "staging_traffic_steps" {
+  description = "Percentages of traffic the release pipeline gives the staging slot, in order, before it swaps the slots."
+  value       = ${{ '[10]' if values.deploymentStrategy == 'canary' else '[10, 25, 50, 75]' }}
+}
+{%- endif %}
+{%- if values.authType == 'api-key' %}
+
+output "api_subscription_key" {
+  description = "Subscription key callers send in the Ocp-Apim-Subscription-Key header."
+  value       = azurerm_api_management_subscription.default.primary_key
+  sensitive   = true
+}
+{%- endif %}
+{%- if values.authType in ['jwt', 'iam'] %}
+
+output "api_audience" {
+  description = "Audience a token must carry to be accepted by the gateway."
+  value       = local.api_audience
+}
+{%- endif %}
+{%- if values.enableDatabase and values.databaseType == 'nosql' %}
+
+output "cosmos_endpoint" {
+  description = "Endpoint of the Cosmos DB account."
+  value       = azurerm_cosmosdb_account.main.endpoint
+}
+{%- endif %}
+{%- if values.enableDatabase and values.databaseType == 'sql' %}
+
+output "sql_server_fqdn" {
+  description = "Fully qualified name of the SQL server."
+  value       = module.sql.server_fqdn
+}
+
+output "sql_database_name" {
+  description = "Name of the SQL database."
+  value       = local.sql_database_name
+}
+
+output "key_vault_name" {
+  description = "Key Vault that holds the SQL administrator password in the secret sql-administrator-password."
+  value       = azurerm_key_vault.main.name
+}
+{%- endif %}
+{%- if values.enableCache %}
+
+output "redis_hostname" {
+  description = "Hostname of the Azure Managed Redis instance."
+  value       = azurerm_managed_redis.main.hostname
+}
+{%- endif %}
+{%- if values.enableStorage %}
+
+output "storage_account_name" {
+  description = "Storage account for application data."
+  value       = azurerm_storage_account.data.name
+}
+
+output "storage_container_name" {
+  description = "Blob container for application data."
+  value       = azurerm_storage_container.data.name
+}
+{%- endif %}
+{%- if insights %}
+
+output "application_insights_name" {
+  description = "Application Insights resource that receives telemetry of the gateway and the function."
+  value       = azurerm_application_insights.main.name
+}
+{%- endif %}
+
+output "log_analytics_workspace_id" {
+  description = "Log Analytics workspace that stores the logs."
+  value       = azurerm_log_analytics_workspace.main.id
+}

@@ -1,0 +1,4 @@
+type Subscription {
+  "Emits every product right after it is created."
+  productCreated: Product!
+}

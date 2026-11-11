@@ -1,326 +1,200 @@
-terraform {
-  required_version = ">= 1.0"
-
-  required_providers {
-    azurerm = {
-      source  = "hashicorp/azurerm"
-      version = ">= 3.0"
-    }
-  }
-
-  backend "azurerm" {
-    resource_group_name  = "${{ values.projectName }}-tfstate-rg"
-    storage_account_name = "${{ values.projectName | replace("-", "") }}tfstate"
-    container_name       = "tfstate"
-    key                  = "${{ values.environment }}/terraform.tfstate"
-  }
-}
-
-provider "azurerm" {
-  features {
-    key_vault {
-      purge_soft_delete_on_destroy = false
-    }
-  }
-}
-
 locals {
-  name_prefix = "${{ values.projectName }}-${{ values.environment }}"
-  
+  # The shared modules know the production environment as "prod".
+  environment_short = var.environment == "production" ? "prod" : var.environment
+  name_prefix       = "${var.project_name}-${local.environment_short}"
+  is_production     = var.environment == "production"
+
   common_tags = {
-    Project     = "${{ values.projectName }}"
-    Environment = "${{ values.environment }}"
+    Project     = var.project_name
+    Environment = var.environment
     ManagedBy   = "terraform"
   }
+
+  runs_aks            = var.compute_type == "aks"
+  runs_vmss           = var.compute_type == "vmss"
+  runs_container_apps = var.compute_type == "container-apps"
+
+  # A maximum below the minimum is raised to the minimum.
+  max_nodes = max(var.min_nodes, var.max_nodes)
+
+  uses_sql        = var.database_type == "sql-database"
+  uses_postgresql = var.database_type == "postgresql"
+  uses_cosmos     = var.database_type == "cosmos-db"
+
+  # The address space as its network address, whatever host bits were given.
+  vnet_address_space = cidrsubnet(var.vnet_address_space, 0, 0)
+
+  # The gateway, data and ingress subnets are one 256th of the address space
+  # each, the application subnet is one 16th.
+  subnet_prefixes = {
+    gateway = cidrsubnet(local.vnet_address_space, 8, 0)
+    data    = cidrsubnet(local.vnet_address_space, 8, 1)
+    ingress = cidrsubnet(local.vnet_address_space, 8, 2)
+    app     = cidrsubnet(local.vnet_address_space, 4, 1)
+  }
+
+  subnets = {
+    for name, subnet in {
+      gateway = {
+        address_prefixes = [local.subnet_prefixes.gateway]
+      }
+
+      # A Container Apps environment needs its subnet delegated.
+      app = {
+        address_prefixes = [local.subnet_prefixes.app]
+        delegation = local.runs_container_apps ? {
+          name = "container-apps"
+          service_delegation = {
+            name    = "Microsoft.App/environments"
+            actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
+          }
+        } : null
+      }
+
+      # A PostgreSQL flexible server lives in a delegated subnet. The other
+      # databases are reached through a private endpoint in this subnet.
+      data = {
+        address_prefixes  = [local.subnet_prefixes.data]
+        service_endpoints = local.uses_postgresql ? ["Microsoft.Storage"] : []
+        delegation = local.uses_postgresql ? {
+          name = "postgresql"
+          service_delegation = {
+            name    = "Microsoft.DBforPostgreSQL/flexibleServers"
+            actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
+          }
+        } : null
+      }
+
+      # Holds the internal load balancer of the AKS ingress.
+      ingress = {
+        address_prefixes = [local.subnet_prefixes.ingress]
+      }
+    } : name => subnet if name != "ingress" || local.runs_aks
+  }
+
+  # The network module creates one network security group per subnet and
+  # returns their IDs. Rules are attached by name.
+  nsg_names = { for name, id in module.network.nsg_ids : name => reverse(split("/", id))[0] }
+
+  log_retention_days = { dev = 30, staging = 60, production = 90 }[var.environment]
 }
 
-# Resource Group
 module "resource_group" {
-  source = "../../azure/resources/core/resource-group"
+  source = "git::https://github.com/ayoinc/cloud-sandbox-backstage.git//catalog/terraform-modules/azure/resources/core/resource-group?ref=${{ values.moduleRef }}"
 
-  project_name = var.project_name
-  environment  = var.environment
-  location     = var.location
-  tags         = local.common_tags
+  name        = local.name_prefix
+  location    = var.location
+  project     = var.project_name
+  environment = local.environment_short
+  tags        = local.common_tags
 }
 
-# Virtual Network
-module "virtual_network" {
-  source = "../../azure/resources/network/virtual-network"
+# -----------------------------------------------------------------------------
+# Network: one subnet for the Application Gateway, one for the application and
+# one for the database.
+# -----------------------------------------------------------------------------
 
-  project_name        = var.project_name
-  environment         = var.environment
+module "network" {
+  source = "git::https://github.com/ayoinc/cloud-sandbox-backstage.git//catalog/terraform-modules/azure/resources/network/virtual-network?ref=${{ values.moduleRef }}"
+
   resource_group_name = module.resource_group.name
   location            = var.location
-  address_space       = [var.vnet_address_space]
-
-  subnets = [
-    { name = "app-gateway", address_prefix = cidrsubnet(var.vnet_address_space, 8, 0) },
-    { name = "app", address_prefix = cidrsubnet(var.vnet_address_space, 8, 1) },
-    { name = "database", address_prefix = cidrsubnet(var.vnet_address_space, 8, 2) }
-  ]
-
-  tags = local.common_tags
-}
-
-# Application Gateway
-module "application_gateway" {
-  source = "../../azure/resources/network/application-gateway"
-
-  project_name        = var.project_name
-  environment         = var.environment
-  resource_group_name = module.resource_group.name
-  location            = var.location
-  name                = "${local.name_prefix}-appgw"
-
-  subnet_id            = module.virtual_network.subnet_ids["app-gateway"]
-  public_ip_address_id = azurerm_public_ip.appgw.id
-
-  sku_name = "WAF_v2"
-  sku_tier = "WAF_v2"
-
-  enable_waf  = ${{ values.enableWaf }}
-  waf_mode    = "Prevention"
-
-  frontend_ports = [
-    { name = "http", port = 80 },
-    { name = "https", port = 443 }
-  ]
-
-  backend_address_pools = [
-    { name = "app-pool", fqdns = [], ip_addresses = [] }
-  ]
-
-  backend_http_settings = [
-    { name = "http-settings", port = 80, protocol = "Http", cookie_affinity = "Disabled", request_timeout = 60 }
-  ]
-
-  http_listeners = [
-    { name = "http-listener", frontend_ip_configuration_name = "frontend-ip", frontend_port_name = "http", protocol = "Http" }
-  ]
-
-  request_routing_rules = [
-    { name = "rule-1", rule_type = "Basic", http_listener_name = "http-listener", backend_address_pool_name = "app-pool", backend_http_settings_name = "http-settings", priority = 100 }
-  ]
-
-  tags = local.common_tags
-}
-
-resource "azurerm_public_ip" "appgw" {
-  name                = "${local.name_prefix}-appgw-pip"
-  resource_group_name = module.resource_group.name
-  location            = var.location
-  allocation_method   = "Static"
-  sku                 = "Standard"
+  project             = var.project_name
+  environment         = local.environment_short
+  vnet_address_space  = [local.vnet_address_space]
+  subnets             = local.subnets
   tags                = local.common_tags
 }
 
-{%- if values.computeType == "aks" %}
-# AKS Cluster
-module "aks" {
-  source = "../../azure/resources/kubernetes/aks"
-
-  project_name        = var.project_name
-  environment         = var.environment
-  resource_group_name = module.resource_group.name
-  location            = var.location
-  cluster_name        = "${local.name_prefix}-aks"
-
-  kubernetes_version = var.kubernetes_version
-  
-  default_node_pool_vm_size   = var.vm_size
-  default_node_pool_min_count = var.min_nodes
-  default_node_pool_max_count = var.max_nodes
-  default_node_pool_subnet_id = module.virtual_network.subnet_ids["app"]
-
-  network_plugin = "azure"
-  network_policy = "azure"
-
-  tags = local.common_tags
-}
-{%- endif %}
-
-{%- if values.computeType == "vmss" %}
-# VM Scale Set
-module "vmss" {
-  source = "../../azure/resources/compute/vmss"
-
-  project_name        = var.project_name
-  environment         = var.environment
-  resource_group_name = module.resource_group.name
-  location            = var.location
-  vmss_name           = "${local.name_prefix}-vmss"
-
-  sku          = var.vm_size
-  instances    = var.min_nodes
-  admin_username = var.admin_username
-
-  subnet_id = module.virtual_network.subnet_ids["app"]
-
-  source_image_reference = {
-    publisher = "Canonical"
-    offer     = "0001-com-ubuntu-server-jammy"
-    sku       = "22_04-lts-gen2"
-    version   = "latest"
-  }
-
-  enable_autoscale    = true
-  min_instances       = var.min_nodes
-  max_instances       = var.max_nodes
-  scale_out_cpu_threshold = 75
-  scale_in_cpu_threshold  = 25
-
-  tags = local.common_tags
-}
-{%- endif %}
-
-{%- if values.computeType == "container-apps" %}
-# Container Apps
-module "container_app" {
-  source = "../../azure/resources/compute/container-app"
-
-  project_name        = var.project_name
-  environment         = var.environment
-  resource_group_name = module.resource_group.name
-  location            = var.location
-
-  container_app_environment_name = "${local.name_prefix}-env"
-  log_analytics_workspace_id     = module.log_analytics.workspace_id
-
-  container_app_name = "${local.name_prefix}-app"
-  container_name     = "app"
-  image              = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
-
-  min_replicas = var.min_nodes
-  max_replicas = var.max_nodes
-
-  tags = local.common_tags
-}
-{%- endif %}
-
-# Key Vault for secrets
-module "key_vault" {
-  source = "../../azure/resources/security/key-vault"
-
-  project_name        = var.project_name
-  environment         = var.environment
-  resource_group_name = module.resource_group.name
-  location            = var.location
-  tenant_id           = data.azurerm_client_config.current.tenant_id
-
-  tags = local.common_tags
+# An Application Gateway v2 cannot be created unless Azure can manage it
+# through these ports.
+resource "azurerm_network_security_rule" "gateway_management" {
+  name                        = "AllowGatewayManager"
+  resource_group_name         = module.resource_group.name
+  network_security_group_name = local.nsg_names["gateway"]
+  priority                    = 100
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "Tcp"
+  source_address_prefix       = "GatewayManager"
+  source_port_range           = "*"
+  destination_address_prefix  = "*"
+  destination_port_range      = "65200-65535"
 }
 
-data "azurerm_client_config" "current" {}
-
-{%- if values.databaseType == "postgresql" %}
-# PostgreSQL Flexible Server
-module "postgresql" {
-  source = "../../azure/resources/database/postgresql"
-
-  project_name        = var.project_name
-  environment         = var.environment
-  resource_group_name = module.resource_group.name
-  location            = var.location
-  server_name         = "${local.name_prefix}-psql"
-
-  administrator_login    = var.database_admin_username
-  administrator_password = var.database_admin_password
-
-  sku_name   = var.database_sku
-  storage_mb = 32768
-  version    = "15"
-
-  delegated_subnet_id = module.virtual_network.subnet_ids["database"]
-
-  tags = local.common_tags
+# With Front Door enabled, only Front Door may reach the gateway.
+#trivy:ignore:AVD-AZU-0047 The Application Gateway is the public entry point of the application when Front Door is not in front of it.
+resource "azurerm_network_security_rule" "gateway_web" {
+  name                        = "AllowWebTraffic"
+  resource_group_name         = module.resource_group.name
+  network_security_group_name = local.nsg_names["gateway"]
+  priority                    = 110
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "Tcp"
+  source_address_prefix       = var.enable_front_door ? "AzureFrontDoor.Backend" : "Internet"
+  source_port_range           = "*"
+  destination_address_prefix  = "*"
+  destination_port_ranges     = local.serves_https ? ["80", "443"] : ["80"]
 }
-{%- endif %}
 
-{%- if values.databaseType == "sql-database" %}
-# Azure SQL Database
-module "sql_database" {
-  source = "../../azure/resources/database/sql-database"
-
-  project_name        = var.project_name
-  environment         = var.environment
-  resource_group_name = module.resource_group.name
-  location            = var.location
-
-  server_name              = "${local.name_prefix}-sql"
-  administrator_login      = var.database_admin_username
-  administrator_password   = var.database_admin_password
-
-  database_name = replace(var.project_name, "-", "_")
-  sku_name      = var.database_sku
-
-  tags = local.common_tags
+# The database accepts connections from the application subnet only.
+resource "azurerm_network_security_rule" "data_from_app" {
+  name                        = "AllowApplication"
+  resource_group_name         = module.resource_group.name
+  network_security_group_name = local.nsg_names["data"]
+  priority                    = 100
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "Tcp"
+  source_address_prefixes     = [local.subnet_prefixes.app, local.subnet_prefixes.data]
+  source_port_range           = "*"
+  destination_address_prefix  = "*"
+  destination_port_ranges     = local.database_ports
 }
-{%- endif %}
 
-{%- if values.databaseType == "cosmos-db" %}
-# Cosmos DB
-module "cosmos_db" {
-  source = "../../azure/resources/database/cosmos-db"
-
-  project_name        = var.project_name
-  environment         = var.environment
-  resource_group_name = module.resource_group.name
-  location            = var.location
-  account_name        = "${local.name_prefix}-cosmos"
-
-  geo_locations = [
-    { location = var.location, failover_priority = 0, zone_redundant = false }
-  ]
-
-  databases = [
-    { name = replace(var.project_name, "-", "_"), throughput = 400, containers = [] }
-  ]
-
-  tags = local.common_tags
+# The deny rule below would otherwise also stop the health probes of the Azure
+# platform, which the VirtualNetwork tag includes.
+resource "azurerm_network_security_rule" "data_from_platform" {
+  name                        = "AllowAzureLoadBalancer"
+  resource_group_name         = module.resource_group.name
+  network_security_group_name = local.nsg_names["data"]
+  priority                    = 110
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "*"
+  source_address_prefix       = "AzureLoadBalancer"
+  source_port_range           = "*"
+  destination_address_prefix  = "*"
+  destination_port_range      = "*"
 }
-{%- endif %}
 
-# Log Analytics
+resource "azurerm_network_security_rule" "data_deny_other" {
+  name                        = "DenyOtherVirtualNetworkTraffic"
+  resource_group_name         = module.resource_group.name
+  network_security_group_name = local.nsg_names["data"]
+  priority                    = 4096
+  direction                   = "Inbound"
+  access                      = "Deny"
+  protocol                    = "*"
+  source_address_prefix       = "VirtualNetwork"
+  source_port_range           = "*"
+  destination_address_prefix  = "*"
+  destination_port_range      = "*"
+}
+
+# -----------------------------------------------------------------------------
+# Monitoring
+# -----------------------------------------------------------------------------
+
 module "log_analytics" {
-  source = "../../azure/resources/monitoring/log-analytics"
+  source = "git::https://github.com/ayoinc/cloud-sandbox-backstage.git//catalog/terraform-modules/azure/resources/monitoring/log-analytics?ref=${{ values.moduleRef }}"
 
-  project_name        = var.project_name
-  environment         = var.environment
-  resource_group_name = module.resource_group.name
-  location            = var.location
-
-  tags = local.common_tags
+  resource_group_name       = module.resource_group.name
+  location                  = var.location
+  project                   = var.project_name
+  environment               = local.environment_short
+  retention_in_days         = local.log_retention_days
+  enable_container_insights = local.runs_aks
+  tags                      = local.common_tags
 }
-
-{%- if values.enableFrontDoor %}
-# Azure Front Door
-module "front_door" {
-  source = "../../azure/resources/network/front-door"
-
-  project_name        = var.project_name
-  environment         = var.environment
-  resource_group_name = module.resource_group.name
-
-  profile_name = "${local.name_prefix}-fd"
-  sku_name     = "Standard_AzureFrontDoor"
-
-  endpoints = [
-    { name = "default", enabled = true }
-  ]
-
-  origin_groups = [
-    { name = "app-origin", session_affinity_enabled = false }
-  ]
-
-  origins = [
-    { name = "appgw", origin_group_name = "app-origin", host_name = azurerm_public_ip.appgw.ip_address, http_port = 80, https_port = 443, certificate_name_check_enabled = false, enabled = true, priority = 1, weight = 1000 }
-  ]
-
-  routes = [
-    { name = "default-route", endpoint_name = "default", origin_group_name = "app-origin", origin_names = ["appgw"], patterns_to_match = ["/*"], supported_protocols = ["Http", "Https"], forwarding_protocol = "HttpOnly", https_redirect_enabled = true }
-  ]
-
-  tags = local.common_tags
-}
-{%- endif %}

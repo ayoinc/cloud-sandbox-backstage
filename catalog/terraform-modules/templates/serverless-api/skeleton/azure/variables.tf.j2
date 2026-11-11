@@ -1,0 +1,264 @@
+{%- set slots = values.deploymentStrategy in ['canary', 'linear'] -%}
+variable "project_name" {
+  description = "Project name; resource names are derived from it together with the environment."
+  type        = string
+  default     = "${{ values.projectName }}"
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9-]*[a-z0-9]$", var.project_name)) && length(var.project_name) <= 24
+    error_message = "project_name must be at most 24 lowercase letters, digits and hyphens, start with a letter and end with a letter or digit."
+  }
+}
+
+variable "environment" {
+  description = "Deployment environment (dev, staging or production)."
+  type        = string
+  default     = "${{ values.environment }}"
+
+  validation {
+    condition     = contains(["dev", "staging", "production"], var.environment)
+    error_message = "environment must be dev, staging or production."
+  }
+}
+
+variable "location" {
+  description = "Azure region for all regional resources."
+  type        = string
+  default     = "${{ values.azureRegion or 'eastus' }}"
+}
+
+variable "subscription_id" {
+  description = "Subscription to deploy into. Empty takes it from the ARM_SUBSCRIPTION_ID environment variable."
+  type        = string
+  default     = ${{ (values.azureSubscriptionId or '') | dump }}
+}
+
+variable "tags" {
+  description = "Tags added to every resource on top of Project, Environment and ManagedBy."
+  type        = map(string)
+  default     = {}
+}
+{%- if slots %}
+
+variable "premium_plan_sku" {
+  description = "Elastic Premium SKU of the function plan (EP1 = 3.5 GB, EP2 = 7 GB, EP3 = 14 GB per instance)."
+  type        = string
+  default     = "EP1"
+
+  validation {
+    condition     = contains(["EP1", "EP2", "EP3"], var.premium_plan_sku)
+    error_message = "premium_plan_sku must be EP1, EP2 or EP3."
+  }
+}
+
+variable "function_maximum_instance_count" {
+  description = "Upper limit of instances the Elastic Premium plan scales out to."
+  type        = number
+  default     = 20
+}
+{%- else %}
+
+variable "function_memory_mb" {
+  description = "Memory of one Flex Consumption instance in MB (512, 2048 or 4096)."
+  type        = number
+  default     = ${{ 512 if (values.memorySize or 256) <= 512 else 2048 }}
+
+  validation {
+    condition     = contains([512, 2048, 4096], var.function_memory_mb)
+    error_message = "function_memory_mb must be 512, 2048 or 4096."
+  }
+}
+
+variable "function_maximum_instance_count" {
+  description = "Upper limit of instances the function scales out to (40 to 1000)."
+  type        = number
+  default     = 100
+
+  validation {
+    condition     = var.function_maximum_instance_count >= 40 && var.function_maximum_instance_count <= 1000
+    error_message = "function_maximum_instance_count must be between 40 and 1000."
+  }
+}
+{%- endif %}
+
+variable "function_timeout_seconds" {
+  description = "Maximum run time of one function execution in seconds. The gateway waits for an HTTP response for at most 230 seconds."
+  type        = number
+  default     = ${{ values.timeout or 30 }}
+
+  validation {
+    condition     = var.function_timeout_seconds >= 1 && floor(var.function_timeout_seconds) == var.function_timeout_seconds
+    error_message = "function_timeout_seconds must be a whole number of at least 1."
+  }
+}
+{%- if not slots %}
+
+variable "function_package_path" {
+  description = "Path of a zip package to deploy to the function app during apply. Null leaves code deployment to the application's own pipeline."
+  type        = string
+  default     = null
+}
+{%- endif %}
+
+variable "function_app_settings" {
+  description = "Additional application settings for the function app."
+  type        = map(string)
+  default     = {}
+}
+
+variable "api_publisher_name" {
+  description = "Publisher name shown by API Management."
+  type        = string
+  default     = "${{ values.projectName }}"
+}
+
+variable "api_publisher_email" {
+  description = "Address that receives API Management service notifications."
+  type        = string
+  default     = ${{ values.azurePublisherEmail | dump }}
+
+  validation {
+    condition     = can(regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", var.api_publisher_email))
+    error_message = "api_publisher_email must be an email address."
+  }
+}
+{%- if values.enableCors %}
+
+variable "cors_allowed_origins" {
+  description = "Origins allowed to call the API from a browser. \"*\" allows every origin."
+  type        = list(string)
+  default     = ["*"]
+
+  validation {
+    condition     = length(var.cors_allowed_origins) > 0
+    error_message = "cors_allowed_origins needs at least one origin."
+  }
+}
+{%- endif %}
+{%- if values.enableThrottling %}
+
+variable "throttle_rate_limit" {
+  description = "Requests per second the gateway accepts before it answers 429."
+  type        = number
+  default     = ${{ values.throttleRateLimit or 1000 }}
+
+  validation {
+    condition     = var.throttle_rate_limit >= 1
+    error_message = "throttle_rate_limit must be at least 1."
+  }
+}
+
+variable "throttle_burst_limit" {
+  description = "Requests the gateway forwards to the function at the same time before it answers 429."
+  type        = number
+  default     = ${{ values.throttleBurstLimit or 2000 }}
+
+  validation {
+    condition     = var.throttle_burst_limit >= 1
+    error_message = "throttle_burst_limit must be at least 1."
+  }
+}
+{%- endif %}
+{%- if values.authType in ['jwt', 'iam'] %}
+
+variable "entra_tenant_id" {
+  description = "Microsoft Entra ID tenant whose tokens the gateway accepts. Empty uses the tenant of the deploying identity."
+  type        = string
+  default     = ""
+}
+
+variable "api_audience" {
+  description = "Audience (Application ID URI or client ID of the API's app registration) a token must carry. Empty uses api://<project>-<environment>."
+  type        = string
+  default     = ""
+}
+{%- endif %}
+{%- if values.authType == 'iam' %}
+
+variable "allowed_client_application_ids" {
+  description = "Client IDs of the applications and managed identities allowed to call the API. Empty accepts every identity of the tenant that holds a token for the audience."
+  type        = list(string)
+  default     = []
+}
+{%- endif %}
+{%- if values.authType == 'oauth2' %}
+
+variable "oauth2_openid_configuration_url" {
+  description = "OpenID Connect discovery document of the identity provider (https://.../.well-known/openid-configuration). Required; there is no default."
+  type        = string
+
+  validation {
+    condition     = can(regex("^https://", var.oauth2_openid_configuration_url))
+    error_message = "oauth2_openid_configuration_url must be an https URL. Set it with TF_VAR_oauth2_openid_configuration_url or the OAUTH2_OPENID_CONFIGURATION_URL repository variable."
+  }
+}
+
+variable "oauth2_audience" {
+  description = "Audience a token must carry. Required; there is no default."
+  type        = string
+
+  validation {
+    condition     = length(var.oauth2_audience) > 0
+    error_message = "oauth2_audience must not be empty. Set it with TF_VAR_oauth2_audience or the OAUTH2_AUDIENCE repository variable."
+  }
+}
+{%- endif %}
+{%- if values.enableDatabase and values.databaseType == 'sql' %}
+
+variable "sql_administrator_login" {
+  description = "Login of the SQL administrator. Its generated password is stored in Key Vault."
+  type        = string
+  default     = "sqladmin"
+}
+
+variable "sql_entra_admin_object_id" {
+  description = "Object ID of the Entra ID user or group that administers the SQL server. Empty uses the deploying identity."
+  type        = string
+  default     = ""
+}
+
+variable "sql_entra_admin_name" {
+  description = "Display name recorded for the Entra ID administrator of the SQL server."
+  type        = string
+  default     = "sql-administrators"
+}
+
+variable "sql_max_size_gb" {
+  description = "Maximum size of the database in GB."
+  type        = number
+  default     = 32
+}
+{%- endif %}
+{%- if values.enableCache %}
+
+variable "redis_sku" {
+  description = "Azure Managed Redis SKU."
+  type        = string
+  default     = "Balanced_B0"
+}
+{%- endif %}
+
+variable "log_retention_days" {
+  description = "Days the Log Analytics workspace keeps logs (30 to 730)."
+  type        = number
+  default     = ${{ (values.logRetentionDays or 30) if (values.logRetentionDays or 30) >= 30 else 30 }}
+
+  validation {
+    condition     = var.log_retention_days >= 30 && var.log_retention_days <= 730
+    error_message = "log_retention_days must be between 30 and 730; Log Analytics does not keep data for less than 30 days."
+  }
+}
+{%- if values.enableAlarms %}
+
+variable "alert_email" {
+  description = "Address that receives alert notifications. Empty creates the action group without a receiver."
+  type        = string
+  default     = ""
+}
+
+variable "alert_error_threshold" {
+  description = "Number of 5xx responses in five minutes above which an alert fires."
+  type        = number
+  default     = 5
+}
+{%- endif %}

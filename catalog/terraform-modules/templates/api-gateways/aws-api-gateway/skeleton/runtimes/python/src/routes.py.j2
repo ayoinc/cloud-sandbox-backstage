@@ -1,0 +1,38 @@
+"""Route table of the API."""
+
+import os
+
+{% if values.enableCRUD -%}
+from items.handlers import item_routes
+from items.store import DynamoStore
+{% endif -%}
+from router import json_response{% if values.endpoints | length %}, not_implemented{% endif %}
+
+
+def health(_event):
+    return json_response(
+        200,
+        {
+            "status": "ok",
+            "service": os.environ.get("API_NAME", ${{ values.apiName | dump }}),
+            "version": os.environ.get("API_VERSION", ${{ (values.apiVersion or '1.0.0') | dump }}),
+        },
+    )
+
+
+# "<METHOD> <API Gateway resource path>" -> handler(event).
+# A handler returns {"statusCode", "headers", "body"}; use json_response() from
+# router.py. To implement an endpoint, replace its not_implemented stub with a
+# handler.
+ROUTES = {
+    "GET /health": health,
+{%- if values.enableCRUD %}
+    **item_routes(DynamoStore()),
+{%- endif %}
+{%- for endpoint in values.endpoints or [] %}
+{%- if endpoint.description %}
+    # ${{ endpoint.description | replace('\n', ' ') | replace('\r', ' ') }}
+{%- endif %}
+    ${{ (endpoint.method + ' ' + endpoint.path) | dump }}: not_implemented,
+{%- endfor %}
+}

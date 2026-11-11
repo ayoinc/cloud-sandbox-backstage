@@ -3,7 +3,7 @@ kind: Template
 metadata:
   name: gcp-cloud-endpoints
   title: GCP Cloud Endpoints
-  description: Create a Cloud Endpoints API with OpenAPI spec, authentication, monitoring, and developer portal
+  description: Create a Cloud Endpoints API (OpenAPI or gRPC) behind an ESPv2 gateway on Cloud Run, with authentication, quotas, monitoring and logging
   tags:
     - cloud-endpoints
     - gcp
@@ -19,12 +19,14 @@ spec:
       required:
         - apiName
         - description
+        - projectId
       properties:
         apiName:
           title: API Name
           type: string
-          description: Name of the API service (e.g., product-api)
-          pattern: '^[a-z0-9\-]+$'
+          description: Name of the API service (e.g., product-api). Lowercase letters, digits and hyphens, starting with a letter. The Endpoints service becomes <name>.endpoints.<project>.cloud.goog
+          pattern: '^[a-z]([a-z0-9-]*[a-z0-9])?$'
+          maxLength: 40
           ui:autofocus: true
         description:
           title: Description
@@ -33,14 +35,15 @@ spec:
         projectId:
           title: GCP Project ID
           type: string
-          description: GCP project ID
+          description: ID of the Google Cloud project the API and its gateway are deployed to
+          pattern: '^[a-z][a-z0-9-]{4,28}[a-z0-9]$'
 
     - title: API Protocol
       properties:
         protocol:
           title: Protocol
           type: string
-          description: API protocol
+          description: API protocol. REST is described by an OpenAPI 2.0 file, gRPC by a .proto file and a service configuration; transcoding also serves the gRPC methods as JSON over HTTP
           default: rest
           enum:
             - rest
@@ -53,22 +56,25 @@ spec:
         openApiSpec:
           title: OpenAPI Specification
           type: string
-          description: Path to OpenAPI spec file (for REST)
+          description: Path in the new repository of the OpenAPI 2.0 file (for REST). A starter file is created there. mkdocs.yml and catalog-info.yaml are taken
           default: './openapi.yaml'
+          pattern: '^(?!(\./)?(mkdocs\.yml|catalog-info\.yaml)$)(\./)?([A-Za-z0-9_-]([A-Za-z0-9._-]*[A-Za-z0-9_-])?/)*[A-Za-z0-9_-][A-Za-z0-9._-]*\.ya?ml$'
         grpcSpec:
           title: gRPC Service Definition
           type: string
-          description: Path to .proto file (for gRPC)
+          description: Path in the new repository of the .proto file (for gRPC). A starter file is created there
           default: './service.proto'
+          pattern: '^(\./)?([A-Za-z0-9_-]([A-Za-z0-9._-]*[A-Za-z0-9_-])?/)*[A-Za-z0-9_-][A-Za-z0-9._-]*\.proto$'
 
     - title: Backend Configuration
       required:
         - backendType
+        - backendUrl
       properties:
         backendType:
           title: Backend Type
           type: string
-          description: Type of backend service
+          description: Type of backend service. For Cloud Run and Cloud Functions the gateway calls the backend with an ID token; for Compute Engine and GKE it can reach private addresses through a Serverless VPC Access connector
           default: cloud-run
           enum:
             - cloud-run
@@ -83,19 +89,20 @@ spec:
         backendUrl:
           title: Backend Service URL
           type: string
-          description: URL of the backend service
+          description: URL of the backend service, e.g. https://orders-abc123-ew.a.run.app or http://10.0.0.12:8080
+          pattern: '^https?://[A-Za-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._~/-]*)?$'
 
     - title: Authentication & Security
       properties:
         enableAuth:
           title: Enable Authentication
           type: boolean
-          description: Enable authentication
+          description: Require callers to authenticate. When off, the API accepts anonymous calls
           default: true
         authType:
           title: Authentication Type
           type: string
-          description: Authentication mechanism
+          description: Authentication mechanism. jwt takes the issuer, key set and audiences from Terraform variables; firebase accepts Firebase Auth tokens of the project; oauth2 accepts Google ID tokens issued to your OAuth client IDs; apikey requires a Google Cloud API key
           default: jwt
           enum:
             - jwt
@@ -105,7 +112,7 @@ spec:
         enableCORS:
           title: Enable CORS
           type: boolean
-          description: Enable CORS for cross-origin requests
+          description: Let the gateway answer CORS preflight requests and add CORS headers to responses
           default: true
 
     - title: Monitoring & Logging
@@ -113,17 +120,17 @@ spec:
         enableMonitoring:
           title: Enable Monitoring
           type: boolean
-          description: Enable Cloud Monitoring
+          description: Create a Cloud Monitoring dashboard and alert policies (5xx ratio, latency) for the API
           default: true
         enableLogging:
           title: Enable Cloud Logging
           type: boolean
-          description: Enable request/response logging
+          description: Route the request logs of the API and the logs of the gateway to a dedicated log bucket
           default: true
         logLevel:
           title: Log Level
           type: string
-          description: Logging level
+          description: Lowest severity of request log entries kept in the log bucket. DEBUG also turns on debug logging in the gateway
           default: INFO
           enum:
             - DEBUG
@@ -136,52 +143,82 @@ spec:
         enableQuotas:
           title: Enable Quotas
           type: boolean
-          description: Enable API quotas
+          description: Limit the request rate of each consumer project. Callers must then send an API key, which is how Endpoints identifies the consumer project
           default: true
         quotaLimit:
           title: Quota Limit
-          type: number
-          description: Requests per minute
+          type: integer
+          description: Requests per minute for each consumer project
           default: 1000
+          minimum: 1
 
     - title: Developer Portal
       properties:
         enablePortal:
           title: Enable Developer Portal
           type: boolean
-          description: Enable API developer portal
+          description: Publish the API in this portal. Google shut down the Cloud Endpoints developer portal, so the API definition is registered here as an API entity next to the component, and Terraform grants the service consumer role on the API to the principals listed in the api_consumers variable
           default: true
 
+    - title: Repository
+      required:
+        - owner
+        - repoUrl
+      properties:
+        owner:
+          title: Owner
+          type: string
+          description: Team or user that owns the API
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind:
+                - Group
+                - User
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
   steps:
-    - id: fetch-infra
-      name: Fetch Infrastructure
+    - id: fetch
+      name: Fetch Template
       action: fetch:template
       input:
-        url: ./skeleton/infra
-        targetPath: ./infra
+        url: ./skeleton
+        templateFileExtension: '.j2'
         values:
           apiName: ${{ parameters.apiName }}
           description: ${{ parameters.description }}
           projectId: ${{ parameters.projectId }}
-          protocol: ${{ parameters.protocol }}
-          openApiSpec: ${{ parameters.openApiSpec }}
-          grpcSpec: ${{ parameters.grpcSpec }}
+          protocol: ${{ parameters.protocol or 'rest' }}
+          # Paths relative to the repository root, without the leading "./"
+          openApiSpec: ${{ (parameters.openApiSpec or 'openapi.yaml') | replace('./', '') }}
+          grpcSpec: ${{ (parameters.grpcSpec or 'service.proto') | replace('./', '') }}
           backendType: ${{ parameters.backendType }}
           backendUrl: ${{ parameters.backendUrl }}
           enableAuth: ${{ parameters.enableAuth }}
-          authType: ${{ parameters.authType }}
+          authType: ${{ parameters.authType or 'jwt' }}
           enableCORS: ${{ parameters.enableCORS }}
           enableMonitoring: ${{ parameters.enableMonitoring }}
           enableLogging: ${{ parameters.enableLogging }}
-          logLevel: ${{ parameters.logLevel }}
+          logLevel: ${{ parameters.logLevel or 'INFO' }}
           enableQuotas: ${{ parameters.enableQuotas }}
-          quotaLimit: ${{ parameters.quotaLimit }}
+          quotaLimit: ${{ parameters.quotaLimit or 1000 }}
           enablePortal: ${{ parameters.enablePortal }}
+          owner: ${{ parameters.owner }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+          # Commit of github.com/ayoinc/cloud-sandbox-backstage the Terraform modules are taken from
+          moduleRef: 83f9ff7222d2731d5cc0da4ab1fc1f7c46da3693
 
     - id: publish
       name: Publish to Repository
       action: publish:github
       input:
+        allowedHosts: ['github.com']
         description: ${{ parameters.description }}
         repoUrl: ${{ parameters.repoUrl }}
         defaultBranch: main
@@ -201,7 +238,12 @@ spec:
       - title: Open in Catalog
         icon: catalog
         entityRef: ${{ steps.register.output.entityRef }}
+      - title: Pipeline
+        icon: github
+        url: ${{ steps.publish.output.remoteUrl }}/actions
       - title: API Dashboard
         icon: dashboard
+        url: https://console.cloud.google.com/endpoints/api/${{ parameters.apiName }}.endpoints.${{ parameters.projectId }}.cloud.goog/overview?project=${{ parameters.projectId }}
       - title: Metrics Dashboard
-        icon: bar-chart
+        icon: dashboard
+        url: https://console.cloud.google.com/monitoring/dashboards?project=${{ parameters.projectId }}

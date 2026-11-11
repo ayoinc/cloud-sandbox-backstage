@@ -1,0 +1,57 @@
+"""Placeholder handler.
+
+Terraform deploys it until a package with the real code is supplied
+(docs/infrastructure.md, section "Function package").
+"""
+
+import json
+import os
+
+
+{% if values.apiType == 'graphql' -%}
+def handler(event, context):
+    """Resolve one field: AppSync calls the function once for every field."""
+    info = event.get("info", {})
+    field = f"{info.get('parentTypeName')}.{info.get('fieldName')}"
+
+    if field == "Query.status":
+        return {
+            "service": os.environ.get("PROJECT_NAME"),
+            "environment": os.environ.get("ENVIRONMENT"),
+            "placeholder": True,
+        }
+
+    raise LookupError(f"No resolver for {field}")
+{%- elif values.apiType == 'rest' -%}
+def handler(event, context):
+    """Answer an API Gateway REST API proxy event (payload format 1.0)."""
+    headers = {"content-type": "application/json"}
+
+    # A REST API does not add CORS headers to the responses of the function.
+    if os.environ.get("CORS_ALLOW_ORIGIN"):
+        headers["access-control-allow-origin"] = os.environ["CORS_ALLOW_ORIGIN"]
+
+    body = {
+        "service": os.environ.get("PROJECT_NAME"),
+        "environment": os.environ.get("ENVIRONMENT"),
+        "placeholder": True,
+        "method": event.get("httpMethod"),
+        "path": event.get("path"),
+    }
+    return {"statusCode": 200, "headers": headers, "body": json.dumps(body)}
+{%- else -%}
+def handler(event, context):
+    """Answer an API Gateway HTTP API event (payload format 2.0)."""
+    body = {
+        "service": os.environ.get("PROJECT_NAME"),
+        "environment": os.environ.get("ENVIRONMENT"),
+        "placeholder": True,
+        "method": event.get("requestContext", {}).get("http", {}).get("method"),
+        "path": event.get("rawPath"),
+    }
+    return {
+        "statusCode": 200,
+        "headers": {"content-type": "application/json"},
+        "body": json.dumps(body),
+    }
+{%- endif %}

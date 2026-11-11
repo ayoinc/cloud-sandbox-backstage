@@ -1,0 +1,36 @@
+{
+  "values": {
+    "apiName": "orders-api",
+    "description": "Orders of the web shop: the team's \"main\" API",
+    "apiVersion": "1.0.0",
+    "awsRegion": "eu-west-1",
+    "enableAuth": true,
+    "authType": "jwt",
+    "jwtIssuer": "https://login.example.com/",
+    "jwtAudience": "orders-api",
+    "enableWAF": true,
+    "rateLimiting": true,
+    "requestsPerSecond": 100,
+    "runtime": "nodejs24.x",
+    "memorySize": 512,
+    "timeout": 30,
+    "enableCRUD": true,
+    "endpoints": [
+      {
+        "path": "/orders/{id}/invoice",
+        "method": "GET",
+        "description": "Invoice of an order: PDF or \"raw\" JSON, it's the customer's choice"
+      },
+      {
+        "path": "/orders/{id}/cancel",
+        "method": "POST"
+      }
+    ],
+    "enableMonitoring": true,
+    "enableXRay": true,
+    "logRetention": 30,
+    "enableCICD": true,
+    "repoUrl": "github.com?owner=example-org&repo=orders-api",
+    "owner": "group:default/platform-team"
+  }
+}

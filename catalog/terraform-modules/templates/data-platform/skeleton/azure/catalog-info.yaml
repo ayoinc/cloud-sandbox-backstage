@@ -1,0 +1,20 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.destination.repo }}
+  description: Azure data platform for ${{ values.projectName }} (${{ values.environment }})
+  annotations:
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - terraform
+    - azure
+    - data-platform
+  links:
+    - url: https://portal.azure.com/#browse/resourcegroups
+      title: Resource groups in the Azure portal
+      icon: dashboard
+spec:
+  type: infrastructure
+  lifecycle: ${{ 'production' if values.environment == 'production' else 'experimental' }}
+  owner: ${{ values.owner | dump }}

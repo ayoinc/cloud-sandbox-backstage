@@ -1,0 +1,83 @@
+# Development
+
+The function is a C# class library for .NET 10 (`net10.0`). It needs the
+.NET 10 SDK; `scripts/package.sh` also needs `zip`.
+
+## Layout
+
+| Path                                 | Role                                                           |
+| ------------------------------------ | -------------------------------------------------------------- |
+| `src/Api/Function.cs`                | Lambda entry point (`Api::Api.Function::FunctionHandler`)      |
+| `src/Api/Routes.cs`                  | Route table: `"<METHOD> <path>"` to handler                    |
+| `src/Api/Router.cs`                  | Routing, JSON responses, body parsing, error handling          |
+{%- if values.enableCRUD %}
+| `src/Api/Items/ItemRoutes.cs`        | Handlers of the `/items` endpoints                             |
+| `src/Api/Items/IItemStore.cs`        | Storage interface of the items                                 |
+| `src/Api/Items/DynamoDbItemStore.cs` | Items in the DynamoDB table named by `ITEMS_TABLE`             |
+{%- endif %}
+| `tests/Api.Tests/`                   | Unit tests (xUnit.net v3), no AWS access needed                |
+| `Directory.Build.props`              | Settings of both projects: target framework, warnings, builds  |
+| `scripts/package.sh`                 | Writes `build/lambda.zip`                                      |
+
+Package versions are pinned in `src/Api/Api.csproj` and
+`tests/Api.Tests/Api.Tests.csproj`. Compiler warnings fail the build.
+
+## Run the tests
+
+```bash
+dotnet test Api.slnx --configuration Release
+dotnet format Api.slnx --verify-no-changes
+```
+
+The second command checks the formatting; without `--verify-no-changes` it
+fixes it.
+
+## Build the deployment package
+
+```bash
+bash scripts/package.sh
+```
+
+This publishes `src/Api` for `linux-x64` (framework-dependent) and writes the
+output to `build/lambda.zip`, the file `infra/` deploys. The pipeline does the
+same through `.github/actions/build-lambda`.
+
+Release builds are deterministic and the archive has fixed file times,
+permissions and order, so unchanged sources give the same archive and
+Terraform does not redeploy the function. The pipeline installs the newest
+.NET 10 SDK (`10.0.x`); a new SDK release can change the compiled assembly
+and with it the archive.
+
+## Implement an endpoint
+
+API Gateway sends every request to the function with the method in
+`request.HttpMethod` and the path template in `request.Resource` (for example
+`/users/{id}`; the value of `{id}` is `Router.PathParameter(request, "id")`).
+`Routes.Create()` in `src/Api/Routes.cs` maps `"<METHOD> <path template>"` to
+a handler.
+
+An endpoint requested when the repository was created starts as a stub that
+answers `501`. Replace the stub with a handler:
+
+```csharp
+public static Dictionary<string, RouteHandler> Create()
+{
+    // ...
+    routes["POST /users"] = CreateUser;
+
+    return routes;
+}
+
+private static Task<APIGatewayProxyResponse> CreateUser(APIGatewayProxyRequest request)
+{
+    var user = Router.ParseObject(request);
+    return Task.FromResult(Router.Json(201, user));
+}
+```
+
+Throw `new HttpException(status, message)` to answer with an error status.
+Any other exception is logged and answered with `500`.
+
+To add an endpoint that was not requested at creation, add it to `endpoints`
+in `infra/terraform.tfvars.json` as well, so that API Gateway routes it; see
+[Operations](operations.md#change-the-configuration).

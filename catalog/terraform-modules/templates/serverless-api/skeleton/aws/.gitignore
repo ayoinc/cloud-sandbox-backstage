@@ -1,0 +1,11 @@
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+tfplan
+
+# Archives that Terraform builds from the sources in this repository
+build/
+
+# TechDocs output
+site/

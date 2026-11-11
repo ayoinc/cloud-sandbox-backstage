@@ -1,0 +1,35 @@
+{%- set interpreted = values.runtime == 'nodejs24' or values.runtime == 'python313' or not values.runtime -%}
+{%- set keyAuthorizer = values.apiType != 'rest' and values.apiType != 'graphql' and values.authType == 'api-key' -%}
+{%- set oidcAuthorizer = values.apiType == 'rest' and values.authType == 'oauth2' -%}
+{%- set graphqlKey = values.apiType == 'graphql' and (values.authType == 'api-key' or values.authType == 'none') -%}
+terraform {
+  required_version = ">= 1.9.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.72.0"
+    }
+    {%- if interpreted or keyAuthorizer or oidcAuthorizer %}
+    archive = {
+      source  = "hashicorp/archive"
+      version = "~> 2.8.1"
+    }
+    {%- endif %}
+    {%- if keyAuthorizer %}
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.9.1"
+    }
+    {%- endif %}
+    {%- if graphqlKey %}
+    time = {
+      source  = "hashicorp/time"
+      version = "~> 0.14.2"
+    }
+    {%- endif %}
+  }
+
+  # The bucket, key and region are passed with -backend-config at init time.
+  backend "s3" {}
+}

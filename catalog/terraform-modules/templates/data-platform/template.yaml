@@ -20,14 +20,25 @@ spec:
       required:
         - projectName
         - environment
+        - owner
         - cloudProvider
       properties:
         projectName:
           title: Project Name
           type: string
-          description: Name for the data platform (lowercase, hyphens allowed)
-          pattern: '^[a-z0-9-]+$'
+          description: Name for the data platform, used as a prefix for resource names (lowercase letters, digits and hyphens, at most 16 characters)
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          maxLength: 16
           ui:autofocus: true
+        owner:
+          title: Owner
+          type: string
+          description: Team or user that owns this infrastructure
+          ui:field: OwnerPicker
+          ui:options:
+            allowedKinds:
+              - Group
+              - User
         environment:
           title: Environment
           type: string
@@ -48,14 +59,13 @@ spec:
             - Microsoft Azure
             - Google Cloud Platform
           default: aws
-
-    - title: AWS Configuration
       dependencies:
         cloudProvider:
           oneOf:
             - properties:
                 cloudProvider:
-                  const: aws
+                  enum:
+                    - aws
                 awsRegion:
                   title: AWS Region
                   type: string
@@ -65,14 +75,10 @@ spec:
                     - eu-west-1
                     - eu-central-1
                   default: us-east-1
-
-    - title: Azure Configuration
-      dependencies:
-        cloudProvider:
-          oneOf:
             - properties:
                 cloudProvider:
-                  const: azure
+                  enum:
+                    - azure
                 azureRegion:
                   title: Azure Region
                   type: string
@@ -85,14 +91,14 @@ spec:
                 azureSubscriptionId:
                   title: Azure Subscription ID
                   type: string
-
-    - title: GCP Configuration
-      dependencies:
-        cloudProvider:
-          oneOf:
-            - properties:
+                  description: Subscription the resources are created in. Leave empty to use the subscription of the pipeline's credentials.
+                  pattern: '^([0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12})?$'
+            - required:
+                - gcpProjectId
+              properties:
                 cloudProvider:
-                  const: gcp
+                  enum:
+                    - gcp
                 gcpRegion:
                   title: GCP Region
                   type: string
@@ -105,6 +111,8 @@ spec:
                 gcpProjectId:
                   title: GCP Project ID
                   type: string
+                  description: ID of the Google Cloud project the resources are created in
+                  pattern: '^[a-z][a-z0-9-]{4,28}[a-z0-9]$'
 
     - title: Data Lake Configuration
       properties:
@@ -112,7 +120,7 @@ spec:
           title: Enable Data Lake
           type: boolean
           default: true
-          description: Create object storage for raw and processed data
+          description: Object storage for raw, processed and curated data (S3 / ADLS Gen2 / Cloud Storage)
         dataLakeStorageClass:
           title: Storage Class
           type: string
@@ -121,11 +129,12 @@ spec:
             - infrequent
             - archive
           default: standard
+          description: Standard keeps data in the hot tier; infrequent and archive move older raw and processed data to cheaper tiers
         enableDataCatalog:
           title: Enable Data Catalog
           type: boolean
           default: true
-          description: AWS Glue Catalog / Azure Purview / GCP Data Catalog
+          description: AWS Glue Data Catalog / Microsoft Purview / Dataplex
 
     - title: Data Warehouse Configuration
       properties:
@@ -133,7 +142,7 @@ spec:
           title: Enable Data Warehouse
           type: boolean
           default: true
-          description: Redshift / Synapse / BigQuery
+          description: Redshift / Synapse dedicated SQL pool / BigQuery
         warehouseSize:
           title: Warehouse Size
           type: string
@@ -142,10 +151,11 @@ spec:
             - medium
             - large
           enumNames:
-            - Small (2 nodes)
-            - Medium (4 nodes)
-            - Large (8 nodes)
+            - Small
+            - Medium
+            - Large
           default: small
+          description: 'AWS: 2, 4 or 8 Redshift nodes. Azure: DW100c, DW500c or DW1000c. GCP: up to 100, 200 or 400 BigQuery slots.'
 
     - title: ETL/ELT Configuration
       properties:
@@ -160,8 +170,8 @@ spec:
             - spark
             - native
           enumNames:
-            - Apache Spark (EMR/Databricks/Dataproc)
-            - Native (Glue/Data Factory/Dataflow)
+            - Apache Spark (EMR Serverless / Databricks / Dataproc)
+            - Native (Glue / Data Factory / Dataflow)
           default: native
         enableOrchestration:
           title: Enable Workflow Orchestration
@@ -178,8 +188,11 @@ spec:
           description: Kinesis / Event Hubs / Pub/Sub
         streamingRetention:
           title: Streaming Retention (hours)
-          type: number
+          type: integer
+          minimum: 24
+          maximum: 168
           default: 24
+          description: How long the stream keeps records, between 24 and 168 hours (the range every cloud supports)
 
     - title: Analytics & BI
       properties:
@@ -187,12 +200,12 @@ spec:
           title: Enable BI Integration
           type: boolean
           default: false
-          description: QuickSight / Power BI / Looker
+          description: Access for a BI tool. AWS gets an Athena workgroup and a role for QuickSight, Azure opens the Synapse SQL endpoint to Power BI, GCP gets BigQuery BI Engine and a read-only service account for Looker
         enableMlPlatform:
           title: Enable ML Platform
           type: boolean
           default: false
-          description: SageMaker / Azure ML / Vertex AI
+          description: SageMaker domain / Azure Machine Learning workspace / Vertex AI Workbench
 
     - title: Security & Governance
       properties:
@@ -200,14 +213,17 @@ spec:
           title: Enable Encryption at Rest
           type: boolean
           default: true
+          description: Customer-managed keys (KMS / Key Vault / Cloud KMS) instead of provider-managed encryption
         enableDataLineage:
           title: Enable Data Lineage
           type: boolean
           default: true
+          description: OpenLineage into Amazon DataZone / Purview lineage from Data Factory and Synapse / Data Lineage API
         enableAccessControl:
           title: Enable Fine-Grained Access Control
           type: boolean
           default: true
+          description: Lake Formation permissions / Entra ID-only access with per-zone roles / per-bucket and per-dataset IAM with policy tags
 
     - title: Repository Configuration
       required:
@@ -226,32 +242,35 @@ spec:
       name: Fetch Template
       action: fetch:template
       input:
-        url: ./skeleton
-        templateFileExtension: '.j2'
+        url: ./skeleton/${{ parameters.cloudProvider }}
         values:
           projectName: ${{ parameters.projectName }}
           environment: ${{ parameters.environment }}
           cloudProvider: ${{ parameters.cloudProvider }}
-          awsRegion: ${{ parameters.awsRegion }}
-          azureRegion: ${{ parameters.azureRegion }}
+          awsRegion: ${{ parameters.awsRegion or 'us-east-1' }}
+          azureRegion: ${{ parameters.azureRegion or 'eastus' }}
           azureSubscriptionId: ${{ parameters.azureSubscriptionId }}
-          gcpRegion: ${{ parameters.gcpRegion }}
+          gcpRegion: ${{ parameters.gcpRegion or 'us-central1' }}
           gcpProjectId: ${{ parameters.gcpProjectId }}
-          enableDataLake: ${{ parameters.enableDataLake }}
-          dataLakeStorageClass: ${{ parameters.dataLakeStorageClass }}
-          enableDataCatalog: ${{ parameters.enableDataCatalog }}
-          enableDataWarehouse: ${{ parameters.enableDataWarehouse }}
-          warehouseSize: ${{ parameters.warehouseSize }}
-          enableEtlPipelines: ${{ parameters.enableEtlPipelines }}
-          etlEngine: ${{ parameters.etlEngine }}
-          enableOrchestration: ${{ parameters.enableOrchestration }}
-          enableStreaming: ${{ parameters.enableStreaming }}
-          streamingRetention: ${{ parameters.streamingRetention }}
-          enableBiTools: ${{ parameters.enableBiTools }}
-          enableMlPlatform: ${{ parameters.enableMlPlatform }}
-          enableEncryption: ${{ parameters.enableEncryption }}
-          enableDataLineage: ${{ parameters.enableDataLineage }}
-          enableAccessControl: ${{ parameters.enableAccessControl }}
+          enableDataLake: ${{ parameters.enableDataLake if parameters.enableDataLake is defined else true }}
+          dataLakeStorageClass: ${{ parameters.dataLakeStorageClass or 'standard' }}
+          enableDataCatalog: ${{ parameters.enableDataCatalog if parameters.enableDataCatalog is defined else true }}
+          enableDataWarehouse: ${{ parameters.enableDataWarehouse if parameters.enableDataWarehouse is defined else true }}
+          warehouseSize: ${{ parameters.warehouseSize or 'small' }}
+          enableEtlPipelines: ${{ parameters.enableEtlPipelines if parameters.enableEtlPipelines is defined else true }}
+          etlEngine: ${{ parameters.etlEngine or 'native' }}
+          enableOrchestration: ${{ parameters.enableOrchestration if parameters.enableOrchestration is defined else true }}
+          enableStreaming: ${{ parameters.enableStreaming if parameters.enableStreaming is defined else false }}
+          streamingRetention: ${{ parameters.streamingRetention or 24 }}
+          enableBiTools: ${{ parameters.enableBiTools if parameters.enableBiTools is defined else false }}
+          enableMlPlatform: ${{ parameters.enableMlPlatform if parameters.enableMlPlatform is defined else false }}
+          enableEncryption: ${{ parameters.enableEncryption if parameters.enableEncryption is defined else true }}
+          enableDataLineage: ${{ parameters.enableDataLineage if parameters.enableDataLineage is defined else true }}
+          enableAccessControl: ${{ parameters.enableAccessControl if parameters.enableAccessControl is defined else true }}
+          owner: ${{ parameters.owner }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+          # Commit of github.com/ayoinc/cloud-sandbox-backstage the Terraform modules are taken from
+          moduleRef: 83f9ff7222d2731d5cc0da4ab1fc1f7c46da3693
 
     - id: publish
       name: Publish to GitHub

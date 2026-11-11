@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint and test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Set up buf
+        uses: bufbuild/buf-action@v1
+        with:
+          version: 1.75.0
+          setup_only: true
+
+      - name: Lint the proto files
+        run: |
+          buf lint
+          buf format --diff --exit-code
+
+      - name: Check for breaking API changes
+        if: github.event_name == 'pull_request'
+        run: buf breaking --against "${{ github.server_url }}/${{ github.repository }}.git#branch=${{ github.base_ref }}"
+
+      - name: Generate code
+        run: make generate
+
+      - name: Check that go.mod and go.sum are tidy
+        run: go mod tidy -diff
+
+      - name: Lint the Go code
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.15.0
+
+      - name: Test
+        run: make test
+
+      - name: Build
+        run: make build
+
+  manifests:
+    name: Validate Kubernetes manifests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Validate
+        run: make manifests
+
+  image:
+    name: Build and smoke-test the image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Build the image and call the running container
+        run: make smoke

@@ -1,0 +1,30 @@
+{
+  "values": {
+    "projectName": "orders",
+    "environment": "dev",
+    "cloudProvider": "aws",
+    "awsRegion": "eu-west-1",
+    "runtime": "nodejs24",
+    "memorySize": 256,
+    "timeout": 30,
+    "apiType": "http",
+    "enableCors": true,
+    "enableThrottling": true,
+    "throttleRateLimit": 1000,
+    "throttleBurstLimit": 2000,
+    "authType": "jwt",
+    "enableWaf": true,
+    "enableDatabase": true,
+    "databaseType": "nosql",
+    "enableCache": false,
+    "enableStorage": false,
+    "enableTracing": true,
+    "enableMetrics": true,
+    "enableAlarms": true,
+    "logRetentionDays": 30,
+    "enableCicd": true,
+    "deploymentStrategy": "canary",
+    "repoUrl": "github.com?owner=example-org&repo=orders-serverless-api",
+    "owner": "group:default/platform-team"
+  }
+}

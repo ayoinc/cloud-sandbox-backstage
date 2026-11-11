@@ -1,0 +1,110 @@
+{%- set grpc = values.protocol != 'rest' -%}
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  TF_IN_AUTOMATION: 'true'
+  TF_INPUT: '0'
+
+jobs:
+  terraform:
+    name: Terraform
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@v7
+{%- if grpc %}
+
+      - name: Install protoc
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends protobuf-compiler
+
+      # Terraform uploads the descriptor with the service configuration.
+      - name: Compile the API descriptor
+        working-directory: .
+        run: >
+          protoc --include_imports --include_source_info
+          --descriptor_set_out=infra/api_descriptor.pb
+          ${{ values.grpcSpec }}
+{%- endif %}
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.17.1
+
+      - name: Check formatting
+        run: terraform fmt -check -recursive -diff
+
+      - name: Initialise without a backend
+        run: terraform init -backend=false
+
+      - name: Validate
+        run: terraform validate
+
+      - name: Test the configuration with the committed values
+        run: terraform test
+
+      - uses: terraform-linters/setup-tflint@v6
+        with:
+          tflint_version: v0.66.0
+
+      - name: Lint
+        env:
+          GITHUB_TOKEN: {% raw %}${{ github.token }}{% endraw %}
+        run: |
+          tflint --init
+          tflint --format compact
+
+  security:
+    name: Security scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Scan the Terraform configuration with Trivy
+        run: >
+          docker run --rm -v "$PWD:/src" ghcr.io/aquasecurity/trivy:0.76.2
+          config --severity HIGH,CRITICAL --exit-code 1 /src/infra
+{%- if not grpc %}
+
+  api-definition:
+    name: API definition
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+
+      - name: Validate the OpenAPI document
+        run: |
+          pip install --requirement scripts/requirements.txt
+          python scripts/validate_openapi.py ${{ values.openApiSpec }}
+{%- endif %}
+
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+
+      - name: Build the TechDocs site
+        run: |
+          pip install mkdocs-techdocs-core==1.7.1
+          mkdocs build --strict

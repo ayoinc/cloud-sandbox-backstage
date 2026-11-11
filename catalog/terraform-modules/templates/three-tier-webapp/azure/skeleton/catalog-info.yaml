@@ -1,19 +1,20 @@
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
-  name: ${{ values.projectName }}-infrastructure
-  description: Azure 3-Tier Infrastructure for ${{ values.projectName }}
+  name: ${{ values.destination.repo }}
+  description: Azure three-tier infrastructure for ${{ values.projectName }} (${{ values.environment }})
   annotations:
-    github.com/project-slug: ${{ values.repoUrl | projectSlug }}
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
     backstage.io/techdocs-ref: dir:.
   tags:
     - terraform
     - azure
-    - infrastructure
-    - ${{ values.environment }}
     - three-tier
+  links:
+    - url: https://portal.azure.com/#browse/Microsoft.Network%2FapplicationGateways
+      title: Application gateways in the Azure portal
+      icon: dashboard
 spec:
   type: infrastructure
-  lifecycle: ${{ values.environment }}
-  owner: platform-team
-  system: cloud-infrastructure
+  lifecycle: ${{ 'production' if values.environment == 'production' else 'experimental' }}
+  owner: ${{ values.owner | dump }}

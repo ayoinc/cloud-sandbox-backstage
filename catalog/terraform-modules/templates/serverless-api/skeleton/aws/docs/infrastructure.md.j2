@@ -1,0 +1,634 @@
+{%- set runtime = values.runtime or 'nodejs24' -%}
+{%- set apiType = 'rest' if values.apiType == 'rest' else ('graphql' if values.apiType == 'graphql' else 'http') -%}
+{%- set authType = values.authType or 'none' -%}
+{%- set interpreted = runtime == 'nodejs24' or runtime == 'python313' -%}
+{%- set sql = values.enableDatabase and values.databaseType == 'sql' -%}
+{%- set nosql = values.enableDatabase and not sql -%}
+{%- set vpc = sql or values.enableCache -%}
+{%- set keyAuthorizer = apiType == 'http' and authType == 'api-key' -%}
+{%- set oidcAuthorizer = apiType == 'rest' and authType == 'oauth2' -%}
+{%- set graphqlKey = apiType == 'graphql' and (authType == 'api-key' or authType == 'none') -%}
+{%- set cloudfront = apiType == 'http' and values.enableWaf -%}
+{%- set waf = values.enableWaf or (apiType == 'graphql' and values.enableThrottling) -%}
+{%- set gradual = values.deploymentStrategy == 'canary' or values.deploymentStrategy == 'linear' -%}
+{%- set apiName = 'REST API' if apiType == 'rest' else ('GraphQL API' if apiType == 'graphql' else 'HTTP API') -%}
+# Infrastructure
+
+The Terraform configuration in the root of the repository creates the
+resources below in `${{ values.awsRegion or 'us-east-1' }}`. Names start with
+`${{ values.projectName }}-${{ values.environment or 'dev' }}`.
+
+| Path | Contents |
+| ---- | -------- |
+| `main.tf` | Names and tags{% if vpc %}, network{% endif %}{% if values.enableDatabase %}, database{% endif %}{% if values.enableCache %}, cache{% endif %}{% if values.enableStorage %}, bucket{% endif %} |
+| `function.tf` | Function, its execution role, the alias `live`{% if gradual %}, CodeDeploy{% endif %} |
+| `api.tf` | ${{ apiName }}, authentication{% if waf %}, web ACL{% endif %}{% if cloudfront %}, CloudFront distribution{% endif %} |
+| `monitoring.tf` | Log group of the function{% if values.enableMetrics %}, metric filters{% endif %}{% if values.enableAlarms %}, alarms and their topic{% endif %} |
+| `variables.tf` | Inputs; the values chosen in the portal are the defaults |
+| `outputs.tf` | Outputs |
+| `tests/` | Plan of the configuration against a mocked AWS provider, run by `terraform test` |
+{%- if interpreted %}
+| `placeholder/` | Handler that is deployed until a function package is supplied |
+{%- endif %}
+{%- if keyAuthorizer or oidcAuthorizer %}
+| `authorizer/` | Source of the Lambda authorizer of the API |
+{%- endif %}
+{%- if apiType == 'graphql' %}
+| `graphql/schema.graphql` | Schema of the API |
+{%- endif %}
+{%- if gradual %}
+| `scripts/shift-traffic.sh` | Moves traffic to a new function version with CodeDeploy |
+{%- endif %}
+
+Shared modules are taken from
+`github.com/ayoinc/cloud-sandbox-backstage` at a pinned commit.
+
+## Function
+
+- Lambda function `${{ values.projectName }}-${{ values.environment or 'dev' }}-api`, runtime
+  `${{ {'nodejs24': 'nodejs24.x', 'python313': 'python3.13', 'go126': 'provided.al2023', 'dotnet10': 'dotnet10', 'java21': 'java21'}[runtime] }}`, ${{ values.memorySize or 256 }} MB, timeout ${{ values.timeout or 30 }} s.
+- An execution role that may write to the log group of the function
+  {%- if values.enableTracing %}, send traces to X-Ray{% endif %}
+  {%- if values.enableMetrics %}, publish metrics in the namespace `${{ values.projectName }}/${{ values.environment or 'dev' }}`{% endif %}
+  {%- if nosql %}, read and write the DynamoDB table{% endif %}
+  {%- if sql %}, read the database secret{% endif %}
+  {%- if values.enableStorage %}, read and write objects in the bucket{% endif %}
+  {%- if vpc %}, manage its network interfaces in the VPC{% endif %} and nothing else.
+- Log group `/aws/lambda/${{ values.projectName }}-${{ values.environment or 'dev' }}-api`, kept for ${{ values.logRetentionDays or 30 }} days.
+- Every apply that changes the code or the configuration publishes a new
+  function version. The API calls the alias `live`.
+{%- if values.deploymentStrategy == 'canary' %}
+- Deployment strategy `canary`: a CodeDeploy application and deployment group
+  move the alias to a new version with
+  `CodeDeployDefault.LambdaCanary10Percent5Minutes` (10 % of the traffic for five
+  minutes, then the rest). See [Traffic shifting](#traffic-shifting).
+{%- elif values.deploymentStrategy == 'linear' %}
+- Deployment strategy `linear`: a CodeDeploy application and deployment group
+  move the alias to a new version with
+  `CodeDeployDefault.LambdaLinear10PercentEvery1Minute` (10 % more of the traffic
+  every minute). See [Traffic shifting](#traffic-shifting).
+{%- else %}
+- Deployment strategy `all-at-once`: the alias moves to the new version in the
+  same apply.
+{%- endif %}
+
+The function receives these environment variables:
+
+| Variable | Value |
+| -------- | ----- |
+| `PROJECT_NAME`, `ENVIRONMENT` | Project name and environment |
+{%- if values.enableCors and apiType == 'rest' %}
+| `CORS_ALLOW_ORIGIN` | Origin to return in `Access-Control-Allow-Origin` |
+{%- endif %}
+{%- if values.enableMetrics %}
+| `METRICS_NAMESPACE` | CloudWatch namespace the function may publish metrics in |
+{%- endif %}
+{%- if nosql %}
+| `TABLE_NAME` | DynamoDB table |
+{%- endif %}
+{%- if sql %}
+| `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_NAME` | Writer endpoint of the Aurora cluster |
+| `DATABASE_SECRET_ARN` | Secrets Manager secret with the user name and password |
+{%- endif %}
+{%- if values.enableCache %}
+| `CACHE_HOST`, `CACHE_PORT`, `CACHE_TLS` | Primary endpoint of the cache; connections use TLS |
+{%- endif %}
+{%- if values.enableStorage %}
+| `BUCKET_NAME` | S3 bucket |
+{%- endif %}
+
+Add your own with the variable `function_environment`.
+
+## Function package
+
+The repository holds no application code. The code is built elsewhere and
+handed to Terraform as a zip file in one of two ways:
+
+- `deployment_package`: path to a zip file on the machine that runs Terraform.
+- `deployment_package_s3`: `{ bucket = "...", key = "..." }` of a zip file in
+  S3, optionally with `object_version`. Use this when Terraform runs in a
+  pipeline: upload the package from the application's pipeline and commit the
+  new key or object version to `terraform.tfvars` here. Terraform only notices
+  a new package when the key or the object version changes.
+
+Set `function_handler` to the entry point of your package (default
+`${{ {'nodejs24': 'index.handler', 'python313': 'index.handler', 'go126': 'bootstrap', 'dotnet10': 'Api::Api.Function::FunctionHandler', 'java21': 'example.Handler::handleRequest'}[runtime] }}`) and `function_architecture` to `arm64` if it is built for
+Graviton.
+{%- if interpreted %}
+
+While neither variable is set, Terraform packages the placeholder handler in
+`placeholder/` and deploys it, so the first apply works without a build. The
+placeholder answers
+{%- if apiType == 'graphql' %} the query `status` of `graphql/schema.graphql`
+{%- elif apiType == 'rest' %} every request with status 200 and a JSON body, in the response format of
+a REST API proxy integration
+{%- else %} every request with status 200 and a JSON body, in the response format of
+HTTP API payload version 2.0
+{%- endif %}.
+{%- else %}
+
+The `${{ runtime }}` runtime needs a built artefact, so there is no placeholder:
+`terraform plan` stops with an error that names these variables until one of
+them is set. `terraform validate` and the CI workflow do not need the package.
+{%- if runtime == 'go126' %}
+The zip file must contain the executable under the name `bootstrap`.
+{%- endif %}
+{%- endif %}
+{%- if apiType == 'graphql' %}
+
+The function is called once per resolved field with the AppSync context object
+(`info.parentTypeName`, `info.fieldName`, `arguments`, `identity`) and returns
+the value of the field.
+{%- elif apiType == 'rest' %}
+
+The function is called with REST API proxy events (payload format 1.0) and
+returns `statusCode`, `headers` and `body`. API Gateway waits at most 29
+seconds for it.
+{%- else %}
+
+The function is called with HTTP API events of payload format 2.0. API Gateway
+waits at most 30 seconds for it.
+{%- endif %}
+
+## API
+
+{%- if apiType == 'http' %}
+
+- API Gateway HTTP API with one `$default` route that sends every request to
+  the function, and a `$default` stage that deploys changes automatically.
+- Access logs in `/aws/apigateway/${{ values.projectName }}-${{ values.environment or 'dev' }}-api`, kept for ${{ values.logRetentionDays or 30 }} days.
+{%- elif apiType == 'rest' %}
+
+- Regional API Gateway REST API. The root path and `/{proxy+}` send every
+  method to the function. The stage is named `${{ values.environment or 'dev' }}`.
+- Access logs are off by default because a REST API can only write them once
+  the account has an API Gateway CloudWatch Logs role, which is a setting shared
+  by all APIs of the account and region. After configuring that role set
+  `api_access_logging = true`.
+{%- else %}
+
+- AppSync GraphQL API with the schema in `graphql/schema.graphql`, a Lambda data
+  source for the function and a direct Lambda resolver for `Query.status`. Add
+  an `aws_appsync_resolver` to `api.tf` for every further field the function
+  resolves.
+- Field errors are logged to `/aws/appsync/apis/<api id>`, kept for ${{ values.logRetentionDays or 30 }} days.
+{%- endif %}
+{%- if values.enableCors %}
+{%- if apiType == 'http' %}
+- CORS: API Gateway answers preflight requests and adds the CORS headers for
+  the origins in `cors_allowed_origins` (default: any).
+{%- elif apiType == 'rest' %}
+- CORS: API Gateway answers `OPTIONS` requests itself and adds
+  `Access-Control-Allow-Origin` to the errors it produces. Responses of the
+  function must carry the header themselves; the function finds the value of
+  `cors_allowed_origin` (default `*`) in `CORS_ALLOW_ORIGIN`.
+{%- else %}
+- CORS: AppSync answers preflight requests and allows every origin. This is
+  fixed behaviour of AppSync, so there is nothing to configure.
+{%- endif %}
+{%- elif apiType == 'graphql' %}
+- CORS was not requested, but AppSync always answers preflight requests and
+  allows every origin. This cannot be turned off; browsers of any origin can
+  call the API if they hold valid credentials.
+{%- else %}
+- CORS is not configured: browsers refuse calls from pages of other origins.
+{%- endif %}
+{%- if values.enableThrottling %}
+{%- if apiType == 'graphql' %}
+- Throttling: AppSync has no rate or burst setting. Instead a rate-based rule
+  in the web ACL blocks a client IP address that sends more than
+  `throttle_rate_limit` × 300 requests in five minutes (default
+  ${{ values.throttleRateLimit or 1000 }} requests per second). The limit is per address, not for the API as a
+  whole, and the burst limit of the form is not used.
+{%- else %}
+- Throttling: ${{ values.throttleRateLimit or 1000 }} requests per second with a burst of ${{ values.throttleBurstLimit or 2000 }} for the whole
+  stage (`throttle_rate_limit`, `throttle_burst_limit`).
+  {%- if apiType == 'rest' and authType == 'api-key' %} The usage plan applies
+  the same limits to each API key.{% endif %}
+{%- endif %}
+{%- else %}
+- Throttling is not configured: only the account quotas of the service apply.
+{%- endif %}
+{%- if values.enableTracing %}
+{%- if apiType == 'http' %}
+- Tracing: the function sends traces to X-Ray. HTTP APIs cannot take part in
+  X-Ray traces, so a trace starts at the function.
+{%- else %}
+- Tracing: the API and the function send traces to X-Ray.
+{%- endif %}
+{%- endif %}
+
+### Authentication
+{%- if authType == 'jwt' %}
+
+A Cognito user pool (`${{ values.projectName }}-${{ values.environment or 'dev' }}-users`, sign-in with e-mail address, optional
+TOTP as second factor) and a public app client are created. Users are created
+by an administrator unless `allow_self_sign_up` is `true`.
+{%- if apiType == 'http' %}
+A JWT authorizer accepts ID and access tokens of the pool in the
+`Authorization` header.
+{%- elif apiType == 'rest' %}
+A Cognito authorizer accepts the ID token of a user in the `Authorization`
+header.
+{%- else %}
+The API uses the pool as its authorization provider; send the token in the
+`Authorization` header.
+{%- endif %}
+{%- elif authType == 'oauth2' %}
+
+Tokens of an external OpenID Connect provider are accepted. Two variables have
+no default and must be set before the first plan, for example in
+`terraform.tfvars`:
+
+```hcl
+oauth2_issuer   = "https://login.example.com/"
+oauth2_audience = "api://${{ values.projectName }}"
+```
+
+`oauth2_issuer` must equal the `iss` claim of the tokens and serve
+`/.well-known/openid-configuration`.
+{%- if apiType == 'http' %}
+A JWT authorizer checks signature, issuer, audience and expiry of the bearer
+token in the `Authorization` header.
+{%- elif apiType == 'rest' %}
+
+REST APIs have no authorizer for external OpenID Connect providers. A Lambda
+authorizer (`authorizer/index.mjs`, function
+`${{ values.projectName }}-${{ values.environment or 'dev' }}-authorizer`) is used instead: it fetches the signing keys of the
+issuer and checks signature (RS256, RS384, RS512, ES256, ES384), issuer,
+audience and expiry of the bearer token. API Gateway caches its decision for
+five minutes per token.
+{%- else %}
+AppSync verifies the token in the `Authorization` header (sent without a
+`Bearer` prefix) against the issuer and requires the audience in the `aud`
+claim.
+{%- endif %}
+{%- elif authType == 'api-key' %}
+{%- if apiType == 'http' %}
+
+HTTP APIs have no API keys or usage plans. A Lambda authorizer
+(`authorizer/index.mjs`, function `${{ values.projectName }}-${{ values.environment or 'dev' }}-authorizer`) is used
+instead: Terraform generates one key, the authorizer compares the `x-api-key`
+header with it, and API Gateway caches the decision for five minutes. Read the
+key with `terraform output -raw api_key`; replace it with
+`terraform apply -replace=random_password.api_key`.
+{%- elif apiType == 'rest' %}
+
+An API key and a usage plan are created and every method requires a key in the
+`x-api-key` header. Read the key with `terraform output -raw api_key`.
+{%- else %}
+
+The API uses API key authorization. Read the key with
+`terraform output -raw api_key` and send it in the `x-api-key` header.
+{%- endif %}
+{%- elif authType == 'iam' %}
+
+Requests must be signed with AWS Signature Version 4 by an IAM principal that
+is allowed
+{%- if apiType == 'graphql' %} `appsync:GraphQL` on the API.
+{%- else %} `execute-api:Invoke` on the API.
+{%- endif %}
+{%- if cloudfront %}
+Because the API is called through CloudFront (see below), sign the request for
+the host of `api_origin_endpoint` and send it to `api_endpoint`: CloudFront
+replaces the `Host` header with the host of the API before forwarding.
+{%- endif %}
+{%- else %}
+{%- if apiType == 'graphql' %}
+
+AppSync has no unauthenticated mode. For the choice "none" the API uses API
+key authorization and the key is meant to be shipped with the clients: read it
+with `terraform output -raw api_key` and send it in the `x-api-key` header.
+{%- else %}
+
+None: the API is public.
+{%- endif %}
+{%- endif %}
+{%- if graphqlKey %}
+
+An AppSync key is valid for at most 365 days. The output `api_key_expires`
+shows the end date; applying the configuration more than 300 days after the
+last renewal moves it a year ahead without changing the key.
+{%- endif %}
+{%- if waf %}
+
+### Web application firewall
+{%- if values.enableWaf %}
+
+A web ACL with the AWS managed rule groups Common, Known Bad Inputs, SQL
+injection, Linux and Amazon IP reputation list filters the requests. The Common
+rule group blocks request bodies larger than 8 KB among other things; adjust
+`managed_rule_groups` of the module `waf` in `api.tf` if the API needs
+different rules.
+{%- if apiType == 'http' %}
+
+A web ACL cannot be attached to an HTTP API. A CloudFront distribution is
+placed in front of the API instead and carries the web ACL (created in
+us-east-1, as CloudFront requires). It forwards every request without caching.
+Clients must call the output `api_endpoint` (the `cloudfront.net` address). The
+address of the API itself (`api_origin_endpoint`) stays reachable and is not
+protected by the web ACL, so treat it as internal. The `cloudfront.net`
+certificate accepts TLS 1.0 and later; a stricter policy needs a custom domain
+with its own certificate, which this configuration does not set up.
+{%- else %}
+The web ACL is attached to the ${{ 'stage of the API' if apiType == 'rest' else 'API' }}.
+{%- endif %}
+{%- else %}
+
+WAF was not requested. The web ACL exists only for the rate limit described
+under throttling and contains no other rule.
+{%- endif %}
+{%- endif %}
+{%- if values.enableDatabase or values.enableCache or values.enableStorage %}
+
+## Data
+{% if nosql %}
+- DynamoDB table `${{ values.projectName }}-${{ values.environment or 'dev' }}-data` with partition key `pk` and sort key `sk`
+  (strings), on-demand capacity, encryption at rest and point-in-time recovery.
+  Deletion protection is on in production.
+{%- endif %}
+{%- if sql %}
+- Aurora Serverless v2 cluster (PostgreSQL, the engine version AWS currently
+  offers as default) with one instance, 0.5 to 2 capacity units
+  (`database_min_capacity`, `database_max_capacity`), storage encrypted with
+  its own KMS key (`alias/${{ values.projectName }}-${{ values.environment or 'dev' }}-database`) and a database named `app`. RDS keeps the password of the user `dbadmin` in Secrets
+  Manager and rotates it; the function may read that secret. Create a
+  less-privileged database user for the application once the schema exists.
+  Production keeps 14 days of backups, has deletion protection and takes a
+  final snapshot; other environments keep 7 days and are deleted without one.
+{%- endif %}
+{%- if values.enableCache %}
+- ElastiCache replication group for Redis OSS 7.1 (`cache_node_type`, default
+  `cache.t3.micro`) with encryption at rest and in transit. Production has a
+  primary and a replica in two availability zones with automatic failover;
+  other environments have a single node. The replication group is named
+  `${{ values.projectName }}-${{ values.environment or 'dev' }}-redis`; the project part is shortened if the name would exceed
+  the 40 characters ElastiCache allows.
+{%- endif %}
+{%- if values.enableStorage %}
+- S3 bucket `${{ values.projectName }}-${{ values.environment or 'dev' }}-<account id>` with versioning, encryption at rest, all
+  public access blocked and a policy that refuses requests without TLS.
+{%- endif %}
+{%- if vpc %}
+
+### Network
+
+{% if sql and values.enableCache %}The database and the cache are{% elif sql %}The database is{% else %}The cache is{% endif %} only reachable inside a VPC, so the
+function is attached to it:
+
+- VPC `vpc_cidr` (default `10.0.0.0/16`) with public, private and database
+  subnets in three availability zones, flow logs, and gateway endpoints for S3
+  and DynamoDB.
+- The function runs in the private subnets. It reaches AWS APIs and the
+  internet through a NAT gateway: one per availability zone in production, a
+  single one in other environments.
+- Security groups allow the function to open connections to
+  {%- if sql %} the database on port 5432{% endif %}
+  {%- if sql and values.enableCache %} and{% endif %}
+  {%- if values.enableCache %} the cache on port 6379{% endif %} and to any address on port 443.
+  Nothing else may connect to {% if sql and values.enableCache %}the database or the cache{% elif sql %}the database{% else %}the cache{% endif %}.
+
+A function in a VPC starts more slowly the first time, and the NAT gateway and
+the {% if sql and values.enableCache %}database and cache{% elif sql %}database{% else %}cache{% endif %} are billed while idle.
+{%- endif %}
+{%- endif %}
+
+## Observability
+
+- Logs of the function are kept for ${{ values.logRetentionDays or 30 }} days (`log_retention_days`).
+{%- if values.enableTracing %}
+- X-Ray tracing is active on the function{% if apiType != 'http' %} and the API{% endif %}.
+{%- endif %}
+{%- if values.enableMetrics %}
+- Custom metrics use the namespace `${{ values.projectName }}/${{ values.environment or 'dev' }}`. Metric filters count
+  log lines of the function that contain `ERROR`, `Error` or `Exception`
+  (`LoggedErrors`) and invocations that ran into the timeout (`Timeouts`). The
+  function may publish its own metrics in the same namespace, either with
+  `PutMetricData` or in embedded metric format.
+  {%- if apiType == 'graphql' %} AppSync publishes enhanced metrics per
+  resolver, data source and operation.
+  {%- else %} API Gateway publishes detailed metrics per route.
+  {%- endif %}
+{%- endif %}
+{%- if values.enableAlarms %}
+- Alarms notify the SNS topic `${{ values.projectName }}-${{ values.environment or 'dev' }}-alarms`: function errors, function
+  throttles, 5xx responses of the API (each: any in five minutes) and average
+  API latency above `alarm_latency_threshold_ms` (default 2000) for fifteen
+  minutes. Set `alarm_email` to subscribe an address; the recipient must
+  confirm the subscription.
+{%- endif %}
+
+## Variables
+
+All variables have defaults taken from the portal form{% if authType == 'oauth2' %}, except
+`oauth2_issuer` and `oauth2_audience`{% endif %}{% if not interpreted %}{% if authType == 'oauth2' %} and{% else %}, except{% endif %} that one of
+`deployment_package` and `deployment_package_s3` is required{% endif %}. Override them in
+`terraform.tfvars`.
+
+| Variable | Default | Purpose |
+| -------- | ------- | ------- |
+| `project_name` | `${{ values.projectName }}` | First part of every resource name |
+| `environment` | `${{ values.environment or 'dev' }}` | `dev`, `staging` or `production` |
+| `aws_region` | `${{ values.awsRegion or 'us-east-1' }}` | Region of the resources |
+| `function_runtime` | `${{ {'nodejs24': 'nodejs24.x', 'python313': 'python3.13', 'go126': 'provided.al2023', 'dotnet10': 'dotnet10', 'java21': 'java21'}[runtime] }}` | Lambda runtime |
+| `function_handler` | `${{ {'nodejs24': 'index.handler', 'python313': 'index.handler', 'go126': 'bootstrap', 'dotnet10': 'Api::Api.Function::FunctionHandler', 'java21': 'example.Handler::handleRequest'}[runtime] }}` | Entry point in the package |
+| `function_architecture` | `x86_64` | `x86_64` or `arm64` |
+| `memory_size` | `${{ values.memorySize or 256 }}` | Memory in MB |
+| `timeout` | `${{ values.timeout or 30 }}` | Timeout in seconds |
+| `deployment_package` | none | Path to the zip file with the code |
+| `deployment_package_s3` | none | Bucket, key and optional object version of the zip file |
+| `function_environment` | `{}` | Additional environment variables |
+| `log_retention_days` | `${{ values.logRetentionDays or 30 }}` | Retention of the log groups |
+{%- if values.enableCors and apiType == 'http' %}
+| `cors_allowed_origins` | `["*"]` | Origins allowed by CORS |
+{%- endif %}
+{%- if values.enableCors and apiType == 'rest' %}
+| `cors_allowed_origin` | `*` | Origin allowed by CORS |
+{%- endif %}
+{%- if values.enableThrottling %}
+| `throttle_rate_limit` | `${{ values.throttleRateLimit or 1000 }}` | Requests per second |
+{%- endif %}
+{%- if values.enableThrottling and apiType != 'graphql' %}
+| `throttle_burst_limit` | `${{ values.throttleBurstLimit or 2000 }}` | Burst size |
+{%- endif %}
+{%- if authType == 'jwt' %}
+| `allow_self_sign_up` | `false` | Let users register themselves |
+{%- endif %}
+{%- if authType == 'oauth2' %}
+| `oauth2_issuer` | required | Issuer URL of the identity provider |
+| `oauth2_audience` | required | Audience the tokens must carry |
+{%- endif %}
+{%- if apiType == 'rest' %}
+| `api_access_logging` | `false` | Access logs of the API |
+{%- endif %}
+{%- if vpc %}
+| `vpc_cidr` | `10.0.0.0/16` | Address range of the VPC |
+{%- endif %}
+{%- if sql %}
+| `database_name` | `app` | Database created in the cluster |
+| `database_min_capacity` | `0.5` | Minimum Aurora capacity units |
+| `database_max_capacity` | `2` | Maximum Aurora capacity units |
+{%- endif %}
+{%- if values.enableCache %}
+| `cache_node_type` | `cache.t3.micro` | Node type of the cache |
+{%- endif %}
+{%- if values.enableAlarms %}
+| `alarm_email` | none | Address notified by the alarms |
+| `alarm_latency_threshold_ms` | `2000` | Latency that raises the alarm |
+{%- endif %}
+{%- if gradual %}
+| `deployment_config_name` | `${{ 'CodeDeployDefault.LambdaLinear10PercentEvery1Minute' if values.deploymentStrategy == 'linear' else 'CodeDeployDefault.LambdaCanary10Percent5Minutes' }}` | CodeDeploy deployment configuration |
+{%- endif %}
+
+## Outputs
+
+| Output | Value |
+| ------ | ----- |
+| `api_endpoint` | URL that clients call |
+| `api_id` | Identifier of the API |
+{%- if cloudfront %}
+| `api_origin_endpoint` | URL of the HTTP API behind CloudFront |
+| `cloudfront_distribution_id` | CloudFront distribution |
+{%- endif %}
+{%- if waf %}
+| `web_acl_arn` | Web ACL |
+{%- endif %}
+{%- if keyAuthorizer or graphqlKey or (apiType == 'rest' and authType == 'api-key') %}
+| `api_key` | API key (sensitive) |
+{%- endif %}
+{%- if graphqlKey %}
+| `api_key_expires` | End of the validity of the API key |
+{%- endif %}
+{%- if authType == 'jwt' %}
+| `cognito_user_pool_id`, `cognito_client_id`, `jwt_issuer` | User pool, app client and token issuer |
+{%- endif %}
+| `function_name`, `function_arn`, `function_version` | Function and its newest published version |
+| `function_alias_arn` | Alias `live` |
+| `function_role_arn` | Execution role |
+| `function_log_group` | Log group of the function |
+{%- if gradual %}
+| `codedeploy_application`, `codedeploy_deployment_group` | CodeDeploy resources for traffic shifting |
+{%- endif %}
+{%- if nosql %}
+| `table_name` | DynamoDB table |
+{%- endif %}
+{%- if sql %}
+| `database_endpoint`, `database_secret_arn` | Aurora writer endpoint and its secret |
+{%- endif %}
+{%- if values.enableCache %}
+| `cache_endpoint` | Primary endpoint of the cache |
+{%- endif %}
+{%- if values.enableStorage %}
+| `bucket_name` | S3 bucket |
+{%- endif %}
+{%- if values.enableMetrics %}
+| `metrics_namespace` | Namespace of the custom metrics |
+{%- endif %}
+{%- if values.enableAlarms %}
+| `alarm_topic_arn` | SNS topic of the alarms |
+{%- endif %}
+
+## Deployment
+
+### State backend
+
+The state is kept in S3. `versions.tf` declares an empty `backend "s3"` block;
+bucket, key and region are given at init time:
+
+```bash
+terraform init \
+  -backend-config="bucket=<state bucket>" \
+  -backend-config="key=${{ values.destination.repo }}/terraform.tfstate" \
+  -backend-config="region=<region of the bucket>" \
+  -backend-config="use_lockfile=true"
+terraform plan -out=tfplan
+terraform apply tfplan
+```
+
+The bucket must exist already; enable versioning on it. `use_lockfile` makes
+Terraform lock the state with an object next to it.
+{%- if values.enableCicd %}
+
+### Deploy workflow
+
+`.github/workflows/deploy.yml` plans on pull requests and on pushes to `main`
+and applies the plan on `main`, in the GitHub environment `production` (add
+required reviewers to that environment to approve applies by hand). It signs in
+to AWS with GitHub's OpenID Connect token; no access keys are stored.
+
+| Name | Kind | Purpose |
+| ---- | ---- | ------- |
+| `AWS_ROLE_ARN` | secret or variable | Role the workflow assumes |
+| `TF_STATE_BUCKET` | variable | S3 bucket of the Terraform state |
+| `TF_STATE_REGION` | variable, optional | Region of that bucket if it is not `${{ values.awsRegion or 'us-east-1' }}` |
+
+Until `AWS_ROLE_ARN` and `TF_STATE_BUCKET` are set the workflow reports that
+and skips plan and apply. The state key is
+`<repository name>/terraform.tfstate`.
+{%- if authType == 'oauth2' or not interpreted %}
+
+Once they are set, the plan fails until a committed `terraform.tfvars` provides
+{%- if authType == 'oauth2' %} `oauth2_issuer` and `oauth2_audience`{% endif %}
+{%- if authType == 'oauth2' and not interpreted %} and{% endif %}
+{%- if not interpreted %} the function package (`deployment_package_s3`){% endif %}.
+{%- endif %}
+
+The role needs a trust policy for the identity provider
+`token.actions.githubusercontent.com` with the audience `sts.amazonaws.com`
+that allows the subjects `repo:${{ values.destination.owner }}/${{ values.destination.repo }}:ref:refs/heads/main`,
+`repo:${{ values.destination.owner }}/${{ values.destination.repo }}:pull_request` and
+`repo:${{ values.destination.owner }}/${{ values.destination.repo }}:environment:production`.
+{%- else %}
+
+No deploy workflow was requested; run the commands above with your own
+tooling.
+{%- endif %}
+
+### Required permissions
+
+The identity that applies the configuration needs:
+
+- on the state bucket: `s3:ListBucket`, and `s3:GetObject`, `s3:PutObject` and
+  `s3:DeleteObject` on the state key and its `.tflock` object;
+- to create, change and delete the resources of this configuration:
+  Lambda, IAM roles and their inline policies (including `iam:PassRole` for
+  them), CloudWatch Logs
+  {%- if apiType == 'graphql' %}, AppSync{% else %}, API Gateway{% endif %}
+  {%- if authType == 'jwt' %}, Cognito user pools{% endif %}
+  {%- if waf %}, WAF{% endif %}
+  {%- if cloudfront %} (in us-east-1), CloudFront{% endif %}
+  {%- if nosql %}, DynamoDB{% endif %}
+  {%- if sql %}, RDS, KMS, Secrets Manager{% endif %}
+  {%- if values.enableCache %}, ElastiCache{% endif %}
+  {%- if vpc %}, EC2 networking (VPC, subnets, NAT gateways, elastic IP addresses, security groups, flow logs){% endif %}
+  {%- if values.enableStorage %}, S3{% endif %}
+  {%- if values.enableMetrics or values.enableAlarms %}, CloudWatch metric filters and alarms{% endif %}
+  {%- if values.enableAlarms %}, SNS{% endif %}
+  {%- if gradual %}, CodeDeploy{% endif %};
+- `s3:GetObject` on the package if `deployment_package_s3` is used.
+{%- if gradual %}
+
+### Traffic shifting
+
+Terraform creates the alias `live` on the first apply and never moves it
+afterwards. After an apply that published a new function version, CodeDeploy
+moves the alias:
+
+```bash
+bash scripts/shift-traffic.sh
+```
+
+The script compares the version behind the alias with the output
+`function_version` and, if they differ, starts a CodeDeploy deployment with
+the configuration `deployment_config_name` and waits for it. It needs the AWS
+CLI, `jq`, the initialised Terraform directory and permission for
+`lambda:GetAlias`, `codedeploy:CreateDeployment`, `codedeploy:GetDeployment`,
+`codedeploy:GetDeploymentConfig`, `codedeploy:GetApplicationRevision` and
+`codedeploy:RegisterApplicationRevision`.
+{%- if values.enableCicd %} The deploy workflow runs it after every apply.{% endif %}
+{%- if values.enableAlarms %}
+A deployment is stopped and rolled back when the alarm
+`${{ values.projectName }}-${{ values.environment or 'dev' }}-function-errors` fires while traffic is being shifted.
+{%- endif %}
+Until the script has run, clients keep getting the previous version.
+{%- endif %}
