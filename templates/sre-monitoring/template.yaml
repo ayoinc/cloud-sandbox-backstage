@@ -64,16 +64,19 @@ spec:
           title: Prometheus URL
           type: string
           description: URL of the Prometheus server
+          format: uri
           default: http://prometheus:9090
         grafanaUrl:
           title: Grafana URL
           type: string
           description: URL of the Grafana server
+          format: uri
           default: http://grafana:3000
         alertmanagerUrl:
           title: Alertmanager URL
           type: string
           description: URL of the Alertmanager server
+          format: uri
           default: http://alertmanager:9093
 
     - title: Alert Configuration

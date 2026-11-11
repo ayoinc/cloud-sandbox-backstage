@@ -1,7 +1,7 @@
 {
   "values": {
     "name": "sample-d2-docs",
-    "description": "Architecture diagrams for the payments platform",
+    "description": "The platform team's \"big picture\": architecture diagrams for payments",
     "owner": "group:default/platform-team",
     "repoUrl": "github.com?owner=example-org&repo=sample-d2-docs"
   }

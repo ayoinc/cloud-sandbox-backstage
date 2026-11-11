@@ -10,7 +10,8 @@ shopt -s nullglob
 
 cd "$(dirname "$0")/.."
 
-GRAFANA_URL="${GRAFANA_URL:-${{ values.grafanaUrl }}}"
+DEFAULT_GRAFANA_URL='${{ values.grafanaUrl | replace("'", "'\\''") }}'
+GRAFANA_URL="${GRAFANA_URL:-$DEFAULT_GRAFANA_URL}"
 GRAFANA_URL="${GRAFANA_URL%/}"
 GRAFANA_API_KEY="${GRAFANA_API_KEY:-}"
 DASHBOARD_DIR="${DASHBOARD_DIR:-dashboards}"

@@ -1,146 +1,88 @@
-# AWS Infrastructure Module
-# This module provisions AWS resources for the infrastructure stack
+data "aws_caller_identity" "current" {}
 
-{% if values.enable_networking %}
-# VPC and Networking
-module "vpc" {
-  source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 5.0"
+data "aws_partition" "current" {}
 
-  name = "${var.name_prefix}-vpc"
-  cidr = var.vpc_cidr
-
-  azs             = var.availability_zones
-  private_subnets = [for i, az in var.availability_zones : cidrsubnet(var.vpc_cidr, 4, i)]
-  public_subnets  = [for i, az in var.availability_zones : cidrsubnet(var.vpc_cidr, 4, i + length(var.availability_zones))]
-
-  enable_nat_gateway     = true
-  single_nat_gateway     = var.environment != "production"
-  enable_dns_hostnames   = true
-  enable_dns_support     = true
-
-  tags = var.common_tags
-}
-{% endif %}
-
-{% if values.enable_kubernetes %}
-# EKS Cluster
-module "eks" {
-  source  = "terraform-aws-modules/eks/aws"
-  version = "~> 19.0"
-
-  cluster_name    = "${var.name_prefix}-eks"
-  cluster_version = var.kubernetes_version
-
-  vpc_id                         = module.vpc.vpc_id
-  subnet_ids                     = module.vpc.private_subnets
-  cluster_endpoint_public_access = true
-
-  eks_managed_node_groups = {
-    default = {
-      name           = "${var.name_prefix}-node-group"
-      instance_types = [var.node_instance_type]
-      min_size       = var.min_nodes
-      max_size       = var.max_nodes
-      desired_size   = var.min_nodes
-    }
-  }
-
-  tags = var.common_tags
-}
-{% endif %}
-
-{% if values.enable_database %}
-# RDS Database
-module "rds" {
-  source  = "terraform-aws-modules/rds/aws"
-  version = "~> 6.0"
-
-  identifier = "${var.name_prefix}-db"
-
-  engine               = "postgres"
-  engine_version       = "15"
-  family               = "postgres15"
-  major_engine_version = "15"
-  instance_class       = var.environment == "production" ? "db.r5.large" : "db.t3.medium"
-
-  allocated_storage     = 20
-  max_allocated_storage = 100
-
-  db_name  = replace(var.name_prefix, "-", "_")
-  username = "admin"
-  password = var.database_password
-  port     = 5432
-
-  vpc_security_group_ids = [module.vpc.default_security_group_id]
-  subnet_ids             = module.vpc.private_subnets
-  db_subnet_group_name   = "${var.name_prefix}-subnet-group"
-
-  backup_retention_period = var.enable_backup ? 7 : 0
-  deletion_protection     = var.environment == "production"
-
-  tags = var.common_tags
-}
-{% endif %}
-
-{% if values.enable_storage %}
-# S3 Bucket
-resource "aws_s3_bucket" "main" {
-  bucket = "${var.name_prefix}-storage-${var.environment}"
-
-  tags = var.common_tags
+# Suffix that keeps globally unique names (S3 buckets, final snapshots) unique.
+resource "random_id" "suffix" {
+  byte_length = 4
 }
 
-resource "aws_s3_bucket_versioning" "main" {
-  bucket = aws_s3_bucket.main.id
-  versioning_configuration {
-    status = "Enabled"
-  }
+locals {
+  account_id = data.aws_caller_identity.current.account_id
+  partition  = data.aws_partition.current.partition
+  dns_suffix = data.aws_partition.current.dns_suffix
+
+  # CloudFront reports its metrics in us-east-1 and reads its WAF web ACLs,
+  # log groups and alarm topics from there.
+  global_region = "us-east-1"
+
+  is_production = var.environment == "production"
+
+  # Cheaper, less redundant choices apply outside production only.
+  cost_optimized = var.enable_cost_optimization && !local.is_production
+
+  # ---------------------------------------------------------------------------
+  # Components derived from the inputs
+  # ---------------------------------------------------------------------------
+
+  database_type      = var.enable_database ? var.database_type : "none"
+  create_rds         = contains(["postgresql", "mysql"], local.database_type)
+  create_docdb       = local.database_type == "mongodb"
+  create_redis       = local.database_type == "redis"
+  create_dynamodb    = local.database_type == "dynamodb"
+  database_in_vpc    = local.create_rds || local.create_docdb || local.create_redis
+  create_registry    = contains(["container-platform", "ml-platform", "serverless-platform"], var.infrastructure_type)
+  create_data_lake   = contains(["data-platform", "ml-platform"], var.infrastructure_type)
+  create_private_dns = var.infrastructure_type == "networking-foundation"
+
+  # The WAF protects the CDN when there is one, otherwise it is regional.
+  create_cdn          = var.enable_cdn
+  create_global_waf   = var.enable_waf && local.create_cdn
+  create_regional_waf = var.enable_waf && !local.create_cdn
+
+  # ---------------------------------------------------------------------------
+  # Network in use: the created VPC or the one passed in
+  # ---------------------------------------------------------------------------
+
+  network_available = var.enable_networking || var.existing_network != null
+  network_required  = "This component needs a network: set enable_networking to true or pass existing_network (network_id, public_subnet_ids, private_subnet_ids)."
+
+  vpc_id             = var.enable_networking ? one(aws_vpc.this[*].id) : try(var.existing_network.network_id, null)
+  vpc_cidr           = var.enable_networking ? var.network_cidr : one(data.aws_vpc.existing[*].cidr_block)
+  public_subnet_ids  = var.enable_networking ? aws_subnet.public[*].id : try(var.existing_network.public_subnet_ids, [])
+  private_subnet_ids = var.enable_networking ? aws_subnet.private[*].id : try(var.existing_network.private_subnet_ids, [])
+
+  # ---------------------------------------------------------------------------
+  # Encryption keys: null selects the AWS-managed key of each service
+  # ---------------------------------------------------------------------------
+
+  kms_key_arn           = one(aws_kms_key.this[*].arn)
+  secondary_kms_key_arn = one(aws_kms_key.secondary[*].arn)
+  global_kms_key_arn    = one(aws_kms_key.global[*].arn)
+
+  # ---------------------------------------------------------------------------
+  # Logs
+  # ---------------------------------------------------------------------------
+
+  # CloudWatch Logs accepts these retention periods only.
+  cloudwatch_retention_periods = [1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1096, 1827, 2192, 2557, 2922, 3288, 3653]
+  log_retention_days           = [for days in local.cloudwatch_retention_periods : days if days >= var.log_retention_days][0]
+
+  # ---------------------------------------------------------------------------
+  # Backup
+  # ---------------------------------------------------------------------------
+
+  # Databases AWS Backup can protect. ElastiCache keeps its own snapshots.
+  database_backed_up = local.create_rds || local.create_docdb || local.create_dynamodb
+
+  # Cross-region database protection is a backup copy, so disaster recovery
+  # brings the backup plan with it even when enable_backup is false.
+  create_backup = var.enable_backup || (var.enable_disaster_recovery && local.database_backed_up)
+
+  # Resources carrying this tag are picked up by the backup plan.
+  backup_tag_key      = "BackupPlan"
+  database_backup_tag = local.create_backup ? { (local.backup_tag_key) = var.name_prefix } : {}
+  storage_backup_tag  = var.enable_backup ? { (local.backup_tag_key) = var.name_prefix } : {}
+
+  backup_retention_days = var.enable_backup ? 35 : 7
 }
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "main" {
-  bucket = aws_s3_bucket.main.id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = var.enable_kms ? "aws:kms" : "AES256"
-    }
-  }
-}
-{% endif %}
-
-{% if values.enable_kms %}
-# KMS Key
-resource "aws_kms_key" "main" {
-  description             = "KMS key for ${var.name_prefix}"
-  deletion_window_in_days = 7
-  enable_key_rotation     = true
-
-  tags = var.common_tags
-}
-
-resource "aws_kms_alias" "main" {
-  name          = "alias/${var.name_prefix}"
-  target_key_id = aws_kms_key.main.key_id
-}
-{% endif %}
-
-{% if values.enable_secrets_manager %}
-# Secrets Manager
-resource "aws_secretsmanager_secret" "main" {
-  name        = "${var.name_prefix}-secrets"
-  description = "Secrets for ${var.name_prefix}"
-
-  tags = var.common_tags
-}
-{% endif %}
-
-{% if values.enable_monitoring %}
-# CloudWatch Log Group
-resource "aws_cloudwatch_log_group" "main" {
-  name              = "/aws/${var.name_prefix}"
-  retention_in_days = var.log_retention_days
-
-  tags = var.common_tags
-}
-{% endif %}

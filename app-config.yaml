@@ -356,6 +356,10 @@ catalog:
       rules:
         - allow: [Template]
     - type: file
+      target: ../../templates/terraform-component/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
       target: ../../templates/terraform-infrastructure/template.yaml
       rules:
         - allow: [Template]

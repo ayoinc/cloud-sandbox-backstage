@@ -1,11 +1,11 @@
 {
   "values": {
     "name": "sample-landing-page",
-    "description": "Launch page for the payments platform",
+    "description": "It's the \"fastest\" way to get paid: launch page for payments",
     "owner": "group:default/platform-team",
-    "companyName": "Example Payments",
+    "companyName": "Example & Sons Payments",
     "primaryColor": "#0066cc",
-    "tagline": "Build something amazing",
+    "tagline": "Don't wait: get \"paid\" today",
     "repoUrl": "github.com?owner=example-org&repo=sample-landing-page"
   }
 }

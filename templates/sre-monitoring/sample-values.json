@@ -1,7 +1,7 @@
 {
   "values": {
     "name": "sample-monitoring",
-    "description": "Monitoring stack for the payments platform",
+    "description": "The SRE team's \"eyes\" on production: monitoring for payments",
     "owner": "group:default/platform-team",
     "targetType": "application",
     "prometheusUrl": "http://prometheus:9090",

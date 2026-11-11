@@ -1,7 +1,7 @@
 {
   "values": {
     "name": "sample-runbooks",
-    "description": "Operational runbooks for the payments API",
+    "description": "The on-call engineer's \"first stop\": runbooks for the payments API",
     "owner": "group:default/platform-team",
     "serviceName": "payments-api",
     "environment": ["production", "staging"],

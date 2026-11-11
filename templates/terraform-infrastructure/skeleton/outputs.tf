@@ -1,350 +1,393 @@
-# Outputs for ${{ values.name }} Infrastructure
-
-# General Information
-output "infrastructure_name" {
-  description = "Name of the infrastructure stack"
-  value       = "${{ values.name }}"
+{%- set aws = values.cloud_provider == 'aws' or values.cloud_provider == 'multi-cloud' -%}
+{%- set azure = values.cloud_provider == 'azure' or values.cloud_provider == 'multi-cloud' -%}
+{%- set gcp = values.cloud_provider == 'gcp' or values.cloud_provider == 'multi-cloud' -%}
+{%- set datadog = values.monitoring_solution == 'datadog' -%}
+{%- set newrelic = values.monitoring_solution == 'new-relic' -%}
+{%- set elastic = values.monitoring_solution == 'elastic-stack' -%}
+output "name_prefix" {
+  description = "Prefix of every resource name: the stack name and the short environment."
+  value       = local.name_prefix
 }
 
-output "environment" {
-  description = "Environment name"
-  value       = var.environment
+output "effective_settings" {
+  description = "Settings after the compliance baseline and the dependencies between features are applied."
+  value = {
+    compliance_framework        = var.compliance_framework
+    log_retention_days          = local.log_retention_days
+    enable_kms                  = local.enable_kms
+    enable_backup               = local.enable_backup
+    enable_storage              = local.enable_storage
+    require_deletion_protection = local.require_deletion_protection
+    require_flow_logs           = local.compliance.require_flow_logs
+  }
 }
+{%- if aws %}
 
-output "cloud_provider" {
-  description = "Primary cloud provider"
-  value       = var.cloud_provider
-}
+# -----------------------------------------------------------------------------
+# AWS
+# -----------------------------------------------------------------------------
 
-{% if values.cloud_provider == 'aws' or values.cloud_provider == 'multi-cloud' %}
-# AWS Outputs
-output "aws_vpc_id" {
-  description = "ID of the AWS VPC"
-  value       = var.cloud_provider == "aws" || var.cloud_provider == "multi-cloud" ? module.aws_infrastructure[0].vpc_id : null
-}
-
-output "aws_vpc_cidr" {
-  description = "CIDR block of the AWS VPC"
-  value       = var.cloud_provider == "aws" || var.cloud_provider == "multi-cloud" ? module.aws_infrastructure[0].vpc_cidr : null
-}
-
-output "aws_private_subnet_ids" {
-  description = "IDs of the AWS private subnets"
-  value       = var.cloud_provider == "aws" || var.cloud_provider == "multi-cloud" ? module.aws_infrastructure[0].private_subnet_ids : []
+output "aws_network_id" {
+  description = "ID of the network. Null or empty when it is not created."
+  value       = module.aws.network_id
 }
 
 output "aws_public_subnet_ids" {
-  description = "IDs of the AWS public subnets"
-  value       = var.cloud_provider == "aws" || var.cloud_provider == "multi-cloud" ? module.aws_infrastructure[0].public_subnet_ids : []
+  description = "IDs of the public subnets. Null or empty when it is not created."
+  value       = module.aws.public_subnet_ids
 }
 
-{% if values.enable_kubernetes %}
-output "eks_cluster_name" {
-  description = "Name of the EKS cluster"
-  value       = var.enable_kubernetes && (var.cloud_provider == "aws" || var.cloud_provider == "multi-cloud") ? module.aws_infrastructure[0].eks_cluster_name : null
+output "aws_private_subnet_ids" {
+  description = "IDs of the private subnets. Null or empty when it is not created."
+  value       = module.aws.private_subnet_ids
 }
 
-output "eks_cluster_endpoint" {
-  description = "Endpoint for EKS control plane"
-  value       = var.enable_kubernetes && (var.cloud_provider == "aws" || var.cloud_provider == "multi-cloud") ? module.aws_infrastructure[0].eks_cluster_endpoint : null
+output "aws_kubernetes_cluster_name" {
+  description = "Name of the Kubernetes cluster. Null or empty when it is not created."
+  value       = module.aws.kubernetes_cluster_name
+}
+
+output "aws_database_endpoint" {
+  description = "Endpoint of the database. Null or empty when it is not created."
+  value       = module.aws.database_endpoint
+}
+
+output "aws_database_name" {
+  description = "Name of the database. Null or empty when it is not created."
+  value       = module.aws.database_name
+}
+
+output "aws_database_credentials_secret_id" {
+  description = "ID of the secret that holds the generated database credentials. Null or empty when it is not created."
+  value       = module.aws.database_credentials_secret_id
+}
+
+output "aws_storage_bucket_name" {
+  description = "Name of the object storage bucket. Null or empty when it is not created."
+  value       = module.aws.storage_bucket_name
+}
+
+output "aws_data_lake_bucket_names" {
+  description = "Names of the data-lake buckets. Null or empty when it is not created."
+  value       = module.aws.data_lake_bucket_names
+}
+
+output "aws_cdn_domain_name" {
+  description = "Domain name of the CDN. Null or empty when it is not created."
+  value       = module.aws.cdn_domain_name
+}
+
+output "aws_waf_id" {
+  description = "ID of the web application firewall policy. Null or empty when it is not created."
+  value       = module.aws.waf_id
+}
+
+output "aws_kms_key_id" {
+  description = "ID of the customer-managed key. Null or empty when it is not created."
+  value       = module.aws.kms_key_id
+}
+
+output "aws_secrets_store_id" {
+  description = "ID of the secret store. Null or empty when it is not created."
+  value       = module.aws.secrets_store_id
+}
+
+output "aws_container_registry_url" {
+  description = "URL of the container registry. Null or empty when it is not created."
+  value       = module.aws.container_registry_url
+}
+
+output "aws_private_dns_zone_name" {
+  description = "Name of the private DNS zone. Null or empty when it is not created."
+  value       = module.aws.private_dns_zone_name
+}
+
+output "aws_backup_vault_id" {
+  description = "ID of the backup vault. Null or empty when it is not created."
+  value       = module.aws.backup_vault_id
+}
+
+output "aws_log_destination_id" {
+  description = "ID of the central log destination. Null or empty when it is not created."
+  value       = module.aws.log_destination_id
+}
+
+output "aws_alert_target_id" {
+  description = "ID of the notification target for alerts. Null or empty when it is not created."
+  value       = module.aws.alert_target_id
+}
+
+output "aws_prometheus_endpoint" {
+  description = "Endpoint of the managed Prometheus. Null or empty when it is not created."
+  value       = module.aws.prometheus_endpoint
+}
+
+output "aws_grafana_endpoint" {
+  description = "Endpoint of the managed Grafana. Null or empty when it is not created."
+  value       = module.aws.grafana_endpoint
+}
+
+output "aws_database_password" {
+  description = "Generated database password. Null when the credentials are kept in the secret store or the service has none."
+  value       = module.aws.database_password
   sensitive   = true
 }
 
-output "eks_cluster_version" {
-  description = "Kubernetes version of the EKS cluster"
-  value       = var.enable_kubernetes && (var.cloud_provider == "aws" || var.cloud_provider == "multi-cloud") ? module.aws_infrastructure[0].eks_cluster_version : null
+output "aws_kubernetes_cluster_endpoint" {
+  description = "Endpoint of the Kubernetes API. Null when the cluster is not created."
+  value       = module.aws.kubernetes_cluster_endpoint
+  sensitive   = true
+}
+{%- endif %}
+{%- if azure %}
+
+# -----------------------------------------------------------------------------
+# Azure
+# -----------------------------------------------------------------------------
+
+output "azure_network_id" {
+  description = "ID of the network. Null or empty when it is not created."
+  value       = module.azure.network_id
 }
 
-output "eks_cluster_arn" {
-  description = "ARN of the EKS cluster"
-  value       = var.enable_kubernetes && (var.cloud_provider == "aws" || var.cloud_provider == "multi-cloud") ? module.aws_infrastructure[0].eks_cluster_arn : null
+output "azure_public_subnet_ids" {
+  description = "IDs of the public subnets. Null or empty when it is not created."
+  value       = module.azure.public_subnet_ids
 }
 
-output "eks_node_group_arn" {
-  description = "ARN of the EKS node group"
-  value       = var.enable_kubernetes && (var.cloud_provider == "aws" || var.cloud_provider == "multi-cloud") ? module.aws_infrastructure[0].eks_node_group_arn : null
-}
-{% endif %}
-
-{% if values.enable_storage %}
-output "s3_bucket_name" {
-  description = "Name of the S3 bucket"
-  value       = var.enable_storage && (var.cloud_provider == "aws" || var.cloud_provider == "multi-cloud") ? module.aws_infrastructure[0].s3_bucket_name : null
+output "azure_private_subnet_ids" {
+  description = "IDs of the private subnets. Null or empty when it is not created."
+  value       = module.azure.private_subnet_ids
 }
 
-output "s3_bucket_arn" {
-  description = "ARN of the S3 bucket"
-  value       = var.enable_storage && (var.cloud_provider == "aws" || var.cloud_provider == "multi-cloud") ? module.aws_infrastructure[0].s3_bucket_arn : null
+output "azure_kubernetes_cluster_name" {
+  description = "Name of the Kubernetes cluster. Null or empty when it is not created."
+  value       = module.azure.kubernetes_cluster_name
 }
-{% endif %}
 
-{% if values.enable_database %}
-output "rds_endpoint" {
-  description = "RDS instance endpoint"
-  value       = var.enable_database && (var.cloud_provider == "aws" || var.cloud_provider == "multi-cloud") ? module.aws_infrastructure[0].rds_endpoint : null
+output "azure_database_endpoint" {
+  description = "Endpoint of the database. Null or empty when it is not created."
+  value       = module.azure.database_endpoint
+}
+
+output "azure_database_name" {
+  description = "Name of the database. Null or empty when it is not created."
+  value       = module.azure.database_name
+}
+
+output "azure_database_credentials_secret_id" {
+  description = "ID of the secret that holds the generated database credentials. Null or empty when it is not created."
+  value       = module.azure.database_credentials_secret_id
+}
+
+output "azure_storage_bucket_name" {
+  description = "Name of the object storage bucket. Null or empty when it is not created."
+  value       = module.azure.storage_bucket_name
+}
+
+output "azure_data_lake_bucket_names" {
+  description = "Names of the data-lake buckets. Null or empty when it is not created."
+  value       = module.azure.data_lake_bucket_names
+}
+
+output "azure_cdn_domain_name" {
+  description = "Domain name of the CDN. Null or empty when it is not created."
+  value       = module.azure.cdn_domain_name
+}
+
+output "azure_waf_id" {
+  description = "ID of the web application firewall policy. Null or empty when it is not created."
+  value       = module.azure.waf_id
+}
+
+output "azure_kms_key_id" {
+  description = "ID of the customer-managed key. Null or empty when it is not created."
+  value       = module.azure.kms_key_id
+}
+
+output "azure_secrets_store_id" {
+  description = "ID of the secret store. Null or empty when it is not created."
+  value       = module.azure.secrets_store_id
+}
+
+output "azure_container_registry_url" {
+  description = "URL of the container registry. Null or empty when it is not created."
+  value       = module.azure.container_registry_url
+}
+
+output "azure_private_dns_zone_name" {
+  description = "Name of the private DNS zone. Null or empty when it is not created."
+  value       = module.azure.private_dns_zone_name
+}
+
+output "azure_backup_vault_id" {
+  description = "ID of the backup vault. Null or empty when it is not created."
+  value       = module.azure.backup_vault_id
+}
+
+output "azure_log_destination_id" {
+  description = "ID of the central log destination. Null or empty when it is not created."
+  value       = module.azure.log_destination_id
+}
+
+output "azure_alert_target_id" {
+  description = "ID of the notification target for alerts. Null or empty when it is not created."
+  value       = module.azure.alert_target_id
+}
+
+output "azure_prometheus_endpoint" {
+  description = "Endpoint of the managed Prometheus. Null or empty when it is not created."
+  value       = module.azure.prometheus_endpoint
+}
+
+output "azure_grafana_endpoint" {
+  description = "Endpoint of the managed Grafana. Null or empty when it is not created."
+  value       = module.azure.grafana_endpoint
+}
+
+output "azure_database_password" {
+  description = "Generated database password. Null when the credentials are kept in the secret store or the service has none."
+  value       = module.azure.database_password
   sensitive   = true
 }
 
-output "rds_port" {
-  description = "RDS instance port"
-  value       = var.enable_database && (var.cloud_provider == "aws" || var.cloud_provider == "multi-cloud") ? module.aws_infrastructure[0].rds_port : null
+output "azure_kubernetes_cluster_endpoint" {
+  description = "Endpoint of the Kubernetes API. Null when the cluster is not created."
+  value       = module.azure.kubernetes_cluster_endpoint
+  sensitive   = true
 }
-{% endif %}
-{% endif %}
+{%- endif %}
+{%- if gcp %}
 
-{% if values.cloud_provider == 'azure' or values.cloud_provider == 'multi-cloud' %}
-# Azure Outputs
-output "azure_resource_group_name" {
-  description = "Name of the Azure resource group"
-  value       = var.cloud_provider == "azure" || var.cloud_provider == "multi-cloud" ? module.azure_infrastructure[0].resource_group_name : null
-}
+# -----------------------------------------------------------------------------
+# Google Cloud
+# -----------------------------------------------------------------------------
 
-output "azure_vnet_id" {
-  description = "ID of the Azure VNet"
-  value       = var.cloud_provider == "azure" || var.cloud_provider == "multi-cloud" ? module.azure_infrastructure[0].vnet_id : null
+output "gcp_network_id" {
+  description = "ID of the network. Null or empty when it is not created."
+  value       = module.gcp.network_id
 }
 
-output "azure_vnet_cidr" {
-  description = "CIDR block of the Azure VNet"
-  value       = var.cloud_provider == "azure" || var.cloud_provider == "multi-cloud" ? module.azure_infrastructure[0].vnet_cidr : null
+output "gcp_public_subnet_ids" {
+  description = "IDs of the public subnets. Null or empty when it is not created."
+  value       = module.gcp.public_subnet_ids
 }
 
-{% if values.enable_kubernetes %}
-output "aks_cluster_name" {
-  description = "Name of the AKS cluster"
-  value       = var.enable_kubernetes && (var.cloud_provider == "azure" || var.cloud_provider == "multi-cloud") ? module.azure_infrastructure[0].aks_cluster_name : null
+output "gcp_private_subnet_ids" {
+  description = "IDs of the private subnets. Null or empty when it is not created."
+  value       = module.gcp.private_subnet_ids
 }
 
-output "aks_cluster_fqdn" {
-  description = "FQDN of the AKS cluster"
-  value       = var.enable_kubernetes && (var.cloud_provider == "azure" || var.cloud_provider == "multi-cloud") ? module.azure_infrastructure[0].aks_cluster_fqdn : null
+output "gcp_kubernetes_cluster_name" {
+  description = "Name of the Kubernetes cluster. Null or empty when it is not created."
+  value       = module.gcp.kubernetes_cluster_name
 }
 
-output "aks_node_resource_group" {
-  description = "Auto-generated resource group for AKS nodes"
-  value       = var.enable_kubernetes && (var.cloud_provider == "azure" || var.cloud_provider == "multi-cloud") ? module.azure_infrastructure[0].aks_node_resource_group : null
-}
-{% endif %}
-
-{% if values.enable_storage %}
-output "azure_storage_account_name" {
-  description = "Name of the Azure storage account"
-  value       = var.enable_storage && (var.cloud_provider == "azure" || var.cloud_provider == "multi-cloud") ? module.azure_infrastructure[0].storage_account_name : null
+output "gcp_database_endpoint" {
+  description = "Endpoint of the database. Null or empty when it is not created."
+  value       = module.gcp.database_endpoint
 }
 
-output "azure_storage_account_primary_endpoint" {
-  description = "Primary endpoint of the Azure storage account"
-  value       = var.enable_storage && (var.cloud_provider == "azure" || var.cloud_provider == "multi-cloud") ? module.azure_infrastructure[0].storage_account_primary_endpoint : null
-}
-{% endif %}
-{% endif %}
-
-{% if values.cloud_provider == 'gcp' or values.cloud_provider == 'multi-cloud' %}
-# GCP Outputs
-output "gcp_project_id" {
-  description = "GCP project ID"
-  value       = var.cloud_provider == "gcp" || var.cloud_provider == "multi-cloud" ? var.gcp_project_id : null
+output "gcp_database_name" {
+  description = "Name of the database. Null or empty when it is not created."
+  value       = module.gcp.database_name
 }
 
-output "gcp_vpc_network" {
-  description = "Name of the GCP VPC network"
-  value       = var.cloud_provider == "gcp" || var.cloud_provider == "multi-cloud" ? module.gcp_infrastructure[0].vpc_network : null
+output "gcp_database_credentials_secret_id" {
+  description = "ID of the secret that holds the generated database credentials. Null or empty when it is not created."
+  value       = module.gcp.database_credentials_secret_id
 }
 
-{% if values.enable_kubernetes %}
-output "gke_cluster_name" {
-  description = "Name of the GKE cluster"
-  value       = var.enable_kubernetes && (var.cloud_provider == "gcp" || var.cloud_provider == "multi-cloud") ? module.gcp_infrastructure[0].gke_cluster_name : null
+output "gcp_storage_bucket_name" {
+  description = "Name of the object storage bucket. Null or empty when it is not created."
+  value       = module.gcp.storage_bucket_name
 }
 
-output "gke_cluster_endpoint" {
-  description = "Endpoint for GKE cluster"
-  value       = var.enable_kubernetes && (var.cloud_provider == "gcp" || var.cloud_provider == "multi-cloud") ? module.gcp_infrastructure[0].gke_cluster_endpoint : null
+output "gcp_data_lake_bucket_names" {
+  description = "Names of the data-lake buckets. Null or empty when it is not created."
+  value       = module.gcp.data_lake_bucket_names
+}
+
+output "gcp_cdn_domain_name" {
+  description = "Domain name of the CDN. Null or empty when it is not created."
+  value       = module.gcp.cdn_domain_name
+}
+
+output "gcp_waf_id" {
+  description = "ID of the web application firewall policy. Null or empty when it is not created."
+  value       = module.gcp.waf_id
+}
+
+output "gcp_kms_key_id" {
+  description = "ID of the customer-managed key. Null or empty when it is not created."
+  value       = module.gcp.kms_key_id
+}
+
+output "gcp_secrets_store_id" {
+  description = "ID of the secret store. Null or empty when it is not created."
+  value       = module.gcp.secrets_store_id
+}
+
+output "gcp_container_registry_url" {
+  description = "URL of the container registry. Null or empty when it is not created."
+  value       = module.gcp.container_registry_url
+}
+
+output "gcp_private_dns_zone_name" {
+  description = "Name of the private DNS zone. Null or empty when it is not created."
+  value       = module.gcp.private_dns_zone_name
+}
+
+output "gcp_backup_vault_id" {
+  description = "ID of the backup vault. Null or empty when it is not created."
+  value       = module.gcp.backup_vault_id
+}
+
+output "gcp_log_destination_id" {
+  description = "ID of the central log destination. Null or empty when it is not created."
+  value       = module.gcp.log_destination_id
+}
+
+output "gcp_alert_target_id" {
+  description = "ID of the notification target for alerts. Null or empty when it is not created."
+  value       = module.gcp.alert_target_id
+}
+
+output "gcp_prometheus_endpoint" {
+  description = "Endpoint of the managed Prometheus. Null or empty when it is not created."
+  value       = module.gcp.prometheus_endpoint
+}
+
+output "gcp_grafana_endpoint" {
+  description = "Endpoint of the managed Grafana. Null or empty when it is not created."
+  value       = module.gcp.grafana_endpoint
+}
+
+output "gcp_database_password" {
+  description = "Generated database password. Null when the credentials are kept in the secret store or the service has none."
+  value       = module.gcp.database_password
   sensitive   = true
 }
 
-output "gke_cluster_ca_certificate" {
-  description = "CA certificate for GKE cluster"
-  value       = var.enable_kubernetes && (var.cloud_provider == "gcp" || var.cloud_provider == "multi-cloud") ? module.gcp_infrastructure[0].gke_cluster_ca_certificate : null
+output "gcp_kubernetes_cluster_endpoint" {
+  description = "Endpoint of the Kubernetes API. Null when the cluster is not created."
+  value       = module.gcp.kubernetes_cluster_endpoint
   sensitive   = true
 }
-{% endif %}
+{%- endif %}
+{%- if elastic %}
 
-{% if values.enable_storage %}
-output "gcs_bucket_name" {
-  description = "Name of the GCS bucket"
-  value       = var.enable_storage && (var.cloud_provider == "gcp" || var.cloud_provider == "multi-cloud") ? module.gcp_infrastructure[0].gcs_bucket_name : null
+# -----------------------------------------------------------------------------
+# Elastic Stack
+# -----------------------------------------------------------------------------
+
+output "elastic_kibana_endpoint" {
+  description = "URL of Kibana. Null when monitoring is off."
+  value       = one(module.elastic[*].kibana_endpoint)
 }
 
-output "gcs_bucket_url" {
-  description = "URL of the GCS bucket"
-  value       = var.enable_storage && (var.cloud_provider == "gcp" || var.cloud_provider == "multi-cloud") ? module.gcp_infrastructure[0].gcs_bucket_url : null
+output "elastic_elasticsearch_endpoint" {
+  description = "URL of Elasticsearch. Null when monitoring is off."
+  value       = one(module.elastic[*].elasticsearch_endpoint)
 }
-{% endif %}
-{% endif %}
-
-{% if values.enable_monitoring %}
-# Monitoring Outputs
-output "monitoring_namespace" {
-  description = "Kubernetes namespace for monitoring stack"
-  value       = var.enable_monitoring ? "monitoring" : null
-}
-
-{% if values.monitoring_solution == 'prometheus-grafana' %}
-output "prometheus_endpoint" {
-  description = "Prometheus server endpoint"
-  value       = var.enable_monitoring && var.monitoring_solution == "prometheus-grafana" ? module.monitoring[0].prometheus_endpoint : null
-}
-
-output "grafana_endpoint" {
-  description = "Grafana dashboard endpoint"
-  value       = var.enable_monitoring && var.monitoring_solution == "prometheus-grafana" ? module.monitoring[0].grafana_endpoint : null
-}
-
-output "grafana_admin_password" {
-  description = "Grafana admin password"
-  value       = var.enable_monitoring && var.monitoring_solution == "prometheus-grafana" ? module.monitoring[0].grafana_admin_password : null
-  sensitive   = true
-}
-{% endif %}
-{% endif %}
-
-{% if values.enable_secrets_manager %}
-# Security Outputs
-output "secrets_manager_arn" {
-  description = "ARN of the secrets manager"
-  value       = var.enable_secrets_manager ? (
-    {% if values.cloud_provider == 'aws' %}
-    var.cloud_provider == "aws" ? module.aws_infrastructure[0].secrets_manager_arn :
-    {% endif %}
-    {% if values.cloud_provider == 'azure' %}
-    var.cloud_provider == "azure" ? module.azure_infrastructure[0].key_vault_id :
-    {% endif %}
-    {% if values.cloud_provider == 'gcp' %}
-    var.cloud_provider == "gcp" ? module.gcp_infrastructure[0].secret_manager_id :
-    {% endif %}
-    null
-  ) : null
-}
-{% endif %}
-
-{% if values.enable_kms %}
-output "kms_key_id" {
-  description = "ID of the KMS key"
-  value       = var.enable_kms ? (
-    {% if values.cloud_provider == 'aws' %}
-    var.cloud_provider == "aws" ? module.aws_infrastructure[0].kms_key_id :
-    {% endif %}
-    {% if values.cloud_provider == 'azure' %}
-    var.cloud_provider == "azure" ? module.azure_infrastructure[0].key_vault_key_id :
-    {% endif %}
-    {% if values.cloud_provider == 'gcp' %}
-    var.cloud_provider == "gcp" ? module.gcp_infrastructure[0].kms_key_id :
-    {% endif %}
-    null
-  ) : null
-}
-{% endif %}
-
-# Connection Information
-output "kubectl_config_command" {
-  description = "Command to configure kubectl"
-  value = var.enable_kubernetes ? (
-    {% if values.cloud_provider == 'aws' %}
-    var.cloud_provider == "aws" ? "aws eks update-kubeconfig --region ${var.aws_region} --name ${module.aws_infrastructure[0].eks_cluster_name}" :
-    {% endif %}
-    {% if values.cloud_provider == 'azure' %}
-    var.cloud_provider == "azure" ? "az aks get-credentials --resource-group ${module.azure_infrastructure[0].resource_group_name} --name ${module.azure_infrastructure[0].aks_cluster_name}" :
-    {% endif %}
-    {% if values.cloud_provider == 'gcp' %}
-    var.cloud_provider == "gcp" ? "gcloud container clusters get-credentials ${module.gcp_infrastructure[0].gke_cluster_name} --region ${var.gcp_region} --project ${var.gcp_project_id}" :
-    {% endif %}
-    null
-  ) : null
-}
-
-# DNS and Networking
-output "dns_zone_name" {
-  description = "DNS zone name"
-  value       = var.dns_zone_name
-}
-
-output "load_balancer_dns" {
-  description = "Load balancer DNS name"
-  value = var.enable_kubernetes ? (
-    {% if values.cloud_provider == 'aws' %}
-    var.cloud_provider == "aws" ? module.aws_infrastructure[0].load_balancer_dns :
-    {% endif %}
-    {% if values.cloud_provider == 'azure' %}
-    var.cloud_provider == "azure" ? module.azure_infrastructure[0].load_balancer_ip :
-    {% endif %}
-    {% if values.cloud_provider == 'gcp' %}
-    var.cloud_provider == "gcp" ? module.gcp_infrastructure[0].load_balancer_ip :
-    {% endif %}
-    null
-  ) : null
-}
-
-# Compliance and Security
-output "compliance_framework" {
-  description = "Applied compliance framework"
-  value       = var.compliance_framework
-}
-
-output "backup_enabled" {
-  description = "Whether backup is enabled"
-  value       = var.enable_backup
-}
-
-# Cost Information
-output "estimated_monthly_cost" {
-  description = "Estimated monthly cost (approximate)"
-  value = var.enable_cost_optimization ? (
-    var.environment == "production" ? "$500-1500" :
-    var.environment == "staging" ? "$200-600" :
-    "$100-300"
-  ) : "Cost optimization disabled"
-}
-
-# Quick Links
-output "quick_links" {
-  description = "Quick access links for common operations"
-  value = {
-    {% if values.cloud_provider == 'aws' %}
-    aws_console = var.cloud_provider == "aws" ? "https://console.aws.amazon.com/" : null
-    {% endif %}
-    {% if values.cloud_provider == 'azure' %}
-    azure_portal = var.cloud_provider == "azure" ? "https://portal.azure.com/" : null
-    {% endif %}
-    {% if values.cloud_provider == 'gcp' %}
-    gcp_console = var.cloud_provider == "gcp" ? "https://console.cloud.google.com/" : null
-    {% endif %}
-    {% if values.enable_kubernetes %}
-    kubernetes_dashboard = var.enable_kubernetes ? "https://dashboard.${{ values.name }}.company.com" : null
-    {% endif %}
-    {% if values.monitoring_solution == 'prometheus-grafana' %}
-    grafana_dashboard = var.enable_monitoring ? "https://grafana.${{ values.name }}.company.com" : null
-    {% endif %}
-    terraform_cloud = "https://app.terraform.io/app/company-terraform/workspaces/${{ values.name }}"
-  }
-}
-
-# Resource Summary
-output "resource_summary" {
-  description = "Summary of created resources"
-  value = {
-    networking_enabled    = var.enable_networking
-    kubernetes_enabled   = var.enable_kubernetes
-    database_enabled     = var.enable_database
-    storage_enabled      = var.enable_storage
-    monitoring_enabled   = var.enable_monitoring
-    security_features    = {
-      kms_enabled           = var.enable_kms
-      secrets_manager       = var.enable_secrets_manager
-      waf_enabled          = var.enable_waf
-      backup_enabled       = var.enable_backup
-    }
-    compliance_framework = var.compliance_framework
-    cost_optimization   = var.enable_cost_optimization
-  }
-}
+{%- endif %}

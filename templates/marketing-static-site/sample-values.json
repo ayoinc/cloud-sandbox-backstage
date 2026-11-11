@@ -1,7 +1,7 @@
 {
   "values": {
     "name": "sample-hugo-site",
-    "description": "Marketing site for the payments platform",
+    "description": "The payments team's \"home on the web\": news & guides",
     "owner": "group:default/platform-team",
     "hugoTheme": "ananke",
     "baseUrl": "https://example.com/",

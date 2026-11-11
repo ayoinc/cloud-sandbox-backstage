@@ -1,7 +1,7 @@
 {
   "values": {
     "name": "sample-project-docs",
-    "description": "Documentation for the payments platform",
+    "description": "The payments team's \"single source\" of documentation: guides & reference",
     "owner": "group:default/platform-team",
     "docType": "project",
     "includeApiDocs": true,

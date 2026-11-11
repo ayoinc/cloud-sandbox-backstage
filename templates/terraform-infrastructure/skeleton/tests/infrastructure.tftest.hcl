@@ -1,439 +1,382 @@
-# =============================================================================
-# Terraform Infrastructure Tests
-# =============================================================================
-# These tests validate the infrastructure configuration and ensure
-# compliance with multi-cloud, security, and operational best practices.
-#
-# Uses mock_provider for testing without credentials
-# Run with: terraform test
-# =============================================================================
+{%- set aws = values.cloud_provider == 'aws' or values.cloud_provider == 'multi-cloud' -%}
+{%- set azure = values.cloud_provider == 'azure' or values.cloud_provider == 'multi-cloud' -%}
+{%- set gcp = values.cloud_provider == 'gcp' or values.cloud_provider == 'multi-cloud' -%}
+{%- set datadog = values.monitoring_solution == 'datadog' -%}
+{%- set newrelic = values.monitoring_solution == 'new-relic' -%}
+{%- set elastic = values.monitoring_solution == 'elastic-stack' -%}
+# Plan-only tests against mocked providers: no credentials, no resources.
+# Run with: terraform init -backend=false && terraform test
+{%- if aws %}
 
-# Mock providers for testing without credentials
-mock_provider "aws" {}
-mock_provider "azurerm" {}
-mock_provider "google" {}
-mock_provider "kubernetes" {}
-mock_provider "helm" {}
-mock_provider "random" {}
+mock_provider "aws" {
+  mock_data "aws_availability_zones" {
+    defaults = {
+      names = ["us-east-1a", "us-east-1b", "us-east-1c"]
+    }
+  }
+
+  mock_data "aws_caller_identity" {
+    defaults = {
+      account_id = "123456789012"
+    }
+  }
+
+  mock_data "aws_partition" {
+    defaults = {
+      partition  = "aws"
+      dns_suffix = "amazonaws.com"
+    }
+  }
+
+  mock_data "aws_vpc" {
+    defaults = {
+      cidr_block = "10.0.0.0/16"
+    }
+  }
+}
+{%- endif %}
+{%- if azure %}
+
+mock_provider "azurerm" {
+  mock_data "azurerm_client_config" {
+    defaults = {
+      tenant_id       = "11111111-1111-1111-1111-111111111111"
+      subscription_id = "22222222-2222-2222-2222-222222222222"
+      client_id       = "33333333-3333-3333-3333-333333333333"
+      object_id       = "44444444-4444-4444-4444-444444444444"
+    }
+  }
+
+  mock_data "azurerm_subscription" {
+    defaults = {
+      id              = "/subscriptions/22222222-2222-2222-2222-222222222222"
+      subscription_id = "22222222-2222-2222-2222-222222222222"
+      tenant_id       = "11111111-1111-1111-1111-111111111111"
+    }
+  }
+}
+{%- if datadog or newrelic %}
+
+mock_provider "azuread" {
+  mock_data "azuread_client_config" {
+    defaults = {
+      object_id = "44444444-4444-4444-4444-444444444444"
+      tenant_id = "11111111-1111-1111-1111-111111111111"
+    }
+  }
+
+  mock_resource "azuread_application" {
+    override_during = plan
+    defaults = {
+      id        = "/applications/55555555-5555-5555-5555-555555555555"
+      client_id = "66666666-6666-6666-6666-666666666666"
+    }
+  }
+
+  mock_resource "azuread_service_principal" {
+    override_during = plan
+    defaults = {
+      object_id = "77777777-7777-7777-7777-777777777777"
+    }
+  }
+}
+{%- endif %}
+{%- endif %}
+{%- if gcp %}
+
+mock_provider "google" {
+  mock_data "google_project" {
+    defaults = {
+      number = "123456789012"
+    }
+  }
+
+  mock_data "google_client_config" {
+    defaults = {
+      project = "test-project"
+    }
+  }
+
+  mock_data "google_compute_zones" {
+    defaults = {
+      names = ["us-central1-a", "us-central1-b", "us-central1-c"]
+    }
+  }
+
+  mock_data "google_storage_project_service_account" {
+    defaults = {
+      email_address = "service-123456789012@gs-project-accounts.iam.gserviceaccount.com"
+      member        = "serviceAccount:service-123456789012@gs-project-accounts.iam.gserviceaccount.com"
+    }
+  }
+
+  mock_data "google_storage_transfer_project_service_account" {
+    defaults = {
+      email  = "project-123456789012@storage-transfer-service.iam.gserviceaccount.com"
+      member = "serviceAccount:project-123456789012@storage-transfer-service.iam.gserviceaccount.com"
+    }
+  }
+
+  mock_data "google_logging_project_cmek_settings" {
+    defaults = {
+      service_account_id = "cmek-p123456789012@gcp-sa-logging.iam.gserviceaccount.com"
+    }
+  }
+}
+
+mock_provider "google-beta" {}
+
 mock_provider "tls" {}
+{%- endif %}
+{%- if datadog %}
 
-# -----------------------------------------------------------------------------
-# Test Variables - Base Configuration
-# -----------------------------------------------------------------------------
+mock_provider "datadog" {
+  mock_data "datadog_integration_aws_iam_permissions" {
+    defaults = {
+      iam_permissions = [
+        "cloudwatch:GetMetricData",
+        "cloudwatch:ListMetrics",
+        "ec2:DescribeInstances",
+        "tag:GetResources",
+      ]
+    }
+  }
+}
+{%- endif %}
+{%- if newrelic %}
+
+mock_provider "newrelic" {
+  mock_data "newrelic_account" {
+    defaults = {
+      id = "7654321"
+    }
+  }
+}
+{%- endif %}
+{%- if elastic %}
+
+mock_provider "ec" {
+  mock_data "ec_stack" {
+    defaults = {
+      version = "9.1.0"
+    }
+  }
+}
+{%- endif %}
+
+mock_provider "random" {
+  mock_resource "random_id" {
+    override_during = plan
+    defaults = {
+      hex = "a1b2"
+    }
+  }
+}
+{%- if azure or gcp %}
+
+mock_provider "time" {}
+{%- endif %}
+
+# Every variable is set here so that the tests do not depend on the tfvars
+# files. This is a small stack: a network and object storage.
 variables {
-  environment    = "staging"
-  cloud_provider = "aws"
+  name                = "test-stack"
+  environment         = "staging"
+  owner               = "group:default/platform-team"
+  infrastructure_type = "web-application"
+{%- if aws %}
+
+  aws_region           = "us-east-1"
+  aws_secondary_region = "us-west-2"
+{%- endif %}
+{%- if azure %}
+
+  azure_location           = "eastus2"
+  azure_secondary_location = "centralus"
+{%- endif %}
+{%- if gcp %}
+
+  gcp_project_id       = "test-project"
+  gcp_region           = "us-central1"
+  gcp_secondary_region = "us-east1"
+{%- endif %}
+
+  enable_networking           = true
+  enable_security_group_rules = true
+
+  enable_kubernetes  = false
+  kubernetes_version = null
+  node_size          = "medium"
+  enable_autoscaling = true
+  min_nodes          = 2
+  max_nodes          = 5
+
+  enable_database = false
+  database_type   = "postgresql"
+  enable_storage  = true
+  enable_cdn      = false
+
+  enable_waf             = false
+  enable_secrets_manager = false
+  enable_kms             = false
+  enable_backup          = false
+  compliance_framework   = "none"
+
+  enable_monitoring   = false
+  monitoring_solution = "${{ values.monitoring_solution }}"
+  enable_alerting     = false
+  log_retention_days  = 30
+
+  enable_disaster_recovery = false
+  enable_cost_optimization = false
 }
 
-# =============================================================================
-# ENVIRONMENT VALIDATION TESTS
-# =============================================================================
-
-run "environment_validation" {
+run "small_stack" {
   command = plan
 
   assert {
-    condition     = contains(["development", "staging", "production"], var.environment)
-    error_message = "Environment must be development, staging, or production"
-  }
-}
-
-run "staging_environment" {
-  command = plan
-
-  variables {
-    environment = "staging"
+    condition     = output.name_prefix == "test-stack-stg"
+    error_message = "Names are prefixed with the stack name and the short environment."
   }
 
   assert {
-    condition     = var.environment == "staging"
-    error_message = "Staging environment should be accepted"
+    condition     = output.effective_settings.log_retention_days == 30 && !output.effective_settings.enable_kms && !output.effective_settings.require_deletion_protection
+    error_message = "Without a compliance framework the settings are used as given."
   }
 }
 
-run "production_environment" {
+run "long_names_are_shortened" {
   command = plan
 
   variables {
+    name        = "a-very-long-stack-name-for-testing"
     environment = "production"
   }
 
   assert {
-    condition     = var.environment == "production"
-    error_message = "Production environment should be accepted"
-  }
-}
-
-# =============================================================================
-# CLOUD PROVIDER VALIDATION TESTS
-# =============================================================================
-
-run "cloud_provider_aws" {
-  command = plan
-
-  variables {
-    cloud_provider = "aws"
+    condition     = output.name_prefix == "a-very-long-stack-n-prod" && length(output.name_prefix) <= 24
+    error_message = "The name prefix must fit in 24 characters."
   }
 
   assert {
-    condition     = contains(["aws", "azure", "gcp", "multi-cloud"], var.cloud_provider)
-    error_message = "Cloud provider must be aws, azure, gcp, or multi-cloud"
+    condition     = output.effective_settings.require_deletion_protection
+    error_message = "Production is protected from deletion."
   }
 }
 
-run "cloud_provider_azure" {
-  command = plan
-
-  variables {
-    cloud_provider = "azure"
-  }
-
-  assert {
-    condition     = var.cloud_provider == "azure"
-    error_message = "Azure provider should be accepted"
-  }
-}
-
-run "cloud_provider_gcp" {
-  command = plan
-
-  variables {
-    cloud_provider = "gcp"
-  }
-
-  assert {
-    condition     = var.cloud_provider == "gcp"
-    error_message = "GCP provider should be accepted"
-  }
-}
-
-run "cloud_provider_multicloud" {
-  command = plan
-
-  variables {
-    cloud_provider = "multi-cloud"
-  }
-
-  assert {
-    condition     = var.cloud_provider == "multi-cloud"
-    error_message = "Multi-cloud provider should be accepted"
-  }
-}
-
-# =============================================================================
-# NETWORKING VALIDATION TESTS
-# =============================================================================
-
-run "vpc_cidr_validation" {
-  command = plan
-
-  variables {
-    vpc_cidr = "10.0.0.0/16"
-  }
-
-  assert {
-    condition     = can(cidrhost(var.vpc_cidr, 0))
-    error_message = "VPC CIDR must be a valid IPv4 CIDR block"
-  }
-}
-
-run "allowed_cidr_blocks_private" {
-  command = plan
-
-  assert {
-    condition     = alltrue([for cidr in var.allowed_cidr_blocks : can(cidrhost(cidr, 0))])
-    error_message = "All allowed CIDR blocks must be valid"
-  }
-}
-
-# =============================================================================
-# DATABASE VALIDATION TESTS
-# =============================================================================
-
-run "database_type_postgresql" {
-  command = plan
-
-  variables {
-    database_type = "postgresql"
-  }
-
-  assert {
-    condition     = contains(["postgresql", "mysql", "mongodb", "redis", "dynamodb", "cosmosdb"], var.database_type)
-    error_message = "Database type must be a supported type"
-  }
-}
-
-run "database_type_mysql" {
-  command = plan
-
-  variables {
-    database_type = "mysql"
-  }
-
-  assert {
-    condition     = var.database_type == "mysql"
-    error_message = "MySQL database type should be accepted"
-  }
-}
-
-# =============================================================================
-# KUBERNETES VALIDATION TESTS
-# =============================================================================
-
-run "min_nodes_validation" {
-  command = plan
-
-  variables {
-    min_nodes = 2
-  }
-
-  assert {
-    condition     = var.min_nodes >= 1 && var.min_nodes <= 100
-    error_message = "Min nodes must be between 1 and 100"
-  }
-}
-
-run "max_nodes_validation" {
-  command = plan
-
-  variables {
-    max_nodes = 10
-  }
-
-  assert {
-    condition     = var.max_nodes >= 1 && var.max_nodes <= 1000
-    error_message = "Max nodes must be between 1 and 1000"
-  }
-}
-
-run "nodes_min_less_than_max" {
-  command = plan
-
-  variables {
-    min_nodes = 2
-    max_nodes = 10
-  }
-
-  assert {
-    condition     = var.min_nodes <= var.max_nodes
-    error_message = "Min nodes must be less than or equal to max nodes"
-  }
-}
-
-# =============================================================================
-# COMPLIANCE VALIDATION TESTS
-# =============================================================================
-
-run "compliance_framework_none" {
-  command = plan
-
-  variables {
-    compliance_framework = "none"
-  }
-
-  assert {
-    condition     = contains(["none", "cis", "pci-dss", "hipaa", "sox", "gdpr"], var.compliance_framework)
-    error_message = "Compliance framework must be a supported framework"
-  }
-}
-
-run "compliance_framework_pci" {
-  command = plan
-
-  variables {
-    compliance_framework = "pci-dss"
-  }
-
-  assert {
-    condition     = var.compliance_framework == "pci-dss"
-    error_message = "PCI-DSS compliance framework should be accepted"
-  }
-}
-
-run "compliance_framework_hipaa" {
+run "hipaa_baseline" {
   command = plan
 
   variables {
     compliance_framework = "hipaa"
+    enable_monitoring    = true
+    enable_database      = true
   }
 
   assert {
-    condition     = var.compliance_framework == "hipaa"
-    error_message = "HIPAA compliance framework should be accepted"
+    condition     = output.effective_settings.log_retention_days == 2192
+    error_message = "HIPAA keeps logs for six years."
+  }
+
+  assert {
+    condition     = output.effective_settings.enable_kms && output.effective_settings.enable_backup && output.effective_settings.require_deletion_protection && output.effective_settings.require_flow_logs
+    error_message = "HIPAA switches on customer-managed keys, backups, deletion protection and flow logs."
   }
 }
 
-# =============================================================================
-# MONITORING VALIDATION TESTS
-# =============================================================================
-
-run "monitoring_solution_native" {
+run "cis_baseline_keeps_longer_retention" {
   command = plan
 
   variables {
-    monitoring_solution = "native"
+    compliance_framework = "cis"
+    log_retention_days   = 90
   }
 
   assert {
-    condition     = contains(["native", "prometheus-grafana", "elastic-stack", "datadog", "new-relic"], var.monitoring_solution)
-    error_message = "Monitoring solution must be a supported platform"
+    condition     = output.effective_settings.log_retention_days == 365 && output.effective_settings.require_flow_logs && !output.effective_settings.enable_kms
+    error_message = "CIS raises log retention to a year and requires flow logs, without forcing customer-managed keys."
   }
 }
 
-run "monitoring_solution_prometheus" {
+run "cdn_brings_object_storage" {
   command = plan
 
   variables {
-    monitoring_solution = "prometheus-grafana"
+    enable_storage = false
+    enable_cdn     = true
+    enable_waf     = true
   }
 
   assert {
-    condition     = var.monitoring_solution == "prometheus-grafana"
-    error_message = "Prometheus-Grafana monitoring should be accepted"
+    condition     = output.effective_settings.enable_storage
+    error_message = "A CDN needs the object storage it serves."
   }
 }
 
-run "log_retention_validation" {
-  command = plan
-
-  variables {
-    log_retention_days = 30
-  }
-
-  assert {
-    condition     = contains([7, 30, 90, 365], var.log_retention_days)
-    error_message = "Log retention must be 7, 30, 90, or 365 days"
-  }
-}
-
-# =============================================================================
-# SECURITY FEATURE TESTS
-# =============================================================================
-
-run "security_features_enabled_prod" {
+run "full_stack_in_production" {
   command = plan
 
   variables {
     environment              = "production"
-    enable_kms               = true
-    enable_secrets_manager   = true
-    enable_backup            = true
+    infrastructure_type      = "ml-platform"
+    enable_kubernetes        = true
+    enable_database          = true
+    enable_cdn               = true
     enable_waf               = true
-  }
-
-  assert {
-    condition     = var.enable_kms == true
-    error_message = "KMS should be enabled for production"
-  }
-
-  assert {
-    condition     = var.enable_secrets_manager == true
-    error_message = "Secrets Manager should be enabled for production"
-  }
-
-  assert {
-    condition     = var.enable_backup == true
-    error_message = "Backup should be enabled for production"
-  }
-}
-
-# =============================================================================
-# ENVIRONMENT-SPECIFIC CONFIGURATION TESTS
-# =============================================================================
-
-run "environment_configs_structure" {
-  command = plan
-
-  assert {
-    condition     = can(var.environment_configs["development"])
-    error_message = "Environment configs must include development"
-  }
-
-  assert {
-    condition     = can(var.environment_configs["staging"])
-    error_message = "Environment configs must include staging"
-  }
-
-  assert {
-    condition     = can(var.environment_configs["production"])
-    error_message = "Environment configs must include production"
-  }
-}
-
-run "production_config_has_higher_resources" {
-  command = plan
-
-  assert {
-    condition     = var.environment_configs["production"].node_count >= var.environment_configs["development"].node_count
-    error_message = "Production should have more nodes than development"
-  }
-
-  assert {
-    condition     = var.environment_configs["production"].backup_retention >= var.environment_configs["development"].backup_retention
-    error_message = "Production should have longer backup retention than development"
-  }
-}
-
-# =============================================================================
-# OUTPUT VALIDATION TESTS
-# =============================================================================
-
-run "outputs_are_defined" {
-  command = plan
-
-  assert {
-    condition     = output.infrastructure_name != null
-    error_message = "Infrastructure name output must be defined"
-  }
-
-  assert {
-    condition     = output.environment != null
-    error_message = "Environment output must be defined"
-  }
-
-  assert {
-    condition     = output.cloud_provider != null
-    error_message = "Cloud provider output must be defined"
-  }
-
-  assert {
-    condition     = output.compliance_framework != null
-    error_message = "Compliance framework output must be defined"
-  }
-}
-
-# =============================================================================
-# COST OPTIMIZATION TESTS
-# =============================================================================
-
-run "cost_optimization_dev" {
-  command = plan
-
-  variables {
-    environment              = "development"
+    enable_secrets_manager   = true
+    enable_kms               = true
+    enable_backup            = true
+    compliance_framework     = "pci-dss"
+    enable_monitoring        = true
+    enable_alerting          = true
+    alert_email              = "platform@example.com"
+    enable_disaster_recovery = true
     enable_cost_optimization = true
   }
 
   assert {
-    condition     = var.enable_cost_optimization == true
-    error_message = "Cost optimization should be enabled for development"
+    condition     = output.effective_settings.log_retention_days == 365 && output.effective_settings.require_deletion_protection
+    error_message = "PCI DSS keeps logs for a year and protects resources from deletion."
   }
 }
 
-# =============================================================================
-# DISASTER RECOVERY TESTS
-# =============================================================================
-
-run "disaster_recovery_prod" {
+run "fixed_size_cluster" {
   command = plan
 
   variables {
-    environment               = "production"
-    enable_disaster_recovery  = true
+    enable_kubernetes  = true
+    enable_autoscaling = false
+    node_size          = "small"
+  }
+}
+
+run "rejects_inverted_node_bounds" {
+  command = plan
+
+  variables {
+    min_nodes = 5
+    max_nodes = 2
   }
 
-  assert {
-    condition     = var.enable_disaster_recovery == true
-    error_message = "Disaster recovery should be enabled for production"
+  expect_failures = [var.max_nodes]
+}
+
+run "rejects_unknown_environment" {
+  command = plan
+
+  variables {
+    environment = "qa"
   }
+
+  expect_failures = [var.environment]
+}
+
+run "rejects_unknown_compliance_framework" {
+  command = plan
+
+  variables {
+    compliance_framework = "iso"
+  }
+
+  expect_failures = [var.compliance_framework]
 }

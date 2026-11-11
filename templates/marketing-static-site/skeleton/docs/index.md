@@ -450,17 +450,16 @@ func main() {
 Edit `hugo.toml` to customize the site:
 
 ```toml
-baseURL = "${{ values.baseUrl }}"
-languageCode = "en-us"
-title = "${{ values.name }}"
+baseURL = ${{ values.baseUrl | dump }}
+title = ${{ values.name | dump }}
 
 [module]
   [[module.imports]]
     path = "{% if values.hugoTheme == 'ananke' %}github.com/gohugo-ananke/ananke/v2{% elif values.hugoTheme == 'papermod' %}github.com/adityatelange/hugo-PaperMod{% elif values.hugoTheme == 'terminal' %}github.com/panr/hugo-theme-terminal/v4{% else %}github.com/calintat/minimal{% endif %}"
 
 [params]
-  description = "${{ values.description }}"
-  author = "${{ values.owner }}"
+  description = ${{ values.description | dump }}
+  author = ${{ values.owner | dump }}
   
   # Theme-specific parameters
   logo = "/images/logo.png"

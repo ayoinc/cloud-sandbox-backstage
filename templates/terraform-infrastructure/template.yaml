@@ -22,15 +22,15 @@ spec:
         - name
         - description
         - owner
-        - cloud_provider
       properties:
         name:
           title: Infrastructure Name
           type: string
           description: Name of the infrastructure stack
-          pattern: '^[a-z0-9\-]+$'
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          maxLength: 40
           ui:autofocus: true
-          ui:help: 'Use lowercase letters, numbers, and hyphens only'
+          ui:help: 'Lowercase letters, numbers and hyphens, starting with a letter'
         description:
           title: Description
           type: string
@@ -43,6 +43,21 @@ spec:
           ui:options:
             catalogFilter:
               kind: [Group, User]
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+    - title: Cloud & Infrastructure Components
+      required:
+        - cloud_provider
+      properties:
         cloud_provider:
           title: Cloud Provider
           type: string
@@ -57,27 +72,11 @@ spec:
             - Amazon Web Services
             - Microsoft Azure
             - Google Cloud Platform
-            - Multi-Cloud Setup
-
-    - title: Repository Configuration
-      required:
-        - repoUrl
-      properties:
-        repoUrl:
-          title: Repository Location
-          type: string
-          ui:field: RepoUrlPicker
-          ui:options:
-            allowedHosts:
-              - github.com
-              - gitlab.com
-
-    - title: Infrastructure Components
-      properties:
+            - Multi-Cloud Setup (the same stack on all three)
         infrastructure_type:
           title: Infrastructure Type
           type: string
-          description: Primary infrastructure pattern
+          description: Primary infrastructure pattern. Container, ML and serverless platforms add a container registry; data and ML platforms add data-lake storage; the networking foundation adds a private DNS zone.
           default: web-application
           enum:
             - web-application
@@ -96,32 +95,13 @@ spec:
         enable_networking:
           title: Enable Custom Networking
           type: boolean
-          description: Create VPC/VNet with subnets
+          description: Create VPC/VNet with subnets. When off, an existing network must be named in terraform.tfvars before components that need one can be deployed.
           default: true
         enable_database:
           title: Enable Database
           type: boolean
           description: Include managed database services
           default: false
-        database_type:
-          title: Database Type
-          type: string
-          description: Type of managed database
-          default: postgresql
-          enum:
-            - postgresql
-            - mysql
-            - mongodb
-            - redis
-            - dynamodb
-            - cosmosdb
-          enumNames:
-            - PostgreSQL
-            - MySQL
-            - MongoDB
-            - Redis
-            - DynamoDB (AWS)
-            - CosmosDB (Azure)
         enable_storage:
           title: Enable Object Storage
           type: boolean
@@ -130,9 +110,119 @@ spec:
         enable_cdn:
           title: Enable CDN
           type: boolean
-          description: Include CDN for content delivery
+          description: Include CDN for content delivery in front of the object storage (which is then created too)
           default: false
-
+      # Regions and the databases on offer differ per provider, so these
+      # fields follow the provider chosen above.
+      dependencies:
+        cloud_provider:
+          oneOf:
+            - properties:
+                cloud_provider:
+                  enum:
+                    - aws
+                region:
+                  title: AWS Region
+                  type: string
+                  description: Region of the stack
+                  default: us-east-1
+                database_type:
+                  title: Database Type
+                  type: string
+                  description: Type of managed database; used when Enable Database is on
+                  default: postgresql
+                  enum:
+                    - postgresql
+                    - mysql
+                    - mongodb
+                    - redis
+                    - dynamodb
+                  enumNames:
+                    - PostgreSQL (RDS)
+                    - MySQL (RDS)
+                    - MongoDB compatible (DocumentDB)
+                    - Redis (ElastiCache)
+                    - DynamoDB
+            - properties:
+                cloud_provider:
+                  enum:
+                    - azure
+                azure_location:
+                  title: Azure Location
+                  type: string
+                  description: Location of the stack
+                  default: eastus2
+                database_type:
+                  title: Database Type
+                  type: string
+                  description: Type of managed database; used when Enable Database is on
+                  default: postgresql
+                  enum:
+                    - postgresql
+                    - mysql
+                    - mongodb
+                    - redis
+                    - cosmosdb
+                  enumNames:
+                    - PostgreSQL (Flexible Server)
+                    - MySQL (Flexible Server)
+                    - MongoDB (Cosmos DB for MongoDB)
+                    - Redis (Azure Managed Redis)
+                    - Cosmos DB (NoSQL)
+            - properties:
+                cloud_provider:
+                  enum:
+                    - gcp
+                gcp_region:
+                  title: Google Cloud Region
+                  type: string
+                  description: Region of the stack
+                  default: us-central1
+                database_type:
+                  title: Database Type
+                  type: string
+                  description: Type of managed database; used when Enable Database is on
+                  default: postgresql
+                  enum:
+                    - postgresql
+                    - mysql
+                    - redis
+                  enumNames:
+                    - PostgreSQL (Cloud SQL)
+                    - MySQL (Cloud SQL)
+                    - Redis (Memorystore)
+            - properties:
+                cloud_provider:
+                  enum:
+                    - multi-cloud
+                region:
+                  title: AWS Region
+                  type: string
+                  description: Region of the AWS part of the stack
+                  default: us-east-1
+                azure_location:
+                  title: Azure Location
+                  type: string
+                  description: Location of the Azure part of the stack
+                  default: eastus2
+                gcp_region:
+                  title: Google Cloud Region
+                  type: string
+                  description: Region of the Google Cloud part of the stack
+                  default: us-central1
+                database_type:
+                  title: Database Type
+                  type: string
+                  description: Type of managed database; used when Enable Database is on
+                  default: postgresql
+                  enum:
+                    - postgresql
+                    - mysql
+                    - redis
+                  enumNames:
+                    - PostgreSQL
+                    - MySQL
+                    - Redis
     - title: Compute & Container Services
       properties:
         enable_kubernetes:
@@ -144,12 +234,15 @@ spec:
           title: Kubernetes Version
           type: string
           description: Kubernetes version for the cluster
-          default: '1.28'
+          default: default
           enum:
-            - '1.26'
-            - '1.27'
-            - '1.28'
-            - '1.29'
+            - default
+            - '1.35'
+            - '1.36'
+          enumNames:
+            - Current default of the cloud
+            - '1.35'
+            - '1.36'
         node_instance_type:
           title: Node Instance Type
           type: string
@@ -168,25 +261,26 @@ spec:
         enable_autoscaling:
           title: Enable Auto Scaling
           type: boolean
-          description: Enable cluster auto-scaling
+          description: Enable cluster auto-scaling between the minimum and maximum number of nodes; when off the cluster keeps the minimum
           default: true
         min_nodes:
           title: Minimum Nodes
           type: integer
           description: Minimum number of nodes
           default: 2
+          minimum: 1
         max_nodes:
           title: Maximum Nodes
           type: integer
           description: Maximum number of nodes
           default: 10
-
+          minimum: 1
     - title: Security & Compliance
       properties:
         enable_security_group_rules:
           title: Enable Security Groups/NSGs
           type: boolean
-          description: Create security group rules
+          description: Create tiered security group rules (web, app, data). When off, data stores accept traffic from the whole network range.
           default: true
         enable_waf:
           title: Enable Web Application Firewall
@@ -211,7 +305,7 @@ spec:
         compliance_framework:
           title: Compliance Framework
           type: string
-          description: Target compliance framework
+          description: Applies the framework's baseline to the stack (minimum log retention, customer-managed keys, backups, deletion protection, flow logs) and tags every resource. It does not replace an audit.
           default: none
           enum:
             - none
@@ -227,7 +321,6 @@ spec:
             - HIPAA
             - SOX
             - GDPR
-
     - title: Monitoring & Observability
       properties:
         enable_monitoring:
@@ -238,7 +331,7 @@ spec:
         monitoring_solution:
           title: Monitoring Solution
           type: string
-          description: Monitoring platform
+          description: Monitoring platform. The cloud's own logging is always set up; the other choices add a managed Prometheus and Grafana, an Elastic Cloud deployment, or connect the cloud account to Datadog or New Relic.
           default: native
           enum:
             - native
@@ -248,8 +341,8 @@ spec:
             - new-relic
           enumNames:
             - Native Cloud Monitoring
-            - Prometheus + Grafana
-            - Elastic Stack (ELK)
+            - Prometheus + Grafana (managed)
+            - Elastic Stack (Elastic Cloud)
             - Datadog
             - New Relic
         enable_alerting:
@@ -260,17 +353,17 @@ spec:
         log_retention_days:
           title: Log Retention (Days)
           type: integer
-          description: Number of days to retain logs
+          description: Number of days to retain logs; a compliance framework can raise it
           default: 30
           enum: [7, 30, 90, 365]
-
     - title: Environment & Deployment
       properties:
         environments:
           title: Environments to Create
           type: array
-          description: Target environments
+          description: Target environments; each gets its own settings file, state and pipeline stage
           default: ['staging', 'production']
+          minItems: 1
           items:
             type: string
             enum: ['development', 'staging', 'production']
@@ -289,27 +382,26 @@ spec:
         terraform_version:
           title: Terraform Version Constraint
           type: string
-          description: Terraform version requirement
-          default: '>= 1.5'
+          description: Terraform version requirement. The modules and their tests need at least 1.10.
+          default: '>= 1.10'
           enum:
-            - '>= 1.0'
-            - '>= 1.3'
-            - '>= 1.5'
-            - '>= 1.6'
-
+            - '>= 1.10'
+            - '>= 1.12'
+            - '>= 1.14'
   steps:
     - id: fetch
       name: Fetch Infrastructure Template
       action: fetch:template
       input:
         url: ./skeleton
-        templateFileExtension: '.j2'
-        cookiecutterCompat: false
         values:
           name: ${{ parameters.name }}
           description: ${{ parameters.description }}
           owner: ${{ parameters.owner }}
           cloud_provider: ${{ parameters.cloud_provider }}
+          region: ${{ parameters.region }}
+          azure_location: ${{ parameters.azure_location }}
+          gcp_region: ${{ parameters.gcp_region }}
           infrastructure_type: ${{ parameters.infrastructure_type }}
           enable_networking: ${{ parameters.enable_networking }}
           enable_database: ${{ parameters.enable_database }}
@@ -338,6 +430,75 @@ spec:
           terraform_version: ${{ parameters.terraform_version }}
           destination: ${{ parameters.repoUrl | parseRepoUrl }}
 
+    # The skeleton carries the modules of every provider, every third-party
+    # monitoring integration and every environment; only the chosen ones stay.
+    - id: remove-aws
+      name: Remove AWS Modules
+      if: ${{ parameters.cloud_provider != 'aws' and parameters.cloud_provider != 'multi-cloud' }}
+      action: fs:delete
+      input:
+        files:
+          - modules/aws
+          - modules/integrations/*-aws/**
+    - id: remove-azure
+      name: Remove Azure Modules
+      if: ${{ parameters.cloud_provider != 'azure' and parameters.cloud_provider != 'multi-cloud' }}
+      action: fs:delete
+      input:
+        files:
+          - modules/azure
+          - modules/integrations/*-azure/**
+    - id: remove-gcp
+      name: Remove Google Cloud Modules
+      if: ${{ parameters.cloud_provider != 'gcp' and parameters.cloud_provider != 'multi-cloud' }}
+      action: fs:delete
+      input:
+        files:
+          - modules/gcp
+          - modules/integrations/*-gcp/**
+    - id: remove-datadog
+      name: Remove Datadog Integration
+      if: ${{ parameters.monitoring_solution != 'datadog' }}
+      action: fs:delete
+      input:
+        files:
+          - modules/integrations/datadog-*/**
+    - id: remove-newrelic
+      name: Remove New Relic Integration
+      if: ${{ parameters.monitoring_solution != 'new-relic' }}
+      action: fs:delete
+      input:
+        files:
+          - modules/integrations/newrelic-*/**
+    - id: remove-elastic
+      name: Remove Elastic Integration
+      if: ${{ parameters.monitoring_solution != 'elastic-stack' }}
+      action: fs:delete
+      input:
+        files:
+          - modules/integrations/elastic
+    - id: remove-development
+      name: Remove Development Environment
+      if: ${{ not ('development' in parameters.environments) }}
+      action: fs:delete
+      input:
+        files:
+          - environments/development.tfvars
+    - id: remove-staging
+      name: Remove Staging Environment
+      if: ${{ not ('staging' in parameters.environments) }}
+      action: fs:delete
+      input:
+        files:
+          - environments/staging.tfvars
+    - id: remove-production
+      name: Remove Production Environment
+      if: ${{ not ('production' in parameters.environments) }}
+      action: fs:delete
+      input:
+        files:
+          - environments/production.tfvars
+
     - id: publish
       name: Publish to Repository
       action: publish:github
@@ -346,8 +507,6 @@ spec:
         repoUrl: ${{ parameters.repoUrl }}
         defaultBranch: main
         gitCommitMessage: 'Initial infrastructure setup from DevOps Platform'
-        gitAuthorName: 'DevOps Platform'
-        gitAuthorEmail: 'devops@company.com'
 
     - id: register
       name: Register in Software Catalog

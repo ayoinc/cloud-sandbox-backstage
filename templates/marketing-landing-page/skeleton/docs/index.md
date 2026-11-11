@@ -523,8 +523,8 @@ The template includes essential SEO elements:
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="${{ values.description }}">
-  <title>${{ values.companyName }} - ${{ values.tagline }}</title>
+  <meta name="description" content="${{ values.description | escape }}">
+  <title>${{ values.companyName | escape }} - ${{ values.tagline | escape }}</title>
 </head>
 ```
 
@@ -537,21 +537,21 @@ Add these meta tags for better SEO:
   <!-- Basic Meta -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="${{ values.description }}">
+  <meta name="description" content="${{ values.description | escape }}">
   <meta name="keywords" content="keyword1, keyword2, keyword3">
-  <meta name="author" content="${{ values.companyName }}">
+  <meta name="author" content="${{ values.companyName | escape }}">
   
   <!-- Open Graph (Facebook, LinkedIn) -->
-  <meta property="og:title" content="${{ values.companyName }} - ${{ values.tagline }}">
-  <meta property="og:description" content="${{ values.description }}">
+  <meta property="og:title" content="${{ values.companyName | escape }} - ${{ values.tagline | escape }}">
+  <meta property="og:description" content="${{ values.description | escape }}">
   <meta property="og:image" content="https://example.com/images/og-image.jpg">
   <meta property="og:url" content="https://example.com">
   <meta property="og:type" content="website">
   
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="${{ values.companyName }}">
-  <meta name="twitter:description" content="${{ values.description }}">
+  <meta name="twitter:title" content="${{ values.companyName | escape }}">
+  <meta name="twitter:description" content="${{ values.description | escape }}">
   <meta name="twitter:image" content="https://example.com/images/twitter-card.jpg">
   
   <!-- Canonical URL -->
@@ -561,7 +561,7 @@ Add these meta tags for better SEO:
   <link rel="icon" type="image/png" href="/images/favicon.png">
   <link rel="apple-touch-icon" href="/images/apple-touch-icon.png">
   
-  <title>${{ values.companyName }} - ${{ values.tagline }}</title>
+  <title>${{ values.companyName | escape }} - ${{ values.tagline | escape }}</title>
 </head>
 ```
 
@@ -574,10 +574,10 @@ Add JSON-LD for rich search results:
 {
   "@context": "https://schema.org",
   "@type": "Organization",
-  "name": "${{ values.companyName }}",
+  "name": ${{ values.companyName | dump }},
   "url": "https://example.com",
   "logo": "https://example.com/images/logo.png",
-  "description": "${{ values.description }}",
+  "description": ${{ values.description | dump }},
   "sameAs": [
     "https://twitter.com/yourcompany",
     "https://linkedin.com/company/yourcompany"

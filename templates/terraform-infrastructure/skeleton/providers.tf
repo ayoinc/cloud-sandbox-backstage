@@ -1,67 +1,72 @@
-# Provider Configurations for ${{ values.name }} Infrastructure
-
-{% if values.cloud_provider == 'aws' or values.cloud_provider == 'multi-cloud' %}
+{%- set aws = values.cloud_provider == 'aws' or values.cloud_provider == 'multi-cloud' -%}
+{%- set azure = values.cloud_provider == 'azure' or values.cloud_provider == 'multi-cloud' -%}
+{%- set gcp = values.cloud_provider == 'gcp' or values.cloud_provider == 'multi-cloud' -%}
+{%- set datadog = values.monitoring_solution == 'datadog' -%}
+{%- set newrelic = values.monitoring_solution == 'new-relic' -%}
+{%- set elastic = values.monitoring_solution == 'elastic-stack' -%}
+{%- if aws -%}
 provider "aws" {
   region = var.aws_region
-  
+
   default_tags {
-    tags = local.common_tags
+    tags = local.tags
   }
 }
-{% endif %}
-
-{% if values.cloud_provider == 'azure' or values.cloud_provider == 'multi-cloud' %}
+{%- endif %}
+{%- if azure %}
+{% if aws %}
+{% endif -%}
+# The subscription and identity come from the ARM_* environment variables or
+# from `az login` together with ARM_SUBSCRIPTION_ID.
 provider "azurerm" {
   features {
-    resource_group {
-      prevent_deletion_if_contains_resources = false
+    # Storage accounts and vaults deny public network access, so the provider
+    # must not use their data plane.
+    storage {
+      data_plane_available = false
+    }
+
+    # Keys and secrets are created through deployments that cannot delete
+    # them again; the vault's removal takes care of them.
+    template_deployment {
+      delete_nested_items_during_deletion = false
     }
   }
 }
-{% endif %}
+{%- if datadog or newrelic %}
 
-{% if values.cloud_provider == 'gcp' or values.cloud_provider == 'multi-cloud' %}
+provider "azuread" {}
+{%- endif %}
+{%- endif %}
+{%- if gcp %}
+{% if aws or azure %}
+{% endif -%}
 provider "google" {
   project = var.gcp_project_id
   region  = var.gcp_region
 }
-{% endif %}
 
-{% if values.enable_kubernetes %}
-# Kubernetes provider configuration (configured after cluster creation)
-provider "kubernetes" {
-  {% if values.cloud_provider == 'aws' %}
-  host                   = module.aws_infrastructure[0].eks_cluster_endpoint
-  cluster_ca_certificate = base64decode(module.aws_infrastructure[0].eks_cluster_ca_certificate)
-  token                  = data.aws_eks_cluster_auth.cluster[0].token
-  {% elif values.cloud_provider == 'azure' %}
-  host                   = module.azure_infrastructure[0].kube_config.0.host
-  client_certificate     = base64decode(module.azure_infrastructure[0].kube_config.0.client_certificate)
-  client_key             = base64decode(module.azure_infrastructure[0].kube_config.0.client_key)
-  cluster_ca_certificate = base64decode(module.azure_infrastructure[0].kube_config.0.cluster_ca_certificate)
-  {% elif values.cloud_provider == 'gcp' %}
-  host                   = "https://${module.gcp_infrastructure[0].endpoint}"
-  token                  = data.google_client_config.default.access_token
-  cluster_ca_certificate = base64decode(module.gcp_infrastructure[0].ca_certificate)
-  {% endif %}
+provider "google-beta" {
+  project = var.gcp_project_id
+  region  = var.gcp_region
 }
+{%- endif %}
+{%- if datadog %}
 
-provider "helm" {
-  kubernetes {
-    {% if values.cloud_provider == 'aws' %}
-    host                   = module.aws_infrastructure[0].eks_cluster_endpoint
-    cluster_ca_certificate = base64decode(module.aws_infrastructure[0].eks_cluster_ca_certificate)
-    token                  = data.aws_eks_cluster_auth.cluster[0].token
-    {% elif values.cloud_provider == 'azure' %}
-    host                   = module.azure_infrastructure[0].kube_config.0.host
-    client_certificate     = base64decode(module.azure_infrastructure[0].kube_config.0.client_certificate)
-    client_key             = base64decode(module.azure_infrastructure[0].kube_config.0.client_key)
-    cluster_ca_certificate = base64decode(module.azure_infrastructure[0].kube_config.0.cluster_ca_certificate)
-    {% elif values.cloud_provider == 'gcp' %}
-    host                   = "https://${module.gcp_infrastructure[0].endpoint}"
-    token                  = data.google_client_config.default.access_token
-    cluster_ca_certificate = base64decode(module.gcp_infrastructure[0].ca_certificate)
-    {% endif %}
-  }
+# The API and application keys come from DD_API_KEY and DD_APP_KEY.
+provider "datadog" {
+  api_url = "https://api.${var.datadog_site}/"
 }
-{% endif %}
+{%- endif %}
+{%- if newrelic %}
+
+# The API key and account come from NEW_RELIC_API_KEY and NEW_RELIC_ACCOUNT_ID.
+provider "newrelic" {
+  region = var.newrelic_region
+}
+{%- endif %}
+{%- if elastic %}
+
+# The API key comes from EC_API_KEY.
+provider "ec" {}
+{%- endif %}

@@ -1,12 +1,8 @@
-site_name: "${{ values.name }} Infrastructure"
-site_description: "Technical documentation for ${{ values.name }} infrastructure"
-docs_dir: docs
-repo_url: https://github.com/${{ values.owner }}/${{ values.name }}
+site_name: ${{ values.name | dump }}
+site_description: ${{ values.description | dump }}
 
 nav:
   - Home: index.md
-  - Architecture: architecture.md
-  - Operations: operations.md
 
 plugins:
   - techdocs-core
