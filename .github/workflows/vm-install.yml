@@ -70,4 +70,7 @@ jobs:
 
       - name: Show the service log
         if: always()
-        run: sudo journalctl -u portal --no-pager | tail -n 80
+        run: |
+          # Without the access log, which a waiting installer fills.
+          sudo journalctl -u portal --no-pager --output cat |
+            grep -v '"type":"incomingRequest"' | cut -c1-600 | tail -n 200
