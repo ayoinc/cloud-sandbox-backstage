@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
-import { inputError, notFoundError } from './errors';
+import { isUserToken } from './auth';
+import { authenticationError, inputError, notFoundError } from './errors';
 import type { AppEnv } from './types';
 
 /**
@@ -120,3 +121,28 @@ notificationRoutes.get('/notifications', c =>
   c.json({ totalCount: 0, notifications: [] }),
 );
 notificationRoutes.get('/topics', c => c.json({ topics: [] }));
+
+export const signalRoutes = new Hono<AppEnv>();
+
+// The browser opens this socket to hear about notifications as they happen.
+// None are produced here, so the socket is accepted and stays quiet; refusing
+// it makes the browser retry for as long as the page is open. A WebSocket
+// request cannot carry an Authorization header: the client offers its token
+// as the subprotocol and expects the same one back.
+signalRoutes.get('/', async c => {
+  const token = c.req.header('sec-websocket-protocol');
+  if (
+    c.req.header('upgrade')?.toLowerCase() !== 'websocket' ||
+    !token ||
+    !(await isUserToken(c.env, token))
+  ) {
+    throw authenticationError('Missing credentials');
+  }
+  const { 0: client, 1: server } = new WebSocketPair();
+  server.accept();
+  return new Response(null, {
+    status: 101,
+    webSocket: client,
+    headers: { 'sec-websocket-protocol': token },
+  });
+});

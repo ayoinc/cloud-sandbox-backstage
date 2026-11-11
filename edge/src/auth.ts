@@ -208,6 +208,16 @@ export async function signInFromHeader(
   c.set('tokenExpiresAt', Number(claims.exp));
 }
 
+/** Whether `token` is a user token this portal issued and has not expired. */
+export async function isUserToken(env: Env, token: string): Promise<boolean> {
+  const claims = await verifyToken(
+    env.SESSION_SECRET,
+    USER_TOKEN_AUDIENCE,
+    token,
+  );
+  return typeof claims?.sub === 'string';
+}
+
 /** Rejects requests without a valid `Authorization: Bearer` user token. */
 export const requireUser: MiddlewareHandler<AppEnv> = async (c, next) => {
   await signInFromHeader(c);

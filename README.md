@@ -13,7 +13,7 @@ A fully-featured [Backstage](https://backstage.io) developer portal configured f
 
 ### Custom Plugins
 
-- **Branding Settings** - Admin-configurable organization branding (logo, colors, name)
+- **Branding Settings** - The portal ships with no organisation's name, logo or colours. An administrator sets the name, uploads a logo and picks a theme preset or primary colour at `/admin/branding`; the sidebar, sign-in page and documentation follow at once
 - **Ownership Management** - Orphan detection and ownership reassignment for catalog entities
 - **GitHub Team Sync** - Bi-directional synchronization between Backstage groups and GitHub teams
 
@@ -309,17 +309,22 @@ needs about 850 MB of memory against a 128 MB limit), so the work that needs it
 runs in GitHub Actions, on a real Backstage backend, and the results are pushed
 to the Worker:
 
-| In the portal                                                 | Where the work happens                                 |
-| ------------------------------------------------------------- | ------------------------------------------------------ |
-| Catalog browsing, entity pages, relations graph, API explorer | `portal-sync` processes the catalog, the Worker reads  |
-| TechDocs pages                                                | `portal-sync` builds them with mkdocs, R2 stores them  |
-| Search over catalog entities and documentation                | `portal-sync` builds the index, the Worker searches it |
-| Creating from templates                                       | `portal-scaffold` runs the template steps              |
-| CI/CD tab (GitHub Actions runs of a component)                | The Worker reads them from GitHub                      |
-| GitHub and Google sign-in, user settings (stars, theme)       | The Worker                                             |
+| In the portal                                                   | Where the work happens                                 |
+| --------------------------------------------------------------- | ------------------------------------------------------ |
+| Catalog browsing, entity pages, relations graph, API explorer   | `portal-sync` processes the catalog, the Worker reads  |
+| TechDocs pages                                                  | `portal-sync` builds them with mkdocs, R2 stores them  |
+| Search over catalog entities and documentation                  | `portal-sync` builds the index, the Worker searches it |
+| Creating from templates                                         | `portal-scaffold` runs the template steps              |
+| CI/CD tab (GitHub Actions runs of a component)                  | The Worker reads them from GitHub                      |
+| GitHub and Google sign-in, user settings (stars, theme)         | The Worker                                             |
+| Branding (`/admin/branding`) and ownership (`/admin/ownership`) | The Worker; settings, logos and admins are kept in D1  |
 
-Not available: live notifications, catalog import, and the branding and
-ownership admin pages.
+The first person to sign in becomes the portal administrator, unless
+`PORTAL_ADMINS` names the administrators. More can be added at
+`/admin/branding`.
+
+Not available yet: live notifications, catalog import and the template
+editor.
 
 ### The pipelines
 

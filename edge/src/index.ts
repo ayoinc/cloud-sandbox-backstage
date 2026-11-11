@@ -12,6 +12,7 @@ import {
   notificationRoutes,
   permissionRoutes,
   userSettingsRoutes,
+  signalRoutes,
 } from './portal';
 import { scaffolderRoutes } from './scaffolder';
 import { searchRoutes } from './search';
@@ -42,6 +43,9 @@ app.route('/api/branding-settings', publicBrandingRoutes);
 app.route('/api/pipeline', pipelineRoutes);
 app.route(GITHUB_API_PATH, githubRoutes);
 app.route('/api/techdocs', techdocsRoutes);
+
+// A WebSocket: its token arrives as the subprotocol, not in a header.
+app.route('/api/signals', signalRoutes);
 
 app.use('/api/*', requireUser);
 app.route('/api/catalog', catalogRoutes);
