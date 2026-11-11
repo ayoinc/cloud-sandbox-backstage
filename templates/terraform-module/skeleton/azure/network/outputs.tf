@@ -2,6 +2,14 @@
 # Azure Network Module - Outputs
 # -----------------------------------------------------------------------------
 
+locals {
+  tier_subnets = {
+    for tier in local.tiers : tier => [
+      for i in range(var.subnet_count) : azurerm_subnet.main["${tier}-${i + 1}"]
+    ]
+  }
+}
+
 # Resource Group
 output "resource_group_name" {
   description = "Name of the resource group"
@@ -26,55 +34,77 @@ output "vnet_name" {
 
 output "vnet_cidr" {
   description = "Virtual Network CIDR block"
-  value       = azurerm_virtual_network.main.address_space[0]
+  value       = var.vnet_cidr
+}
+
+# First subnet of every tier, for callers that need a single subnet
+output "subnet_ids" {
+  description = "Map of tier (public, private, database, kubernetes) to the ID of its first subnet"
+  value       = { for tier in local.tiers : tier => local.tier_subnets[tier][0].id }
 }
 
 # Public Subnets
 output "public_subnet_ids" {
   description = "List of public subnet IDs"
-  value       = azurerm_subnet.public[*].id
+  value       = local.tier_subnets["public"][*].id
 }
 
 output "public_subnet_names" {
   description = "List of public subnet names"
-  value       = azurerm_subnet.public[*].name
+  value       = local.tier_subnets["public"][*].name
 }
 
 output "public_subnet_cidrs" {
   description = "List of public subnet CIDR blocks"
-  value       = [for subnet in azurerm_subnet.public : subnet.address_prefixes[0]]
+  value       = local.subnet_cidrs["public"]
 }
 
 # Private Subnets
 output "private_subnet_ids" {
   description = "List of private subnet IDs"
-  value       = azurerm_subnet.private[*].id
+  value       = local.tier_subnets["private"][*].id
 }
 
 output "private_subnet_names" {
   description = "List of private subnet names"
-  value       = azurerm_subnet.private[*].name
+  value       = local.tier_subnets["private"][*].name
 }
 
 output "private_subnet_cidrs" {
   description = "List of private subnet CIDR blocks"
-  value       = [for subnet in azurerm_subnet.private : subnet.address_prefixes[0]]
+  value       = local.subnet_cidrs["private"]
 }
 
 # Database Subnets
 output "database_subnet_ids" {
-  description = "List of database subnet IDs"
-  value       = azurerm_subnet.database[*].id
+  description = "List of database subnet IDs (delegated to PostgreSQL Flexible Server)"
+  value       = local.tier_subnets["database"][*].id
 }
 
 output "database_subnet_names" {
   description = "List of database subnet names"
-  value       = azurerm_subnet.database[*].name
+  value       = local.tier_subnets["database"][*].name
 }
 
 output "database_subnet_cidrs" {
   description = "List of database subnet CIDR blocks"
-  value       = [for subnet in azurerm_subnet.database : subnet.address_prefixes[0]]
+  value       = local.subnet_cidrs["database"]
+}
+
+# Kubernetes Subnets
+output "kubernetes_subnet_ids" {
+  description = "List of kubernetes subnet IDs"
+  value       = local.tier_subnets["kubernetes"][*].id
+}
+
+output "kubernetes_subnet_names" {
+  description = "List of kubernetes subnet names"
+  value       = local.tier_subnets["kubernetes"][*].name
+}
+
+output "kubernetes_subnet_cidrs" {
+  description = "List of kubernetes subnet CIDR blocks"
+  value       = local.subnet_cidrs["kubernetes"]
 }
 
 # NAT Gateway
@@ -100,35 +130,23 @@ output "nat_public_ip_id" {
 
 # Network Security Groups
 output "nsg_ids" {
-  description = "Map of NSG IDs by type"
-  value = {
-    public   = azurerm_network_security_group.public.id
-    private  = azurerm_network_security_group.private.id
-    database = azurerm_network_security_group.database.id
-  }
+  description = "Map of NSG IDs by tier"
+  value       = { for tier, nsg in azurerm_network_security_group.main : tier => nsg.id }
 }
 
 output "nsg_names" {
-  description = "Map of NSG names by type"
-  value = {
-    public   = azurerm_network_security_group.public.name
-    private  = azurerm_network_security_group.private.name
-    database = azurerm_network_security_group.database.name
-  }
+  description = "Map of NSG names by tier"
+  value       = { for tier, nsg in azurerm_network_security_group.main : tier => nsg.name }
 }
 
 # Route Tables
 output "route_table_ids" {
-  description = "Map of route table IDs by type"
-  value = {
-    public   = azurerm_route_table.public.id
-    private  = azurerm_route_table.private.id
-    database = azurerm_route_table.database.id
-  }
+  description = "Map of route table IDs by tier (the kubernetes tier has none)"
+  value       = local.route_table_ids
 }
 
 output "route_table_names" {
-  description = "Map of route table names by type"
+  description = "Map of route table names by tier (the kubernetes tier has none)"
   value = {
     public   = azurerm_route_table.public.name
     private  = azurerm_route_table.private.name
@@ -136,24 +154,11 @@ output "route_table_names" {
   }
 }
 
-# Computed values for downstream modules
 output "subnet_map" {
-  description = "Map of all subnets with their IDs and CIDRs"
+  description = "Map of tier to its subnets, each keyed by subnet name with its ID and CIDR"
   value = {
-    public = {
-      for idx, subnet in azurerm_subnet.public : subnet.name => {
-        id   = subnet.id
-        cidr = subnet.address_prefixes[0]
-      }
-    }
-    private = {
-      for idx, subnet in azurerm_subnet.private : subnet.name => {
-        id   = subnet.id
-        cidr = subnet.address_prefixes[0]
-      }
-    }
-    database = {
-      for idx, subnet in azurerm_subnet.database : subnet.name => {
+    for tier in local.tiers : tier => {
+      for subnet in local.tier_subnets[tier] : subnet.name => {
         id   = subnet.id
         cidr = subnet.address_prefixes[0]
       }

@@ -1,125 +1,103 @@
-# -----------------------------------------------------------------------------
-# GCP Database Module - Main Resources
-# Cloud SQL Instance with Private IP and Optional Memorystore Redis
-# -----------------------------------------------------------------------------
-
-terraform {
-  required_version = ">= 1.5"
-  required_providers {
-    google = {
-      source  = "hashicorp/google"
-      version = ">= 5.0"
-    }
-    random = {
-      source  = "hashicorp/random"
-      version = ">= 3.0"
-    }
-  }
-}
-
-# -----------------------------------------------------------------------------
-# Locals
-# -----------------------------------------------------------------------------
-
 locals {
-  name_prefix   = "${var.project_id}-${var.environment}"
-  instance_name = "${local.name_prefix}-sql-${random_id.instance_suffix.hex}"
+  # Resource names are limited to 63 characters and service account IDs to 30,
+  # so the project name is shortened before the environment is appended.
+  name_prefix = "${trimsuffix(substr(var.project_name, 0, 16), "-")}-${var.environment}"
 
-  # Determine database port based on version
-  db_port = startswith(var.database_version, "POSTGRES") ? 5432 : 3306
-
-  # Determine database flags based on version
-  is_postgres = startswith(var.database_version, "POSTGRES")
-  is_mysql    = startswith(var.database_version, "MYSQL")
-
-  default_labels = {
+  labels = merge(var.labels, {
     environment = var.environment
     managed_by  = "terraform"
-    module      = "database"
+  })
+
+  # A null network selects the project's default network.
+  network_id = coalesce(var.network_id, "projects/${var.project_id}/global/networks/default")
+
+  # Without an existing private service access range the module reserves and
+  # peers its own.
+  create_private_service_access = var.private_ip_range == null
+  private_ip_range              = local.create_private_service_access ? google_compute_global_address.private_service_access[0].name : var.private_ip_range
+
+  is_postgres = startswith(var.database_version, "POSTGRES_")
+
+  # Engine-specific hardening flags. Flags passed in database_flags win.
+  default_database_flags = local.is_postgres ? {
+    log_checkpoints    = "on"
+    log_connections    = "on"
+    log_disconnections = "on"
+    log_lock_waits     = "on"
+    log_temp_files     = "0"
+    } : {
+    local_infile = "off"
   }
-
-  labels = merge(local.default_labels, var.labels)
+  database_flags = merge(local.default_database_flags, var.database_flags)
 }
 
-# -----------------------------------------------------------------------------
-# Random Resources
-# -----------------------------------------------------------------------------
-
-resource "random_password" "database" {
-  length           = 32
-  special          = true
-  override_special = "!#$%&*()-_=+[]{}:?"
-  min_lower        = 4
-  min_upper        = 4
-  min_numeric      = 4
-  min_special      = 4
-}
-
-resource "random_id" "instance_suffix" {
+resource "random_id" "instance" {
   byte_length = 4
 }
 
 # -----------------------------------------------------------------------------
-# Private Service Access (VPC Peering for Private IP)
+# Private service access
 # -----------------------------------------------------------------------------
 
-resource "google_compute_global_address" "private_ip_range" {
-  count = var.enable_private_ip ? 1 : 0
+resource "google_compute_global_address" "private_service_access" {
+  count = local.create_private_service_access ? 1 : 0
 
-  name          = "${local.name_prefix}-sql-private-ip-range"
   project       = var.project_id
+  name          = "${local.name_prefix}-db-psa"
+  description   = "Address range reserved for Cloud SQL and Memorystore"
   purpose       = "VPC_PEERING"
   address_type  = "INTERNAL"
   prefix_length = var.private_ip_prefix_length
-  network       = var.network_self_link
-
-  labels = local.labels
+  network       = local.network_id
+  labels        = local.labels
 }
 
-resource "google_service_networking_connection" "private_vpc_connection" {
-  count = var.enable_private_ip ? 1 : 0
+resource "google_service_networking_connection" "private_service_access" {
+  count = local.create_private_service_access ? 1 : 0
 
-  network                 = var.network_self_link
+  network                 = local.network_id
   service                 = "servicenetworking.googleapis.com"
-  reserved_peering_ranges = [google_compute_global_address.private_ip_range[0].name]
-
-  deletion_policy = "ABANDON"
+  reserved_peering_ranges = [google_compute_global_address.private_service_access[0].name]
 }
 
 # -----------------------------------------------------------------------------
-# Cloud SQL Instance
+# Cloud SQL
 # -----------------------------------------------------------------------------
 
 resource "google_sql_database_instance" "main" {
-  name             = local.instance_name
-  project          = var.project_id
-  region           = var.region
-  database_version = var.database_version
-
-  # Deletion protection
+  project = var.project_id
+  region  = var.region
+  # Instance names stay reserved for a week after deletion, so the suffix
+  # allows an immediate re-creation.
+  name                = "${local.name_prefix}-${random_id.instance.hex}"
+  database_version    = var.database_version
+  encryption_key_name = var.kms_key_id
   deletion_protection = var.deletion_protection
 
   settings {
-    tier              = var.tier
-    edition           = var.edition
-    availability_type = var.availability_type
-    disk_size         = var.disk_size
-    disk_type         = var.disk_type
-    disk_autoresize   = var.disk_autoresize
+    tier                        = var.tier
+    edition                     = var.edition
+    availability_type           = var.high_availability ? "REGIONAL" : "ZONAL"
+    disk_type                   = "PD_SSD"
+    disk_size                   = var.disk_size_gb
+    disk_autoresize             = true
+    deletion_protection_enabled = var.deletion_protection
+    user_labels                 = local.labels
 
-    # User labels
-    user_labels = local.labels
+    ip_configuration {
+      ipv4_enabled                                  = false
+      private_network                               = local.network_id
+      allocated_ip_range                            = local.private_ip_range
+      enable_private_path_for_google_cloud_services = true
+      ssl_mode                                      = "ENCRYPTED_ONLY"
+    }
 
-    # Activation policy
-    activation_policy = var.activation_policy
-
-    # Backup configuration
     backup_configuration {
       enabled                        = var.backup_enabled
       start_time                     = var.backup_start_time
-      location                       = var.backup_location
-      point_in_time_recovery_enabled = var.point_in_time_recovery_enabled
-      transaction_log_retention_days = var.transaction_log_retention_days
+      point_in_time_recovery_enabled = local.is_postgres ? var.backup_enabled : null
+      binary_log_enabled             = local.is_postgres ? null : var.backup_enabled
+      transaction_log_retention_days = var.backup_enabled ? 7 : null
 
       backup_retention_settings {
         retained_backups = var.retained_backups
@@ -127,228 +105,133 @@ resource "google_sql_database_instance" "main" {
       }
     }
 
-    # IP configuration
-    ip_configuration {
-      ipv4_enabled                                  = var.enable_public_ip
-      private_network                               = var.enable_private_ip ? var.network_self_link : null
-      ssl_mode                                      = var.require_ssl ? "ENCRYPTED_ONLY" : "ALLOW_UNENCRYPTED_AND_ENCRYPTED"
-      enable_private_path_for_google_cloud_services = var.enable_private_path_for_google_cloud_services
-
-      dynamic "authorized_networks" {
-        for_each = var.authorized_networks
-        content {
-          name  = authorized_networks.value.name
-          value = authorized_networks.value.cidr
-        }
-      }
-    }
-
-    # Maintenance window
     maintenance_window {
       day          = var.maintenance_window_day
       hour         = var.maintenance_window_hour
-      update_track = var.maintenance_window_update_track
+      update_track = "stable"
     }
 
-    # Query insights (Performance insights)
     insights_config {
       query_insights_enabled  = var.query_insights_enabled
-      query_string_length     = var.query_string_length
-      record_application_tags = var.record_application_tags
-      record_client_address   = var.record_client_address
-      query_plans_per_minute  = var.query_plans_per_minute
+      query_string_length     = 1024
+      record_application_tags = true
+      record_client_address   = false
     }
 
-    # Database flags
     dynamic "database_flags" {
-      for_each = var.database_flags
-      content {
-        name  = database_flags.value.name
-        value = database_flags.value.value
-      }
-    }
+      for_each = local.database_flags
 
-    # Deny maintenance period (optional)
-    dynamic "deny_maintenance_period" {
-      for_each = var.deny_maintenance_period != null ? [var.deny_maintenance_period] : []
       content {
-        start_date = deny_maintenance_period.value.start_date
-        end_date   = deny_maintenance_period.value.end_date
-        time       = deny_maintenance_period.value.time
+        name  = database_flags.key
+        value = database_flags.value
       }
     }
   }
 
-  depends_on = [
-    google_service_networking_connection.private_vpc_connection
-  ]
-
-  lifecycle {
-    ignore_changes = [
-      settings[0].disk_size,
-    ]
-  }
+  depends_on = [google_service_networking_connection.private_service_access]
 }
-
-# -----------------------------------------------------------------------------
-# Cloud SQL Database
-# -----------------------------------------------------------------------------
 
 resource "google_sql_database" "main" {
-  name      = var.database_name
-  project   = var.project_id
-  instance  = google_sql_database_instance.main.name
-  charset   = local.is_postgres ? "UTF8" : "utf8mb4"
-  collation = local.is_postgres ? "en_US.UTF8" : "utf8mb4_general_ci"
-
-  deletion_policy = var.database_deletion_policy
-
-  depends_on = [google_sql_database_instance.main]
-}
-
-# -----------------------------------------------------------------------------
-# Cloud SQL User
-# -----------------------------------------------------------------------------
-
-resource "google_sql_user" "main" {
-  name     = var.user_name
   project  = var.project_id
   instance = google_sql_database_instance.main.name
+  name     = var.database_name
+}
+
+resource "random_password" "database" {
+  length  = 32
+  special = false
+}
+
+resource "google_sql_user" "main" {
+  project  = var.project_id
+  instance = google_sql_database_instance.main.name
+  name     = var.user_name
   password = random_password.database.result
 
-  # For PostgreSQL, specify the type
-  type = local.is_postgres ? "BUILT_IN" : null
-
-  deletion_policy = var.user_deletion_policy
-
-  depends_on = [google_sql_database_instance.main]
+  # PostgreSQL roles that own objects cannot be dropped, so the user is left
+  # in place and disappears with the instance.
+  deletion_policy = local.is_postgres ? "ABANDON" : null
 }
 
-# -----------------------------------------------------------------------------
-# Secret Manager - Store Database Credentials
-# -----------------------------------------------------------------------------
-
-resource "google_secret_manager_secret" "db_credentials" {
-  secret_id = "${local.name_prefix}-db-credentials"
+resource "google_secret_manager_secret" "database" {
   project   = var.project_id
+  secret_id = "${local.name_prefix}-db-credentials"
+  labels    = local.labels
 
   replication {
-    auto {}
+    user_managed {
+      replicas {
+        location = var.region
+      }
+    }
   }
-
-  labels = local.labels
 }
 
-resource "google_secret_manager_secret_version" "db_credentials" {
-  secret = google_secret_manager_secret.db_credentials.id
-  secret_data = jsonencode({
-    username          = google_sql_user.main.name
-    password          = random_password.database.result
-    database          = google_sql_database.main.name
-    host              = var.enable_private_ip ? google_sql_database_instance.main.private_ip_address : google_sql_database_instance.main.public_ip_address
-    port              = local.db_port
-    connection_name   = google_sql_database_instance.main.connection_name
-    connection_string = local.is_postgres ? "postgresql://${google_sql_user.main.name}:${random_password.database.result}@${var.enable_private_ip ? google_sql_database_instance.main.private_ip_address : google_sql_database_instance.main.public_ip_address}:${local.db_port}/${google_sql_database.main.name}?sslmode=require" : "mysql://${google_sql_user.main.name}:${random_password.database.result}@${var.enable_private_ip ? google_sql_database_instance.main.private_ip_address : google_sql_database_instance.main.public_ip_address}:${local.db_port}/${google_sql_database.main.name}"
-  })
+resource "google_secret_manager_secret_version" "database" {
+  secret = google_secret_manager_secret.database.id
 
-  depends_on = [
-    google_sql_database_instance.main,
-    google_sql_database.main,
-    google_sql_user.main
-  ]
+  secret_data = jsonencode({
+    engine          = local.is_postgres ? "postgres" : "mysql"
+    host            = google_sql_database_instance.main.private_ip_address
+    port            = local.is_postgres ? 5432 : 3306
+    database        = google_sql_database.main.name
+    username        = google_sql_user.main.name
+    password        = random_password.database.result
+    connection_name = google_sql_database_instance.main.connection_name
+  })
 }
 
 # -----------------------------------------------------------------------------
-# Memorystore Redis (Optional)
+# Memorystore for Redis
 # -----------------------------------------------------------------------------
 
 resource "google_redis_instance" "main" {
   count = var.enable_redis ? 1 : 0
 
-  name           = "${local.name_prefix}-redis"
   project        = var.project_id
   region         = var.region
+  name           = "${local.name_prefix}-redis"
+  display_name   = "${var.project_name} ${var.environment} cache"
   tier           = var.redis_tier
   memory_size_gb = var.redis_memory_size_gb
   redis_version  = var.redis_version
+  labels         = local.labels
 
-  # Network configuration
-  authorized_network = var.network_self_link
-  connect_mode       = var.redis_connect_mode
+  authorized_network      = local.network_id
+  connect_mode            = "PRIVATE_SERVICE_ACCESS"
+  reserved_ip_range       = local.private_ip_range
+  auth_enabled            = true
+  transit_encryption_mode = "SERVER_AUTHENTICATION"
+  customer_managed_key    = var.kms_key_id
 
-  # Reserved IP range for Redis
-  reserved_ip_range = var.redis_reserved_ip_range
+  depends_on = [google_service_networking_connection.private_service_access]
+}
 
-  # Display name
-  display_name = "${local.name_prefix}-redis"
+resource "google_secret_manager_secret" "redis" {
+  count = var.enable_redis ? 1 : 0
 
-  # Redis configuration
-  redis_configs = var.redis_configs
+  project   = var.project_id
+  secret_id = "${local.name_prefix}-redis-credentials"
+  labels    = local.labels
 
-  # Auth
-  auth_enabled = var.redis_auth_enabled
-
-  # Transit encryption
-  transit_encryption_mode = var.redis_transit_encryption_mode
-
-  # Maintenance policy
-  dynamic "maintenance_policy" {
-    for_each = var.redis_maintenance_policy != null ? [var.redis_maintenance_policy] : []
-    content {
-      weekly_maintenance_window {
-        day = maintenance_policy.value.day
-        start_time {
-          hours   = maintenance_policy.value.start_hour
-          minutes = maintenance_policy.value.start_minute
-        }
+  replication {
+    user_managed {
+      replicas {
+        location = var.region
       }
     }
   }
-
-  # Persistence configuration (for Standard tier)
-  dynamic "persistence_config" {
-    for_each = var.redis_tier == "STANDARD_HA" && var.redis_persistence_mode != null ? [1] : []
-    content {
-      persistence_mode    = var.redis_persistence_mode
-      rdb_snapshot_period = var.redis_rdb_snapshot_period
-    }
-  }
-
-  labels = local.labels
-
-  lifecycle {
-    prevent_destroy = false
-  }
 }
 
-# -----------------------------------------------------------------------------
-# Secret Manager - Store Redis Credentials (if enabled)
-# -----------------------------------------------------------------------------
-
-resource "google_secret_manager_secret" "redis_credentials" {
+resource "google_secret_manager_secret_version" "redis" {
   count = var.enable_redis ? 1 : 0
 
-  secret_id = "${local.name_prefix}-redis-credentials"
-  project   = var.project_id
+  secret = google_secret_manager_secret.redis[0].id
 
-  replication {
-    auto {}
-  }
-
-  labels = local.labels
-}
-
-resource "google_secret_manager_secret_version" "redis_credentials" {
-  count = var.enable_redis ? 1 : 0
-
-  secret = google_secret_manager_secret.redis_credentials[0].id
   secret_data = jsonencode({
-    host                = google_redis_instance.main[0].host
-    port                = google_redis_instance.main[0].port
-    auth_string         = var.redis_auth_enabled ? google_redis_instance.main[0].auth_string : null
-    current_location_id = google_redis_instance.main[0].current_location_id
-    connection_string   = var.redis_auth_enabled ? "redis://:${google_redis_instance.main[0].auth_string}@${google_redis_instance.main[0].host}:${google_redis_instance.main[0].port}" : "redis://${google_redis_instance.main[0].host}:${google_redis_instance.main[0].port}"
+    host        = google_redis_instance.main[0].host
+    port        = google_redis_instance.main[0].port
+    auth_string = google_redis_instance.main[0].auth_string
+    tls         = true
   })
-
-  depends_on = [google_redis_instance.main]
 }

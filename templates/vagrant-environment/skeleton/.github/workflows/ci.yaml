@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  vagrantfile:
+    name: Validate Vagrantfile
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Check Ruby syntax
+        run: ruby -wc Vagrantfile
+
+      - name: Install Vagrant
+        run: |
+          wget -qO- https://apt.releases.hashicorp.com/gpg |
+            sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" |
+            sudo tee /etc/apt/sources.list.d/hashicorp.list
+          sudo apt-get update
+          sudo apt-get install -y vagrant
+          vagrant --version
+
+      # Hosted runners have no hypervisor, so the provider is not loaded;
+      # everything else in the Vagrantfile is checked, including that the
+      # provisioning files it points to exist.
+      - name: Validate Vagrantfile
+        run: vagrant validate --ignore-provider
+
+  provisioning:
+    name: Lint provisioning (${{ values.provisioner }})
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+{%- if values.provisioner == "shell" %}
+
+      - name: Check shell syntax
+        run: bash -n scripts/provision.sh
+
+      - name: Run ShellCheck
+        run: shellcheck scripts/*.sh
+{%- elif values.provisioner == "ansible" or values.provisioner == "ansible_local" %}
+
+      - name: Install ansible-lint
+        run: pipx install --include-deps ansible-lint
+
+      - name: Check playbook syntax
+        run: ansible-playbook --syntax-check -i localhost, ansible/playbook.yml
+
+      - name: Run ansible-lint
+        run: ansible-lint ansible/
+{%- elif values.provisioner == "puppet" %}
+
+      - name: Run ShellCheck
+        run: shellcheck puppet/*.sh
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+
+      - name: Install Puppet tooling
+        run: gem install --no-document puppet puppet-lint
+
+      - name: Validate manifests
+        run: puppet parser validate puppet/manifests
+
+      - name: Run puppet-lint
+        run: puppet-lint --fail-on-warnings puppet/manifests
+{%- elif values.provisioner == "chef" %}
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+
+      - name: Install Cookstyle
+        run: gem install --no-document cookstyle
+
+      - name: Run Cookstyle
+        run: cookstyle chef/cookbooks
+{%- endif %}

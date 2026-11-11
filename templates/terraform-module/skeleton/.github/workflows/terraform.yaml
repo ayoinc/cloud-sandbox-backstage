@@ -1,0 +1,187 @@
+{%- set aws = values.provider == 'aws' or values.provider == 'multi-cloud' -%}
+{%- set azure = values.provider == 'azure' or values.provider == 'multi-cloud' -%}
+{%- set gcp = values.provider == 'gcp' or values.provider == 'multi-cloud' -%}
+{%- set clouds = [] -%}
+{%- if aws %}{% set clouds = (clouds.push("aws"), clouds) %}{% endif -%}
+{%- if azure %}{% set clouds = (clouds.push("azure"), clouds) %}{% endif -%}
+{%- if gcp %}{% set clouds = (clouds.push("gcp"), clouds) %}{% endif -%}
+name: Terraform
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terraform-{% raw %}${{ github.ref }}{% endraw %}
+  cancel-in-progress: true
+
+env:
+  TF_VERSION: '1.17.1'
+  TF_IN_AUTOMATION: 'true'
+  TF_INPUT: 'false'
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: {% raw %}${{ env.TF_VERSION }}{% endraw %}
+
+      - name: Check formatting
+        run: terraform fmt -check -recursive -diff
+
+      - name: Validate the module
+        run: |
+          terraform init -backend=false
+          terraform validate
+
+      - name: Validate the example
+        run: |
+          terraform -chdir=examples/complete init -backend=false
+          terraform -chdir=examples/complete validate
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v6
+        with:
+          tflint_version: v0.66.0
+
+      - name: Install TFLint plugins
+        run: tflint --init
+        env:
+          GITHUB_TOKEN: {% raw %}${{ github.token }}{% endraw %}
+
+      - name: Run TFLint
+        run: tflint --recursive --config "$GITHUB_WORKSPACE/.tflint.hcl"
+
+  test:
+    name: Test
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: {% raw %}${{ env.TF_VERSION }}{% endraw %}
+
+      # The tests plan against mocked providers, so they need no credentials.
+      - name: Test the module
+        run: |
+          terraform init -backend=false
+          terraform test
+
+  test-submodules:
+    name: Test submodules ({% raw %}${{ matrix.cloud }}{% endraw %})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        cloud: ${{ clouds | dump }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: {% raw %}${{ env.TF_VERSION }}{% endraw %}
+
+      # One provider download serves all submodules of the cloud.
+      - name: Test every submodule
+        env:
+          CLOUD: {% raw %}${{ matrix.cloud }}{% endraw %}
+        run: |
+          export TF_PLUGIN_CACHE_DIR="$RUNNER_TEMP/terraform-plugins"
+          export TF_PLUGIN_CACHE_MAY_BREAK_DEPENDENCY_LOCK_FILE=true
+          mkdir -p "$TF_PLUGIN_CACHE_DIR"
+          for module in "$CLOUD"/*/; do
+            echo "::group::$module"
+            terraform -chdir="$module" init -backend=false
+            terraform -chdir="$module" test
+            echo "::endgroup::"
+          done
+
+  security:
+    name: Security scan
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      # tests/all-features.tfvars switches every building block on so that
+      # all of them are scanned.
+      - name: Scan Terraform with Trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          scan-ref: .
+          tf-vars: tests/all-features.tfvars
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+
+  # The cost estimate needs an Infracost API key. Without one it is skipped,
+  # so a new repository is green from its first push.
+  cost-credentials:
+    name: Check cost estimate credentials
+    runs-on: ubuntu-24.04
+    outputs:
+      available: {% raw %}${{ steps.check.outputs.available }}{% endraw %}
+    steps:
+      - name: Look for the Infracost API key
+        id: check
+        env:
+          REQUIRED: {% raw %}${{ secrets.INFRACOST_API_KEY }}{% endraw %}
+        run: |
+          if [ -n "$REQUIRED" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Cost estimate skipped. Set the repository secret INFRACOST_API_KEY to enable it."
+          fi
+
+  cost:
+    name: Cost estimate
+    needs: [validate, cost-credentials]
+    if: needs.cost-credentials.outputs.available == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Infracost
+        uses: infracost/actions/setup@v3
+        with:
+          api-key: {% raw %}${{ secrets.INFRACOST_API_KEY }}{% endraw %}
+
+      - name: Estimate the cost of the example
+        shell: bash
+        run: |
+          infracost breakdown \
+            --path examples/complete \
+            --terraform-var-file terraform.tfvars.example \
+            --format table | tee "$RUNNER_TEMP/infracost.txt"
+          {
+            echo '## Cost estimate of examples/complete'
+            echo '```'
+            cat "$RUNNER_TEMP/infracost.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

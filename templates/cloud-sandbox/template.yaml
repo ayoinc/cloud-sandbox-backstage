@@ -39,7 +39,6 @@ spec:
     - title: Cloud Configuration
       required:
         - cloud_provider
-        - region
       properties:
         cloud_provider:
           title: Cloud Provider
@@ -53,10 +52,6 @@ spec:
             - Amazon Web Services
             - Microsoft Azure
             - Google Cloud Platform
-        region:
-          title: Region
-          type: string
-          default: us-east-1
         environment:
           title: Environment
           type: string
@@ -65,12 +60,49 @@ spec:
             - sandbox
             - dev
             - staging
+      # Region names differ per provider, so the field follows the provider
+      # chosen above.
+      dependencies:
+        cloud_provider:
+          oneOf:
+            - required:
+                - region
+              properties:
+                cloud_provider:
+                  enum:
+                    - aws
+                region:
+                  title: Region
+                  type: string
+                  default: us-east-1
+            - required:
+                - region
+              properties:
+                cloud_provider:
+                  enum:
+                    - azure
+                region:
+                  title: Location
+                  type: string
+                  default: eastus
+            - required:
+                - region
+              properties:
+                cloud_provider:
+                  enum:
+                    - gcp
+                region:
+                  title: Region
+                  type: string
+                  default: us-central1
     - title: Network Configuration
       properties:
         vpc_cidr:
-          title: VPC CIDR
+          title: Network CIDR
+          description: Address range of the VPC or virtual network; /24 or larger.
           type: string
           default: '10.0.0.0/16'
+          pattern: '^([0-9]{1,3}\.){3}[0-9]{1,3}/(1[6-9]|2[0-4])$'
         public_subnets:
           title: Number of Public Subnets
           type: integer
@@ -91,6 +123,7 @@ spec:
           default: true
         include_eks:
           title: Include Kubernetes (EKS/AKS/GKE)
+          description: Kubernetes runs in private subnets; they are added when fewer than the cluster needs were requested.
           type: boolean
           default: false
         include_rds:
@@ -127,6 +160,28 @@ spec:
           include_bastion: ${{ parameters.include_bastion }}
           include_eks: ${{ parameters.include_eks }}
           include_rds: ${{ parameters.include_rds }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+    # The Terraform code is specific to the provider; only the chosen
+    # provider's code is added to the repository.
+    - id: fetch-cloud
+      name: Fetch Provider Infrastructure
+      action: fetch:template
+      input:
+        url: ./clouds/${{ parameters.cloud_provider }}
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          cloud_provider: ${{ parameters.cloud_provider }}
+          region: ${{ parameters.region }}
+          environment: ${{ parameters.environment }}
+          vpc_cidr: ${{ parameters.vpc_cidr }}
+          public_subnets: ${{ parameters.public_subnets }}
+          private_subnets: ${{ parameters.private_subnets }}
+          include_bastion: ${{ parameters.include_bastion }}
+          include_eks: ${{ parameters.include_eks }}
+          include_rds: ${{ parameters.include_rds }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
     - id: publish
       name: Publish to GitHub
       action: publish:github

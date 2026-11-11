@@ -1,54 +1,31 @@
-# -----------------------------------------------------------------------------
-# GCP Security Module - Example tfvars
-# -----------------------------------------------------------------------------
+# Example values for the GCP security module with every optional feature enabled.
 
-project_id  = "my-gcp-project"
-region      = "us-central1"
-environment = "dev"
+project_name = "acme-platform"
+environment  = "dev"
+project_id   = "acme-platform-dev"
+region       = "us-central1"
 
-# KMS Configuration
-kms_key_rotation_period  = "7776000s"  # 90 days
-kms_key_algorithm        = "GOOGLE_SYMMETRIC_ENCRYPTION"
-kms_key_protection_level = "SOFTWARE"  # Use "HSM" for hardware security module
+labels = {
+  team = "platform"
+}
 
-# Additional KMS key access (beyond the service account)
-kms_encrypter_decrypters = [
-  # "user:admin@example.com",
-  # "group:security-team@example.com",
-  # "serviceAccount:another-sa@my-gcp-project.iam.gserviceaccount.com"
-]
+kms_key_rotation_period     = "2592000s"
+kms_key_protection_level    = "HSM"
+kms_encrypter_decrypters    = ["serviceAccount:pipeline@acme-platform-dev.iam.gserviceaccount.com"]
+grant_storage_service_agent = true
 
-# Service Account Roles
 service_account_roles = [
   "roles/logging.logWriter",
   "roles/monitoring.metricWriter",
-  "roles/monitoring.viewer",
   "roles/cloudtrace.agent",
-  "roles/storage.objectViewer"
 ]
 
-# Secret Accessors (beyond the service account)
-secret_accessors = [
-  # "user:developer@example.com",
-  # "group:dev-team@example.com",
-  # "serviceAccount:cicd@my-gcp-project.iam.gserviceaccount.com"
-]
+secret_names     = ["database-url", "api-token"]
+secret_accessors = ["group:platform-oncall@acme.example"]
 
-# Create service account key (use with caution - prefer workload identity)
-create_service_account_key = false
-
-# Organization Policies (requires org policy admin permissions)
-enable_org_policies          = false
-require_os_login             = true
-restrict_vm_external_ips     = false
-# allowed_policy_member_domains = ["example.com", "C0xxxxxxxx"]
-
-# Audit Logging
 enable_audit_logs = true
 
-# Labels
-labels = {
-  team        = "platform"
-  cost_center = "engineering"
-  owner       = "devops"
-}
+enable_org_policies           = true
+require_os_login              = true
+restrict_vm_external_ips      = true
+allowed_policy_member_domains = ["C01abc234"]

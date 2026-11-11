@@ -2,9 +2,13 @@ apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: ${{ values.name }}
-  description: ${{ values.description }}
+  description: ${{ values.description | dump }}
   annotations:
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
     backstage.io/techdocs-ref: dir:.
+  tags:
+    - vagrant
+    - ${{ values.provisioner | replace("_", "-") }}
 spec:
   type: environment
   lifecycle: experimental

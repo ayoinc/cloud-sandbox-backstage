@@ -2,28 +2,33 @@
 # Azure Network Module - Example tfvars
 # -----------------------------------------------------------------------------
 
-project     = "myproject"
-environment = "dev"
-location    = "eastus2"
+project_name = "myproject"
+environment  = "dev"
+location     = "eastus2"
 
-# Resource Group (optional - leave null to create a new one)
-# resource_group_name = "rg-existing-network"
+# Existing resource group. Leave null to let the module create one.
+resource_group_name = "myproject-dev-rg"
 
-# Virtual Network Configuration
-vnet_cidr    = "10.0.0.0/16"
-subnet_count = 3
+# Address plan: four tiers (public, private, database, kubernetes) of /20 subnets
+vnet_cidr      = "10.0.0.0/16"
+subnet_newbits = 4
+subnet_count   = 1
 
-# NAT Gateway Configuration
-enable_nat       = true
-nat_idle_timeout = 10  # Minutes (4-120)
+# Public subnets stay closed until an allow-list is given
+public_ingress_cidrs = ["203.0.113.0/24"]
+public_ingress_ports = [80, 443]
 
-# High Availability Options
-enable_zone_redundancy   = true   # Zone-redundant NAT Gateway public IP
-enable_service_endpoints = true   # Enable service endpoints on subnets
+# Ports the application tiers may reach on the database subnets
+database_ports = [5432]
 
-# Tags
+# NAT Gateway for outbound traffic from the private and kubernetes subnets
+enable_nat             = true
+nat_idle_timeout       = 10
+enable_zone_redundancy = true
+
+enable_service_endpoints = true
+
 tags = {
-  Team        = "platform"
-  CostCenter  = "engineering"
-  Application = "network-infrastructure"
+  Team       = "platform"
+  CostCenter = "engineering"
 }

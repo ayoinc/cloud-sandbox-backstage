@@ -36,28 +36,28 @@ output "key_vault_tenant_id" {
 # -----------------------------------------------------------------------------
 
 output "encryption_key_id" {
-  description = "The ID of the encryption key"
-  value       = azurerm_key_vault_key.encryption.id
+  description = "The ID of the encryption key (null unless create_encryption_key is true)"
+  value       = one(azurerm_key_vault_key.encryption[*].id)
 }
 
 output "encryption_key_version" {
-  description = "The current version of the encryption key"
-  value       = azurerm_key_vault_key.encryption.version
+  description = "The current version of the encryption key (null unless create_encryption_key is true)"
+  value       = one(azurerm_key_vault_key.encryption[*].version)
 }
 
 output "encryption_key_versionless_id" {
-  description = "The versionless ID of the encryption key (for CMK configurations)"
-  value       = azurerm_key_vault_key.encryption.versionless_id
+  description = "The versionless ID of the encryption key, for CMK configurations (null unless create_encryption_key is true)"
+  value       = one(azurerm_key_vault_key.encryption[*].versionless_id)
 }
 
 output "encryption_key_name" {
-  description = "The name of the encryption key"
-  value       = azurerm_key_vault_key.encryption.name
+  description = "The name of the encryption key (null unless create_encryption_key is true)"
+  value       = one(azurerm_key_vault_key.encryption[*].name)
 }
 
 output "encryption_key_public_key_pem" {
-  description = "The public key in PEM format"
-  value       = azurerm_key_vault_key.encryption.public_key_pem
+  description = "The public key in PEM format (null unless create_encryption_key is true)"
+  value       = one(azurerm_key_vault_key.encryption[*].public_key_pem)
   sensitive   = true
 }
 

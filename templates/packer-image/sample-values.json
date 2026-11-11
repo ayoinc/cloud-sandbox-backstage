@@ -1,0 +1,15 @@
+{
+  "values": {
+    "name": "sample-golden-image",
+    "description": "The platform team's \"golden\" image: hardened Ubuntu base",
+    "owner": "group:default/platform-team",
+    "cloud_provider": "aws",
+    "base_os": "ubuntu-22.04",
+    "region": "us-east-1",
+    "instance_type": "t3.medium",
+    "install_docker": true,
+    "install_ansible": false,
+    "custom_packages": ["curl", "wget", "git"],
+    "repoUrl": "github.com?owner=example-org&repo=sample-golden-image"
+  }
+}

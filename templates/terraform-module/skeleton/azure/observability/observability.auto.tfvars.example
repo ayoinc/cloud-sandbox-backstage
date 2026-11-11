@@ -1,155 +1,88 @@
 # -----------------------------------------------------------------------------
-# Azure Observability Module - Example Configuration
+# Azure Observability Module - Example tfvars
 # -----------------------------------------------------------------------------
 
-# Required Variables
-project             = "myproject"
+project_name        = "myproject"
 environment         = "dev"
-location            = "eastus"
-resource_group_name = "rg-myproject-dev"
+location            = "eastus2"
+resource_group_name = "myproject-dev-rg"
 
-# -----------------------------------------------------------------------------
-# Log Analytics Workspace Configuration
-# -----------------------------------------------------------------------------
-
-log_retention_days         = 30
+# Log Analytics workspace
 sku                        = "PerGB2018"
-daily_quota_gb             = -1 # Unlimited
+log_retention_days         = 30
+daily_quota_gb             = 5
 internet_ingestion_enabled = true
 internet_query_enabled     = true
 
-# -----------------------------------------------------------------------------
-# Application Insights Configuration
-# -----------------------------------------------------------------------------
-
+# Application Insights
 enable_application_insights                    = true
 application_insights_type                      = "web"
-application_insights_daily_cap_gb              = null # Unlimited
+application_insights_retention_days            = 90
+application_insights_daily_cap_gb              = 5
 application_insights_disable_cap_notifications = false
 application_insights_sampling_percentage       = 100
 application_insights_disable_ip_masking        = false
 
-# -----------------------------------------------------------------------------
-# Container Insights Configuration
-# -----------------------------------------------------------------------------
+# Container Insights solution for AKS
+enable_container_insights = true
 
-enable_container_insights = false
-
-# -----------------------------------------------------------------------------
-# Alert Configuration
-# -----------------------------------------------------------------------------
-
-alert_email = "alerts@example.com"
-
-additional_alert_emails = [
-  # "oncall@example.com",
-  # "sre-team@example.com"
+# Alert receivers
+alert_email             = "platform@example.com"
+additional_alert_emails = ["oncall@example.com"]
+alert_sms_receivers = [
+  {
+    name         = "oncall"
+    country_code = "1"
+    phone_number = "5555550100"
+  }
+]
+alert_webhook_urls = ["https://hooks.example.com/azure-monitor"]
+azure_app_push_receivers = [
+  {
+    name          = "oncall-app"
+    email_address = "oncall@example.com"
+  }
 ]
 
-# alert_sms_receivers = [
-#   {
-#     name         = "oncall-phone"
-#     country_code = "1"
-#     phone_number = "5551234567"
-#   }
-# ]
+alert_frequency   = "PT5M"
+alert_window_size = "PT15M"
 
-# alert_webhook_urls = [
-#   "https://hooks.slack.com/services/xxx/yyy/zzz",
-#   "https://events.pagerduty.com/integration/xxx/enqueue"
-# ]
+# CPU and memory alerts on a virtual machine or scale set
+monitored_resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myproject-dev-rg/providers/Microsoft.Compute/virtualMachineScaleSets/myproject-dev-vmss"
+enable_cpu_alert      = true
+cpu_threshold         = 80
+cpu_alert_severity    = 2
+enable_memory_alert   = true
+memory_threshold      = 85
+memory_alert_severity = 2
 
-# azure_app_push_receivers = [
-#   {
-#     name          = "admin-push"
-#     email_address = "admin@example.com"
-#   }
-# ]
+# Disk usage alert for machines reporting VM insights data to the workspace
+enable_disk_alert   = true
+disk_threshold      = 90
+disk_alert_severity = 2
 
-alert_frequency   = "PT5M"  # Evaluate every 5 minutes
-alert_window_size = "PT15M" # Look at last 15 minutes of data
+# HTTP 5xx alert on an App Service or Function App
+http_monitored_resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myproject-dev-rg/providers/Microsoft.Web/sites/myproject-dev-func"
+enable_http_errors_alert   = true
+http_errors_threshold      = 10
+http_errors_alert_severity = 1
 
-# -----------------------------------------------------------------------------
-# Monitored Resource Configuration
-# -----------------------------------------------------------------------------
-
-# Uncomment and set to the resource ID you want to monitor
-# monitored_resource_id = "/subscriptions/xxx/resourceGroups/rg-myproject-dev/providers/Microsoft.Compute/virtualMachines/myvm"
-
-# For App Service monitoring, use:
-# monitored_resource_id = "/subscriptions/xxx/resourceGroups/rg-myproject-dev/providers/Microsoft.Web/sites/myapp"
-
-# -----------------------------------------------------------------------------
-# CPU Alert Configuration
-# -----------------------------------------------------------------------------
-
-enable_cpu_alert     = true
-cpu_threshold        = 80
-cpu_alert_severity   = 2
-cpu_metric_namespace = "Microsoft.Compute/virtualMachines"
-cpu_metric_name      = "Percentage CPU"
-
-# -----------------------------------------------------------------------------
-# Memory Alert Configuration
-# -----------------------------------------------------------------------------
-
-enable_memory_alert     = true
-memory_threshold        = 85
-memory_alert_severity   = 2
-memory_metric_namespace = "Microsoft.Compute/virtualMachines"
-memory_metric_name      = "Available Memory Bytes"
-
-# -----------------------------------------------------------------------------
-# Disk Alert Configuration
-# -----------------------------------------------------------------------------
-
-enable_disk_alert     = true
-disk_threshold        = 90
-disk_alert_severity   = 2
-disk_metric_namespace = "Microsoft.Compute/virtualMachines"
-disk_metric_name      = "OS Disk Used Percentage"
-
-# -----------------------------------------------------------------------------
-# HTTP Errors Alert Configuration (for App Services)
-# -----------------------------------------------------------------------------
-
-enable_http_errors_alert     = true
-http_errors_threshold        = 10
-http_errors_alert_severity   = 1
-http_errors_metric_namespace = "Microsoft.Web/sites"
-http_errors_metric_name      = "Http5xx"
-
-# -----------------------------------------------------------------------------
-# Service Health Alert Configuration
-# -----------------------------------------------------------------------------
-
+# Azure Service Health alert for the subscription
 enable_service_health_alert = true
 service_health_events       = ["Incident", "Maintenance", "Security"]
-service_health_locations    = [] # Empty for all locations
-service_health_services     = [] # Empty for all services
+service_health_locations    = ["East US 2", "Global"]
+service_health_services     = []
 
-# -----------------------------------------------------------------------------
-# Dashboard Configuration
-# -----------------------------------------------------------------------------
-
+# Portal dashboard
 enable_dashboard = true
 
-# -----------------------------------------------------------------------------
-# Diagnostic Settings Example
-# -----------------------------------------------------------------------------
-
-# Uncomment to configure diagnostic settings for a specific resource
-# diagnostic_setting_resource_id = "/subscriptions/xxx/resourceGroups/rg-myproject-dev/providers/Microsoft.KeyVault/vaults/myvault"
-# diagnostic_log_categories      = ["AuditEvent", "AzurePolicyEvaluationDetails"]
-# diagnostic_metric_categories   = ["AllMetrics"]
-
-# -----------------------------------------------------------------------------
-# Tags
-# -----------------------------------------------------------------------------
+# Diagnostic setting for an existing resource
+diagnostic_setting_resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myproject-dev-rg/providers/Microsoft.KeyVault/vaults/kvmyprojectdev"
+diagnostic_log_category_groups = ["allLogs"]
+diagnostic_log_categories      = []
+diagnostic_metric_categories   = ["AllMetrics"]
 
 tags = {
-  ManagedBy   = "Terraform"
-  Team        = "Platform"
-  CostCenter  = "IT-001"
-  Application = "Observability"
+  Team       = "platform"
+  CostCenter = "engineering"
 }

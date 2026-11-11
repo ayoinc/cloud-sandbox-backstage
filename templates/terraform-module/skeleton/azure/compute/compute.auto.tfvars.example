@@ -2,49 +2,54 @@
 # Azure Compute Module - Example tfvars
 # -----------------------------------------------------------------------------
 
-project     = "myproject"
-environment = "dev"
-
-# Azure Region
-location            = "eastus"
+project_name        = "myproject"
+environment         = "dev"
+location            = "eastus2"
 resource_group_name = "myproject-dev-rg"
+subnet_id           = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myproject-dev-rg/providers/Microsoft.Network/virtualNetworks/vnet-myproject-dev/subnets/snet-myproject-dev-private-1"
 
-# Network Configuration (from network module)
-vnet_id   = "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/myproject-dev-rg/providers/Microsoft.Network/virtualNetworks/myproject-dev-vnet"
-subnet_id = "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/myproject-dev-rg/providers/Microsoft.Network/virtualNetworks/myproject-dev-vnet/subnets/compute"
+# Virtual machines
+vm_size = "Standard_D2s_v5"
+source_image = {
+  publisher = "Canonical"
+  offer     = "ubuntu-24_04-lts"
+  sku       = "server"
+  version   = "latest"
+}
+zones                        = ["1", "2", "3"]
+instances_min                = 2
+instances_max                = 6
+instances_default            = 2
+os_disk_size_gb              = 64
+os_disk_storage_account_type = "Premium_LRS"
+enable_trusted_launch        = true
 
-# VM Configuration
-vm_size         = "Standard_B2s"
-os_disk_size_gb = 30
-admin_username  = "azureuser"
+# Needs the Microsoft.Compute/EncryptionAtHost feature registered on the subscription
+enable_encryption_at_host = true
 
-# SSH Key (provide either ssh_public_key or ssh_public_key_path)
-ssh_public_key      = "" # Paste your SSH public key here
-ssh_public_key_path = "~/.ssh/id_rsa.pub"
+# Admin access. Replace the sample key with your own RSA public key, or remove
+# the line to have a key pair generated.
+admin_username = "azureuser"
+ssh_public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDD1SX3+3YXYCnxQ18ppr6ty58a6n8tWbyKnXvy2StCkX2+WXAW4l/NfttqcuYVlh07efAb4KRGZRh6mARXwv+5G8SZSQsFpboTpJ5pukPUKg7sRiRYiyFGBFu7KGyzzUT851rSrn7Am6EUud0ZsvPDE3H3EBjbvum5nnIqkGabEYVfsbpJ1fAzuiH/lwUj50tJk+mHaWHDpm1Q7Qk4d/+pbWyQZ0K6144FfXSROFkK4qyn+ftayaK7o1hO6FIH7pntpbb8D7CsMdr7y1m74qrxCWSWwR3eHg8AXQoIwc29KrGOyUdPbbZRpF2TH7eBaMuTurytFGXKxaujcd+2BSiP platform@example.com"
 
-# Scaling Configuration
-instances_min     = 1
-instances_max     = 5
-instances_default = 2
+# Network access
+ssh_allowed_cidrs     = ["10.0.0.0/16"]
+ingress_allowed_cidrs = ["10.0.0.0/16", "203.0.113.0/24"]
+ingress_ports         = [80, 443]
+health_check_port     = 80
+enable_public_ip      = true
 
-# Security
-ssh_allowed_cidrs = ["10.0.0.0/8", "172.16.0.0/12"]
-enable_public_ip  = false
+# Upgrades and autoscaling
+enable_automatic_os_upgrade      = true
+scale_out_cpu_threshold          = 70
+scale_in_cpu_threshold           = 30
+scale_out_memory_threshold_bytes = 1073741824
+autoscale_notification_emails    = ["platform@example.com"]
 
-# OS Upgrades
-enable_automatic_os_upgrade = false
+# Azure Monitor data collection rule
+data_collection_rule_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myproject-dev-rg/providers/Microsoft.Insights/dataCollectionRules/myproject-dev-dcr"
 
-# Autoscale Thresholds
-scale_out_cpu_threshold          = 75
-scale_in_cpu_threshold           = 25
-scale_out_memory_threshold_bytes = 1073741824 # 1 GB
-
-# Notifications
-autoscale_notification_emails = ["platform-team@example.com"]
-
-# Tags
 tags = {
   Team       = "platform"
   CostCenter = "engineering"
-  ManagedBy  = "terraform"
 }

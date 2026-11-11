@@ -1,0 +1,32 @@
+{
+  "values": {
+    "componentType": "application",
+    "componentName": "sample-billing-resources",
+    "description": "The billing team's \"core\" resources: storage and network",
+    "owner": "group:default/platform-team",
+    "businessUnit": "engineering",
+    "provider": "aws",
+    "environment": "development",
+    "region": "us-east-1",
+    "secondaryRegion": "us-west-2",
+    "projectName": "acme-billing",
+    "costCenter": "application-development",
+    "applicationId": "app-1234",
+    "createResourceGroup": true,
+    "resources": [
+      "object-storage",
+      "virtual-network",
+      "key-vault",
+      "container-registry",
+      "log-workspace",
+      "virtual-machine"
+    ],
+    "namingConvention": "enterprise",
+    "autoShutdown": "0 19 * * 1-5",
+    "backendType": "s3",
+    "separateWorkspaces": true,
+    "stateFileStructure": "hierarchical",
+    "enableStateLocking": true,
+    "repoUrl": "github.com?owner=example-org&repo=sample-billing-resources"
+  }
+}

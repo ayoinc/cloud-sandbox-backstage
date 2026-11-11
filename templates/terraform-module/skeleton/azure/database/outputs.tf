@@ -19,12 +19,11 @@ output "postgresql_server_name" {
 output "postgresql_server_fqdn" {
   description = "The FQDN of the PostgreSQL Flexible Server"
   value       = azurerm_postgresql_flexible_server.main.fqdn
-  sensitive   = true
 }
 
 output "postgresql_server_version" {
   description = "The PostgreSQL version"
-  value       = azurerm_postgresql_flexible_server.main.version
+  value       = var.postgresql_version
 }
 
 # -----------------------------------------------------------------------------
@@ -46,24 +45,29 @@ output "database_name" {
 # -----------------------------------------------------------------------------
 
 output "admin_username" {
-  description = "The administrator username for PostgreSQL"
-  value       = azurerm_postgresql_flexible_server.main.administrator_login
+  description = "The administrator username for PostgreSQL (null when password authentication is disabled)"
+  value       = var.enable_password_auth ? var.admin_username : null
+}
+
+output "admin_password" {
+  description = "The generated administrator password for PostgreSQL (null when password authentication is disabled)"
+  value       = var.enable_password_auth ? random_password.postgresql_admin.result : null
   sensitive   = true
 }
 
 output "password_secret_id" {
-  description = "The Key Vault secret ID containing the admin password"
-  value       = azurerm_key_vault_secret.postgresql_admin_password.id
+  description = "The Key Vault secret ID containing the admin password (null unless credentials are stored in Key Vault)"
+  value       = one(azurerm_key_vault_secret.postgresql_admin_password[*].id)
 }
 
 output "password_secret_name" {
-  description = "The Key Vault secret name containing the admin password"
-  value       = azurerm_key_vault_secret.postgresql_admin_password.name
+  description = "The Key Vault secret name containing the admin password (null unless credentials are stored in Key Vault)"
+  value       = one(azurerm_key_vault_secret.postgresql_admin_password[*].name)
 }
 
 output "connection_string_secret_id" {
-  description = "The Key Vault secret ID containing the connection string"
-  value       = azurerm_key_vault_secret.postgresql_connection_string.id
+  description = "The Key Vault secret ID containing the connection string (null unless credentials are stored in Key Vault)"
+  value       = one(azurerm_key_vault_secret.postgresql_connection_string[*].id)
 }
 
 # -----------------------------------------------------------------------------
@@ -81,73 +85,47 @@ output "private_dns_zone_name" {
 }
 
 # -----------------------------------------------------------------------------
-# Private Endpoint Outputs
-# -----------------------------------------------------------------------------
-
-output "private_endpoint_id" {
-  description = "The ID of the PostgreSQL private endpoint (if created)"
-  value       = var.create_private_endpoint ? azurerm_private_endpoint.postgresql[0].id : null
-}
-
-output "private_endpoint_ip" {
-  description = "The private IP address of the PostgreSQL private endpoint (if created)"
-  value       = var.create_private_endpoint ? azurerm_private_endpoint.postgresql[0].private_service_connection[0].private_ip_address : null
-  sensitive   = true
-}
-
-# -----------------------------------------------------------------------------
-# Redis Cache Outputs
+# Azure Managed Redis Outputs
 # -----------------------------------------------------------------------------
 
 output "redis_id" {
-  description = "The ID of the Azure Redis Cache (if enabled)"
-  value       = var.enable_redis ? azurerm_redis_cache.main[0].id : null
+  description = "The ID of the Azure Managed Redis cache (if enabled)"
+  value       = one(azurerm_managed_redis.main[*].id)
 }
 
 output "redis_name" {
-  description = "The name of the Azure Redis Cache (if enabled)"
-  value       = var.enable_redis ? azurerm_redis_cache.main[0].name : null
+  description = "The name of the Azure Managed Redis cache (if enabled)"
+  value       = one(azurerm_managed_redis.main[*].name)
 }
 
 output "redis_hostname" {
-  description = "The hostname of the Azure Redis Cache (if enabled)"
-  value       = var.enable_redis ? azurerm_redis_cache.main[0].hostname : null
-  sensitive   = true
+  description = "The hostname of the Azure Managed Redis cache (if enabled)"
+  value       = one(azurerm_managed_redis.main[*].hostname)
 }
 
 output "redis_port" {
-  description = "The SSL port of the Azure Redis Cache (if enabled)"
-  value       = var.enable_redis ? azurerm_redis_cache.main[0].ssl_port : null
+  description = "The TLS port of the Azure Managed Redis database (if enabled)"
+  value       = var.enable_redis ? azurerm_managed_redis.main[0].default_database[0].port : null
 }
 
 output "redis_primary_key_secret_id" {
-  description = "The Key Vault secret ID containing the Redis primary key (if enabled)"
-  value       = var.enable_redis ? azurerm_key_vault_secret.redis_primary_key[0].id : null
+  description = "The Key Vault secret ID containing the Redis primary key (if stored)"
+  value       = one(azurerm_key_vault_secret.redis_primary_key[*].id)
 }
 
 output "redis_connection_string_secret_id" {
-  description = "The Key Vault secret ID containing the Redis connection string (if enabled)"
-  value       = var.enable_redis ? azurerm_key_vault_secret.redis_connection_string[0].id : null
+  description = "The Key Vault secret ID containing the Redis connection string (if stored)"
+  value       = one(azurerm_key_vault_secret.redis_connection_string[*].id)
 }
 
 output "redis_private_endpoint_id" {
-  description = "The ID of the Redis private endpoint (if enabled and Premium SKU)"
-  value       = var.enable_redis && var.redis_sku == "Premium" ? azurerm_private_endpoint.redis[0].id : null
+  description = "The ID of the Redis private endpoint (if enabled)"
+  value       = one(azurerm_private_endpoint.redis[*].id)
 }
 
 output "redis_private_endpoint_ip" {
-  description = "The private IP address of the Redis private endpoint (if enabled and Premium SKU)"
-  value       = var.enable_redis && var.redis_sku == "Premium" ? azurerm_private_endpoint.redis[0].private_service_connection[0].private_ip_address : null
-  sensitive   = true
-}
-
-# -----------------------------------------------------------------------------
-# Firewall Rule Outputs
-# -----------------------------------------------------------------------------
-
-output "firewall_rule_ids" {
-  description = "Map of firewall rule names to their IDs"
-  value       = { for k, v in azurerm_postgresql_flexible_server_firewall_rule.rules : k => v.id }
+  description = "The private IP address of the Redis private endpoint (if enabled)"
+  value       = var.enable_redis ? azurerm_private_endpoint.redis[0].private_service_connection[0].private_ip_address : null
 }
 
 # -----------------------------------------------------------------------------
@@ -160,8 +138,7 @@ output "connection_info" {
     host     = azurerm_postgresql_flexible_server.main.fqdn
     port     = 5432
     database = var.database_name
-    username = var.admin_username
+    username = var.enable_password_auth ? var.admin_username : null
     ssl_mode = "require"
   }
-  sensitive = true
 }

@@ -10,7 +10,7 @@ Key features:
 
 - Reproducible VM provisioning with version-controlled configuration
 - Multi-provider support (VirtualBox, VMware, Hyper-V)
-- Automated provisioning with shell scripts or Ansible
+- Automated provisioning with the `${{ values.provisioner }}` provisioner
 - Private networking for isolated development
 - Port forwarding for service access from host
 - Synced folders for seamless code sharing
@@ -113,95 +113,53 @@ host.synced <-> vm: shares files
 
 ```
 ${{ values.name }}/
-├── Vagrantfile              # Main Vagrant configuration
-├── catalog-info.yaml        # Backstage catalog entry
-├── docs/                    # Documentation (TechDocs)
+├── Vagrantfile                  # VM, network and provisioning configuration
+├── catalog-info.yaml            # Backstage catalog entry
+├── docs/                        # Documentation (TechDocs)
 │   └── index.md
-├── mkdocs.yml               # MkDocs configuration
-├── README.md                # Project readme
-├── scripts/                 # Provisioning scripts
-│   └── provision.sh         # Shell provisioner script
-{%- if values.provisioner == "ansible" or values.provisioner == "ansible_local" %}
-├── ansible/                 # Ansible configuration
-│   ├── playbook.yml         # Main playbook
-│   └── roles/               # Ansible roles
+├── mkdocs.yml                   # MkDocs configuration
+├── README.md                    # Project readme
+{%- if values.provisioner == "shell" %}
+├── scripts/
+│   └── provision.sh             # Shell provisioner script
+{%- elif values.provisioner == "ansible" or values.provisioner == "ansible_local" %}
+├── ansible/
+│   └── playbook.yml             # Playbook run by the ${{ values.provisioner }} provisioner
+{%- elif values.provisioner == "puppet" %}
+├── puppet/
+│   ├── install-agent.sh         # Installs the Puppet agent in the VM
+│   └── manifests/default.pp     # Manifest applied by the puppet provisioner
+{%- elif values.provisioner == "chef" %}
+├── chef/
+│   └── cookbooks/environment/   # Cookbook converged by chef_solo
 {%- endif %}
-└── .gitignore               # Git ignore rules
+├── .github/workflows/ci.yaml    # Validation pipeline
+└── .gitignore
 ```
-
-### Key Files
-
-| File                   | Purpose                                          |
-| ---------------------- | ------------------------------------------------ |
-| `Vagrantfile`          | Defines VM configuration, networking, provisioning |
-| `scripts/provision.sh` | Shell script for software installation           |
-| `catalog-info.yaml`    | Registers environment in Backstage catalog       |
 
 ---
 
 ## CI/CD Pipeline
 
-This environment includes GitHub Actions workflows for validation, testing, and documentation.
+`.github/workflows/ci.yaml` runs on every push to `main`, on pull requests and
+on demand. It needs no secrets or variables.
 
-### Pipeline Features
+| Job                    | What it checks                                                                 |
+| ---------------------- | ------------------------------------------------------------------------------ |
+| Validate Vagrantfile   | Ruby syntax (`ruby -wc`) and `vagrant validate --ignore-provider`              |
+{%- if values.provisioner == "shell" %}
+| Lint provisioning      | `bash -n` and ShellCheck on `scripts/`                                         |
+{%- elif values.provisioner == "ansible" or values.provisioner == "ansible_local" %}
+| Lint provisioning      | `ansible-playbook --syntax-check` and `ansible-lint` on `ansible/`             |
+{%- elif values.provisioner == "puppet" %}
+| Lint provisioning      | ShellCheck, `puppet parser validate` and `puppet-lint` on `puppet/`            |
+{%- elif values.provisioner == "chef" %}
+| Lint provisioning      | Cookstyle on `chef/cookbooks`                                                  |
+{%- endif %}
 
-- **Syntax Validation**: Vagrantfile Ruby syntax checking
-- **Linting**: Rubocop for Vagrantfile style consistency
-- **Security Scanning**: Detect secrets and vulnerabilities
-- **Box Verification**: Ensure base box exists and is accessible
-- **Documentation**: Automatic TechDocs generation
-
-### Pipeline Workflow
-
-```d2
-direction: right
-
-commit: Code Commit {
-  shape: oval
-  style.fill: "#E3F2FD"
-  style.stroke: "#1976D2"
-}
-
-validate: Validate {
-  style.fill: "#E8F5E9"
-  style.stroke: "#388E3C"
-  label: "Syntax Check\nRubocop Lint\nYAML Validate"
-}
-
-security: Security {
-  style.fill: "#FFCDD2"
-  style.stroke: "#D32F2F"
-  label: "Secret Scan\nBox Verify"
-}
-
-test: Test {
-  style.fill: "#E3F2FD"
-  style.stroke: "#1976D2"
-  label: "vagrant validate\nProvisioner Check"
-}
-
-docs: Documentation {
-  style.fill: "#FFECB3"
-  style.stroke: "#FFA000"
-  label: "TechDocs Build\nPublish"
-}
-
-deploy: Ready {
-  shape: oval
-  style.fill: "#E8F5E9"
-  style.stroke: "#388E3C"
-}
-
-commit -> validate -> security -> test -> docs -> deploy
-```
-
-### Workflow Triggers
-
-| Trigger      | Actions                                    |
-| ------------ | ------------------------------------------ |
-| Pull Request | Validate, Lint, Security Scan              |
-| Push to main | Full validation, Documentation publish     |
-| Manual       | On-demand validation and box verification  |
+The pipeline does not boot the VM: GitHub-hosted runners have no hypervisor, so
+the provider is skipped during validation. Run `vagrant up` locally to exercise
+the provider and the provisioning itself.
 
 ---
 

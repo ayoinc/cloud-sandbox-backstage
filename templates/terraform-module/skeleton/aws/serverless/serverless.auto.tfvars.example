@@ -1,53 +1,45 @@
 # -----------------------------------------------------------------------------
-# AWS Serverless Module - Example tfvars
+# AWS Serverless Module - Example tfvars (every optional feature enabled)
 # -----------------------------------------------------------------------------
 
-project     = "myproject"
-environment = "dev"
+project_name = "myproject"
+environment  = "dev"
 
-# VPC Configuration (optional - for VPC-enabled Lambda)
-vpc_id     = null
-subnet_ids = []
+kms_key_arn = "arn:aws:kms:eu-west-2:123456789012:key/11111111-2222-3333-4444-555555555555"
 
-# Encryption
-kms_key_arn = null
+# VPC Configuration
+enable_vpc = true
+vpc_id     = "vpc-0123456789abcdef0"
+subnet_ids = ["subnet-0123456789abcdef0", "subnet-0123456789abcdef1"]
 
-# Lambda Configuration
-runtime    = "python3.11"
-handler    = "handler.main"
-memory_size = 256
-timeout     = 30
+# Lambda Configuration (the built-in handler is deployed because no
+# deployment_package or image_uri is given)
+package_type = "Zip"
+runtime      = "python3.13"
+handler      = "handler.main"
+memory_size  = 512
+timeout      = 30
 
-# Deployment
-deployment_package = null  # Path to zip file
-image_uri          = null  # Container image URI
-
-# Environment Variables
 environment_variables = {
   LOG_LEVEL = "INFO"
 }
 
-# Concurrency
-reserved_concurrency    = -1  # No limit
-provisioned_concurrency = 0   # No provisioned concurrency
+reserved_concurrency    = 20
+provisioned_concurrency = 2
+enable_xray             = true
+log_retention_days      = 30
 
-# Tracing
-enable_xray = true
-
-# Logging
-log_retention_days = 30
-
-# API Gateway
+# API Gateway Configuration
 enable_api_gateway   = true
-cors_allowed_origins = ["*"]
+cors_allowed_origins = ["https://app.example.com"]
 api_throttle_burst   = 100
 api_throttle_rate    = 50
 
-# Scheduled Execution (optional)
-schedule_expression = null  # e.g., "rate(5 minutes)" or "cron(0 12 * * ? *)"
+# EventBridge Schedule
+schedule_expression = "rate(1 hour)"
 
 # SQS Configuration
-enable_sqs     = false
+enable_sqs     = true
 enable_dlq     = true
 sqs_batch_size = 10
 

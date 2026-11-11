@@ -1,27 +1,21 @@
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
-  name: example-component
-  description: Example terraform infrastructure component
+  name: ${{ values.name }}
+  description: ${{ values.description | dump }}
+  annotations:
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
+    backstage.io/techdocs-ref: dir:.
   labels:
-    cloud.provider: azure
-    environment: dev
-    terraform.version: "1.6.6"
+    cloud-provider: ${{ values.provider }}
+    environment: ${{ values.environment }}
+    component-type: ${{ values.componentType }}
   tags:
     - terraform
     - infrastructure
-    - azure
-    - dev
-  annotations:
-    github.com/project-slug: example/project
-    backstage.io/techdocs-ref: dir:.
-    terraform.io/provider: azure
-    terraform.io/environment: dev
-    terraform.io/region: eastus
+    - ${{ values.provider }}
+    - ${{ values.environment }}
 spec:
   type: infrastructure
-  lifecycle: experimental
-  owner: platform-team
-  system: cloud-infrastructure
-  dependsOn:
-    - component:default/terraform-modules-azure
+  lifecycle: ${{ "production" if values.environment == "production" else "experimental" }}
+  owner: ${{ values.owner }}

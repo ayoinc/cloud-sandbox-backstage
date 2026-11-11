@@ -1,53 +1,53 @@
 # -----------------------------------------------------------------------------
-# AWS Storage Module - Example tfvars
+# AWS Storage Module - Example tfvars (every optional feature enabled)
 # -----------------------------------------------------------------------------
 
-project     = "myproject"
-environment = "dev"
+project_name = "myproject"
+environment  = "dev"
+
+kms_key_arn = "arn:aws:kms:eu-west-2:123456789012:key/11111111-2222-3333-4444-555555555555"
 
 # S3 Configuration
-bucket_suffix     = "data"
-enable_versioning = true
-force_destroy     = false  # Set true for dev environments
+bucket_suffix         = "assets"
+enable_versioning     = true
+force_destroy         = false
+access_logging_bucket = "myproject-dev-access-logs"
 
-# Encryption (use KMS key from security module)
-kms_key_arn = null  # Uses AES256 if null
-
-# Lifecycle Rules
 lifecycle_rules = [
   {
-    id                        = "archive-old-objects"
-    enabled                   = true
-    prefix                    = ""
-    expiration_days           = null
-    noncurrent_expiration_days = 90
+    id                         = "expire-uploads"
+    prefix                     = "uploads/"
+    expiration_days            = 365
+    noncurrent_expiration_days = 30
     transitions = [
       {
         days          = 30
         storage_class = "STANDARD_IA"
-      },
-      {
-        days          = 60
-        storage_class = "GLACIER"
-      }
-    ]
-    noncurrent_transitions = [
-      {
-        days          = 30
-        storage_class = "GLACIER"
       }
     ]
   }
 ]
 
+cors_rules = [
+  {
+    allowed_headers = ["*"]
+    allowed_methods = ["GET", "PUT"]
+    allowed_origins = ["https://app.example.com"]
+    expose_headers  = ["ETag"]
+    max_age_seconds = 3000
+  }
+]
+
 # EFS Configuration
-enable_efs                  = true
-efs_subnet_ids              = ["subnet-xxx", "subnet-yyy", "subnet-zzz"]
-efs_allowed_security_groups = ["sg-xxxxxxxxx"]
-efs_performance_mode        = "generalPurpose"
-efs_throughput_mode         = "bursting"
-efs_lifecycle_policy        = "AFTER_30_DAYS"
-efs_enable_backup           = true
+enable_efs                       = true
+vpc_id                           = "vpc-0123456789abcdef0"
+efs_subnet_ids                   = ["subnet-0123456789abcdef0", "subnet-0123456789abcdef1"]
+efs_allowed_security_groups      = ["sg-0123456789abcdef0"]
+efs_performance_mode             = "generalPurpose"
+efs_throughput_mode              = "provisioned"
+efs_provisioned_throughput_mibps = 16
+efs_lifecycle_policy             = "AFTER_30_DAYS"
+efs_enable_backup                = true
 
 # Tags
 tags = {

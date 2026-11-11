@@ -1,33 +1,78 @@
 # -*- mode: ruby -*-
-Vagrant.configure("2") do |config|
-  config.vm.box = "${{ values.box }}"
-  config.vm.hostname = "${{ values.name }}"
+# frozen_string_literal: true
 
-  # Provider configuration
-  config.vm.provider "${{ values.provider }}" do |v|
+Vagrant.configure('2') do |config|
+  config.vm.box = '${{ values.box }}'
+  config.vm.hostname = '${{ values.name }}'
+{%- if values.provider == "libvirt" %}
+
+  config.vm.provider 'libvirt' do |v|
+    v.memory = ${{ values.memory }}
+    v.cpus = ${{ values.cpus }}
+    # Root disk size in GB.
+    v.machine_virtual_size = ${{ values.disk_size }}
+  end
+{%- elif values.provider == "vmware_desktop" %}
+
+  config.vm.provider 'vmware_desktop' do |v|
+    v.vmx['memsize'] = '${{ values.memory }}'
+    v.vmx['numvcpus'] = '${{ values.cpus }}'
+  end
+
+  config.vm.disk :disk, size: '${{ values.disk_size }}GB', primary: true
+{%- else %}
+
+  config.vm.provider '${{ values.provider }}' do |v|
     v.memory = ${{ values.memory }}
     v.cpus = ${{ values.cpus }}
   end
 
-  # Network
-  config.vm.network "private_network", ip: "${{ values.private_network }}"
-  {%- for port in values.forwarded_ports %}
-  config.vm.network "forwarded_port", guest: {{ port.guest }}, host: {{ port.host }}
-  {%- endfor %}
+  config.vm.disk :disk, size: '${{ values.disk_size }}GB', primary: true
+{%- endif %}
 
-  # Synced folder
-  config.vm.synced_folder ".", "/vagrant", disabled: false
+  config.vm.network 'private_network', ip: '${{ values.private_network }}'
+{%- for port in values.forwarded_ports %}
+{%- if port.guest == 22 %}
+  # Replaces Vagrant's default SSH forward instead of adding a second one.
+  config.vm.network 'forwarded_port', guest: 22, host: ${{ port.host }}, id: 'ssh'
+{%- else %}
+  config.vm.network 'forwarded_port', guest: ${{ port.guest }}, host: ${{ port.host }}
+{%- endif %}
+{%- endfor %}
 
-  # Provisioning
-  {%- if values.provisioner == "shell" %}
-  config.vm.provision "shell", path: "scripts/provision.sh"
-  {%- elif values.provisioner == "ansible" %}
-  config.vm.provision "ansible" do |ansible|
-    ansible.playbook = "ansible/playbook.yml"
+  config.vm.synced_folder '.', '/vagrant'
+{%- if values.provisioner == "shell" %}
+
+  config.vm.provision 'shell', path: 'scripts/provision.sh'
+{%- elif values.provisioner == "ansible" %}
+
+  # Runs Ansible from the host, which must have it installed.
+  config.vm.provision 'ansible' do |ansible|
+    ansible.playbook = 'ansible/playbook.yml'
+    ansible.compatibility_mode = '2.0'
   end
-  {%- elif values.provisioner == "ansible_local" %}
-  config.vm.provision "ansible_local" do |ansible|
-    ansible.playbook = "ansible/playbook.yml"
+{%- elif values.provisioner == "ansible_local" %}
+
+  # Vagrant installs Ansible inside the VM and runs the playbook there.
+  config.vm.provision 'ansible_local' do |ansible|
+    ansible.playbook = 'ansible/playbook.yml'
+    ansible.compatibility_mode = '2.0'
   end
-  {%- endif %}
+{%- elif values.provisioner == "puppet" %}
+
+  # The Puppet provisioner needs the agent in the VM before it can apply.
+  config.vm.provision 'shell', path: 'puppet/install-agent.sh'
+  config.vm.provision 'puppet' do |puppet|
+    puppet.manifests_path = 'puppet/manifests'
+    puppet.manifest_file = 'default.pp'
+  end
+{%- elif values.provisioner == "chef" %}
+
+  # Vagrant installs the Chef client inside the VM before converging.
+  config.vm.provision 'chef_solo' do |chef|
+    chef.cookbooks_path = 'chef/cookbooks'
+    chef.add_recipe 'environment'
+    chef.arguments = '--chef-license accept'
+  end
+{%- endif %}
 end

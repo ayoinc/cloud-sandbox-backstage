@@ -1,81 +1,23 @@
 #!/bin/bash
-# -----------------------------------------------------------------------------
-# EC2 User Data Script
-# Project: ${project}
-# Environment: ${environment}
-# -----------------------------------------------------------------------------
-
+# Bootstraps an instance of ${name_prefix}: installs the CloudWatch agent with
+# the configuration rendered by Terraform and creates the application account.
 set -euo pipefail
 
-# Update system packages
-dnf update -y
+dnf install -y amazon-cloudwatch-agent
 
-# Install essential packages
-dnf install -y \
-  amazon-cloudwatch-agent \
-  aws-cli \
-  jq \
-  curl \
-  wget \
-  git \
-  htop \
-  vim
+install -d -m 0755 /opt/aws/amazon-cloudwatch-agent/etc
+cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<'CWAGENT'
+${cloudwatch_agent_config}
+CWAGENT
 
-# Configure CloudWatch Agent
-cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<'EOF'
-{
-  "agent": {
-    "metrics_collection_interval": 60,
-    "run_as_user": "root"
-  },
-  "logs": {
-    "logs_collected": {
-      "files": {
-        "collect_list": [
-          {
-            "file_path": "/var/log/messages",
-            "log_group_name": "/${project}/${environment}/system",
-            "log_stream_name": "{instance_id}/messages"
-          },
-          {
-            "file_path": "/var/log/secure",
-            "log_group_name": "/${project}/${environment}/security",
-            "log_stream_name": "{instance_id}/secure"
-          }
-        ]
-      }
-    }
-  },
-  "metrics": {
-    "namespace": "${project}/${environment}",
-    "metrics_collected": {
-      "cpu": {
-        "measurement": ["cpu_usage_idle", "cpu_usage_user", "cpu_usage_system"],
-        "metrics_collection_interval": 60
-      },
-      "disk": {
-        "measurement": ["used_percent"],
-        "metrics_collection_interval": 60,
-        "resources": ["*"]
-      },
-      "mem": {
-        "measurement": ["mem_used_percent"],
-        "metrics_collection_interval": 60
-      }
-    }
-  }
-}
-EOF
+/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+  -a fetch-config -m ec2 -s \
+  -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
 
-# Start CloudWatch Agent
-systemctl enable amazon-cloudwatch-agent
-systemctl start amazon-cloudwatch-agent
+# The hostname carries the instance ID, read through IMDSv2.
+token=$(curl -sf -X PUT -H "X-aws-ec2-metadata-token-ttl-seconds: 300" http://169.254.169.254/latest/api/token)
+instance_id=$(curl -sf -H "X-aws-ec2-metadata-token: $token" http://169.254.169.254/latest/meta-data/instance-id)
+hostnamectl set-hostname "${name_prefix}-$instance_id"
 
-# Set hostname
-hostnamectl set-hostname ${project}-${environment}-$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
-
-# Create application user
-useradd -r -s /bin/bash app || true
-
-# Signal completion
-echo "User data script completed successfully"
+# Unprivileged account that runs the application.
+id app >/dev/null 2>&1 || useradd --system --create-home --shell /sbin/nologin app

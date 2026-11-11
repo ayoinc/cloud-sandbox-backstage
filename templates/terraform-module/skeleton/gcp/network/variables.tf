@@ -1,344 +1,194 @@
-# -----------------------------------------------------------------------------
-# GCP Network Module - Variables
-# -----------------------------------------------------------------------------
-
-# -----------------------------------------------------------------------------
-# Project and Environment
-# -----------------------------------------------------------------------------
-
 variable "project_name" {
-  description = "Project name for resource naming"
+  description = "Project name used as a prefix for resource names."
   type        = string
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9-]{0,62}$", var.project_name))
+    error_message = "project_name must start with a lowercase letter and contain only lowercase letters, digits and hyphens (max 63 characters)."
+  }
+}
+
+variable "environment" {
+  description = "Environment name (for example dev, staging, prod)."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9]{0,7}$", var.environment))
+    error_message = "environment must be 1-8 lowercase letters or digits and start with a letter."
+  }
 }
 
 variable "project_id" {
-  description = "GCP project ID"
+  description = "ID of the Google Cloud project that owns the resources."
   type        = string
 
   validation {
     condition     = can(regex("^[a-z][a-z0-9-]{4,28}[a-z0-9]$", var.project_id))
-    error_message = "Project ID must be 6-30 characters, start with a letter, and contain only lowercase letters, numbers, and hyphens."
+    error_message = "project_id must be a valid Google Cloud project ID (6-30 lowercase letters, digits or hyphens)."
   }
 }
 
 variable "region" {
-  description = "GCP region for resources"
+  description = "Google Cloud region for regional resources."
   type        = string
-  default     = "us-central1"
 }
 
-variable "environment" {
-  description = "Environment name (e.g., dev, staging, prod)"
+variable "labels" {
+  description = "Labels applied to every resource that supports them."
+  type        = map(string)
+  default     = {}
+  nullable    = false
+}
+
+variable "network_cidr" {
+  description = "IPv4 range of the VPC. The private, public and database subnets are carved from it."
   type        = string
+  default     = "10.2.0.0/16"
 
   validation {
-    condition     = contains(["dev", "staging", "uat", "prod", "production"], var.environment)
-    error_message = "Environment must be one of: dev, staging, uat, prod, production."
+    condition     = can(cidrhost(var.network_cidr, 0)) && can(regex("^[0-9.]+/[0-9]+$", var.network_cidr))
+    error_message = "network_cidr must be a valid IPv4 CIDR block such as 10.2.0.0/16."
   }
 }
 
-# -----------------------------------------------------------------------------
-# Network Configuration
-# -----------------------------------------------------------------------------
-
-variable "network_name" {
-  description = "Base name for the VPC network"
-  type        = string
+variable "subnet_newbits" {
+  description = "Bits added to the network_cidr prefix to size each subnet (4 turns a /16 into /20 subnets)."
+  type        = number
+  default     = 4
 
   validation {
-    condition     = can(regex("^[a-z][a-z0-9-]*[a-z0-9]$", var.network_name)) && length(var.network_name) <= 63
-    error_message = "Network name must start with a letter, end with a letter or number, contain only lowercase letters, numbers, and hyphens, and be at most 63 characters."
+    condition     = var.subnet_newbits >= 2 && var.subnet_newbits <= 12
+    error_message = "subnet_newbits must be between 2 and 12."
   }
 }
 
 variable "routing_mode" {
-  description = "Network routing mode (REGIONAL or GLOBAL)"
+  description = "Dynamic routing mode of the VPC: REGIONAL or GLOBAL."
   type        = string
-  default     = "GLOBAL"
+  default     = "REGIONAL"
 
   validation {
     condition     = contains(["REGIONAL", "GLOBAL"], var.routing_mode)
-    error_message = "Routing mode must be either REGIONAL or GLOBAL."
+    error_message = "routing_mode must be REGIONAL or GLOBAL."
   }
 }
 
-variable "delete_default_routes" {
-  description = "Delete default routes on VPC creation (set to true if using custom routes only)"
-  type        = bool
-  default     = false
-}
-
-# -----------------------------------------------------------------------------
-# Subnet Configuration
-# -----------------------------------------------------------------------------
-
-variable "subnet_cidrs" {
-  description = "CIDR blocks for each subnet type"
-  type = object({
-    public   = string
-    private  = string
-    database = string
-  })
-  default = {
-    public   = "10.0.1.0/24"
-    private  = "10.0.2.0/24"
-    database = "10.0.3.0/24"
-  }
-
-  validation {
-    condition     = can(cidrhost(var.subnet_cidrs.public, 0)) && can(cidrhost(var.subnet_cidrs.private, 0)) && can(cidrhost(var.subnet_cidrs.database, 0))
-    error_message = "All subnet CIDRs must be valid IPv4 CIDR blocks."
-  }
-}
-
-variable "enable_private_google_access" {
-  description = "Enable Private Google Access for subnets (allows VMs without external IPs to reach Google APIs)"
+variable "enable_flow_logs" {
+  description = "Record VPC flow logs for every subnet."
   type        = bool
   default     = true
 }
 
-# -----------------------------------------------------------------------------
-# GKE Secondary Ranges
-# -----------------------------------------------------------------------------
+variable "flow_log_sampling" {
+  description = "Fraction of flows recorded when flow logs are enabled (0 to 1)."
+  type        = number
+  default     = 0.5
+
+  validation {
+    condition     = var.flow_log_sampling > 0 && var.flow_log_sampling <= 1
+    error_message = "flow_log_sampling must be greater than 0 and at most 1."
+  }
+}
 
 variable "enable_gke_secondary_ranges" {
-  description = "Enable secondary IP ranges for GKE pods and services on private subnet"
+  description = "Add secondary ranges for GKE pods and services to the private subnet."
   type        = bool
   default     = true
 }
 
-variable "secondary_ranges" {
-  description = "Secondary IP ranges for GKE pods and services"
-  type = object({
-    pods     = string
-    services = string
-  })
-  default = {
-    pods     = "10.1.0.0/16"
-    services = "10.2.0.0/20"
-  }
+variable "gke_pods_cidr" {
+  description = "Secondary range for GKE pods. Must not overlap network_cidr."
+  type        = string
+  default     = "100.64.0.0/14"
 
   validation {
-    condition     = can(cidrhost(var.secondary_ranges.pods, 0)) && can(cidrhost(var.secondary_ranges.services, 0))
-    error_message = "Secondary ranges must be valid IPv4 CIDR blocks."
+    condition     = can(cidrhost(var.gke_pods_cidr, 0))
+    error_message = "gke_pods_cidr must be a valid IPv4 CIDR block."
   }
 }
 
-# -----------------------------------------------------------------------------
-# Cloud Router and NAT Configuration
-# -----------------------------------------------------------------------------
+variable "gke_services_cidr" {
+  description = "Secondary range for GKE services. Must not overlap network_cidr."
+  type        = string
+  default     = "100.68.0.0/20"
+
+  validation {
+    condition     = can(cidrhost(var.gke_services_cidr, 0))
+    error_message = "gke_services_cidr must be a valid IPv4 CIDR block."
+  }
+}
 
 variable "enable_nat" {
-  description = "Enable Cloud NAT for private and database subnets"
+  description = "Create a Cloud Router and Cloud NAT so the private and database subnets can reach the internet."
   type        = bool
   default     = true
-}
-
-variable "router_asn" {
-  description = "BGP ASN for Cloud Router (private range: 64512-65534 or 4200000000-4294967294)"
-  type        = number
-  default     = 64514
-
-  validation {
-    condition     = (var.router_asn >= 64512 && var.router_asn <= 65534) || (var.router_asn >= 4200000000 && var.router_asn <= 4294967294)
-    error_message = "Router ASN must be in the private range: 64512-65534 or 4200000000-4294967294."
-  }
-}
-
-variable "router_advertised_ip_ranges" {
-  description = "Additional IP ranges to advertise via BGP"
-  type = list(object({
-    range       = string
-    description = string
-  }))
-  default = []
-}
-
-variable "nat_ip_allocate_option" {
-  description = "How external IPs are allocated for Cloud NAT (AUTO_ONLY or MANUAL_ONLY)"
-  type        = string
-  default     = "AUTO_ONLY"
-
-  validation {
-    condition     = contains(["AUTO_ONLY", "MANUAL_ONLY"], var.nat_ip_allocate_option)
-    error_message = "NAT IP allocate option must be AUTO_ONLY or MANUAL_ONLY."
-  }
 }
 
 variable "nat_ip_count" {
-  description = "Number of external IPs to allocate for NAT (only used when nat_ip_allocate_option is MANUAL_ONLY)"
+  description = "Number of static external addresses reserved for Cloud NAT. 0 lets Google allocate addresses automatically."
   type        = number
-  default     = 1
+  default     = 0
 
   validation {
-    condition     = var.nat_ip_count >= 1 && var.nat_ip_count <= 10
-    error_message = "NAT IP count must be between 1 and 10."
+    condition     = var.nat_ip_count >= 0 && var.nat_ip_count <= 8 && floor(var.nat_ip_count) == var.nat_ip_count
+    error_message = "nat_ip_count must be a whole number between 0 and 8."
   }
 }
 
-variable "nat_min_ports_per_vm" {
-  description = "Minimum number of ports allocated per VM for NAT"
-  type        = number
-  default     = 64
-
-  validation {
-    condition     = var.nat_min_ports_per_vm >= 64 && var.nat_min_ports_per_vm <= 65536
-    error_message = "NAT min ports per VM must be between 64 and 65536."
-  }
-}
-
-variable "nat_max_ports_per_vm" {
-  description = "Maximum number of ports allocated per VM for NAT (when dynamic port allocation is enabled)"
-  type        = number
-  default     = 65536
-}
-
-variable "enable_dynamic_port_allocation" {
-  description = "Enable dynamic port allocation for Cloud NAT"
+variable "enable_iap_ssh" {
+  description = "Allow SSH from Identity-Aware Proxy to instances tagged allow-iap-ssh."
   type        = bool
   default     = true
 }
 
-variable "enable_endpoint_independent_mapping" {
-  description = "Enable endpoint-independent mapping for NAT"
-  type        = bool
-  default     = false
-}
-
-variable "nat_icmp_idle_timeout_sec" {
-  description = "ICMP idle timeout in seconds"
-  type        = number
-  default     = 30
-}
-
-variable "nat_tcp_established_idle_timeout_sec" {
-  description = "TCP established connection idle timeout in seconds"
-  type        = number
-  default     = 1200
-}
-
-variable "nat_tcp_transitory_idle_timeout_sec" {
-  description = "TCP transitory connection idle timeout in seconds"
-  type        = number
-  default     = 30
-}
-
-variable "nat_udp_idle_timeout_sec" {
-  description = "UDP idle timeout in seconds"
-  type        = number
-  default     = 30
-}
-
-variable "nat_log_filter" {
-  description = "Filter for NAT logs (ERRORS_ONLY, TRANSLATIONS_ONLY, ALL)"
-  type        = string
-  default     = "ERRORS_ONLY"
+variable "web_source_ranges" {
+  description = "Source ranges allowed to reach ports 80 and 443 on instances tagged web. Empty creates no rule."
+  type        = list(string)
+  default     = []
+  nullable    = false
 
   validation {
-    condition     = contains(["ERRORS_ONLY", "TRANSLATIONS_ONLY", "ALL"], var.nat_log_filter)
-    error_message = "NAT log filter must be ERRORS_ONLY, TRANSLATIONS_ONLY, or ALL."
+    condition     = alltrue([for r in var.web_source_ranges : can(cidrhost(r, 0))])
+    error_message = "Every entry in web_source_ranges must be a valid CIDR block."
   }
 }
-
-# -----------------------------------------------------------------------------
-# Firewall Configuration
-# -----------------------------------------------------------------------------
-
-variable "ssh_source_ranges" {
-  description = "Source CIDR ranges allowed to SSH (use IAP range 35.235.240.0/20 for secure access)"
-  type        = list(string)
-  default     = ["35.235.240.0/20"]
-}
-
-variable "http_source_ranges" {
-  description = "Source CIDR ranges allowed for HTTP traffic"
-  type        = list(string)
-  default     = ["0.0.0.0/0"]
-}
-
-variable "https_source_ranges" {
-  description = "Source CIDR ranges allowed for HTTPS traffic"
-  type        = list(string)
-  default     = ["0.0.0.0/0"]
-}
-
-variable "enable_iap_access" {
-  description = "Enable Identity-Aware Proxy firewall rule for secure SSH/RDP access"
-  type        = bool
-  default     = true
-}
-
-# -----------------------------------------------------------------------------
-# Private Service Access
-# -----------------------------------------------------------------------------
 
 variable "enable_private_service_access" {
-  description = "Enable Private Service Access for managed services (Cloud SQL, Memorystore, etc.)"
+  description = "Reserve a range and peer the VPC with Google managed services (required for private Cloud SQL and Memorystore)."
   type        = bool
   default     = true
-}
-
-variable "private_service_access_address" {
-  description = "Starting IP address for Private Service Access range (leave null for auto-allocation)"
-  type        = string
-  default     = null
 }
 
 variable "private_service_access_prefix_length" {
-  description = "Prefix length for Private Service Access IP range"
+  description = "Prefix length of the range reserved for Google managed services."
   type        = number
-  default     = 16
+  default     = 20
 
   validation {
-    condition     = var.private_service_access_prefix_length >= 8 && var.private_service_access_prefix_length <= 24
-    error_message = "Private Service Access prefix length must be between 8 and 24."
+    condition     = var.private_service_access_prefix_length >= 16 && var.private_service_access_prefix_length <= 24
+    error_message = "private_service_access_prefix_length must be between 16 and 24."
   }
 }
 
-# -----------------------------------------------------------------------------
-# Private DNS
-# -----------------------------------------------------------------------------
-
 variable "enable_private_dns" {
-  description = "Enable private DNS zone for the VPC"
+  description = "Create a private Cloud DNS zone visible only inside the VPC."
   type        = bool
   default     = false
 }
 
 variable "private_dns_domain" {
-  description = "Domain name for private DNS zone (e.g., 'internal.example.com.')"
+  description = "DNS name of the private zone. Must end with a dot."
   type        = string
-  default     = "internal.local."
+  default     = "internal.example."
 
   validation {
-    condition     = can(regex("^[a-z0-9][a-z0-9.-]*\\.$", var.private_dns_domain))
-    error_message = "Private DNS domain must be a valid DNS name ending with a period."
+    condition     = can(regex("^([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+$", var.private_dns_domain))
+    error_message = "private_dns_domain must be a fully qualified domain name ending with a dot, such as internal.example."
   }
 }
-
-# -----------------------------------------------------------------------------
-# Shared VPC
-# -----------------------------------------------------------------------------
 
 variable "enable_shared_vpc_host" {
-  description = "Enable this project as a Shared VPC host project"
+  description = "Turn the project into a Shared VPC host project. Requires the Shared VPC Admin role on the organization or folder."
   type        = bool
   default     = false
-}
-
-# -----------------------------------------------------------------------------
-# Tags / Labels
-# -----------------------------------------------------------------------------
-
-variable "tags" {
-  description = "Labels to apply to all resources"
-  type        = map(string)
-  default     = {}
-
-  validation {
-    condition = alltrue([
-      for k, v in var.tags : can(regex("^[a-z][a-z0-9_-]*$", k)) && length(k) <= 63 && length(v) <= 63
-    ])
-    error_message = "Label keys must start with a lowercase letter, contain only lowercase letters, numbers, hyphens, and underscores, and be at most 63 characters."
-  }
 }

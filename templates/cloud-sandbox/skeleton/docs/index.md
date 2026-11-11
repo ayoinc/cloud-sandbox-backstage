@@ -1,458 +1,365 @@
+{%- set provider = values.cloud_provider -%}
+{%- if provider == "aws" -%}
+  {%- set cloud = "AWS" -%}{%- set net = "VPC" -%}{%- set k8s = "EKS" -%}{%- set db = "RDS for PostgreSQL" -%}
+{%- elif provider == "azure" -%}
+  {%- set cloud = "Azure" -%}{%- set net = "virtual network" -%}{%- set k8s = "AKS" -%}{%- set db = "Azure Database for PostgreSQL" -%}
+{%- else -%}
+  {%- set cloud = "Google Cloud" -%}{%- set net = "VPC network" -%}{%- set k8s = "GKE Autopilot" -%}{%- set db = "Cloud SQL for PostgreSQL" -%}
+{%- endif -%}
 # ${{ values.name }}
 
 ${{ values.description }}
 
 ## Overview
 
-This Cloud Sandbox environment provides an isolated, fully-configured cloud infrastructure for development, testing, and experimentation. Built on **${{ values.cloud_provider | upper }}** in the **${{ values.region }}** region, it includes networking, optional compute resources, and database services.
-
-## Architecture
+This repository holds a ${{ cloud }} sandbox: an isolated network in
+`${{ values.region }}` for development, testing and experiments, described in
+Terraform and deployed by GitHub Actions. The sandbox is meant to be created
+quickly and thrown away again.
 
 ```d2
 direction: down
 
-title: {
-  label: Cloud Sandbox Architecture
-  near: top-center
-  shape: text
-  style.font-size: 24
-  style.bold: true
-}
-
 internet: Internet {
   shape: cloud
-  style.fill: "#E3F2FD"
-  style.stroke: "#1976D2"
 }
 
-vpc: VPC (${{ values.vpc_cidr }}) {
-  style.fill: "#E8F5E9"
-  style.stroke: "#388E3C"
-
-  public: Public Subnets {
-    style.fill: "#C8E6C9"
-    style.stroke: "#388E3C"
-
-    igw: Internet Gateway {
-      shape: hexagon
-      style.fill: "#FFFFFF"
-    }
-
-    nat: NAT Gateway {
-      shape: hexagon
-      style.fill: "#FFF3E0"
-      style.stroke: "#FF9800"
-    }
-
-    bastion: Bastion Host {
-      shape: rectangle
-      style.fill: "#E1F5FE"
-      style.stroke: "#0288D1"
-    }
+network: "${{ net }} ${{ values.vpc_cidr }}" {
+  public: Public subnets (${{ values.public_subnets }}) {
+{%- if values.include_bastion %}
+    bastion: Bastion host
+{%- endif %}
+    nat: NAT gateway
   }
 
-  private: Private Subnets {
-    style.fill: "#FCE4EC"
-    style.stroke: "#C2185B"
-
-    eks: EKS Cluster {
-      shape: rectangle
-      style.fill: "#F3E5F5"
-      style.stroke: "#7B1FA2"
-
-      nodes: Worker Nodes {
-        shape: rectangle
-        style.fill: "#E1BEE7"
-      }
-    }
-
-    rds: RDS PostgreSQL {
+  private: Private subnets {
+{%- if values.include_eks %}
+    k8s: "${{ k8s }} cluster"
+{%- endif %}
+{%- if values.include_rds %}
+    db: PostgreSQL {
       shape: cylinder
-      style.fill: "#E3F2FD"
-      style.stroke: "#1976D2"
     }
+{%- endif %}
+    workloads: Your workloads
   }
 
-  public.igw -> public.nat
-  public.nat -> private
+  private -> public.nat: outbound
 }
 
-internet -> vpc.public.igw
-internet -> vpc.public.bastion: SSH (22)
-vpc.public.bastion -> vpc.private: Internal Access
-vpc.private.eks -> vpc.private.rds: PostgreSQL (5432)
+network.public.nat -> internet
+{%- if values.include_bastion %}
+internet -> network.public.bastion: {% if provider == "aws" %}Session Manager{% elif provider == "azure" %}SSH from allowed CIDRs{% else %}Identity-Aware Proxy{% endif %}
+network.public.bastion -> network.private: internal access
+{%- endif %}
 ```
 
-## Configuration Summary
+## What Is Created
 
-| Setting | Value |
-|---------|-------|
-| **Sandbox Name** | `${{ values.name }}` |
-| **Cloud Provider** | ${{ values.cloud_provider | upper }} |
-| **Region** | `${{ values.region }}` |
-| **Environment** | `${{ values.environment }}` |
-| **VPC CIDR** | `${{ values.vpc_cidr }}` |
-| **Public Subnets** | ${{ values.public_subnets }} |
-| **Private Subnets** | ${{ values.private_subnets }} |
+| Component       | Included | Details |
+| --------------- | -------- | ------- |
+| Network         | yes      | ${{ net }} `${{ values.vpc_cidr }}` |
+| Public subnets  | ${{ values.public_subnets }} | First blocks of the network range |
+| Private subnets | ${{ values.private_subnets }} | Outbound internet access through one NAT gateway |
+{%- if provider == "aws" %}
+| Bastion host    | ${{ "yes" if values.include_bastion else "no" }} | `t3.micro` Amazon Linux 2023, reached with Session Manager; no SSH key, no open port |
+| Kubernetes      | ${{ "yes" if values.include_eks else "no" }} | EKS with a managed node group of 1 to 3 `t3.medium` nodes, private API endpoint, encrypted secrets |
+| Database        | ${{ "yes" if values.include_rds else "no" }} | RDS PostgreSQL 16 on `db.t4g.micro`, encrypted, private, password in Secrets Manager |
+{%- elif provider == "azure" %}
+| Bastion host    | ${{ "yes" if values.include_bastion else "no" }} | `Standard_B2ats_v2` Ubuntu 22.04 VM with a public IP; SSH closed until `bastion_allowed_cidrs` is set |
+| Kubernetes      | ${{ "yes" if values.include_eks else "no" }} | AKS with two `Standard_D2s_v5` nodes, private API server, Azure network policies |
+| Database        | ${{ "yes" if values.include_rds else "no" }} | PostgreSQL 16 flexible server `B_Standard_B1ms`, reachable from the virtual network only |
+{%- else %}
+| Bastion host    | ${{ "yes" if values.include_bastion else "no" }} | `e2-micro` Debian 12 VM without external IP, reached through Identity-Aware Proxy with OS Login |
+| Kubernetes      | ${{ "yes" if values.include_eks else "no" }} | GKE Autopilot with private nodes; API closed to external networks by default |
+| Database        | ${{ "yes" if values.include_rds else "no" }} | Cloud SQL PostgreSQL 16 with a private IP address only, encrypted connections |
+{%- endif %}
 
-## Components
+All of this is defined in `modules/sandbox`. The root module passes the values
+of `terraform.tfvars` to it.
 
-### Core Infrastructure
+{% if provider == "aws" -%}
+Kubernetes and the database each need subnets in two availability zones. When
+one of them is included, at least two private subnets are created even if
+fewer were requested.
+{%- else -%}
+Kubernetes nodes run in a private subnet. When Kubernetes is included, at
+least one private subnet is created even if none was requested.
+{%- endif %}
 
-| Component | Status | Description |
-|-----------|--------|-------------|
-| **VPC** | Always included | Virtual Private Cloud with isolated networking |
-| **Public Subnets** | ${{ values.public_subnets }} subnets | Internet-accessible subnets across availability zones |
-| **Private Subnets** | ${{ values.private_subnets }} subnets | Internal subnets for workloads and databases |
-| **NAT Gateway** | Auto-enabled if private subnets exist | Allows private subnet internet access |
-| **Internet Gateway** | Always included | Provides public internet connectivity |
+## Changing the Sandbox
 
-### Optional Components
+Edit `terraform.tfvars` and push. The values there are the ones chosen when
+the sandbox was created:
 
-| Component | Enabled | Description |
-|-----------|---------|-------------|
-| **Bastion Host** | ${{ values.include_bastion }} | SSH jump server for secure access |
-| **EKS Cluster** | ${{ values.include_eks }} | Managed Kubernetes (v1.28) with worker nodes |
-| **RDS Database** | ${{ values.include_rds }} | PostgreSQL 15 on db.t3.micro |
+```hcl
+name        = "${{ values.name }}"
+environment = "${{ values.environment }}"
+region      = "${{ values.region }}"
 
----
+vpc_cidr        = "${{ values.vpc_cidr }}"
+public_subnets  = ${{ values.public_subnets }}
+private_subnets = ${{ values.private_subnets }}
+
+include_bastion = ${{ values.include_bastion | string | lower }}
+include_eks     = ${{ values.include_eks | string | lower }}
+include_rds     = ${{ values.include_rds | string | lower }}
+```
+
+More settings, with their defaults:
+
+| Variable | Purpose |
+| -------- | ------- |
+{%- if provider == "aws" %}
+| `bastion_allowed_cidrs` | CIDR blocks allowed to reach the bastion on SSH; empty means Session Manager only |
+| `kubernetes_version` | EKS version; unset uses the current EKS default |
+| `eks_public_access_cidrs` | CIDR blocks allowed to reach the EKS API from the internet; empty keeps it private |
+| `tags` | Additional tags for all resources |
+{%- elif provider == "azure" %}
+| `bastion_allowed_cidrs` | CIDR blocks allowed to reach the bastion on SSH; empty keeps SSH closed |
+| `kubernetes_version` | AKS version; unset uses the current AKS default |
+| `kubernetes_api_allowed_cidrs` | CIDR blocks allowed to reach the AKS API from the internet; empty makes the cluster private |
+| `tags` | Additional tags for all resources |
+{%- else %}
+| `project_id` | Project the sandbox is created in; the pipeline takes it from the `GCP_PROJECT_ID` secret |
+| `kubernetes_api_allowed_cidrs` | CIDR blocks allowed to reach the GKE API from the internet |
+| `labels` | Additional labels for all resources |
+{%- endif %}
 
 ## CI/CD Pipeline
 
-This repository includes a GitHub Actions pipeline for infrastructure management:
+`.github/workflows/terraform.yaml` runs on every push to `main`, on pull
+requests and on demand.
 
-```d2
-direction: right
+| Job           | What it does                                                                  | Needs credentials |
+| ------------- | ----------------------------------------------------------------------------- | ----------------- |
+| Validate      | `terraform fmt -check`, `terraform init -backend=false`, `terraform validate` | No                |
+| Lint          | TFLint with the Terraform and ${{ cloud }} rule sets                          | No                |
+| Test          | `terraform test`: plans against mocked providers and checks the result        | No                |
+| Security scan | Trivy on the Terraform code; fails on HIGH and CRITICAL findings              | No                |
+| Plan          | `terraform plan` against the remote state                                     | Yes               |
+| Apply         | `terraform apply` of that plan, on pushes to `main`                           | Yes               |
 
-pr: Pull Request {
-  shape: oval
-  style.fill: "#E3F2FD"
-  style.stroke: "#1976D2"
-}
+Plan and Apply are skipped, not failed, while their credentials are missing.
+Add these repository secrets to turn them on:
 
-validate: Validate {
-  style.fill: "#E8F5E9"
-  style.stroke: "#388E3C"
-  label: "terraform fmt\nterraform validate\ntflint"
-}
+{% if provider == "aws" -%}
+| Secret            | Purpose                                                    |
+| ----------------- | ---------------------------------------------------------- |
+| `AWS_ROLE_ARN`    | IAM role the workflow assumes through GitHub OIDC          |
+| `TF_STATE_BUCKET` | S3 bucket that stores the Terraform state                  |
 
-security: Security Scan {
-  style.fill: "#FFCDD2"
-  style.stroke: "#D32F2F"
-  label: "tfsec\nCheckov\nTrivy"
-}
+The optional repository variable `TF_STATE_REGION` names the region of the
+state bucket when it differs from `${{ values.region }}`.
+{%- elif provider == "azure" -%}
+| Secret                     | Purpose                                                          |
+| -------------------------- | ---------------------------------------------------------------- |
+| `AZURE_CLIENT_ID`          | App registration with a federated credential for this repository |
+| `AZURE_TENANT_ID`          | Tenant of that app registration                                  |
+| `AZURE_SUBSCRIPTION_ID`    | Subscription the sandbox is created in                           |
+| `TF_STATE_STORAGE_ACCOUNT` | Storage account that stores the Terraform state                  |
 
-plan: Plan {
-  style.fill: "#E3F2FD"
-  style.stroke: "#1976D2"
-  label: "terraform plan\nCost Estimate"
-}
+The state goes to the blob container `tfstate`; the optional repository
+variable `TF_STATE_CONTAINER` names another one. The identity needs the
+Contributor role on the subscription and Storage Blob Data Contributor on the
+state container.
+{%- else -%}
+| Secret                           | Purpose                                         |
+| -------------------------------- | ----------------------------------------------- |
+| `GCP_WORKLOAD_IDENTITY_PROVIDER` | Workload identity provider for this repository  |
+| `GCP_SERVICE_ACCOUNT`            | Service account the workflow impersonates       |
+| `GCP_PROJECT_ID`                 | Project the sandbox is created in               |
+| `TF_STATE_BUCKET`                | Cloud Storage bucket that stores the Terraform state |
+{%- endif %}
 
-approval: Approval {
-  shape: diamond
-  style.fill: "#FFECB3"
-  style.stroke: "#FFA000"
-  label: "Manual\nReview"
-}
+Apply runs in the GitHub environment `${{ values.environment }}`. Add required
+reviewers to that environment to approve each apply by hand.
 
-apply: Apply {
-  style.fill: "#E8F5E9"
-  style.stroke: "#388E3C"
-  label: "terraform apply"
-}
+### Manual runs
 
-pr -> validate -> security -> plan -> approval -> apply
-```
+Start the workflow from the Actions tab and choose an action:
 
-### Pipeline Triggers
+| Action    | Result                                    |
+| --------- | ----------------------------------------- |
+| `plan`    | Shows what would change                   |
+| `apply`   | Applies the current configuration         |
+| `destroy` | Removes everything the sandbox created    |
 
-| Trigger | Actions |
-|---------|---------|
-| **Pull Request** | Validate, Security Scan, Plan |
-| **Push to main** | Validate, Security Scan, Plan, Apply (with approval) |
-| **Manual dispatch** | Plan, Apply, or Destroy |
+## Working Locally
 
----
-
-## Prerequisites
-
-### 1. AWS Account Setup
-
-#### Create OIDC Identity Provider
-
-GitHub Actions uses OpenID Connect (OIDC) for secure, keyless authentication:
+These checks need Terraform 1.10 or later and no cloud account:
 
 ```bash
-aws iam create-open-id-connect-provider \
-  --url https://token.actions.githubusercontent.com \
-  --client-id-list sts.amazonaws.com \
-  --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1
-```
-
-#### Required IAM Permissions
-
-The IAM role needs permissions for:
-
-- **VPC**: Create/manage VPCs, subnets, route tables, NAT/Internet gateways
-- **EC2**: Launch instances (bastion), manage security groups
-- **EKS**: Create/manage clusters and node groups (if enabled)
-- **RDS**: Create/manage database instances (if enabled)
-- **S3/DynamoDB**: Terraform state backend access
-
-### 2. GitHub Repository Setup
-
-#### Required Secrets
-
-| Secret | Description |
-|--------|-------------|
-| `AWS_ROLE_ARN` | IAM role ARN for OIDC authentication |
-| `TF_STATE_BUCKET` | S3 bucket for Terraform state |
-| `TF_STATE_LOCK_TABLE` | DynamoDB table for state locking |
-
-#### Terraform Backend
-
-```bash
-# Create S3 bucket for state
-aws s3 mb s3://your-terraform-state-bucket --region ${{ values.region }}
-aws s3api put-bucket-versioning --bucket your-terraform-state-bucket \
-  --versioning-configuration Status=Enabled
-
-# Create DynamoDB table for locking
-aws dynamodb create-table \
-  --table-name terraform-state-lock \
-  --attribute-definitions AttributeName=LockID,AttributeType=S \
-  --key-schema AttributeName=LockID,KeyType=HASH \
-  --billing-mode PAY_PER_REQUEST
-```
-
----
-
-## Usage
-
-### Local Development
-
-```bash
-# Clone repository
-git clone <repository-url>
-cd ${{ values.name }}
-
-# Initialize Terraform
-terraform init
-
-# Format and validate
-terraform fmt -recursive
+terraform fmt -check -recursive
+terraform init -backend=false
 terraform validate
-
-# Plan changes
-terraform plan -out=tfplan
-
-# Apply changes
-terraform apply tfplan
+terraform test
 ```
 
-### Environment-Specific Deployment
+To plan and apply from your machine, initialise with the remote state:
+
+{% if provider == "aws" -%}
+```bash
+terraform init \
+  -backend-config="bucket=<state bucket>" \
+  -backend-config="key=${{ values.name }}/terraform.tfstate" \
+  -backend-config="region=${{ values.region }}" \
+  -backend-config="use_lockfile=true"
+terraform plan
+terraform apply
+```
+{%- elif provider == "azure" -%}
+```bash
+az login
+export ARM_SUBSCRIPTION_ID=<subscription id>
+terraform init \
+  -backend-config="storage_account_name=<state storage account>" \
+  -backend-config="container_name=tfstate" \
+  -backend-config="key=${{ values.name }}.tfstate" \
+  -backend-config="use_azuread_auth=true"
+terraform plan
+terraform apply
+```
+{%- else -%}
+```bash
+gcloud auth application-default login
+export TF_VAR_project_id=<project id>
+terraform init \
+  -backend-config="bucket=<state bucket>" \
+  -backend-config="prefix=${{ values.name }}"
+terraform plan
+terraform apply
+```
+{%- endif %}
+
+## Accessing the Sandbox
+{%- if not (values.include_bastion or values.include_eks or values.include_rds) %}
+
+No bastion, cluster or database is included. Set `include_bastion`,
+`include_eks` or `include_rds` to `true` in `terraform.tfvars` to add one.
+{%- endif %}
+{%- if provider == "aws" %}
+
+### Bastion host
 
 ```bash
-# Development
-terraform plan -var-file=environments/dev.tfvars
-
-# Staging
-terraform plan -var-file=environments/staging.tfvars
+aws ssm start-session --target "$(terraform output -raw bastion_instance_id)"
 ```
 
-### Accessing Resources
+### Kubernetes
 
-#### Bastion Host (if enabled)
-
-```bash
-# Get bastion IP
-BASTION_IP=$(terraform output -raw bastion_public_ip)
-
-# SSH to bastion
-ssh -i ~/.ssh/your-key.pem ec2-user@$BASTION_IP
-```
-
-#### EKS Cluster (if enabled)
+The API endpoint is private. Run `kubectl` from the bastion, or add your
+address to `eks_public_access_cidrs`.
 
 ```bash
-# Update kubeconfig
 aws eks update-kubeconfig --name ${{ values.name }} --region ${{ values.region }}
-
-# Verify connection
 kubectl get nodes
 ```
 
-#### RDS Database (if enabled)
+### Database
+
+The master password is generated by RDS and kept in Secrets Manager:
 
 ```bash
-# Get connection string
 terraform output rds_endpoint
-
-# Connect via bastion
-ssh -L 5432:<rds-endpoint>:5432 ec2-user@$BASTION_IP
-psql -h localhost -U admin -d ${{ values.name | replace("-", "_") }}
+aws secretsmanager get-secret-value \
+  --secret-id "$(terraform output -raw rds_master_user_secret_arn)" \
+  --query SecretString --output text
 ```
 
----
+The database accepts connections from inside the VPC as user `sandbox_admin`.
+{%- elif provider == "azure" %}
 
-## Outputs
+### Bastion host
 
-| Output | Description |
-|--------|-------------|
-| `vpc_id` | VPC identifier |
-| `public_subnet_ids` | List of public subnet IDs |
-| `private_subnet_ids` | List of private subnet IDs |
-| `bastion_public_ip` | Bastion host public IP (if enabled) |
-| `eks_cluster_endpoint` | EKS API endpoint (if enabled) |
-| `rds_endpoint` | Database connection endpoint (if enabled) |
+Add your address to `bastion_allowed_cidrs`, apply, then:
 
 ```bash
-# View all outputs
-terraform output
-
-# Get specific output
-terraform output -raw vpc_id
+terraform output -raw bastion_ssh_private_key > bastion.pem
+chmod 600 bastion.pem
+ssh -i bastion.pem azureuser@"$(terraform output -raw bastion_public_ip)"
 ```
 
----
+The key pair is generated by Terraform and stored in the state.
 
-## Security Considerations
+### Kubernetes
 
-### Network Security
-
-```d2
-direction: right
-
-internet: Internet {
-  shape: cloud
-}
-
-waf: Security Controls {
-  style.fill: "#FFCDD2"
-  style.stroke: "#D32F2F"
-
-  sg_bastion: Bastion SG {
-    label: "Ingress: SSH (22)\nfrom: 0.0.0.0/0"
-  }
-
-  sg_eks: EKS SG {
-    label: "Ingress: Internal\nfrom: VPC CIDR"
-  }
-
-  sg_rds: RDS SG {
-    label: "Ingress: PostgreSQL (5432)\nfrom: VPC CIDR"
-  }
-}
-
-private: Private Resources {
-  style.fill: "#E8F5E9"
-
-  eks: EKS
-  rds: RDS
-}
-
-internet -> waf.sg_bastion: "SSH Only"
-waf.sg_bastion -> private: "Internal"
-waf.sg_eks -> private.eks
-waf.sg_rds -> private.rds
-```
-
-### Best Practices
-
-| Practice | Implementation |
-|----------|---------------|
-| **No public databases** | RDS in private subnets only |
-| **SSH via bastion** | No direct SSH to private instances |
-| **Least privilege** | Security groups restrict by port and source |
-| **Encryption** | RDS encryption at rest enabled |
-| **State protection** | Remote state with locking |
-
-### Sandbox-Specific Warnings
-
-> ⚠️ **This is a sandbox environment**
->
-> - Do NOT store production data
-> - Resources may be auto-destroyed after inactivity
-> - No SLA or backup guarantees
-> - Enable deletion protection for long-running sandboxes
-
----
-
-## Cost Estimation
-
-Estimated monthly costs (USD) for this configuration:
-
-| Resource | Quantity | Monthly Cost |
-|----------|----------|-------------|
-| **NAT Gateway** | 1 | ~$32 |
-| **Elastic IP** | 1 | ~$3.60 |
-| **Bastion (t3.micro)** | 1 | ~$8.50 |
-| **EKS Cluster** | 1 | ~$72 |
-| **EKS Nodes (t3.medium)** | 2 | ~$60 |
-| **RDS (db.t3.micro)** | 1 | ~$15 |
-| **Storage (20GB)** | 1 | ~$2 |
-| **Data Transfer** | Variable | ~$5-20 |
-
-**Estimated Total**: $50-200/month depending on options enabled
-
----
-
-## Cleanup
-
-To destroy the sandbox environment:
+The API server is private. Run `kubectl` from the bastion, or add your address
+to `kubernetes_api_allowed_cidrs`.
 
 ```bash
-# Review what will be destroyed
-terraform plan -destroy
-
-# Destroy all resources
-terraform destroy
-
-# Confirm by typing 'yes'
+az aks get-credentials \
+  --resource-group "$(terraform output -raw resource_group_name)" \
+  --name ${{ values.name }}
+kubectl get nodes
 ```
 
-Or use the GitHub Actions workflow:
-1. Go to **Actions** tab
-2. Select **Terraform** workflow
-3. Click **Run workflow**
-4. Set action to `destroy`
-5. Type `DESTROY` to confirm
+### Database
 
----
+```bash
+terraform output postgresql_fqdn
+terraform output -raw postgresql_admin_password
+```
 
-## Troubleshooting
+The server accepts connections from inside the virtual network as user
+`sandbox_admin`.
+{%- else %}
 
-### Common Issues
+### Bastion host
 
-| Issue | Resolution |
-|-------|------------|
-| **EKS nodes not joining** | Check IAM roles and security groups |
-| **Cannot connect to RDS** | Verify security group allows VPC CIDR |
-| **NAT Gateway timeout** | Check route tables for private subnets |
-| **Terraform state lock** | Wait or manually remove DynamoDB lock |
+```bash
+gcloud compute ssh "$(terraform output -raw bastion_instance_name)" \
+  --zone "$(terraform output -raw bastion_zone)" \
+  --tunnel-through-iap
+```
 
-### Getting Help
+Your account needs the roles `roles/iap.tunnelResourceAccessor` and
+`roles/compute.osLogin`.
 
-- **Platform Team**: Contact via Slack `#platform-support`
-- **Documentation**: [Internal Wiki](https://wiki.example.com/cloud-sandbox)
-- **Issues**: Create a GitHub issue in this repository
+### Kubernetes
 
----
+The API accepts connections from the VPC network. Run `kubectl` from the
+bastion, or add your address to `kubernetes_api_allowed_cidrs`.
 
-## Related Resources
+```bash
+gcloud container clusters get-credentials ${{ values.name }} --region ${{ values.region }}
+kubectl get nodes
+```
 
-| Template | Description |
-|----------|-------------|
-| [aws-vpc](/docs/default/template/aws-vpc) | Standalone VPC configuration |
-| [aws-eks](/docs/default/template/aws-eks) | Production EKS cluster |
-| [aws-rds](/docs/default/template/aws-rds) | Production RDS database |
-| [terraform-infrastructure](/docs/default/template/terraform-infrastructure) | Multi-cloud infrastructure |
+### Database
 
----
+```bash
+terraform output cloudsql_private_ip
+terraform output -raw cloudsql_admin_password
+```
 
-## References
+The instance has a private IP address only and accepts encrypted connections
+from inside the VPC network as user `sandbox_admin`.
+{%- endif %}
 
-- [AWS VPC Documentation](https://docs.aws.amazon.com/vpc/)
-- [Terraform AWS Provider](https://registry.terraform.io/providers/hashicorp/aws/)
-- [EKS Best Practices](https://aws.github.io/aws-eks-best-practices/)
-- [GitHub Actions OIDC](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services)
+## Costs
+
+A sandbox costs money while it exists. The NAT gateway, the Kubernetes cluster
+and the database are billed by the hour whether or not they are used. Destroy
+the sandbox when it is no longer needed: run the workflow with the action
+`destroy`.
+
+## Repository Structure
+
+```
+${{ values.name }}/
+├── .github/workflows/terraform.yaml   # Validation and deployment pipeline
+├── docs/index.md                      # This documentation
+├── modules/sandbox/                   # Network, bastion, Kubernetes and database
+├── tests/sandbox.tftest.hcl           # Terraform tests against mocked providers
+├── backend.tf                         # Remote state
+├── main.tf                            # Calls modules/sandbox
+├── outputs.tf
+├── providers.tf
+├── terraform.tfvars                   # The settings of this sandbox
+├── variables.tf
+├── versions.tf
+├── .tflint.hcl                        # TFLint configuration
+├── catalog-info.yaml                  # Backstage catalog entry
+└── mkdocs.yml                         # TechDocs configuration
+```

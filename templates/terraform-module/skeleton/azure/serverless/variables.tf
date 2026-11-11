@@ -7,13 +7,23 @@
 # -----------------------------------------------------------------------------
 
 variable "project_name" {
-  description = "Project name"
+  description = "Project name used in resource naming"
   type        = string
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9-]{0,38}[a-z0-9]$", var.project_name))
+    error_message = "Project name must be 2-40 characters of lowercase letters, numbers and hyphens, start with a letter and not end with a hyphen."
+  }
 }
 
 variable "environment" {
   description = "Environment name (e.g., dev, staging, prod)"
   type        = string
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9]{1,11}$", var.environment))
+    error_message = "Environment must be 2-12 lowercase letters or numbers and start with a letter."
+  }
 }
 
 variable "location" {
@@ -59,20 +69,27 @@ variable "runtime_stack" {
 }
 
 variable "runtime_version" {
-  description = "Version of the runtime stack (e.g., '3.11' for Python, '18' for Node, '17' for Java, '8.0' for .NET)"
+  description = "Version of the runtime stack (e.g., '3.12' for Python, '22' for Node, '21' for Java, '8.0' for .NET isolated)"
   type        = string
-  default     = "3.11"
+  default     = "3.12"
+
+  validation {
+    condition     = can(regex("^[0-9]+(\\.[0-9]+)?$", var.runtime_version))
+    error_message = "Runtime version must be a version number such as 3.12, 22 or 8.0."
+  }
 }
 
 variable "app_settings" {
   description = "Application settings for the function app"
   type        = map(string)
+  nullable    = false
   default     = {}
 }
 
 variable "cors_allowed_origins" {
   description = "List of allowed origins for CORS"
   type        = list(string)
+  nullable    = false
   default     = []
 }
 
@@ -83,7 +100,7 @@ variable "cors_support_credentials" {
 }
 
 variable "health_check_path" {
-  description = "Health check path for premium plans"
+  description = "Health check path probed on Elastic Premium and dedicated plans. Null disables the health check"
   type        = string
   default     = "/api/health"
 }
@@ -108,7 +125,7 @@ variable "storage_replication_type" {
 # -----------------------------------------------------------------------------
 
 variable "vnet_integration_subnet_id" {
-  description = "Subnet ID for VNet integration (optional)"
+  description = "Subnet ID for VNet integration (not available on Y1). The subnet must be delegated to Microsoft.Web/serverFarms and have the Microsoft.Storage service endpoint. The value must be known at plan time"
   type        = string
   default     = null
 }
@@ -117,8 +134,21 @@ variable "vnet_integration_subnet_id" {
 # Application Insights
 # -----------------------------------------------------------------------------
 
+variable "create_application_insights" {
+  description = "Create an Application Insights instance for the function app. Disable to use application_insights_connection_string"
+  type        = bool
+  default     = true
+}
+
 variable "application_insights_connection_string" {
-  description = "Connection string for existing Application Insights instance (if null, a new one is created)"
+  description = "Connection string of an existing Application Insights instance, used when create_application_insights is false"
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+variable "log_analytics_workspace_id" {
+  description = "Log Analytics workspace ID backing the created Application Insights instance. Null lets Azure use the default workspace of the region"
   type        = string
   default     = null
 }
@@ -151,9 +181,14 @@ variable "apim_publisher_name" {
 }
 
 variable "apim_publisher_email" {
-  description = "Publisher email for API Management"
+  description = "Publisher email for API Management, which receives service notifications. Required when enable_api_management is true"
   type        = string
-  default     = "api@example.com"
+  default     = null
+
+  validation {
+    condition     = var.apim_publisher_email == null || can(regex("^[^@ ]+@[^@ ]+\\.[^@ ]+$", var.apim_publisher_email))
+    error_message = "apim_publisher_email must be an email address."
+  }
 }
 
 variable "apim_sku_name" {
@@ -162,7 +197,7 @@ variable "apim_sku_name" {
   default     = "Consumption_0"
 
   validation {
-    condition     = can(regex("^(Consumption_0|Developer_1|Basic_[1-2]|Standard_[1-4]|Premium_[1-10])$", var.apim_sku_name))
+    condition     = can(regex("^(Consumption_0|Developer_1|Basic_[1-2]|Standard_[1-4]|Premium_([1-9]|10))$", var.apim_sku_name))
     error_message = "API Management SKU must be in format: Consumption_0, Developer_1, Basic_1-2, Standard_1-4, or Premium_1-10."
   }
 }
@@ -183,6 +218,18 @@ variable "apim_subscription_required" {
   description = "Whether API subscription is required"
   type        = bool
   default     = true
+}
+
+variable "apim_http_methods" {
+  description = "HTTP methods API Management forwards to the function app"
+  type        = list(string)
+  nullable    = false
+  default     = ["GET", "POST", "PUT", "PATCH", "DELETE"]
+
+  validation {
+    condition     = length(var.apim_http_methods) > 0 && alltrue([for method in var.apim_http_methods : contains(["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"], method)])
+    error_message = "Provide at least one method out of GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS."
+  }
 }
 
 # -----------------------------------------------------------------------------
@@ -258,9 +305,21 @@ variable "enable_event_grid" {
 }
 
 variable "event_grid_public_access" {
-  description = "Enable public network access for Event Grid"
+  description = "Enable public network access for Event Grid, so that publishers outside private endpoints can reach the topic"
   type        = bool
   default     = true
+}
+
+variable "event_grid_local_auth_enabled" {
+  description = "Allow publishing with the topic access keys in addition to Microsoft Entra ID"
+  type        = bool
+  default     = false
+}
+
+variable "event_grid_create_subscription" {
+  description = "Subscribe the function named event_grid_function_name to the topic. Enable only after that function is deployed: Event Grid validates the endpoint when the subscription is created"
+  type        = bool
+  default     = false
 }
 
 variable "event_grid_function_name" {
@@ -288,5 +347,6 @@ variable "event_grid_preferred_batch_size_kb" {
 variable "tags" {
   description = "Tags for all resources"
   type        = map(string)
+  nullable    = false
   default     = {}
 }

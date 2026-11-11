@@ -1,0 +1,6 @@
+# Packer
+manifest.json
+packer_cache/
+crash.log
+*.auto.pkrvars.hcl
+site/

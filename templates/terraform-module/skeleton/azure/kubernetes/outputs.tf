@@ -90,9 +90,9 @@ output "cluster_identity" {
 output "kubelet_identity" {
   description = "Kubelet identity for node pool operations"
   value = {
-    client_id                 = azurerm_kubernetes_cluster.main.kubelet_identity[0].client_id
-    object_id                 = azurerm_kubernetes_cluster.main.kubelet_identity[0].object_id
-    user_assigned_identity_id = azurerm_kubernetes_cluster.main.kubelet_identity[0].user_assigned_identity_id
+    client_id                 = azurerm_user_assigned_identity.kubelet.client_id
+    object_id                 = azurerm_user_assigned_identity.kubelet.principal_id
+    user_assigned_identity_id = azurerm_user_assigned_identity.kubelet.id
   }
 }
 
@@ -106,12 +106,12 @@ output "oidc_issuer_url" {
 # -----------------------------------------------------------------------------
 
 output "node_resource_group" {
-  description = "The auto-generated resource group containing AKS node resources"
+  description = "The resource group containing AKS node resources"
   value       = azurerm_kubernetes_cluster.main.node_resource_group
 }
 
 output "node_resource_group_id" {
-  description = "The ID of the auto-generated resource group containing AKS node resources"
+  description = "The ID of the resource group containing AKS node resources"
   value       = azurerm_kubernetes_cluster.main.node_resource_group_id
 }
 
@@ -119,6 +119,7 @@ output "network_profile" {
   description = "Network profile configuration of the cluster"
   value = {
     network_plugin    = azurerm_kubernetes_cluster.main.network_profile[0].network_plugin
+    network_mode      = var.network_plugin_mode
     network_policy    = azurerm_kubernetes_cluster.main.network_profile[0].network_policy
     dns_service_ip    = azurerm_kubernetes_cluster.main.network_profile[0].dns_service_ip
     service_cidr      = azurerm_kubernetes_cluster.main.network_profile[0].service_cidr

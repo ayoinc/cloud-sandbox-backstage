@@ -7,12 +7,12 @@
 # -----------------------------------------------------------------------------
 
 variable "project_name" {
-  description = "Project name used for resource naming"
+  description = "Project name used in resource naming"
   type        = string
 
   validation {
-    condition     = can(regex("^[a-z0-9-]+$", var.project_name))
-    error_message = "Project name must contain only lowercase letters, numbers, and hyphens."
+    condition     = can(regex("^[a-z][a-z0-9-]{0,38}[a-z0-9]$", var.project_name))
+    error_message = "Project name must be 2-40 characters of lowercase letters, numbers and hyphens, start with a letter and not end with a hyphen."
   }
 }
 
@@ -21,8 +21,8 @@ variable "environment" {
   type        = string
 
   validation {
-    condition     = contains(["dev", "staging", "prod", "test", "uat"], var.environment)
-    error_message = "Environment must be one of: dev, staging, prod, test, uat."
+    condition     = can(regex("^[a-z][a-z0-9]{1,11}$", var.environment))
+    error_message = "Environment must be 2-12 lowercase letters or numbers and start with a letter."
   }
 }
 
@@ -40,35 +40,53 @@ variable "resource_group_name" {
 # Network Variables
 # -----------------------------------------------------------------------------
 
-variable "vnet_id" {
-  description = "Virtual Network ID for private DNS zone linking"
-  type        = string
-}
-
 variable "subnet_id" {
-  description = "Subnet ID for PostgreSQL Flexible Server VNet integration (delegated subnet)"
+  description = "ID of the subnet delegated to Microsoft.DBforPostgreSQL/flexibleServers that the server joins"
   type        = string
+
+  validation {
+    condition     = var.subnet_id != null
+    error_message = "subnet_id is required: enable the network module or pass the ID of a subnet delegated to Microsoft.DBforPostgreSQL/flexibleServers."
+  }
 }
 
-variable "private_endpoint_subnet_id" {
-  description = "Subnet ID for private endpoints (if different from main subnet)"
+variable "vnet_id" {
+  description = "ID of the virtual network linked to the private DNS zones. Null uses the virtual network of subnet_id"
   type        = string
   default     = null
 }
 
-variable "create_private_endpoint" {
-  description = "Whether to create a private endpoint for PostgreSQL (not needed when using delegated subnet)"
-  type        = bool
-  default     = false
+variable "private_endpoint_subnet_id" {
+  description = "ID of a subnet without delegation for the Redis private endpoint. Required when enable_redis is true"
+  type        = string
+  default     = null
 }
 
 # -----------------------------------------------------------------------------
 # Key Vault Variables
 # -----------------------------------------------------------------------------
 
+variable "store_credentials_in_key_vault" {
+  description = "Store the PostgreSQL password and connection string (and the Redis access key when access keys are enabled) as Key Vault secrets. The machine running Terraform must be able to reach the vault and set secrets"
+  type        = bool
+  default     = false
+}
+
 variable "key_vault_id" {
-  description = "Key Vault ID for storing database credentials"
+  description = "Key Vault ID for storing database credentials. Required when store_credentials_in_key_vault is true"
   type        = string
+  default     = null
+}
+
+variable "secret_expiration_date" {
+  description = "Expiration date of the Key Vault secrets as an RFC 3339 timestamp (for example 2030-01-01T00:00:00Z). Null sets no expiry"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.secret_expiration_date == null || can(formatdate("YYYY", var.secret_expiration_date))
+    error_message = "secret_expiration_date must be an RFC 3339 timestamp such as 2030-01-01T00:00:00Z."
+  }
 }
 
 # -----------------------------------------------------------------------------
@@ -76,13 +94,13 @@ variable "key_vault_id" {
 # -----------------------------------------------------------------------------
 
 variable "postgresql_version" {
-  description = "PostgreSQL version"
+  description = "PostgreSQL major version"
   type        = string
-  default     = "15"
+  default     = "17"
 
   validation {
-    condition     = contains(["11", "12", "13", "14", "15", "16"], var.postgresql_version)
-    error_message = "PostgreSQL version must be one of: 11, 12, 13, 14, 15, 16."
+    condition     = contains(["14", "15", "16", "17", "18"], var.postgresql_version)
+    error_message = "PostgreSQL version must be one of: 14, 15, 16, 17, 18."
   }
 }
 
@@ -98,13 +116,13 @@ variable "sku_name" {
 }
 
 variable "storage_mb" {
-  description = "Storage size in MB (min 32768, max 16777216)"
+  description = "Storage size in MB"
   type        = number
   default     = 32768
 
   validation {
-    condition     = var.storage_mb >= 32768 && var.storage_mb <= 16777216
-    error_message = "Storage must be between 32768 MB (32 GB) and 16777216 MB (16 TB)."
+    condition     = contains([32768, 65536, 131072, 262144, 524288, 1048576, 2097152, 4193280, 4194304, 8388608, 16777216, 33553408], var.storage_mb)
+    error_message = "Storage must be one of the sizes Azure offers: 32768, 65536, 131072, 262144, 524288, 1048576, 2097152, 4193280, 4194304, 8388608, 16777216 or 33553408 MB."
   }
 }
 
@@ -120,8 +138,8 @@ variable "admin_username" {
   default     = "psqladmin"
 
   validation {
-    condition     = !contains(["admin", "administrator", "root", "sa", "postgres"], lower(var.admin_username))
-    error_message = "Admin username cannot be a reserved name."
+    condition     = can(regex("^[a-z][a-z0-9_]{0,62}$", var.admin_username)) && !contains(["admin", "administrator", "root", "sa", "postgres", "guest", "public", "azure_superuser", "azure_pg_admin"], var.admin_username) && !startswith(var.admin_username, "pg_")
+    error_message = "Admin username must be lowercase letters, numbers and underscores, start with a letter, and not be a reserved name."
   }
 }
 
@@ -131,7 +149,7 @@ variable "database_name" {
   default     = "appdb"
 
   validation {
-    condition     = can(regex("^[a-z][a-z0-9_]*$", var.database_name))
+    condition     = can(regex("^[a-z][a-z0-9_]{0,62}$", var.database_name))
     error_message = "Database name must start with a letter and contain only lowercase letters, numbers, and underscores."
   }
 }
@@ -149,9 +167,9 @@ variable "database_charset" {
 }
 
 variable "availability_zone" {
-  description = "Availability zone for the PostgreSQL server"
+  description = "Availability zone for the PostgreSQL server. Null lets Azure choose, which also works in regions without zones"
   type        = string
-  default     = "1"
+  default     = null
 }
 
 # -----------------------------------------------------------------------------
@@ -170,7 +188,7 @@ variable "backup_retention_days" {
 }
 
 variable "geo_redundant_backup" {
-  description = "Enable geo-redundant backup"
+  description = "Enable geo-redundant backup. Can only be chosen when the server is created"
   type        = bool
   default     = false
 }
@@ -180,7 +198,7 @@ variable "geo_redundant_backup" {
 # -----------------------------------------------------------------------------
 
 variable "enable_high_availability" {
-  description = "Enable high availability for PostgreSQL"
+  description = "Enable high availability for PostgreSQL (General Purpose and Memory Optimized SKUs only)"
   type        = bool
   default     = false
 }
@@ -197,9 +215,9 @@ variable "high_availability_mode" {
 }
 
 variable "standby_availability_zone" {
-  description = "Availability zone for the standby server"
+  description = "Availability zone for the standby server. Null lets Azure choose"
   type        = string
-  default     = "2"
+  default     = null
 }
 
 # -----------------------------------------------------------------------------
@@ -213,34 +231,30 @@ variable "enable_password_auth" {
 }
 
 variable "enable_aad_auth" {
-  description = "Enable Azure Active Directory authentication"
+  description = "Enable Microsoft Entra ID authentication. Requires aad_administrator"
   type        = bool
   default     = false
 }
 
 variable "tenant_id" {
-  description = "Azure AD tenant ID (required if enable_aad_auth is true)"
+  description = "Microsoft Entra tenant ID for authentication. Null uses the tenant of the identity running Terraform"
   type        = string
   default     = null
 }
 
-# -----------------------------------------------------------------------------
-# Firewall Variables
-# -----------------------------------------------------------------------------
+variable "aad_administrator" {
+  description = "Microsoft Entra principal made administrator of the server when enable_aad_auth is true"
+  type = object({
+    object_id      = string
+    principal_name = string
+    principal_type = optional(string, "Group")
+  })
+  default = null
 
-variable "firewall_rules" {
-  description = "Map of firewall rules to create"
-  type = map(object({
-    start_ip_address = string
-    end_ip_address   = string
-  }))
-  default = {}
-}
-
-variable "allow_azure_services" {
-  description = "Allow Azure services to access the PostgreSQL server"
-  type        = bool
-  default     = false
+  validation {
+    condition     = var.aad_administrator == null || contains(["Group", "ServicePrincipal", "User"], try(var.aad_administrator.principal_type, ""))
+    error_message = "aad_administrator.principal_type must be Group, ServicePrincipal or User."
+  }
 }
 
 # -----------------------------------------------------------------------------
@@ -250,17 +264,18 @@ variable "allow_azure_services" {
 variable "postgresql_configurations" {
   description = "Map of PostgreSQL server configuration parameters"
   type        = map(string)
+  nullable    = false
   default = {
-    "azure.extensions"      = "PG_TRGM,BTREE_GIST,UUID-OSSP"
-    "log_checkpoints"       = "on"
-    "log_connections"       = "on"
-    "log_disconnections"    = "on"
-    "connection_throttling" = "on"
+    "azure.extensions"           = "PG_TRGM,BTREE_GIST,UUID-OSSP"
+    "connection_throttle.enable" = "on"
+    "log_checkpoints"            = "on"
+    "log_disconnections"         = "on"
+    "require_secure_transport"   = "on"
   }
 }
 
 variable "maintenance_window" {
-  description = "Maintenance window configuration"
+  description = "Maintenance window configuration (day_of_week 0 is Sunday). Null lets Azure schedule maintenance"
   type = object({
     day_of_week  = number
     start_hour   = number
@@ -270,96 +285,68 @@ variable "maintenance_window" {
 }
 
 # -----------------------------------------------------------------------------
-# Redis Cache Variables
+# Azure Managed Redis Variables
 # -----------------------------------------------------------------------------
 
 variable "enable_redis" {
-  description = "Enable Azure Redis Cache"
+  description = "Create an Azure Managed Redis cache reachable through a private endpoint. Requires private_endpoint_subnet_id"
   type        = bool
   default     = false
 }
 
 variable "redis_sku" {
-  description = "Redis Cache SKU (Basic, Standard, Premium)"
+  description = "Azure Managed Redis SKU, for example Balanced_B0, Balanced_B1, MemoryOptimized_M10 or ComputeOptimized_X3"
   type        = string
-  default     = "Standard"
+  default     = "Balanced_B0"
 
   validation {
-    condition     = contains(["Basic", "Standard", "Premium"], var.redis_sku)
-    error_message = "Redis SKU must be Basic, Standard, or Premium."
+    condition     = can(regex("^(Balanced_B|MemoryOptimized_M|ComputeOptimized_X|FlashOptimized_A)[0-9]+$", var.redis_sku))
+    error_message = "Redis SKU must be a Balanced_B, MemoryOptimized_M, ComputeOptimized_X or FlashOptimized_A size."
   }
 }
 
-variable "redis_capacity" {
-  description = "Redis Cache capacity (0-6 for Basic/Standard, 1-4 for Premium)"
-  type        = number
-  default     = 1
-
-  validation {
-    condition     = var.redis_capacity >= 0 && var.redis_capacity <= 6
-    error_message = "Redis capacity must be between 0 and 6."
-  }
+variable "redis_high_availability_enabled" {
+  description = "Run a replica for every Redis shard. Changing this recreates the cache"
+  type        = bool
+  default     = true
 }
 
-variable "redis_family" {
-  description = "Redis Cache family (C for Basic/Standard, P for Premium)"
-  type        = string
-  default     = "C"
-
-  validation {
-    condition     = contains(["C", "P"], var.redis_family)
-    error_message = "Redis family must be C (Basic/Standard) or P (Premium)."
-  }
-}
-
-variable "redis_maxmemory_policy" {
-  description = "Redis maxmemory eviction policy"
-  type        = string
-  default     = "volatile-lru"
-
-  validation {
-    condition     = contains(["volatile-lru", "allkeys-lru", "volatile-random", "allkeys-random", "volatile-ttl", "noeviction"], var.redis_maxmemory_policy)
-    error_message = "Invalid maxmemory policy."
-  }
-}
-
-variable "redis_maxmemory_reserved" {
-  description = "Redis maxmemory reserved in MB"
-  type        = number
-  default     = 50
-}
-
-variable "redis_maxfragmentationmemory_reserved" {
-  description = "Redis max fragmentation memory reserved in MB"
-  type        = number
-  default     = 50
-}
-
-variable "redis_aof_backup_enabled" {
-  description = "Enable AOF backup (Premium SKU only)"
+variable "redis_access_keys_enabled" {
+  description = "Allow access key authentication in addition to Microsoft Entra ID"
   type        = bool
   default     = false
 }
 
-variable "redis_aof_storage_connection_string" {
-  description = "Storage connection string for AOF backup"
+variable "redis_clustering_policy" {
+  description = "Redis clustering policy: OSSCluster (cluster-aware clients), EnterpriseCluster (single endpoint) or NoCluster"
   type        = string
-  default     = null
-  sensitive   = true
+  default     = "OSSCluster"
+
+  validation {
+    condition     = contains(["OSSCluster", "EnterpriseCluster", "NoCluster"], var.redis_clustering_policy)
+    error_message = "Redis clustering policy must be OSSCluster, EnterpriseCluster or NoCluster."
+  }
 }
 
-variable "redis_patch_schedule" {
-  description = "Redis patch schedule configuration"
-  type = object({
-    day_of_week        = string
-    start_hour_utc     = number
-    maintenance_window = optional(string, "PT5H")
-  })
-  default = null
+variable "redis_eviction_policy" {
+  description = "Redis eviction policy applied when memory is full"
+  type        = string
+  default     = "VolatileLRU"
+
+  validation {
+    condition     = contains(["AllKeysLFU", "AllKeysLRU", "AllKeysRandom", "VolatileLRU", "VolatileLFU", "VolatileTTL", "VolatileRandom", "NoEviction"], var.redis_eviction_policy)
+    error_message = "Redis eviction policy must be one of: AllKeysLFU, AllKeysLRU, AllKeysRandom, VolatileLRU, VolatileLFU, VolatileTTL, VolatileRandom, NoEviction."
+  }
+}
+
+variable "create_redis_private_dns_zone" {
+  description = "Create the privatelink.redis.azure.net private DNS zone and link it to the virtual network. Disable when the zone already exists and pass redis_private_dns_zone_id"
+  type        = bool
+  default     = true
 }
 
 variable "redis_private_dns_zone_id" {
-  description = "Private DNS zone ID for Redis private endpoint"
+  description = "ID of an existing privatelink.redis.azure.net private DNS zone, used when create_redis_private_dns_zone is false"
   type        = string
   default     = null
 }
@@ -371,5 +358,6 @@ variable "redis_private_dns_zone_id" {
 variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)
+  nullable    = false
   default     = {}
 }

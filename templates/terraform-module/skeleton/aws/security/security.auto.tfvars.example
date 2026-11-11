@@ -1,23 +1,21 @@
 # -----------------------------------------------------------------------------
-# AWS Security Module - Example tfvars
+# AWS Security Module - Example tfvars (every optional feature enabled)
 # -----------------------------------------------------------------------------
 
-project     = "myproject"
-environment = "dev"
+project_name = "myproject"
+environment  = "dev"
 
-# VPC (for security groups)
-vpc_id = "vpc-xxxxxxxxx"
+# KMS
+kms_multi_region = true
 
-# KMS Configuration
-kms_multi_region = false
-
-# Bastion Configuration
+# Bastion security group
+vpc_id                = "vpc-0123456789abcdef0"
 enable_bastion_sg     = true
-bastion_allowed_cidrs = ["203.0.113.0/24"]  # Your office IP range
+bastion_allowed_cidrs = ["203.0.113.0/24"]
 
-# WAF Configuration
+# WAF
 enable_waf     = true
-waf_rate_limit = 2000  # Requests per 5 minutes per IP
+waf_rate_limit = 2000
 
 # Tags
 tags = {

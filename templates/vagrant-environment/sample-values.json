@@ -1,0 +1,27 @@
+{
+  "values": {
+    "name": "sample-vagrant-env",
+    "description": "Local VM for the team's \"sample\" service: Ubuntu with Docker",
+    "owner": "group:default/platform-team",
+    "box": "ubuntu/jammy64",
+    "provider": "virtualbox",
+    "cpus": 2,
+    "memory": 2048,
+    "disk_size": 40,
+    "private_network": "192.168.56.10",
+    "forwarded_ports": [
+      {
+        "guest": 22,
+        "host": 2222
+      },
+      {
+        "guest": 80,
+        "host": 8080
+      }
+    ],
+    "provisioner": "shell",
+    "install_docker": true,
+    "install_k3s": false,
+    "repoUrl": "github.com?owner=example-org&repo=sample-vagrant-env"
+  }
+}

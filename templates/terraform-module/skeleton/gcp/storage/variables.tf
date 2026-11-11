@@ -1,270 +1,260 @@
-# -----------------------------------------------------------------------------
-# GCP Storage Module - Variables
-# -----------------------------------------------------------------------------
-
 variable "project_name" {
-  description = "Project name for resource naming"
+  description = "Project name used as a prefix for resource names."
   type        = string
-}
 
-variable "project_id" {
-  description = "GCP project ID"
-  type        = string
-}
-
-variable "region" {
-  description = "GCP region for resources (e.g., us-central1)"
-  type        = string
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9-]{0,62}$", var.project_name))
+    error_message = "project_name must start with a lowercase letter and contain only lowercase letters, digits and hyphens (max 63 characters)."
+  }
 }
 
 variable "environment" {
-  description = "Environment name (e.g., dev, staging, prod)"
+  description = "Environment name (for example dev, staging, prod)."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9]{0,7}$", var.environment))
+    error_message = "environment must be 1-8 lowercase letters or digits and start with a letter."
+  }
+}
+
+variable "project_id" {
+  description = "ID of the Google Cloud project that owns the resources."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9-]{4,28}[a-z0-9]$", var.project_id))
+    error_message = "project_id must be a valid Google Cloud project ID (6-30 lowercase letters, digits or hyphens)."
+  }
+}
+
+variable "region" {
+  description = "Google Cloud region for regional resources."
   type        = string
 }
 
-# -----------------------------------------------------------------------------
-# Cloud Storage Bucket Configuration
-# -----------------------------------------------------------------------------
+variable "labels" {
+  description = "Labels applied to every resource that supports them."
+  type        = map(string)
+  default     = {}
+  nullable    = false
+}
+
+variable "kms_key_id" {
+  description = "ID of a Cloud KMS key that encrypts the bucket. Null uses Google-managed encryption. The Cloud Storage service agent must be allowed to use the key (see grant_kms_access)."
+  type        = string
+  default     = null
+}
+
+variable "grant_kms_access" {
+  description = "Grant the project's Cloud Storage service agent encrypt/decrypt access to kms_key_id. Leave false when the owner of the key already grants it."
+  type        = bool
+  default     = false
+}
 
 variable "bucket_suffix" {
-  description = "Suffix to append to the bucket name for uniqueness"
+  description = "Purpose of the bucket, used in its name between the prefix and the random suffix."
   type        = string
   default     = "data"
+
+  validation {
+    condition     = can(regex("^[a-z0-9]([a-z0-9-]{0,18}[a-z0-9])?$", var.bucket_suffix))
+    error_message = "bucket_suffix must be 1-20 lowercase letters, digits or hyphens and must not start or end with a hyphen."
+  }
 }
 
 variable "storage_class" {
-  description = "Storage class for the bucket"
+  description = "Default storage class of the bucket."
   type        = string
   default     = "STANDARD"
 
   validation {
-    condition     = contains(["STANDARD", "NEARLINE", "COLDLINE", "ARCHIVE", "MULTI_REGIONAL", "REGIONAL"], var.storage_class)
-    error_message = "Storage class must be one of: STANDARD, NEARLINE, COLDLINE, ARCHIVE, MULTI_REGIONAL, REGIONAL."
+    condition     = contains(["STANDARD", "NEARLINE", "COLDLINE", "ARCHIVE"], var.storage_class)
+    error_message = "storage_class must be STANDARD, NEARLINE, COLDLINE or ARCHIVE."
   }
 }
 
 variable "enable_versioning" {
-  description = "Enable object versioning"
+  description = "Keep noncurrent object versions."
   type        = bool
   default     = true
 }
 
+variable "soft_delete_retention_days" {
+  description = "Days deleted objects stay recoverable. 0 disables soft delete; otherwise 7 to 90."
+  type        = number
+  default     = 7
+
+  validation {
+    condition     = var.soft_delete_retention_days == 0 || (var.soft_delete_retention_days >= 7 && var.soft_delete_retention_days <= 90)
+    error_message = "soft_delete_retention_days must be 0 or between 7 and 90."
+  }
+}
+
 variable "force_destroy" {
-  description = "Allow deletion of bucket even if it contains objects"
+  description = "Delete all objects when the bucket is destroyed."
   type        = bool
   default     = false
 }
 
-# -----------------------------------------------------------------------------
-# Lifecycle Rules
-# -----------------------------------------------------------------------------
-
 variable "lifecycle_rules" {
-  description = "List of lifecycle rules for the bucket"
+  description = "Object lifecycle rules. action is Delete, SetStorageClass or AbortIncompleteMultipartUpload; storage_class is required for SetStorageClass; with_state is LIVE, ARCHIVED or ANY."
   type = list(object({
-    action_type                          = string           # Delete, SetStorageClass, AbortIncompleteMultipartUpload
-    action_storage_class                 = optional(string) # Target storage class for SetStorageClass action
-    condition_age_days                   = optional(number) # Age in days
-    condition_created_before             = optional(string) # Date in RFC 3339 format
-    condition_with_state                 = optional(string) # LIVE, ARCHIVED, ANY
-    condition_matches_storage_class      = optional(list(string))
-    condition_num_newer_versions         = optional(number)
-    condition_days_since_noncurrent_time = optional(number)
+    action                = string
+    storage_class         = optional(string)
+    age_days              = optional(number)
+    num_newer_versions    = optional(number)
+    days_since_noncurrent = optional(number)
+    with_state            = optional(string)
+    matches_prefix        = optional(list(string))
   }))
   default = [
     {
-      action_type                          = "SetStorageClass"
-      action_storage_class                 = "NEARLINE"
-      condition_age_days                   = 30
-      condition_created_before             = null
-      condition_with_state                 = null
-      condition_matches_storage_class      = ["STANDARD"]
-      condition_num_newer_versions         = null
-      condition_days_since_noncurrent_time = null
+      action                = "Delete"
+      days_since_noncurrent = 90
+      with_state            = "ARCHIVED"
     },
-    {
-      action_type                          = "SetStorageClass"
-      action_storage_class                 = "COLDLINE"
-      condition_age_days                   = 90
-      condition_created_before             = null
-      condition_with_state                 = null
-      condition_matches_storage_class      = ["NEARLINE"]
-      condition_num_newer_versions         = null
-      condition_days_since_noncurrent_time = null
-    },
-    {
-      action_type                          = "Delete"
-      action_storage_class                 = null
-      condition_age_days                   = null
-      condition_created_before             = null
-      condition_with_state                 = "ARCHIVED"
-      condition_matches_storage_class      = null
-      condition_num_newer_versions         = 3
-      condition_days_since_noncurrent_time = null
-    }
   ]
+  nullable = false
+
+  validation {
+    condition = alltrue([
+      for r in var.lifecycle_rules :
+      contains(["Delete", "SetStorageClass", "AbortIncompleteMultipartUpload"], r.action) &&
+      (r.action != "SetStorageClass" || r.storage_class != null)
+    ])
+    error_message = "Each rule needs a valid action, and SetStorageClass rules need storage_class."
+  }
 }
-
-# -----------------------------------------------------------------------------
-# Encryption Configuration
-# -----------------------------------------------------------------------------
-
-variable "kms_key_name" {
-  description = "Cloud KMS key name for bucket encryption (optional). Format: projects/{project}/locations/{location}/keyRings/{keyRing}/cryptoKeys/{key}"
-  type        = string
-  default     = null
-}
-
-# -----------------------------------------------------------------------------
-# CORS Configuration
-# -----------------------------------------------------------------------------
 
 variable "cors_config" {
-  description = "CORS configuration for the bucket (optional)"
+  description = "CORS configuration for browser access to the bucket. Null disables CORS."
   type = object({
     origins          = list(string)
     methods          = list(string)
-    response_headers = list(string)
-    max_age_seconds  = number
+    response_headers = optional(list(string), [])
+    max_age_seconds  = optional(number, 3600)
   })
   default = null
 }
 
-# -----------------------------------------------------------------------------
-# Logging Configuration
-# -----------------------------------------------------------------------------
-
 variable "logging_bucket" {
-  description = "Name of the bucket to store access logs (optional)"
+  description = "Name of an existing bucket that receives access logs for this bucket. Null disables access logging."
   type        = string
   default     = null
 }
-
-variable "logging_prefix" {
-  description = "Prefix for log object names (optional)"
-  type        = string
-  default     = null
-}
-
-# -----------------------------------------------------------------------------
-# Retention Policy
-# -----------------------------------------------------------------------------
 
 variable "retention_period_seconds" {
-  description = "Retention period in seconds (optional)"
+  description = "Minimum age in seconds before objects can be deleted or replaced. Null sets no retention policy."
   type        = number
   default     = null
+
+  validation {
+    condition     = var.retention_period_seconds == null || try(var.retention_period_seconds > 0, false)
+    error_message = "retention_period_seconds must be greater than 0."
+  }
 }
 
 variable "retention_policy_is_locked" {
-  description = "Whether the retention policy is locked"
+  description = "Lock the retention policy. Locking is permanent and cannot be undone."
   type        = bool
   default     = false
 }
 
-# -----------------------------------------------------------------------------
-# IAM Configuration
-# -----------------------------------------------------------------------------
-
 variable "bucket_viewers" {
-  description = "List of members to grant storage.objectViewer role (e.g., user:email@example.com, serviceAccount:sa@project.iam.gserviceaccount.com)"
+  description = "IAM members granted roles/storage.objectViewer on the bucket."
   type        = list(string)
   default     = []
-}
+  nullable    = false
 
-variable "bucket_admins" {
-  description = "List of members to grant storage.objectAdmin role"
-  type        = list(string)
-  default     = []
+  validation {
+    condition     = alltrue([for m in var.bucket_viewers : can(regex("^(user|group|serviceAccount|domain|principal|principalSet):.+", m))])
+    error_message = "Members must use an IAM principal prefix such as user:, group: or serviceAccount:. Public principals are not allowed."
+  }
 }
 
 variable "bucket_creators" {
-  description = "List of members to grant storage.objectCreator role"
+  description = "IAM members granted roles/storage.objectCreator on the bucket."
   type        = list(string)
   default     = []
+  nullable    = false
+
+  validation {
+    condition     = alltrue([for m in var.bucket_creators : can(regex("^(user|group|serviceAccount|domain|principal|principalSet):.+", m))])
+    error_message = "Members must use an IAM principal prefix such as user:, group: or serviceAccount:. Public principals are not allowed."
+  }
 }
 
-variable "custom_iam_bindings" {
-  description = "Custom IAM bindings for the bucket"
-  type = list(object({
-    role   = string
-    member = string
-  }))
-  default = []
-}
+variable "bucket_writers" {
+  description = "IAM members granted roles/storage.objectUser on the bucket (read, create, replace and delete objects)."
+  type        = list(string)
+  default     = []
+  nullable    = false
 
-# -----------------------------------------------------------------------------
-# Filestore Configuration (NFS Storage)
-# -----------------------------------------------------------------------------
+  validation {
+    condition     = alltrue([for m in var.bucket_writers : can(regex("^(user|group|serviceAccount|domain|principal|principalSet):.+", m))])
+    error_message = "Members must use an IAM principal prefix such as user:, group: or serviceAccount:. Public principals are not allowed."
+  }
+}
 
 variable "enable_filestore" {
-  description = "Enable Cloud Filestore instance for NFS storage"
+  description = "Create a Filestore instance that exports an NFS share."
   type        = bool
   default     = false
 }
 
 variable "filestore_tier" {
-  description = "Filestore service tier"
+  description = "Filestore service tier."
   type        = string
   default     = "BASIC_HDD"
 
   validation {
-    condition     = contains(["BASIC_HDD", "BASIC_SSD", "HIGH_SCALE_SSD", "ENTERPRISE", "ZONAL", "REGIONAL"], var.filestore_tier)
-    error_message = "Filestore tier must be one of: BASIC_HDD, BASIC_SSD, HIGH_SCALE_SSD, ENTERPRISE, ZONAL, REGIONAL."
+    condition     = contains(["BASIC_HDD", "BASIC_SSD", "ZONAL", "REGIONAL", "ENTERPRISE"], var.filestore_tier)
+    error_message = "filestore_tier must be BASIC_HDD, BASIC_SSD, ZONAL, REGIONAL or ENTERPRISE."
   }
 }
 
 variable "filestore_capacity_gb" {
-  description = "Capacity of the Filestore instance in GB"
+  description = "Capacity of the NFS share in GiB. The minimum depends on the tier (1024 for BASIC_HDD, 2560 for BASIC_SSD)."
   type        = number
   default     = 1024
 
   validation {
     condition     = var.filestore_capacity_gb >= 1024
-    error_message = "Filestore capacity must be at least 1024 GB for BASIC tiers."
+    error_message = "filestore_capacity_gb must be at least 1024."
   }
 }
 
 variable "filestore_zone" {
-  description = "Zone for Filestore instance. If not specified, defaults to region-a"
+  description = "Location of the Filestore instance: a zone for BASIC and ZONAL tiers, a region for REGIONAL and ENTERPRISE. Null uses zone a of the region."
   type        = string
   default     = null
 }
 
 variable "filestore_share_name" {
-  description = "Name of the file share"
+  description = "Name of the NFS share."
   type        = string
   default     = "share"
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9_]{0,15}$", var.filestore_share_name))
+    error_message = "filestore_share_name must start with a lowercase letter and contain up to 16 lowercase letters, digits or underscores."
+  }
 }
 
 variable "filestore_network" {
-  description = "VPC network name for Filestore instance"
-  type        = string
-  default     = "default"
-}
-
-variable "filestore_reserved_ip_range" {
-  description = "Reserved IP range for Filestore in CIDR notation (optional)"
+  description = "Name of the VPC the Filestore instance attaches to. Null uses the project's default network."
   type        = string
   default     = null
 }
 
-variable "filestore_nfs_export_options" {
-  description = "NFS export options for Filestore"
-  type = list(object({
-    ip_ranges   = list(string)
-    access_mode = string # READ_ONLY, READ_WRITE
-    squash_mode = string # NO_ROOT_SQUASH, ROOT_SQUASH
-  }))
-  default = []
-}
+variable "filestore_allowed_ip_ranges" {
+  description = "Client ranges allowed to mount the share read-write with root squash. Null allows every client in the VPC."
+  type        = list(string)
+  default     = null
 
-# -----------------------------------------------------------------------------
-# Labels
-# -----------------------------------------------------------------------------
-
-variable "labels" {
-  description = "Labels to apply to all resources"
-  type        = map(string)
-  default     = {}
+  validation {
+    condition     = var.filestore_allowed_ip_ranges == null || try(length(var.filestore_allowed_ip_ranges) > 0 && alltrue([for r in var.filestore_allowed_ip_ranges : can(cidrhost(r, 0))]), false)
+    error_message = "filestore_allowed_ip_ranges must be null or a non-empty list of valid CIDR blocks."
+  }
 }

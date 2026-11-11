@@ -1,0 +1,10 @@
+{
+  "values": {
+    "name": "terraform-sample-platform",
+    "description": "The platform team's \"building blocks\": network, storage and more",
+    "owner": "group:default/platform-team",
+    "provider": "aws",
+    "repoUrl": "github.com?owner=example-org&repo=terraform-sample-platform",
+    "terraform_version": ">= 1.10"
+  }
+}

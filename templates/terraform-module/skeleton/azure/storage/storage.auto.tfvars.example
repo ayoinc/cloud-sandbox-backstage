@@ -2,67 +2,56 @@
 # Azure Storage Module - Example tfvars
 # -----------------------------------------------------------------------------
 
-project             = "myproject"
+project_name        = "myproject"
 environment         = "dev"
-location            = "eastus"
-resource_group_name = "rg-myproject-dev"
+location            = "eastus2"
+resource_group_name = "myproject-dev-rg"
 
-# Storage Account Configuration
-account_tier     = "Standard"
-replication_type = "LRS"  # Use GRS or RAGRS for production
+# Storage account
+account_kind                     = "StorageV2"
+account_tier                     = "Standard"
+replication_type                 = "GRS"
+enable_infrastructure_encryption = true
+enable_versioning                = true
+delete_retention_days            = 14
+container_delete_retention_days  = 14
 
-# Blob Settings
-enable_versioning               = true
-delete_retention_days           = 7
-container_delete_retention_days = 7
-
-# Containers to create
+# Private blob containers
 container_names = ["data", "logs", "backups"]
 
-# Lifecycle Rules
+# Lifecycle management
 lifecycle_rules = [
   {
     name                                 = "archive-old-blobs"
-    enabled                              = true
-    prefix_match                         = [""]
-    blob_types                           = ["blockBlob"]
     base_blob_tier_to_cool_after_days    = 30
     base_blob_tier_to_archive_after_days = 90
-    base_blob_delete_after_days          = null
     snapshot_delete_after_days           = 30
     version_delete_after_days            = 90
   },
   {
-    name                                 = "cleanup-logs"
-    enabled                              = true
-    prefix_match                         = ["logs/"]
-    blob_types                           = ["blockBlob"]
-    base_blob_tier_to_cool_after_days    = 14
-    base_blob_tier_to_archive_after_days = 30
-    base_blob_delete_after_days          = 365
-    snapshot_delete_after_days           = 7
-    version_delete_after_days            = 30
+    name                        = "expire-logs"
+    prefix_match                = ["logs/"]
+    base_blob_delete_after_days = 365
   }
 ]
 
-# Azure File Share (Optional)
+# Azure Files share
 enable_file_share      = true
 file_share_quota_gb    = 100
 file_share_access_tier = "Hot"
 
-# Network Rules (Optional - uncomment to enable)
-# network_default_action = "Deny"
-# allowed_subnet_ids = [
-#   "/subscriptions/xxx/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-main/subnets/subnet-app"
-# ]
-# allowed_ip_ranges = ["203.0.113.0/24"]
+# Network: deny by default, admit listed subnets and public IP ranges
+public_network_access_enabled = true
+network_default_action        = "Deny"
+allowed_subnet_ids = [
+  "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myproject-dev-rg/providers/Microsoft.Network/virtualNetworks/vnet-myproject-dev/subnets/snet-myproject-dev-private-1"
+]
+allowed_ip_ranges = ["203.0.113.0/24"]
 
-# Monitoring (Optional)
-# log_analytics_workspace_id = "/subscriptions/xxx/resourceGroups/rg-monitoring/providers/Microsoft.OperationalInsights/workspaces/law-main"
+# Blob diagnostics
+log_analytics_workspace_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myproject-dev-rg/providers/Microsoft.OperationalInsights/workspaces/myproject-dev-law"
 
-# Tags
 tags = {
   Team       = "platform"
   CostCenter = "engineering"
-  ManagedBy  = "terraform"
 }

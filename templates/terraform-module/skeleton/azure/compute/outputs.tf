@@ -51,3 +51,19 @@ output "autoscale_setting_name" {
   description = "Autoscale Setting name"
   value       = azurerm_monitor_autoscale_setting.vmss.name
 }
+
+output "data_collection_rule_association_id" {
+  description = "ID of the data collection rule association (null when no rule is given)"
+  value       = one(azurerm_monitor_data_collection_rule_association.vmss[*].id)
+}
+
+output "admin_username" {
+  description = "Admin user name of the instances"
+  value       = var.admin_username
+}
+
+output "ssh_private_key" {
+  description = "Private key of the generated SSH key pair in OpenSSH format (null when ssh_public_key is supplied)"
+  value       = one(tls_private_key.ssh[*].private_key_openssh)
+  sensitive   = true
+}

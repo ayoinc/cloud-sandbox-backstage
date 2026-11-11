@@ -2,33 +2,27 @@
 # Azure Kubernetes Service (AKS) Module - Example tfvars
 # -----------------------------------------------------------------------------
 
-project     = "myproject"
-environment = "dev"
-
-# Azure Region
-location            = "eastus"
+project_name        = "myproject"
+environment         = "dev"
+location            = "eastus2"
 resource_group_name = "myproject-dev-rg"
 
-# Network Configuration (from network module)
-vnet_id   = "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/myproject-dev-rg/providers/Microsoft.Network/virtualNetworks/myproject-dev-vnet"
-subnet_id = "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/myproject-dev-rg/providers/Microsoft.Network/virtualNetworks/myproject-dev-vnet/subnets/aks"
+# Node subnet (from the network module)
+subnet_id                = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myproject-dev-rg/providers/Microsoft.Network/virtualNetworks/vnet-myproject-dev/subnets/snet-myproject-dev-kubernetes-1"
+node_resource_group_name = "myproject-dev-aks-nodes-rg"
 
-# -----------------------------------------------------------------------------
-# Kubernetes Configuration
-# -----------------------------------------------------------------------------
-
-kubernetes_version        = "1.29"
+# Cluster. Leave kubernetes_version unset to get the current AKS default.
 automatic_upgrade_channel = "stable"
+node_os_upgrade_channel   = "NodeImage"
 sku_tier                  = "Standard"
-private_cluster_enabled   = false
 
-# -----------------------------------------------------------------------------
-# Default Node Pool
-# -----------------------------------------------------------------------------
+# API server: private by default. A public API server needs an allow-list.
+private_cluster_enabled         = false
+api_server_authorized_ip_ranges = ["203.0.113.0/24"]
 
 default_node_pool = {
   name                         = "system"
-  vm_size                      = "Standard_D2s_v3"
+  vm_size                      = "Standard_D2s_v5"
   node_count                   = 3
   min_count                    = 2
   max_count                    = 5
@@ -36,147 +30,82 @@ default_node_pool = {
   max_pods                     = 30
   os_disk_size_gb              = 128
   os_disk_type                 = "Managed"
+  os_sku                       = "AzureLinux"
   zones                        = ["1", "2", "3"]
-  only_critical_addons_enabled = false
+  only_critical_addons_enabled = true
   max_surge                    = "33%"
 }
-
-# -----------------------------------------------------------------------------
-# Additional Node Pools
-# -----------------------------------------------------------------------------
 
 additional_node_pools = [
   {
     name                = "user"
-    vm_size             = "Standard_D4s_v3"
-    node_count          = 2
+    vm_size             = "Standard_D4s_v5"
     min_count           = 1
     max_count           = 10
     enable_auto_scaling = true
-    max_pods            = 30
-    os_disk_size_gb     = 128
-    os_disk_type        = "Managed"
-    os_type             = "Linux"
     zones               = ["1", "2", "3"]
-    priority            = "Regular"
-    mode                = "User"
     node_labels = {
       "workload-type" = "general"
     }
-    node_taints = []
-    max_surge   = "33%"
   },
   {
     name                = "spot"
-    vm_size             = "Standard_D4s_v3"
-    node_count          = 0
+    vm_size             = "Standard_D4s_v5"
     min_count           = 0
     max_count           = 20
     enable_auto_scaling = true
-    max_pods            = 30
-    os_disk_size_gb     = 128
-    os_disk_type        = "Managed"
-    os_type             = "Linux"
-    zones               = ["1", "2", "3"]
     priority            = "Spot"
     eviction_policy     = "Delete"
     spot_max_price      = -1
-    mode                = "User"
     node_labels = {
-      "kubernetes.azure.com/scalesetpriority" = "spot"
+      "workload-type" = "batch"
     }
-    node_taints = [
-      "kubernetes.azure.com/scalesetpriority=spot:NoSchedule"
-    ]
-    max_surge = "33%"
   }
 ]
 
-# -----------------------------------------------------------------------------
-# Network Configuration
-# -----------------------------------------------------------------------------
+# Networking: Azure CNI Overlay with Cilium
+network_plugin_mode = "overlay"
+network_policy      = "cilium"
+dns_service_ip      = "172.16.0.10"
+service_cidr        = "172.16.0.0/16"
+pod_cidr            = "10.244.0.0/16"
+outbound_type       = "userAssignedNATGateway"
 
-network_plugin      = "azure"
-network_plugin_mode = null # Set to "overlay" for Azure CNI Overlay
-network_policy      = "azure"
-dns_service_ip      = "10.0.0.10"
-service_cidr        = "10.0.0.0/16"
-pod_cidr            = "10.244.0.0/16" # Only used with kubenet
-outbound_type       = "loadBalancer"
+# Container Insights
+log_analytics_workspace_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myproject-dev-rg/providers/Microsoft.OperationalInsights/workspaces/myproject-dev-law"
 
-# -----------------------------------------------------------------------------
-# Monitoring and Logging
-# -----------------------------------------------------------------------------
+# Container registry the nodes pull from
+acr_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myproject-dev-rg/providers/Microsoft.ContainerRegistry/registries/myprojectdevacr"
 
-log_analytics_workspace_id = "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/myproject-dev-rg/providers/Microsoft.OperationalInsights/workspaces/myproject-dev-logs"
-
-# -----------------------------------------------------------------------------
-# Azure Container Registry Integration
-# -----------------------------------------------------------------------------
-
-acr_id = "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/myproject-shared-rg/providers/Microsoft.ContainerRegistry/registries/myprojectacr"
-
-# -----------------------------------------------------------------------------
-# Security and Identity
-# -----------------------------------------------------------------------------
-
-azure_policy_enabled           = true
-workload_identity_enabled      = true
+# Security and identity
+azure_policy_enabled               = true
+workload_identity_enabled          = true
 key_vault_secrets_provider_enabled = true
-secret_rotation_enabled        = true
-secret_rotation_interval       = "2m"
+secret_rotation_enabled            = true
+secret_rotation_interval           = "2m"
 
-# Azure AD RBAC (optional)
-azure_ad_rbac_enabled   = false
-azure_rbac_enabled      = false
-admin_group_object_ids  = []
-
-# -----------------------------------------------------------------------------
-# Auto Scaler Profile
-# -----------------------------------------------------------------------------
+# Microsoft Entra ID sign-in and Azure RBAC for the Kubernetes API
+azure_ad_rbac_enabled  = true
+azure_rbac_enabled     = true
+local_account_disabled = true
+admin_group_object_ids = ["11111111-1111-1111-1111-111111111111"]
 
 auto_scaler_profile = {
-  balance_similar_node_groups      = false
-  expander                         = "random"
-  max_graceful_termination_sec     = 600
-  max_node_provisioning_time       = "15m"
-  max_unready_nodes                = 3
-  max_unready_percentage           = 45
-  new_pod_scale_up_delay           = "10s"
-  scale_down_delay_after_add       = "10m"
-  scale_down_delay_after_delete    = "10s"
-  scale_down_delay_after_failure   = "3m"
-  scan_interval                    = "10s"
-  scale_down_unneeded              = "10m"
-  scale_down_unready               = "20m"
-  scale_down_utilization_threshold = 0.5
-  skip_nodes_with_local_storage    = true
-  skip_nodes_with_system_pods      = true
+  balance_similar_node_groups = true
+  expander                    = "least-waste"
+  scale_down_unneeded         = "10m"
 }
-
-# -----------------------------------------------------------------------------
-# Maintenance Window (optional)
-# -----------------------------------------------------------------------------
 
 maintenance_window = {
   allowed = [
     {
       day   = "Sunday"
       hours = [0, 1, 2, 3, 4, 5]
-    },
-    {
-      day   = "Saturday"
-      hours = [0, 1, 2, 3, 4, 5]
     }
   ]
 }
 
-# -----------------------------------------------------------------------------
-# Tags
-# -----------------------------------------------------------------------------
-
 tags = {
   Team       = "platform"
   CostCenter = "engineering"
-  ManagedBy  = "terraform"
 }

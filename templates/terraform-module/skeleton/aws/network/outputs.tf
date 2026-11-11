@@ -67,7 +67,12 @@ output "private_route_table_ids" {
   value       = aws_route_table.private[*].id
 }
 
+output "flow_log_group_name" {
+  description = "Name of the CloudWatch log group that receives VPC flow logs (null when flow logs are disabled)"
+  value       = var.enable_flow_logs ? aws_cloudwatch_log_group.flow_logs[0].name : null
+}
+
 output "availability_zones" {
   description = "Availability zones used"
-  value       = slice(data.aws_availability_zones.available.names, 0, var.az_count)
+  value       = local.azs
 }

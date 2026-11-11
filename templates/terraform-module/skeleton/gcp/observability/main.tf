@@ -1,266 +1,348 @@
-/**
- * GCP Observability Module
- *
- * This module provisions comprehensive observability infrastructure including:
- * - Log sinks and storage
- * - Monitoring notification channels
- * - Alert policies
- * - Uptime checks
- * - Custom dashboards
- * - Log-based metrics
- */
-
 locals {
-  resource_prefix = "${var.project_id}-${var.environment}"
-  common_labels = merge(var.labels, {
+  # Resource names are limited to 63 characters and service account IDs to 30,
+  # so the project name is shortened before the environment is appended.
+  name_prefix = "${trimsuffix(substr(var.project_name, 0, 16), "-")}-${var.environment}"
+
+  labels = merge(var.labels, {
     environment = var.environment
     managed_by  = "terraform"
-    module      = "observability"
   })
+
+  # Channel credentials are sensitive, but whether they are set is not.
+  enable_slack     = nonsensitive(var.slack_auth_token != null)
+  enable_pagerduty = nonsensitive(var.pagerduty_service_key != null)
+
+  notification_channel_ids = concat(
+    google_monitoring_notification_channel.email[*].id,
+    google_monitoring_notification_channel.slack[*].id,
+    google_monitoring_notification_channel.pagerduty[*].id,
+  )
+
+  error_metric_name = "${local.name_prefix}-error-count"
+
+  cpu_filter    = "metric.type=\"compute.googleapis.com/instance/cpu/utilization\" AND resource.type=\"gce_instance\""
+  memory_filter = "metric.type=\"agent.googleapis.com/memory/percent_used\" AND resource.type=\"gce_instance\" AND metric.label.state=\"used\""
+
+  dashboard_charts = concat(
+    [
+      {
+        title  = "VM CPU utilization"
+        filter = local.cpu_filter
+        align  = "ALIGN_MEAN"
+      },
+      {
+        title  = "VM memory used (%)"
+        filter = local.memory_filter
+        align  = "ALIGN_MEAN"
+      },
+      {
+        title  = "Error log entries from VMs"
+        filter = "metric.type=\"logging.googleapis.com/user/${local.error_metric_name}\" AND resource.type=\"gce_instance\""
+        align  = "ALIGN_RATE"
+      },
+    ],
+    var.uptime_check_host == null ? [] : [
+      {
+        title  = "Uptime check latency"
+        filter = "metric.type=\"monitoring.googleapis.com/uptime_check/request_latency\" AND resource.type=\"uptime_url\""
+        align  = "ALIGN_MEAN"
+      },
+    ],
+  )
 }
 
-# =============================================================================
-# Log Sink and Storage
-# =============================================================================
+# -----------------------------------------------------------------------------
+# Log archive
+# -----------------------------------------------------------------------------
 
-resource "google_storage_bucket" "log_sink_bucket" {
+# Bucket names are global, so a random suffix keeps them unique.
+resource "random_id" "bucket" {
+  byte_length = 4
+}
+
+resource "google_storage_bucket" "logs" {
   count = var.enable_log_sink ? 1 : 0
 
-  name          = "${local.resource_prefix}-log-sink-${random_id.bucket_suffix[0].hex}"
   project       = var.project_id
+  name          = "${local.name_prefix}-logs-${random_id.bucket.hex}"
   location      = var.region
-  storage_class = var.log_sink_storage_class
+  storage_class = "STANDARD"
   force_destroy = var.force_destroy_log_bucket
+  labels        = local.labels
 
   uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
 
-  lifecycle_rule {
-    condition {
-      age = var.log_retention_days
-    }
-    action {
-      type = "Delete"
+  dynamic "encryption" {
+    for_each = var.kms_key_id == null ? [] : [var.kms_key_id]
+
+    content {
+      default_kms_key_name = encryption.value
     }
   }
 
   lifecycle_rule {
-    condition {
-      age = var.log_archive_days
-    }
     action {
       type          = "SetStorageClass"
       storage_class = "COLDLINE"
     }
+
+    condition {
+      age = var.log_archive_days
+    }
   }
 
-  labels = local.common_labels
+  lifecycle_rule {
+    action {
+      type = "Delete"
+    }
+
+    condition {
+      age = var.log_retention_days
+    }
+  }
+
+  lifecycle {
+    precondition {
+      condition     = var.log_retention_days > var.log_archive_days
+      error_message = "log_retention_days must be greater than log_archive_days."
+    }
+  }
 }
 
-resource "random_id" "bucket_suffix" {
-  count       = var.enable_log_sink ? 1 : 0
-  byte_length = 4
-}
-
-resource "google_logging_project_sink" "log_sink" {
+resource "google_logging_project_sink" "archive" {
   count = var.enable_log_sink ? 1 : 0
 
-  name        = "${local.resource_prefix}-log-sink"
-  project     = var.project_id
-  destination = "storage.googleapis.com/${google_storage_bucket.log_sink_bucket[0].name}"
-  filter      = var.log_filter
-
+  project                = var.project_id
+  name                   = "${local.name_prefix}-log-archive"
+  description            = "Archives matching log entries to Cloud Storage"
+  destination            = "storage.googleapis.com/${google_storage_bucket.logs[0].name}"
+  filter                 = var.log_filter
   unique_writer_identity = true
+}
 
-  exclusions {
-    name        = "exclude-debug-logs"
-    description = "Exclude debug level logs to reduce storage costs"
-    filter      = "severity = DEBUG"
-    disabled    = false
+resource "google_storage_bucket_iam_member" "log_writer" {
+  count = var.enable_log_sink ? 1 : 0
+
+  bucket = google_storage_bucket.logs[0].name
+  role   = "roles/storage.objectCreator"
+  member = google_logging_project_sink.archive[0].writer_identity
+}
+
+# -----------------------------------------------------------------------------
+# Log-based metric
+# -----------------------------------------------------------------------------
+
+resource "google_logging_metric" "error_count" {
+  project     = var.project_id
+  name        = local.error_metric_name
+  description = "Log entries with severity ERROR or higher"
+  filter      = "severity>=ERROR"
+
+  metric_descriptor {
+    metric_kind = "DELTA"
+    value_type  = "INT64"
+    unit        = "1"
   }
 }
 
-resource "google_storage_bucket_iam_member" "log_sink_writer" {
-  count = var.enable_log_sink ? 1 : 0
-
-  bucket = google_storage_bucket.log_sink_bucket[0].name
-  role   = "roles/storage.objectCreator"
-  member = google_logging_project_sink.log_sink[0].writer_identity
-}
-
-# =============================================================================
-# Notification Channels
-# =============================================================================
+# -----------------------------------------------------------------------------
+# Notification channels
+# -----------------------------------------------------------------------------
 
 resource "google_monitoring_notification_channel" "email" {
-  display_name = "${var.environment} Email Notification"
+  count = var.notification_email == null ? 0 : 1
+
   project      = var.project_id
+  display_name = "${local.name_prefix} email"
   type         = "email"
+  user_labels  = local.labels
 
   labels = {
     email_address = var.notification_email
   }
-
-  user_labels = local.common_labels
 }
 
 resource "google_monitoring_notification_channel" "slack" {
-  count = var.slack_webhook_url != null ? 1 : 0
+  count = local.enable_slack ? 1 : 0
 
-  display_name = "${var.environment} Slack Notification"
   project      = var.project_id
+  display_name = "${local.name_prefix} Slack"
   type         = "slack"
+  user_labels  = local.labels
 
   labels = {
     channel_name = var.slack_channel_name
   }
 
   sensitive_labels {
-    auth_token = var.slack_webhook_url
+    auth_token = var.slack_auth_token
   }
-
-  user_labels = local.common_labels
 }
 
 resource "google_monitoring_notification_channel" "pagerduty" {
-  count = var.pagerduty_service_key != null ? 1 : 0
+  count = local.enable_pagerduty ? 1 : 0
 
-  display_name = "${var.environment} PagerDuty Notification"
   project      = var.project_id
+  display_name = "${local.name_prefix} PagerDuty"
   type         = "pagerduty"
+  user_labels  = local.labels
 
-  labels = {
+  sensitive_labels {
     service_key = var.pagerduty_service_key
   }
-
-  user_labels = local.common_labels
 }
 
-locals {
-  notification_channels = concat(
-    [google_monitoring_notification_channel.email.id],
-    var.slack_webhook_url != null ? [google_monitoring_notification_channel.slack[0].id] : [],
-    var.pagerduty_service_key != null ? [google_monitoring_notification_channel.pagerduty[0].id] : []
-  )
+# -----------------------------------------------------------------------------
+# Uptime check
+# -----------------------------------------------------------------------------
+
+resource "google_monitoring_uptime_check_config" "https" {
+  count = var.uptime_check_host == null ? 0 : 1
+
+  project      = var.project_id
+  display_name = "${local.name_prefix} HTTPS uptime"
+  timeout      = "${var.uptime_check_timeout_seconds}s"
+  period       = "${var.uptime_check_period_seconds}s"
+  user_labels  = local.labels
+
+  http_check {
+    path         = var.uptime_check_path
+    port         = 443
+    use_ssl      = true
+    validate_ssl = true
+  }
+
+  monitored_resource {
+    type = "uptime_url"
+
+    labels = {
+      project_id = var.project_id
+      host       = var.uptime_check_host
+    }
+  }
 }
 
-# =============================================================================
-# Alert Policies
-# =============================================================================
+# -----------------------------------------------------------------------------
+# Alert policies
+# -----------------------------------------------------------------------------
 
 resource "google_monitoring_alert_policy" "high_cpu" {
-  display_name = "${var.environment} - High CPU Utilization"
-  project      = var.project_id
-  combiner     = "OR"
-  enabled      = var.enable_alerts
+  count = var.enable_alerts ? 1 : 0
 
-  documentation {
-    content   = "CPU utilization has exceeded ${var.cpu_threshold}% for the specified duration. Please investigate the affected resource."
-    mime_type = "text/markdown"
-  }
+  project               = var.project_id
+  display_name          = "${local.name_prefix} high CPU"
+  combiner              = "OR"
+  notification_channels = local.notification_channel_ids
+  user_labels           = local.labels
 
   conditions {
-    display_name = "CPU utilization exceeds threshold"
+    display_name = "VM CPU utilization above ${var.cpu_threshold_percent}%"
 
     condition_threshold {
-      filter          = "resource.type = \"gce_instance\" AND metric.type = \"compute.googleapis.com/instance/cpu/utilization\""
-      duration        = var.alert_duration
+      filter          = local.cpu_filter
       comparison      = "COMPARISON_GT"
-      threshold_value = var.cpu_threshold / 100
+      threshold_value = var.cpu_threshold_percent / 100
+      duration        = "${var.alert_duration_seconds}s"
 
       aggregations {
-        alignment_period     = "60s"
-        per_series_aligner   = "ALIGN_MEAN"
-        cross_series_reducer = "REDUCE_MEAN"
-        group_by_fields      = ["resource.label.instance_id"]
-      }
-
-      trigger {
-        count = 1
+        alignment_period   = "60s"
+        per_series_aligner = "ALIGN_MEAN"
       }
     }
   }
 
-  alert_strategy {
-    auto_close = "1800s"
-
-    notification_rate_limit {
-      period = "300s"
-    }
+  documentation {
+    mime_type = "text/markdown"
+    content   = "CPU utilization of a VM in ${var.project_id} (${var.environment}) stayed above ${var.cpu_threshold_percent}% for ${var.alert_duration_seconds} seconds."
   }
-
-  notification_channels = local.notification_channels
-  user_labels           = local.common_labels
 }
 
 resource "google_monitoring_alert_policy" "high_memory" {
-  display_name = "${var.environment} - High Memory Utilization"
-  project      = var.project_id
-  combiner     = "OR"
-  enabled      = var.enable_alerts
+  count = var.enable_alerts ? 1 : 0
 
-  documentation {
-    content   = "Memory utilization has exceeded ${var.memory_threshold}% for the specified duration. Consider scaling or optimizing memory usage."
-    mime_type = "text/markdown"
-  }
+  project               = var.project_id
+  display_name          = "${local.name_prefix} high memory"
+  combiner              = "OR"
+  notification_channels = local.notification_channel_ids
+  user_labels           = local.labels
 
   conditions {
-    display_name = "Memory utilization exceeds threshold"
+    display_name = "VM memory used above ${var.memory_threshold_percent}%"
 
     condition_threshold {
-      filter          = "resource.type = \"gce_instance\" AND metric.type = \"agent.googleapis.com/memory/percent_used\" AND metric.labels.state = \"used\""
-      duration        = var.alert_duration
+      filter          = local.memory_filter
       comparison      = "COMPARISON_GT"
-      threshold_value = var.memory_threshold
+      threshold_value = var.memory_threshold_percent
+      duration        = "${var.alert_duration_seconds}s"
 
       aggregations {
-        alignment_period     = "60s"
-        per_series_aligner   = "ALIGN_MEAN"
-        cross_series_reducer = "REDUCE_MEAN"
-        group_by_fields      = ["resource.label.instance_id"]
-      }
-
-      trigger {
-        count = 1
+        alignment_period   = "60s"
+        per_series_aligner = "ALIGN_MEAN"
       }
     }
   }
 
+  documentation {
+    mime_type = "text/markdown"
+    content   = "Memory use of a VM in ${var.project_id} (${var.environment}) stayed above ${var.memory_threshold_percent}% for ${var.alert_duration_seconds} seconds. The metric is reported by the Ops Agent."
+  }
+}
+
+resource "google_monitoring_alert_policy" "error_logs" {
+  count = var.enable_alerts ? 1 : 0
+
+  project               = var.project_id
+  display_name          = "${local.name_prefix} error logs"
+  combiner              = "OR"
+  notification_channels = local.notification_channel_ids
+  user_labels           = local.labels
+
+  conditions {
+    display_name = "Log entry with severity ERROR or higher"
+
+    condition_matched_log {
+      filter = "severity>=ERROR"
+    }
+  }
+
+  # Log-match conditions must be rate limited; one notification per period at most.
   alert_strategy {
     auto_close = "1800s"
 
     notification_rate_limit {
-      period = "300s"
+      period = "${var.error_log_notification_period_seconds}s"
     }
   }
 
-  notification_channels = local.notification_channels
-  user_labels           = local.common_labels
+  documentation {
+    mime_type = "text/markdown"
+    content   = "A log entry with severity ERROR or higher was written in ${var.project_id} (${var.environment})."
+  }
 }
 
-resource "google_monitoring_alert_policy" "uptime_check_failed" {
-  display_name = "${var.environment} - Uptime Check Failed"
-  project      = var.project_id
-  combiner     = "OR"
-  enabled      = var.enable_alerts && var.uptime_check_host != null
+resource "google_monitoring_alert_policy" "uptime" {
+  count = var.enable_alerts && var.uptime_check_host != null ? 1 : 0
 
-  documentation {
-    content   = "The uptime check for ${var.uptime_check_host} has failed. The service may be down or unreachable."
-    mime_type = "text/markdown"
-  }
+  project               = var.project_id
+  display_name          = "${local.name_prefix} uptime check failing"
+  combiner              = "OR"
+  notification_channels = local.notification_channel_ids
+  user_labels           = local.labels
 
   conditions {
-    display_name = "Uptime check failure"
+    display_name = "Uptime check failing from more than one region"
 
     condition_threshold {
-      filter          = "resource.type = \"uptime_url\" AND metric.type = \"monitoring.googleapis.com/uptime_check/check_passed\" AND metric.labels.check_id = \"${var.uptime_check_host != null ? google_monitoring_uptime_check_config.https[0].uptime_check_id : ""}\""
-      duration        = "60s"
-      comparison      = "COMPARISON_LT"
+      filter          = "metric.type=\"monitoring.googleapis.com/uptime_check/check_passed\" AND resource.type=\"uptime_url\" AND metric.label.check_id=\"${google_monitoring_uptime_check_config.https[0].uptime_check_id}\""
+      comparison      = "COMPARISON_GT"
       threshold_value = 1
+      duration        = "${var.uptime_check_period_seconds}s"
 
       aggregations {
-        alignment_period     = "60s"
-        per_series_aligner   = "ALIGN_FRACTION_TRUE"
-        cross_series_reducer = "REDUCE_FRACTION_TRUE"
+        alignment_period     = "1200s"
+        per_series_aligner   = "ALIGN_NEXT_OLDER"
+        cross_series_reducer = "REDUCE_COUNT_FALSE"
         group_by_fields      = ["resource.label.host"]
       }
 
@@ -270,199 +352,70 @@ resource "google_monitoring_alert_policy" "uptime_check_failed" {
     }
   }
 
-  alert_strategy {
-    auto_close = "1800s"
-
-    notification_rate_limit {
-      period = "300s"
-    }
-  }
-
-  notification_channels = local.notification_channels
-  user_labels           = local.common_labels
-}
-
-resource "google_monitoring_alert_policy" "error_log_entries" {
-  display_name = "${var.environment} - Error Log Entries Detected"
-  project      = var.project_id
-  combiner     = "OR"
-  enabled      = var.enable_alerts
-
   documentation {
-    content   = "Error log entries have exceeded the threshold. Please review the logs for details on the errors."
     mime_type = "text/markdown"
-  }
-
-  conditions {
-    display_name = "Error log entries exceed threshold"
-
-    condition_threshold {
-      filter          = "resource.type = \"global\" AND metric.type = \"logging.googleapis.com/user/${google_logging_metric.error_count.name}\""
-      duration        = var.alert_duration
-      comparison      = "COMPARISON_GT"
-      threshold_value = var.error_log_threshold
-
-      aggregations {
-        alignment_period     = "60s"
-        per_series_aligner   = "ALIGN_RATE"
-        cross_series_reducer = "REDUCE_SUM"
-      }
-
-      trigger {
-        count = 1
-      }
-    }
-  }
-
-  alert_strategy {
-    auto_close = "1800s"
-
-    notification_rate_limit {
-      period = "300s"
-    }
-  }
-
-  notification_channels = local.notification_channels
-  user_labels           = local.common_labels
-
-  depends_on = [google_logging_metric.error_count]
-}
-
-# =============================================================================
-# Uptime Check
-# =============================================================================
-
-resource "google_monitoring_uptime_check_config" "https" {
-  count = var.uptime_check_host != null ? 1 : 0
-
-  display_name = "${var.environment} - HTTPS Uptime Check"
-  project      = var.project_id
-  timeout      = var.uptime_check_timeout
-
-  http_check {
-    path           = var.uptime_check_path
-    port           = 443
-    use_ssl        = true
-    validate_ssl   = true
-    request_method = "GET"
-
-    accepted_response_status_codes {
-      status_class = "STATUS_CLASS_2XX"
-    }
-  }
-
-  monitored_resource {
-    type = "uptime_url"
-    labels = {
-      project_id = var.project_id
-      host       = var.uptime_check_host
-    }
-  }
-
-  content_matchers {
-    content = var.uptime_check_content_match
-    matcher = "CONTAINS_STRING"
-  }
-
-  period = var.uptime_check_period
-
-  selected_regions = var.uptime_check_regions
-
-  user_labels = local.common_labels
-}
-
-# =============================================================================
-# Custom Log-based Metrics
-# =============================================================================
-
-resource "google_logging_metric" "error_count" {
-  name    = "${local.resource_prefix}-error-count"
-  project = var.project_id
-  filter  = "severity >= ERROR"
-
-  metric_descriptor {
-    metric_kind  = "DELTA"
-    value_type   = "INT64"
-    unit         = "1"
-    display_name = "Error Log Count"
-
-    labels {
-      key         = "severity"
-      value_type  = "STRING"
-      description = "Log severity level"
-    }
-  }
-
-  label_extractors = {
-    "severity" = "EXTRACT(severity)"
+    content   = "The HTTPS uptime check for ${var.uptime_check_host}${var.uptime_check_path} is failing from more than one region."
   }
 }
 
-resource "google_logging_metric" "latency" {
-  name    = "${local.resource_prefix}-request-latency"
-  project = var.project_id
-  filter  = "resource.type = \"http_load_balancer\" AND httpRequest.latency != \"\""
-
-  metric_descriptor {
-    metric_kind  = "DELTA"
-    value_type   = "DISTRIBUTION"
-    unit         = "s"
-    display_name = "Request Latency"
-  }
-
-  value_extractor = "EXTRACT(httpRequest.latency)"
-
-  bucket_options {
-    exponential_buckets {
-      num_finite_buckets = 64
-      growth_factor      = 2
-      scale              = 0.01
-    }
-  }
-}
-
-resource "google_logging_metric" "http_status_codes" {
-  name    = "${local.resource_prefix}-http-status-codes"
-  project = var.project_id
-  filter  = "resource.type = \"http_load_balancer\""
-
-  metric_descriptor {
-    metric_kind  = "DELTA"
-    value_type   = "INT64"
-    unit         = "1"
-    display_name = "HTTP Status Codes"
-
-    labels {
-      key         = "status_code"
-      value_type  = "STRING"
-      description = "HTTP response status code"
-    }
-  }
-
-  label_extractors = {
-    "status_code" = "EXTRACT(httpRequest.status)"
-  }
-}
-
-# =============================================================================
+# -----------------------------------------------------------------------------
 # Dashboard
-# =============================================================================
+# -----------------------------------------------------------------------------
 
 resource "google_monitoring_dashboard" "main" {
-  dashboard_json = templatefile("${path.module}/templates/dashboard.json", {
-    dashboard_display_name = var.dashboard_display_name
-    project_id             = var.project_id
-    environment            = var.environment
-    error_metric_name      = google_logging_metric.error_count.name
-    latency_metric_name    = google_logging_metric.latency.name
-    status_metric_name     = google_logging_metric.http_status_codes.name
-  })
+  count = var.enable_dashboard ? 1 : 0
 
   project = var.project_id
 
-  depends_on = [
-    google_logging_metric.error_count,
-    google_logging_metric.latency,
-    google_logging_metric.http_status_codes
-  ]
+  dashboard_json = jsonencode({
+    displayName = coalesce(var.dashboard_display_name, "${var.project_name} ${var.environment} overview")
+
+    mosaicLayout = {
+      columns = 12
+      tiles = concat(
+        [
+          for index, chart in local.dashboard_charts : {
+            xPos   = (index % 2) * 6
+            yPos   = floor(index / 2) * 4
+            width  = 6
+            height = 4
+            widget = {
+              title = chart.title
+              xyChart = {
+                dataSets = [
+                  {
+                    plotType = "LINE"
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = chart.filter
+                        aggregation = {
+                          alignmentPeriod  = "60s"
+                          perSeriesAligner = chart.align
+                        }
+                      }
+                    }
+                  },
+                ]
+              }
+            }
+          }
+        ],
+        [
+          {
+            xPos   = 0
+            yPos   = ceil(length(local.dashboard_charts) / 2) * 4
+            width  = 12
+            height = 4
+            widget = {
+              title = "Recent errors"
+              logsPanel = {
+                filter        = "severity>=ERROR"
+                resourceNames = ["projects/${var.project_id}"]
+              }
+            }
+          },
+        ],
+      )
+    }
+  })
 }

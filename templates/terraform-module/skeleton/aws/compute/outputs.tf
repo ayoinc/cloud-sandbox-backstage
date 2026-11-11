@@ -46,3 +46,11 @@ output "instance_profile_arn" {
   description = "Instance profile ARN"
   value       = aws_iam_instance_profile.compute.arn
 }
+
+output "log_group_names" {
+  description = "CloudWatch log groups the instances ship their boot and audit logs to"
+  value = {
+    cloud_init = aws_cloudwatch_log_group.cloud_init.name
+    audit      = aws_cloudwatch_log_group.audit.name
+  }
+}

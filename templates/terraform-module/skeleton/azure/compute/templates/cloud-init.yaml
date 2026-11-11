@@ -36,12 +36,6 @@ write_files:
       ================================================================================
     permissions: '0644'
 
-  # Azure CLI repository
-  - path: /etc/apt/sources.list.d/azure-cli.list
-    content: |
-      deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-archive-keyring.gpg] https://packages.microsoft.com/repos/azure-cli/ jammy main
-    permissions: '0644'
-
   # Sysctl configuration for performance
   - path: /etc/sysctl.d/99-custom.conf
     content: |
@@ -83,8 +77,9 @@ write_files:
 
 # Run commands on first boot
 runcmd:
-  # Import Microsoft signing key for Azure CLI
-  - curl -sL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-archive-keyring.gpg
+  # Import Microsoft signing key and add the Azure CLI repository for this release
+  - curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-archive-keyring.gpg
+  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/microsoft-archive-keyring.gpg] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" > /etc/apt/sources.list.d/azure-cli.list
 
   # Install Azure CLI
   - apt-get update
@@ -94,7 +89,7 @@ runcmd:
   - sysctl --system
 
   # Create application user
-  - useradd -r -m -s /bin/bash app || true
+  - id app >/dev/null 2>&1 || useradd -r -m -s /bin/bash app
   - mkdir -p /var/log/application
   - chown app:app /var/log/application
 
@@ -108,7 +103,9 @@ runcmd:
 
     [Service]
     Type=simple
-    ExecStart=/usr/bin/python3 -m http.server 80 --directory /var/www/html
+    User=app
+    AmbientCapabilities=CAP_NET_BIND_SERVICE
+    ExecStart=/usr/bin/python3 -m http.server ${health_port} --directory /var/www/html
     Restart=always
     RestartSec=5
 

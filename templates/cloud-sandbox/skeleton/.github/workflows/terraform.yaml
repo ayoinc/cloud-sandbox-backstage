@@ -1,0 +1,302 @@
+{%- set provider = values.cloud_provider -%}
+name: Terraform
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: What to do with the sandbox
+        type: choice
+        default: plan
+        options:
+          - plan
+          - apply
+          - destroy
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terraform-{% raw %}${{ github.ref }}{% endraw %}
+  cancel-in-progress: false
+
+env:
+  TF_VERSION: '1.17.1'
+  TF_IN_AUTOMATION: 'true'
+  TF_INPUT: 'false'
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: {% raw %}${{ env.TF_VERSION }}{% endraw %}
+
+      - name: Check formatting
+        run: terraform fmt -check -recursive -diff
+
+      - name: Initialise without a backend
+        run: terraform init -backend=false
+
+      - name: Validate configuration
+        run: terraform validate
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v6
+        with:
+          tflint_version: v0.66.0
+
+      - name: Install TFLint plugins
+        run: tflint --init
+        env:
+          GITHUB_TOKEN: {% raw %}${{ github.token }}{% endraw %}
+
+      - name: Run TFLint
+        run: tflint --recursive --config "$GITHUB_WORKSPACE/.tflint.hcl"
+
+  test:
+    name: Test
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: {% raw %}${{ env.TF_VERSION }}{% endraw %}
+
+      - name: Initialise without a backend
+        run: terraform init -backend=false
+
+      # The tests plan against a mocked provider, so they need no credentials.
+      - name: Run Terraform tests
+        run: terraform test
+
+  security:
+    name: Security scan
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      # terraform.tfvars is passed in so that the components switched on
+      # there are scanned too.
+      - name: Scan Terraform with Trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          scan-ref: .
+          tf-vars: terraform.tfvars
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+
+  # Plan, apply and destroy need access to the cloud account and a remote
+  # state. Until both are configured they are skipped, so a new repository is
+  # green from its first push.
+  credentials:
+    name: Check deployment credentials
+    runs-on: ubuntu-24.04
+    outputs:
+      available: {% raw %}${{ steps.check.outputs.available }}{% endraw %}
+    steps:
+      - name: Look for deployment credentials
+        id: check
+        env:
+{%- if provider == "aws" %}
+          REQUIRED: {% raw %}${{ secrets.AWS_ROLE_ARN && secrets.TF_STATE_BUCKET }}{% endraw %}
+          MISSING: AWS_ROLE_ARN and TF_STATE_BUCKET
+{%- elif provider == "azure" %}
+          REQUIRED: {% raw %}${{ secrets.AZURE_CLIENT_ID && secrets.AZURE_TENANT_ID && secrets.AZURE_SUBSCRIPTION_ID && secrets.TF_STATE_STORAGE_ACCOUNT }}{% endraw %}
+          MISSING: AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID and TF_STATE_STORAGE_ACCOUNT
+{%- elif provider == "gcp" %}
+          REQUIRED: {% raw %}${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER && secrets.GCP_SERVICE_ACCOUNT && secrets.GCP_PROJECT_ID && secrets.TF_STATE_BUCKET }}{% endraw %}
+          MISSING: GCP_WORKLOAD_IDENTITY_PROVIDER, GCP_SERVICE_ACCOUNT, GCP_PROJECT_ID and TF_STATE_BUCKET
+{%- endif %}
+        run: |
+          if [ -n "$REQUIRED" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Plan and apply skipped. Set the repository secrets $MISSING to enable them."
+          fi
+
+  plan:
+    name: Plan
+    needs: [validate, lint, test, security, credentials]
+    if: needs.credentials.outputs.available == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    env:
+{%- if provider == "aws" %}
+      AWS_REGION: ${{ values.region }}
+{%- elif provider == "azure" %}
+      ARM_USE_OIDC: 'true'
+      ARM_CLIENT_ID: {% raw %}${{ secrets.AZURE_CLIENT_ID }}{% endraw %}
+      ARM_TENANT_ID: {% raw %}${{ secrets.AZURE_TENANT_ID }}{% endraw %}
+      ARM_SUBSCRIPTION_ID: {% raw %}${{ secrets.AZURE_SUBSCRIPTION_ID }}{% endraw %}
+{%- elif provider == "gcp" %}
+      TF_VAR_project_id: {% raw %}${{ secrets.GCP_PROJECT_ID }}{% endraw %}
+{%- endif %}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: {% raw %}${{ env.TF_VERSION }}{% endraw %}
+{%- if provider == "aws" %}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: {% raw %}${{ secrets.AWS_ROLE_ARN }}{% endraw %}
+          aws-region: ${{ values.region }}
+{%- elif provider == "gcp" %}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: {% raw %}${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}{% endraw %}
+          service_account: {% raw %}${{ secrets.GCP_SERVICE_ACCOUNT }}{% endraw %}
+{%- endif %}
+
+      - name: Initialise with remote state
+        env:
+{%- if provider == "azure" %}
+          STATE_STORAGE_ACCOUNT: {% raw %}${{ secrets.TF_STATE_STORAGE_ACCOUNT }}{% endraw %}
+          STATE_CONTAINER: {% raw %}${{ vars.TF_STATE_CONTAINER || 'tfstate' }}{% endraw %}
+        run: |
+          terraform init \
+            -backend-config="storage_account_name=$STATE_STORAGE_ACCOUNT" \
+            -backend-config="container_name=$STATE_CONTAINER" \
+            -backend-config="key=${{ values.name }}.tfstate" \
+            -backend-config="use_azuread_auth=true"
+{%- elif provider == "aws" %}
+          STATE_BUCKET: {% raw %}${{ secrets.TF_STATE_BUCKET }}{% endraw %}
+          STATE_REGION: {% raw %}${{ vars.TF_STATE_REGION || '{% endraw %}${{ values.region }}{% raw %}' }}{% endraw %}
+        run: |
+          terraform init \
+            -backend-config="bucket=$STATE_BUCKET" \
+            -backend-config="key=${{ values.name }}/terraform.tfstate" \
+            -backend-config="region=$STATE_REGION" \
+            -backend-config="use_lockfile=true"
+{%- elif provider == "gcp" %}
+          STATE_BUCKET: {% raw %}${{ secrets.TF_STATE_BUCKET }}{% endraw %}
+        run: |
+          terraform init \
+            -backend-config="bucket=$STATE_BUCKET" \
+            -backend-config="prefix=${{ values.name }}"
+{%- endif %}
+
+      - name: Plan
+        run: terraform plan{% raw %}${{ github.event.inputs.action == 'destroy' && ' -destroy' || '' }}{% endraw %} -out=tfplan
+
+      - name: Upload plan
+        uses: actions/upload-artifact@v6
+        with:
+          name: tfplan
+          path: tfplan
+          retention-days: 5
+
+  apply:
+    name: Apply
+    needs: [plan]
+    # Pushes to main apply; manual runs apply or destroy only when asked to.
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action != 'plan')
+    runs-on: ubuntu-24.04
+    environment: ${{ values.environment }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+{%- if provider == "aws" %}
+      AWS_REGION: ${{ values.region }}
+{%- elif provider == "azure" %}
+      ARM_USE_OIDC: 'true'
+      ARM_CLIENT_ID: {% raw %}${{ secrets.AZURE_CLIENT_ID }}{% endraw %}
+      ARM_TENANT_ID: {% raw %}${{ secrets.AZURE_TENANT_ID }}{% endraw %}
+      ARM_SUBSCRIPTION_ID: {% raw %}${{ secrets.AZURE_SUBSCRIPTION_ID }}{% endraw %}
+{%- elif provider == "gcp" %}
+      TF_VAR_project_id: {% raw %}${{ secrets.GCP_PROJECT_ID }}{% endraw %}
+{%- endif %}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: {% raw %}${{ env.TF_VERSION }}{% endraw %}
+{%- if provider == "aws" %}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: {% raw %}${{ secrets.AWS_ROLE_ARN }}{% endraw %}
+          aws-region: ${{ values.region }}
+{%- elif provider == "gcp" %}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: {% raw %}${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}{% endraw %}
+          service_account: {% raw %}${{ secrets.GCP_SERVICE_ACCOUNT }}{% endraw %}
+{%- endif %}
+
+      - name: Initialise with remote state
+        env:
+{%- if provider == "azure" %}
+          STATE_STORAGE_ACCOUNT: {% raw %}${{ secrets.TF_STATE_STORAGE_ACCOUNT }}{% endraw %}
+          STATE_CONTAINER: {% raw %}${{ vars.TF_STATE_CONTAINER || 'tfstate' }}{% endraw %}
+        run: |
+          terraform init \
+            -backend-config="storage_account_name=$STATE_STORAGE_ACCOUNT" \
+            -backend-config="container_name=$STATE_CONTAINER" \
+            -backend-config="key=${{ values.name }}.tfstate" \
+            -backend-config="use_azuread_auth=true"
+{%- elif provider == "aws" %}
+          STATE_BUCKET: {% raw %}${{ secrets.TF_STATE_BUCKET }}{% endraw %}
+          STATE_REGION: {% raw %}${{ vars.TF_STATE_REGION || '{% endraw %}${{ values.region }}{% raw %}' }}{% endraw %}
+        run: |
+          terraform init \
+            -backend-config="bucket=$STATE_BUCKET" \
+            -backend-config="key=${{ values.name }}/terraform.tfstate" \
+            -backend-config="region=$STATE_REGION" \
+            -backend-config="use_lockfile=true"
+{%- elif provider == "gcp" %}
+          STATE_BUCKET: {% raw %}${{ secrets.TF_STATE_BUCKET }}{% endraw %}
+        run: |
+          terraform init \
+            -backend-config="bucket=$STATE_BUCKET" \
+            -backend-config="prefix=${{ values.name }}"
+{%- endif %}
+
+      - name: Download plan
+        uses: actions/download-artifact@v7
+        with:
+          name: tfplan
+
+      - name: Apply plan
+        run: terraform apply tfplan

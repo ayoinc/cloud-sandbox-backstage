@@ -1,0 +1,17 @@
+{
+  "values": {
+    "name": "sample-sandbox",
+    "description": "The sample team's \"scratch\" environment: network and bastion",
+    "owner": "group:default/platform-team",
+    "cloud_provider": "aws",
+    "region": "us-east-1",
+    "environment": "sandbox",
+    "vpc_cidr": "10.0.0.0/16",
+    "public_subnets": 2,
+    "private_subnets": 2,
+    "include_bastion": true,
+    "include_eks": false,
+    "include_rds": false,
+    "repoUrl": "github.com?owner=example-org&repo=sample-sandbox"
+  }
+}

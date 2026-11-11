@@ -1,24 +1,25 @@
 # -----------------------------------------------------------------------------
-# AWS Network Module - Example tfvars
+# AWS Network Module - Example tfvars (every optional feature enabled)
 # -----------------------------------------------------------------------------
 
-project     = "myproject"
-environment = "dev"
+project_name = "myproject"
+environment  = "dev"
 
 # VPC Configuration
-vpc_cidr = "10.0.0.0/16"
-az_count = 3
+vpc_cidr           = "10.0.0.0/16"
+availability_zones = ["eu-west-2a", "eu-west-2b", "eu-west-2c"]
 
 # NAT Gateway Configuration
 enable_nat = true
-single_nat = true  # Use single NAT for dev (cost saving)
+single_nat = false
 
 # Flow Logs
 enable_flow_logs         = true
 flow_logs_retention_days = 30
+kms_key_arn              = "arn:aws:kms:eu-west-2:123456789012:key/11111111-2222-3333-4444-555555555555"
 
 # Tags
 tags = {
-  Team        = "platform"
-  CostCenter  = "engineering"
+  Team       = "platform"
+  CostCenter = "engineering"
 }

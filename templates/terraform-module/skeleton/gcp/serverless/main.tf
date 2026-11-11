@@ -1,190 +1,100 @@
-# -----------------------------------------------------------------------------
-# GCP Serverless Module - Main Resources
-# -----------------------------------------------------------------------------
-
 locals {
-  name_prefix = "${var.project_id}-${var.environment}"
+  # Resource names are limited to 63 characters and service account IDs to 30,
+  # so the project name is shortened before the environment is appended.
+  name_prefix = "${trimsuffix(substr(var.project_name, 0, 16), "-")}-${var.environment}"
 
-  default_labels = {
-    project     = var.project_id
+  labels = merge(var.labels, {
     environment = var.environment
     managed_by  = "terraform"
+  })
+
+  is_function  = var.deploy_type == "function"
+  service_name = "${local.name_prefix}-${var.service_name}"
+
+  # A 2nd gen function is served by a Cloud Run service of the same name, so
+  # URL and invoker permissions are handled the same way for both types.
+  service_uri = local.is_function ? google_cloudfunctions2_function.main[0].service_config[0].uri : google_cloud_run_v2_service.main[0].uri
+
+  run_ingress = {
+    all                               = "INGRESS_TRAFFIC_ALL"
+    internal                          = "INGRESS_TRAFFIC_INTERNAL_ONLY"
+    internal-and-cloud-load-balancing = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
+  }
+  function_ingress = {
+    all                               = "ALLOW_ALL"
+    internal                          = "ALLOW_INTERNAL_ONLY"
+    internal-and-cloud-load-balancing = "ALLOW_INTERNAL_AND_GCLB"
   }
 
-  labels = merge(local.default_labels, var.labels)
+  # Pub/Sub push and Cloud Scheduler call the service with their own identity.
+  create_invoker = var.enable_pubsub || var.schedule_cron != null
+
+  invoker_members = toset(concat(
+    var.invoker_members,
+    var.allow_unauthenticated ? ["allUsers"] : [],
+  ))
 }
 
 # -----------------------------------------------------------------------------
-# Service Account for Cloud Function/Run
+# Runtime identity
 # -----------------------------------------------------------------------------
 
-resource "google_service_account" "serverless" {
-  account_id   = "${local.name_prefix}-serverless-sa"
-  display_name = "Service account for ${local.name_prefix} serverless workloads"
+resource "google_service_account" "runtime" {
   project      = var.project_id
-  description  = "Managed by Terraform - Service account for Cloud Functions and Cloud Run"
+  account_id   = "${local.name_prefix}-run"
+  display_name = "${var.project_name} ${var.environment} serverless runtime"
+  description  = "Identity the ${local.service_name} service runs as"
 }
 
-# IAM Roles for Service Account
-resource "google_project_iam_member" "serverless_roles" {
+resource "google_project_iam_member" "runtime" {
   for_each = toset(var.service_account_roles)
 
   project = var.project_id
   role    = each.value
-  member  = "serviceAccount:${google_service_account.serverless.email}"
+  member  = "serviceAccount:${google_service_account.runtime.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "runtime" {
+  for_each = var.secret_environment_variables
+
+  project   = var.project_id
+  secret_id = each.value.secret
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.runtime.email}"
 }
 
 # -----------------------------------------------------------------------------
-# Cloud Storage Bucket for Function Source
-# -----------------------------------------------------------------------------
-
-resource "google_storage_bucket" "function_source" {
-  name     = "${local.name_prefix}-function-source"
-  project  = var.project_id
-  location = var.region
-
-  uniform_bucket_level_access = true
-  force_destroy               = var.environment != "prod"
-
-  versioning {
-    enabled = true
-  }
-
-  lifecycle_rule {
-    condition {
-      num_newer_versions = 5
-    }
-    action {
-      type = "Delete"
-    }
-  }
-
-  labels = local.labels
-}
-
-# Source Code Upload
-resource "google_storage_bucket_object" "function_source" {
-  name   = "${var.function_name}-${var.source_archive_hash}.zip"
-  bucket = google_storage_bucket.function_source.name
-  source = var.source_archive_path
-
-  depends_on = [google_storage_bucket.function_source]
-}
-
-# -----------------------------------------------------------------------------
-# Cloud Functions (2nd Gen)
-# -----------------------------------------------------------------------------
-
-resource "google_cloudfunctions2_function" "main" {
-  count = var.deploy_type == "function" ? 1 : 0
-
-  name     = "${local.name_prefix}-${var.function_name}"
-  project  = var.project_id
-  location = var.region
-
-  description = var.description != "" ? var.description : "Managed by Terraform - ${var.function_name}"
-
-  build_config {
-    runtime     = var.runtime
-    entry_point = var.entry_point
-
-    source {
-      storage_source {
-        bucket = google_storage_bucket.function_source.name
-        object = google_storage_bucket_object.function_source.name
-      }
-    }
-
-    environment_variables = var.build_environment_variables
-  }
-
-  service_config {
-    available_memory      = var.memory
-    timeout_seconds       = var.timeout_seconds
-    max_instance_count    = var.max_instances
-    min_instance_count    = var.min_instances
-    available_cpu         = var.cpu
-    service_account_email = google_service_account.serverless.email
-
-    environment_variables = var.environment_variables
-    secret_environment_variables = [
-      for secret in var.secret_environment_variables : {
-        key        = secret.key
-        project_id = var.project_id
-        secret     = secret.secret_name
-        version    = secret.version
-      }
-    ]
-
-    ingress_settings               = var.ingress_settings
-    all_traffic_on_latest_revision = true
-
-    dynamic "vpc_connector_egress_settings" {
-      for_each = var.vpc_connector != "" ? [1] : []
-      content {
-      }
-    }
-
-    vpc_connector = var.vpc_connector != "" ? var.vpc_connector : null
-  }
-
-  # Event Trigger (optional - for Pub/Sub, Cloud Storage, etc.)
-  dynamic "event_trigger" {
-    for_each = var.event_trigger != null ? [var.event_trigger] : []
-    content {
-      trigger_region        = var.region
-      event_type            = event_trigger.value.event_type
-      pubsub_topic          = event_trigger.value.pubsub_topic
-      retry_policy          = event_trigger.value.retry_policy
-      service_account_email = google_service_account.serverless.email
-
-      dynamic "event_filters" {
-        for_each = event_trigger.value.event_filters != null ? event_trigger.value.event_filters : []
-        content {
-          attribute = event_filters.value.attribute
-          value     = event_filters.value.value
-          operator  = event_filters.value.operator
-        }
-      }
-    }
-  }
-
-  labels = local.labels
-
-  depends_on = [
-    google_project_iam_member.serverless_roles
-  ]
-}
-
-# -----------------------------------------------------------------------------
-# Cloud Run Service (Alternative to Functions)
+# Cloud Run service
 # -----------------------------------------------------------------------------
 
 resource "google_cloud_run_v2_service" "main" {
-  count = var.deploy_type == "run" ? 1 : 0
+  count = local.is_function ? 0 : 1
 
-  name     = "${local.name_prefix}-${var.function_name}"
-  project  = var.project_id
-  location = var.region
-
-  description = var.description != "" ? var.description : "Managed by Terraform - ${var.function_name}"
-
-  ingress = var.ingress_settings == "ALLOW_ALL" ? "INGRESS_TRAFFIC_ALL" : (
-    var.ingress_settings == "ALLOW_INTERNAL_ONLY" ? "INGRESS_TRAFFIC_INTERNAL_ONLY" : "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
-  )
+  project             = var.project_id
+  location            = var.region
+  name                = local.service_name
+  description         = var.description
+  ingress             = local.run_ingress[var.ingress]
+  deletion_protection = var.deletion_protection
+  labels              = local.labels
 
   template {
-    service_account = google_service_account.serverless.email
+    service_account                  = google_service_account.runtime.email
+    timeout                          = "${var.timeout_seconds}s"
+    max_instance_request_concurrency = var.max_concurrency
+    labels                           = local.labels
 
     scaling {
       min_instance_count = var.min_instances
       max_instance_count = var.max_instances
     }
 
-    timeout = "${var.timeout_seconds}s"
-
     containers {
       image = var.container_image
+
+      ports {
+        container_port = var.container_port
+      }
 
       resources {
         limits = {
@@ -192,18 +102,12 @@ resource "google_cloud_run_v2_service" "main" {
           memory = var.memory
         }
         cpu_idle          = var.cpu_idle
-        startup_cpu_boost = var.startup_cpu_boost
-      }
-
-      dynamic "ports" {
-        for_each = var.container_port != null ? [var.container_port] : []
-        content {
-          container_port = ports.value
-        }
+        startup_cpu_boost = true
       }
 
       dynamic "env" {
         for_each = var.environment_variables
+
         content {
           name  = env.key
           value = env.value
@@ -212,297 +116,264 @@ resource "google_cloud_run_v2_service" "main" {
 
       dynamic "env" {
         for_each = var.secret_environment_variables
+
         content {
-          name = env.value.key
+          name = env.key
+
           value_source {
             secret_key_ref {
-              secret  = env.value.secret_name
+              secret  = env.value.secret
               version = env.value.version
             }
           }
         }
       }
 
-      dynamic "startup_probe" {
-        for_each = var.startup_probe != null ? [var.startup_probe] : []
-        content {
-          initial_delay_seconds = startup_probe.value.initial_delay_seconds
-          timeout_seconds       = startup_probe.value.timeout_seconds
-          period_seconds        = startup_probe.value.period_seconds
-          failure_threshold     = startup_probe.value.failure_threshold
-
-          dynamic "http_get" {
-            for_each = startup_probe.value.http_get != null ? [startup_probe.value.http_get] : []
-            content {
-              path = http_get.value.path
-              port = http_get.value.port
-            }
-          }
-
-          dynamic "tcp_socket" {
-            for_each = startup_probe.value.tcp_socket != null ? [startup_probe.value.tcp_socket] : []
-            content {
-              port = tcp_socket.value.port
-            }
-          }
-        }
-      }
-
       dynamic "liveness_probe" {
-        for_each = var.liveness_probe != null ? [var.liveness_probe] : []
-        content {
-          initial_delay_seconds = liveness_probe.value.initial_delay_seconds
-          timeout_seconds       = liveness_probe.value.timeout_seconds
-          period_seconds        = liveness_probe.value.period_seconds
-          failure_threshold     = liveness_probe.value.failure_threshold
+        for_each = var.health_check_path == null ? [] : [var.health_check_path]
 
-          dynamic "http_get" {
-            for_each = liveness_probe.value.http_get != null ? [liveness_probe.value.http_get] : []
-            content {
-              path = http_get.value.path
-              port = http_get.value.port
-            }
+        content {
+          period_seconds    = 30
+          timeout_seconds   = 5
+          failure_threshold = 3
+
+          http_get {
+            path = liveness_probe.value
+            port = var.container_port
           }
         }
       }
     }
 
     dynamic "vpc_access" {
-      for_each = var.vpc_connector != "" ? [1] : []
+      for_each = var.vpc_connector == null ? [] : [var.vpc_connector]
+
       content {
-        connector = var.vpc_connector
+        connector = vpc_access.value
         egress    = var.vpc_egress
       }
     }
-
-    max_instance_request_concurrency = var.max_concurrency
   }
 
-  traffic {
-    type    = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
-    percent = 100
-  }
-
-  labels = local.labels
-
-  depends_on = [
-    google_project_iam_member.serverless_roles
-  ]
-}
-
-# IAM for Cloud Run Invoker Access
-resource "google_cloud_run_service_iam_member" "invoker" {
-  count = var.deploy_type == "run" && var.allow_unauthenticated ? 1 : 0
-
-  project  = var.project_id
-  location = var.region
-  service  = google_cloud_run_v2_service.main[0].name
-  role     = "roles/run.invoker"
-  member   = "allUsers"
-}
-
-resource "google_cloud_run_service_iam_member" "authenticated_invokers" {
-  for_each = var.deploy_type == "run" ? toset(var.invoker_members) : []
-
-  project  = var.project_id
-  location = var.region
-  service  = google_cloud_run_v2_service.main[0].name
-  role     = "roles/run.invoker"
-  member   = each.value
-}
-
-# IAM for Cloud Functions Invoker Access
-resource "google_cloudfunctions2_function_iam_member" "invoker" {
-  count = var.deploy_type == "function" && var.allow_unauthenticated ? 1 : 0
-
-  project        = var.project_id
-  location       = var.region
-  cloud_function = google_cloudfunctions2_function.main[0].name
-  role           = "roles/cloudfunctions.invoker"
-  member         = "allUsers"
-}
-
-resource "google_cloudfunctions2_function_iam_member" "authenticated_invokers" {
-  for_each = var.deploy_type == "function" ? toset(var.invoker_members) : []
-
-  project        = var.project_id
-  location       = var.region
-  cloud_function = google_cloudfunctions2_function.main[0].name
-  role           = "roles/cloudfunctions.invoker"
-  member         = each.value
+  depends_on = [google_secret_manager_secret_iam_member.runtime]
 }
 
 # -----------------------------------------------------------------------------
-# API Gateway (Optional)
+# Cloud Functions (2nd gen)
 # -----------------------------------------------------------------------------
 
-resource "google_api_gateway_api" "main" {
-  count = var.enable_api_gateway ? 1 : 0
+# Bucket names are global, so a random suffix keeps them unique.
+resource "random_id" "source_bucket" {
+  count = local.is_function ? 1 : 0
 
-  provider     = google-beta
-  project      = var.project_id
-  api_id       = "${local.name_prefix}-api"
-  display_name = "${local.name_prefix} API Gateway"
-
-  labels = local.labels
+  byte_length = 4
 }
 
-resource "google_api_gateway_api_config" "main" {
-  count = var.enable_api_gateway ? 1 : 0
+resource "google_storage_bucket" "function_source" {
+  count = local.is_function ? 1 : 0
 
-  provider             = google-beta
-  project              = var.project_id
-  api                  = google_api_gateway_api.main[0].api_id
-  api_config_id_prefix = "${local.name_prefix}-config-"
-  display_name         = "${local.name_prefix} API Config"
+  project       = var.project_id
+  name          = "${local.name_prefix}-fn-src-${random_id.source_bucket[0].hex}"
+  location      = var.region
+  force_destroy = true
+  labels        = local.labels
 
-  openapi_documents {
-    document {
-      path     = "openapi.yaml"
-      contents = base64encode(var.api_gateway_openapi_spec)
-    }
+  uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
+
+  versioning {
+    enabled = true
   }
 
-  gateway_config {
-    backend_config {
-      google_service_account = google_service_account.serverless.email
+  lifecycle_rule {
+    action {
+      type = "Delete"
+    }
+
+    condition {
+      num_newer_versions = 5
+      with_state         = "ARCHIVED"
     }
   }
+}
 
-  labels = local.labels
+resource "google_storage_bucket_object" "function_source" {
+  count = local.is_function ? 1 : 0
+
+  bucket       = google_storage_bucket.function_source[0].name
+  name         = "${local.service_name}.zip"
+  source       = var.source_archive_path
+  content_type = "application/zip"
 
   lifecycle {
-    create_before_destroy = true
+    precondition {
+      condition     = var.source_archive_path != null
+      error_message = "deploy_type = \"function\" requires source_archive_path, the path of a zip archive with the function source."
+    }
   }
 }
 
-resource "google_api_gateway_gateway" "main" {
-  count = var.enable_api_gateway ? 1 : 0
+resource "google_cloudfunctions2_function" "main" {
+  count = local.is_function ? 1 : 0
 
-  provider     = google-beta
-  project      = var.project_id
-  region       = var.region
-  gateway_id   = "${local.name_prefix}-gateway"
-  api_config   = google_api_gateway_api_config.main[0].id
-  display_name = "${local.name_prefix} Gateway"
+  project     = var.project_id
+  location    = var.region
+  name        = local.service_name
+  description = var.description
+  labels      = local.labels
 
-  labels = local.labels
+  build_config {
+    runtime     = var.runtime
+    entry_point = var.entry_point
+
+    # A new upload gets a new generation, which redeploys the function.
+    source {
+      storage_source {
+        bucket     = google_storage_bucket.function_source[0].name
+        object     = google_storage_bucket_object.function_source[0].name
+        generation = google_storage_bucket_object.function_source[0].generation
+      }
+    }
+  }
+
+  service_config {
+    service_account_email            = google_service_account.runtime.email
+    available_cpu                    = var.cpu
+    available_memory                 = var.memory
+    timeout_seconds                  = var.timeout_seconds
+    min_instance_count               = var.min_instances
+    max_instance_count               = var.max_instances
+    max_instance_request_concurrency = var.max_concurrency
+    environment_variables            = var.environment_variables
+    ingress_settings                 = local.function_ingress[var.ingress]
+    all_traffic_on_latest_revision   = true
+    vpc_connector                    = var.vpc_connector
+    vpc_connector_egress_settings    = var.vpc_connector == null ? null : var.vpc_egress
+
+    dynamic "secret_environment_variables" {
+      for_each = var.secret_environment_variables
+
+      content {
+        key        = secret_environment_variables.key
+        project_id = var.project_id
+        secret     = secret_environment_variables.value.secret
+        version    = secret_environment_variables.value.version
+      }
+    }
+  }
+
+  depends_on = [google_secret_manager_secret_iam_member.runtime]
 }
 
 # -----------------------------------------------------------------------------
-# Pub/Sub (Optional)
+# Who may call the service
+# -----------------------------------------------------------------------------
+
+resource "google_cloud_run_v2_service_iam_member" "invokers" {
+  for_each = local.invoker_members
+
+  project  = var.project_id
+  location = var.region
+  name     = local.service_name
+  role     = "roles/run.invoker"
+  member   = each.value
+
+  depends_on = [google_cloud_run_v2_service.main, google_cloudfunctions2_function.main]
+}
+
+resource "google_service_account" "invoker" {
+  count = local.create_invoker ? 1 : 0
+
+  project      = var.project_id
+  account_id   = "${local.name_prefix}-call"
+  display_name = "${var.project_name} ${var.environment} serverless invoker"
+  description  = "Identity Pub/Sub and Cloud Scheduler use to call ${local.service_name}"
+}
+
+resource "google_cloud_run_v2_service_iam_member" "invoker_service_account" {
+  count = local.create_invoker ? 1 : 0
+
+  project  = var.project_id
+  location = var.region
+  name     = local.service_name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.invoker[0].email}"
+
+  depends_on = [google_cloud_run_v2_service.main, google_cloudfunctions2_function.main]
+}
+
+# -----------------------------------------------------------------------------
+# Pub/Sub trigger
 # -----------------------------------------------------------------------------
 
 resource "google_pubsub_topic" "main" {
   count = var.enable_pubsub ? 1 : 0
 
-  name    = "${local.name_prefix}-${var.function_name}-topic"
-  project = var.project_id
-
+  project                    = var.project_id
+  name                       = "${local.service_name}-events"
   message_retention_duration = var.pubsub_message_retention_duration
-
-  dynamic "schema_settings" {
-    for_each = var.pubsub_schema != null ? [var.pubsub_schema] : []
-    content {
-      schema   = schema_settings.value.schema
-      encoding = schema_settings.value.encoding
-    }
-  }
-
-  labels = local.labels
+  kms_key_name               = var.kms_key_id
+  labels                     = local.labels
 }
 
-resource "google_pubsub_subscription" "main" {
+resource "google_pubsub_subscription" "push" {
   count = var.enable_pubsub ? 1 : 0
 
-  name    = "${local.name_prefix}-${var.function_name}-subscription"
-  project = var.project_id
-  topic   = google_pubsub_topic.main[0].id
+  project              = var.project_id
+  name                 = "${local.service_name}-push"
+  topic                = google_pubsub_topic.main[0].id
+  ack_deadline_seconds = var.pubsub_ack_deadline_seconds
+  labels               = local.labels
 
-  ack_deadline_seconds       = var.pubsub_ack_deadline_seconds
-  message_retention_duration = var.pubsub_subscription_retention_duration
-  retain_acked_messages      = var.pubsub_retain_acked_messages
-  enable_message_ordering    = var.pubsub_enable_message_ordering
+  push_config {
+    push_endpoint = local.service_uri
 
-  expiration_policy {
-    ttl = var.pubsub_subscription_expiration_ttl
+    oidc_token {
+      service_account_email = google_service_account.invoker[0].email
+    }
   }
 
   retry_policy {
-    minimum_backoff = var.pubsub_retry_minimum_backoff
-    maximum_backoff = var.pubsub_retry_maximum_backoff
+    minimum_backoff = "10s"
+    maximum_backoff = "600s"
   }
 
-  dynamic "push_config" {
-    for_each = var.pubsub_push_endpoint != "" ? [1] : []
-    content {
-      push_endpoint = var.pubsub_push_endpoint
-
-      oidc_token {
-        service_account_email = google_service_account.serverless.email
-      }
-
-      attributes = var.pubsub_push_attributes
-    }
+  # An empty TTL keeps the subscription even when it is idle.
+  expiration_policy {
+    ttl = ""
   }
 
-  dynamic "dead_letter_policy" {
-    for_each = var.pubsub_dead_letter_topic != "" ? [1] : []
-    content {
-      dead_letter_topic     = var.pubsub_dead_letter_topic
-      max_delivery_attempts = var.pubsub_max_delivery_attempts
-    }
-  }
-
-  labels = local.labels
+  depends_on = [google_cloud_run_v2_service_iam_member.invoker_service_account]
 }
 
 # -----------------------------------------------------------------------------
-# Cloud Scheduler Job (Optional - for Scheduled Execution)
+# Schedule
 # -----------------------------------------------------------------------------
 
 resource "google_cloud_scheduler_job" "main" {
-  count = var.schedule_cron != "" ? 1 : 0
+  count = var.schedule_cron == null ? 0 : 1
 
-  name        = "${local.name_prefix}-${var.function_name}-scheduler"
-  project     = var.project_id
-  region      = var.region
-  description = "Scheduled trigger for ${var.function_name}"
+  project          = var.project_id
+  region           = var.region
+  name             = "${local.service_name}-schedule"
+  description      = "Calls ${local.service_name} on a schedule"
+  schedule         = var.schedule_cron
+  time_zone        = var.schedule_time_zone
+  attempt_deadline = "${min(var.timeout_seconds, 1800)}s"
 
-  schedule  = var.schedule_cron
-  time_zone = var.schedule_timezone
+  http_target {
+    uri         = local.service_uri
+    http_method = "POST"
 
-  attempt_deadline = var.schedule_attempt_deadline
+    oidc_token {
+      service_account_email = google_service_account.invoker[0].email
+      audience              = local.service_uri
+    }
+  }
 
   retry_config {
-    retry_count          = var.schedule_retry_count
-    max_retry_duration   = var.schedule_max_retry_duration
-    min_backoff_duration = var.schedule_min_backoff_duration
-    max_backoff_duration = var.schedule_max_backoff_duration
-    max_doublings        = var.schedule_max_doublings
+    retry_count = 3
   }
 
-  dynamic "http_target" {
-    for_each = var.deploy_type == "run" || (var.deploy_type == "function" && var.event_trigger == null) ? [1] : []
-    content {
-      uri         = var.deploy_type == "run" ? google_cloud_run_v2_service.main[0].uri : google_cloudfunctions2_function.main[0].url
-      http_method = var.schedule_http_method
-      body        = var.schedule_http_body != "" ? base64encode(var.schedule_http_body) : null
-      headers     = var.schedule_http_headers
-
-      oidc_token {
-        service_account_email = google_service_account.serverless.email
-        audience              = var.deploy_type == "run" ? google_cloud_run_v2_service.main[0].uri : google_cloudfunctions2_function.main[0].url
-      }
-    }
-  }
-
-  dynamic "pubsub_target" {
-    for_each = var.enable_pubsub && var.schedule_use_pubsub ? [1] : []
-    content {
-      topic_name = google_pubsub_topic.main[0].id
-      data       = var.schedule_pubsub_data != "" ? base64encode(var.schedule_pubsub_data) : null
-      attributes = var.schedule_pubsub_attributes
-    }
-  }
+  depends_on = [google_cloud_run_v2_service_iam_member.invoker_service_account]
 }

@@ -1,511 +1,213 @@
-# -----------------------------------------------------------------------------
-# GCP Kubernetes (GKE) Module - Variables
-# -----------------------------------------------------------------------------
-
-# -----------------------------------------------------------------------------
-# Project and Environment
-# -----------------------------------------------------------------------------
-
 variable "project_name" {
-  description = "Project name for resource naming"
+  description = "Project name used as a prefix for resource names."
   type        = string
-}
 
-variable "project_id" {
-  description = "GCP project ID"
-  type        = string
-}
-
-variable "region" {
-  description = "GCP region for the GKE cluster"
-  type        = string
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9-]{0,62}$", var.project_name))
+    error_message = "project_name must start with a lowercase letter and contain only lowercase letters, digits and hyphens (max 63 characters)."
+  }
 }
 
 variable "environment" {
-  description = "Environment name (e.g., dev, staging, prod)"
+  description = "Environment name (for example dev, staging, prod)."
   type        = string
 
   validation {
-    condition     = contains(["dev", "staging", "prod", "test"], var.environment)
-    error_message = "Environment must be one of: dev, staging, prod, test."
+    condition     = can(regex("^[a-z][a-z0-9]{0,7}$", var.environment))
+    error_message = "environment must be 1-8 lowercase letters or digits and start with a letter."
   }
 }
 
-# -----------------------------------------------------------------------------
-# Network Configuration
-# -----------------------------------------------------------------------------
-
-variable "network_self_link" {
-  description = "Self link of the VPC network"
+variable "project_id" {
+  description = "ID of the Google Cloud project that owns the resources."
   type        = string
-}
-
-variable "subnetwork_self_link" {
-  description = "Self link of the subnetwork"
-  type        = string
-}
-
-variable "pods_secondary_range_name" {
-  description = "Name of the secondary IP range for pods"
-  type        = string
-}
-
-variable "services_secondary_range_name" {
-  description = "Name of the secondary IP range for services"
-  type        = string
-}
-
-# -----------------------------------------------------------------------------
-# Cluster Configuration
-# -----------------------------------------------------------------------------
-
-variable "cluster_version" {
-  description = "Kubernetes version for the GKE cluster (minimum master version)"
-  type        = string
-  default     = null # Uses default version based on release channel
-}
-
-variable "release_channel" {
-  description = "Release channel for GKE cluster (UNSPECIFIED, RAPID, REGULAR, STABLE)"
-  type        = string
-  default     = "REGULAR"
 
   validation {
-    condition     = contains(["UNSPECIFIED", "RAPID", "REGULAR", "STABLE"], var.release_channel)
-    error_message = "Release channel must be one of: UNSPECIFIED, RAPID, REGULAR, STABLE."
+    condition     = can(regex("^[a-z][a-z0-9-]{4,28}[a-z0-9]$", var.project_id))
+    error_message = "project_id must be a valid Google Cloud project ID (6-30 lowercase letters, digits or hyphens)."
   }
 }
 
-variable "deletion_protection" {
-  description = "Enable deletion protection for the cluster"
+variable "region" {
+  description = "Google Cloud region for regional resources."
+  type        = string
+}
+
+variable "labels" {
+  description = "Labels applied to every resource that supports them."
+  type        = map(string)
+  default     = {}
+  nullable    = false
+}
+
+variable "network_name" {
+  description = "Name of the VPC the cluster attaches to. Null uses the project's default network."
+  type        = string
+  default     = null
+}
+
+variable "subnet_name" {
+  description = "Name of the subnet in region for nodes. Null lets GKE use the network's subnet for the region (auto mode networks only)."
+  type        = string
+  default     = null
+}
+
+variable "pods_range_name" {
+  description = "Name of an existing secondary range on the subnet for pods. Null lets GKE create one."
+  type        = string
+  default     = null
+}
+
+variable "services_range_name" {
+  description = "Name of an existing secondary range on the subnet for services. Null lets GKE create one."
+  type        = string
+  default     = null
+}
+
+variable "enable_autopilot" {
+  description = "Create an Autopilot cluster, where Google manages the nodes. False creates a Standard cluster with a system pool and the pools in node_pools."
   type        = bool
   default     = true
 }
 
-# -----------------------------------------------------------------------------
-# Private Cluster Configuration
-# -----------------------------------------------------------------------------
+variable "release_channel" {
+  description = "Release channel that upgrades the cluster automatically: RAPID, REGULAR, STABLE or EXTENDED."
+  type        = string
+  default     = "REGULAR"
 
-variable "enable_private_cluster" {
-  description = "Enable private cluster (nodes have internal IP addresses only)"
+  validation {
+    condition     = contains(["RAPID", "REGULAR", "STABLE", "EXTENDED"], var.release_channel)
+    error_message = "release_channel must be RAPID, REGULAR, STABLE or EXTENDED."
+  }
+}
+
+variable "deletion_protection" {
+  description = "Prevent Terraform from deleting the cluster."
   type        = bool
   default     = true
 }
 
 variable "enable_private_endpoint" {
-  description = "Enable private endpoint (master is only accessible via internal IP)"
+  description = "Expose the control plane only on its internal address. False adds a public endpoint restricted to master_authorized_networks."
   type        = bool
-  default     = false
+  default     = true
+}
+
+variable "master_authorized_networks" {
+  description = "Ranges allowed to reach the control plane, in addition to the cluster's own subnet. Required when enable_private_endpoint is false."
+  type = list(object({
+    cidr_block   = string
+    display_name = optional(string)
+  }))
+  default  = []
+  nullable = false
+
+  validation {
+    condition     = alltrue([for n in var.master_authorized_networks : can(cidrhost(n.cidr_block, 0)) && n.cidr_block != "0.0.0.0/0"])
+    error_message = "master_authorized_networks must contain valid CIDR blocks and must not include 0.0.0.0/0."
+  }
 }
 
 variable "master_ipv4_cidr_block" {
-  description = "CIDR block for the master's private IP address (must be /28)"
+  description = "A /28 range for the control plane's internal endpoint. Null lets GKE allocate it."
   type        = string
-  default     = "172.16.0.0/28"
+  default     = null
 
   validation {
-    condition     = can(regex("^([0-9]{1,3}\\.){3}[0-9]{1,3}/28$", var.master_ipv4_cidr_block))
-    error_message = "Master CIDR block must be a valid /28 CIDR range."
+    condition     = var.master_ipv4_cidr_block == null || can(regex("/28$", var.master_ipv4_cidr_block)) && can(cidrhost(var.master_ipv4_cidr_block, 0))
+    error_message = "master_ipv4_cidr_block must be a valid /28 CIDR block."
   }
 }
 
-variable "enable_master_global_access" {
-  description = "Enable global access to the master's private endpoint"
-  type        = bool
-  default     = true
-}
-
-# -----------------------------------------------------------------------------
-# Master Authorized Networks
-# -----------------------------------------------------------------------------
-
-variable "master_authorized_networks" {
-  description = "List of CIDR blocks authorized to access the Kubernetes master"
-  type = list(object({
-    cidr_block   = string
-    display_name = string
-  }))
-  default = []
-}
-
-# -----------------------------------------------------------------------------
-# Network Policy
-# -----------------------------------------------------------------------------
-
-variable "enable_network_policy" {
-  description = "Enable network policy (Calico) for the cluster"
-  type        = bool
-  default     = true
-}
-
-variable "datapath_provider" {
-  description = "Datapath provider (LEGACY_DATAPATH, ADVANCED_DATAPATH for Dataplane V2)"
+variable "kms_key_id" {
+  description = "ID of a Cloud KMS key in region that encrypts Kubernetes secrets and the image repository. The GKE and Artifact Registry service agents must be allowed to use it. Null uses Google-managed encryption."
   type        = string
-  default     = "ADVANCED_DATAPATH"
+  default     = null
+}
+
+variable "maintenance_start_time" {
+  description = "Start of the daily maintenance window in UTC, HH:MM."
+  type        = string
+  default     = "03:00"
 
   validation {
-    condition     = contains(["LEGACY_DATAPATH", "ADVANCED_DATAPATH"], var.datapath_provider)
-    error_message = "Datapath provider must be LEGACY_DATAPATH or ADVANCED_DATAPATH."
+    condition     = can(regex("^([01][0-9]|2[0-3]):[0-5][0-9]$", var.maintenance_start_time))
+    error_message = "maintenance_start_time must use the 24-hour HH:MM format."
   }
 }
 
-# -----------------------------------------------------------------------------
-# Workload Identity
-# -----------------------------------------------------------------------------
-
-variable "enable_workload_identity" {
-  description = "Enable Workload Identity for the cluster"
-  type        = bool
-  default     = true
-}
-
-# -----------------------------------------------------------------------------
-# Logging and Monitoring
-# -----------------------------------------------------------------------------
-
-variable "logging_service" {
-  description = "Logging service to use (logging.googleapis.com/kubernetes or none)"
-  type        = string
-  default     = "logging.googleapis.com/kubernetes"
-}
-
-variable "monitoring_service" {
-  description = "Monitoring service to use (monitoring.googleapis.com/kubernetes or none)"
-  type        = string
-  default     = "monitoring.googleapis.com/kubernetes"
-}
-
-variable "logging_components" {
-  description = "Logging components to enable"
-  type        = list(string)
-  default     = ["SYSTEM_COMPONENTS", "WORKLOADS"]
+variable "system_node_count" {
+  description = "Standard clusters only: nodes per zone in the default pool that runs system workloads."
+  type        = number
+  default     = 1
 
   validation {
-    condition     = alltrue([for c in var.logging_components : contains(["SYSTEM_COMPONENTS", "WORKLOADS", "APISERVER", "CONTROLLER_MANAGER", "SCHEDULER"], c)])
-    error_message = "Logging components must be from: SYSTEM_COMPONENTS, WORKLOADS, APISERVER, CONTROLLER_MANAGER, SCHEDULER."
+    condition     = var.system_node_count >= 1 && floor(var.system_node_count) == var.system_node_count
+    error_message = "system_node_count must be a whole number of at least 1."
   }
 }
 
-variable "monitoring_components" {
-  description = "Monitoring components to enable"
-  type        = list(string)
-  default     = ["SYSTEM_COMPONENTS"]
-
-  validation {
-    condition     = alltrue([for c in var.monitoring_components : contains(["SYSTEM_COMPONENTS", "APISERVER", "CONTROLLER_MANAGER", "SCHEDULER", "DAEMONSET", "DEPLOYMENT", "HPA", "POD", "STATEFULSET", "STORAGE"], c)])
-    error_message = "Invalid monitoring component specified."
-  }
-}
-
-variable "enable_managed_prometheus" {
-  description = "Enable Google Cloud Managed Service for Prometheus"
-  type        = bool
-  default     = true
-}
-
-# -----------------------------------------------------------------------------
-# Addons Configuration
-# -----------------------------------------------------------------------------
-
-variable "enable_http_load_balancing" {
-  description = "Enable HTTP load balancing addon"
-  type        = bool
-  default     = true
-}
-
-variable "enable_horizontal_pod_autoscaling" {
-  description = "Enable horizontal pod autoscaling addon"
-  type        = bool
-  default     = true
-}
-
-variable "enable_gce_persistent_disk_csi_driver" {
-  description = "Enable GCE Persistent Disk CSI driver"
-  type        = bool
-  default     = true
-}
-
-variable "enable_filestore_csi_driver" {
-  description = "Enable Filestore CSI driver"
-  type        = bool
-  default     = false
-}
-
-variable "enable_gcs_fuse_csi_driver" {
-  description = "Enable GCS Fuse CSI driver"
-  type        = bool
-  default     = false
-}
-
-variable "enable_dns_cache" {
-  description = "Enable NodeLocal DNSCache"
-  type        = bool
-  default     = true
-}
-
-variable "enable_vertical_pod_autoscaling" {
-  description = "Enable Vertical Pod Autoscaling"
-  type        = bool
-  default     = true
-}
-
-# -----------------------------------------------------------------------------
-# Node Auto-Provisioning
-# -----------------------------------------------------------------------------
-
-variable "enable_node_auto_provisioning" {
-  description = "Enable node auto-provisioning for cluster autoscaler"
-  type        = bool
-  default     = false
-}
-
-variable "node_auto_provisioning_cpu_min" {
-  description = "Minimum CPU cores for node auto-provisioning"
-  type        = number
-  default     = 0
-}
-
-variable "node_auto_provisioning_cpu_max" {
-  description = "Maximum CPU cores for node auto-provisioning"
-  type        = number
-  default     = 100
-}
-
-variable "node_auto_provisioning_memory_min" {
-  description = "Minimum memory (GB) for node auto-provisioning"
-  type        = number
-  default     = 0
-}
-
-variable "node_auto_provisioning_memory_max" {
-  description = "Maximum memory (GB) for node auto-provisioning"
-  type        = number
-  default     = 400
-}
-
-variable "node_auto_provisioning_disk_size" {
-  description = "Disk size (GB) for auto-provisioned nodes"
-  type        = number
-  default     = 100
-}
-
-variable "node_auto_provisioning_disk_type" {
-  description = "Disk type for auto-provisioned nodes"
+variable "system_machine_type" {
+  description = "Standard clusters only: machine type of the default pool."
   type        = string
-  default     = "pd-standard"
+  default     = "e2-standard-2"
 }
-
-# -----------------------------------------------------------------------------
-# Node Pools Configuration
-# -----------------------------------------------------------------------------
 
 variable "node_pools" {
-  description = "List of node pool configurations"
-  type = list(object({
-    name                    = string
-    machine_type            = optional(string, "e2-medium")
-    disk_size_gb            = optional(number, 100)
-    disk_type               = optional(string, "pd-standard")
-    image_type              = optional(string, "COS_CONTAINERD")
-    initial_node_count      = optional(number, 1)
-    min_count               = optional(number, 1)
-    max_count               = optional(number, 3)
-    enable_autoscaling      = optional(bool, true)
-    location_policy         = optional(string, "BALANCED")
-    total_min_count         = optional(number, null)
-    total_max_count         = optional(number, null)
-    preemptible             = optional(bool, false)
-    spot                    = optional(bool, false)
-    auto_repair             = optional(bool, true)
-    auto_upgrade            = optional(bool, true)
-    max_surge               = optional(number, 1)
-    max_unavailable         = optional(number, 0)
-    upgrade_strategy        = optional(string, "SURGE")
-    node_pool_soak_duration = optional(string, "0s")
-    batch_percentage        = optional(number, null)
-    batch_node_count        = optional(number, null)
-    batch_soak_duration     = optional(string, null)
-    labels                  = optional(map(string), {})
-    tags                    = optional(list(string), [])
+  description = "Standard clusters only: workload node pools keyed by name. Counts are per zone. Taint effects are NO_SCHEDULE, PREFER_NO_SCHEDULE or NO_EXECUTE."
+  type = map(object({
+    machine_type = optional(string, "e2-standard-4")
+    min_count    = optional(number, 1)
+    max_count    = optional(number, 3)
+    disk_size_gb = optional(number, 100)
+    disk_type    = optional(string, "pd-balanced")
+    spot         = optional(bool, false)
+    labels       = optional(map(string), {})
     taints = optional(list(object({
       key    = string
       value  = string
       effect = string
     })), [])
-    metadata                    = optional(map(string), {})
-    oauth_scopes                = optional(list(string), ["https://www.googleapis.com/auth/cloud-platform"])
-    enable_secure_boot          = optional(bool, true)
-    enable_integrity_monitoring = optional(bool, true)
-    accelerator_type            = optional(string, "")
-    accelerator_count           = optional(number, 0)
-    gpu_driver_version          = optional(string, "DEFAULT")
-    sysctls                     = optional(map(string), {})
-    enable_gcfs                 = optional(bool, false)
-    enable_gvnic                = optional(bool, false)
-    node_locations              = optional(list(string), [])
   }))
-  default = [
-    {
-      name               = "primary"
-      machine_type       = "e2-medium"
-      disk_size_gb       = 100
-      min_count          = 1
-      max_count          = 3
-      enable_autoscaling = true
-    }
-  ]
-}
-
-# -----------------------------------------------------------------------------
-# Security Configuration
-# -----------------------------------------------------------------------------
-
-variable "enable_binary_authorization" {
-  description = "Enable Binary Authorization for the cluster"
-  type        = bool
-  default     = false
-}
-
-variable "security_posture_mode" {
-  description = "Security posture mode (DISABLED, BASIC, ENTERPRISE)"
-  type        = string
-  default     = "BASIC"
+  default  = {}
+  nullable = false
 
   validation {
-    condition     = contains(["DISABLED", "BASIC", "ENTERPRISE"], var.security_posture_mode)
-    error_message = "Security posture mode must be DISABLED, BASIC, or ENTERPRISE."
+    condition     = alltrue([for name, pool in var.node_pools : can(regex("^[a-z]([a-z0-9-]{0,38}[a-z0-9])?$", name)) && pool.max_count >= pool.min_count && pool.min_count >= 0])
+    error_message = "Node pool names must be lowercase (max 40 characters) and max_count must be at least min_count."
   }
 }
-
-variable "vulnerability_mode" {
-  description = "Vulnerability scanning mode (VULNERABILITY_DISABLED, VULNERABILITY_BASIC, VULNERABILITY_ENTERPRISE)"
-  type        = string
-  default     = "VULNERABILITY_BASIC"
-
-  validation {
-    condition     = contains(["VULNERABILITY_DISABLED", "VULNERABILITY_BASIC", "VULNERABILITY_ENTERPRISE"], var.vulnerability_mode)
-    error_message = "Vulnerability mode must be VULNERABILITY_DISABLED, VULNERABILITY_BASIC, or VULNERABILITY_ENTERPRISE."
-  }
-}
-
-# -----------------------------------------------------------------------------
-# DNS Configuration
-# -----------------------------------------------------------------------------
-
-variable "cluster_dns" {
-  description = "Which in-cluster DNS provider to use (PROVIDER_UNSPECIFIED, PLATFORM_DEFAULT, CLOUD_DNS)"
-  type        = string
-  default     = "CLOUD_DNS"
-
-  validation {
-    condition     = contains(["PROVIDER_UNSPECIFIED", "PLATFORM_DEFAULT", "CLOUD_DNS"], var.cluster_dns)
-    error_message = "Cluster DNS must be PROVIDER_UNSPECIFIED, PLATFORM_DEFAULT, or CLOUD_DNS."
-  }
-}
-
-variable "cluster_dns_scope" {
-  description = "Scope of the cluster DNS (DNS_SCOPE_UNSPECIFIED, CLUSTER_SCOPE, VPC_SCOPE)"
-  type        = string
-  default     = "CLUSTER_SCOPE"
-
-  validation {
-    condition     = contains(["DNS_SCOPE_UNSPECIFIED", "CLUSTER_SCOPE", "VPC_SCOPE"], var.cluster_dns_scope)
-    error_message = "Cluster DNS scope must be DNS_SCOPE_UNSPECIFIED, CLUSTER_SCOPE, or VPC_SCOPE."
-  }
-}
-
-variable "cluster_dns_domain" {
-  description = "Custom domain for cluster DNS"
-  type        = string
-  default     = ""
-}
-
-# -----------------------------------------------------------------------------
-# Maintenance Window
-# -----------------------------------------------------------------------------
-
-variable "maintenance_window" {
-  description = "Maintenance window configuration"
-  type = object({
-    start_time = string
-  })
-  default = null
-}
-
-# -----------------------------------------------------------------------------
-# Default SNAT
-# -----------------------------------------------------------------------------
-
-variable "disable_default_snat" {
-  description = "Disable default SNAT for private clusters"
-  type        = bool
-  default     = false
-}
-
-# -----------------------------------------------------------------------------
-# Container Registry (Legacy)
-# -----------------------------------------------------------------------------
-
-variable "enable_container_registry" {
-  description = "Enable Container Registry (Legacy - use Artifact Registry instead)"
-  type        = bool
-  default     = false
-}
-
-variable "container_registry_location" {
-  description = "Location for Container Registry (US, EU, ASIA)"
-  type        = string
-  default     = "US"
-
-  validation {
-    condition     = contains(["US", "EU", "ASIA"], var.container_registry_location)
-    error_message = "Container Registry location must be US, EU, or ASIA."
-  }
-}
-
-# -----------------------------------------------------------------------------
-# Artifact Registry
-# -----------------------------------------------------------------------------
 
 variable "enable_artifact_registry" {
-  description = "Enable Artifact Registry for container images"
+  description = "Create an Artifact Registry Docker repository that the nodes can pull from."
   type        = bool
   default     = true
 }
 
-variable "artifact_registry_cleanup_dry_run" {
-  description = "Run cleanup policies in dry-run mode"
+variable "artifact_registry_immutable_tags" {
+  description = "Prevent image tags from being moved to another digest."
   type        = bool
-  default     = false
+  default     = true
 }
 
-variable "artifact_registry_cleanup_policies" {
-  description = "Cleanup policies for Artifact Registry"
-  type = list(object({
-    id     = string
-    action = optional(string, "DELETE")
-    condition = optional(object({
-      tag_state             = optional(string)
-      tag_prefixes          = optional(list(string))
-      version_name_prefixes = optional(list(string))
-      package_name_prefixes = optional(list(string))
-      older_than            = optional(string)
-      newer_than            = optional(string)
-    }))
-    most_recent_versions = optional(object({
-      package_name_prefixes = optional(list(string))
-      keep_count            = optional(number)
-    }))
-  }))
-  default = []
+variable "artifact_registry_keep_count" {
+  description = "Number of most recent versions of each image the cleanup policy always keeps."
+  type        = number
+  default     = 10
+
+  validation {
+    condition     = var.artifact_registry_keep_count >= 1
+    error_message = "artifact_registry_keep_count must be at least 1."
+  }
 }
 
-# -----------------------------------------------------------------------------
-# Labels
-# -----------------------------------------------------------------------------
+variable "artifact_registry_untagged_retention_days" {
+  description = "Days after which untagged image versions are deleted."
+  type        = number
+  default     = 30
 
-variable "labels" {
-  description = "Labels for all resources"
-  type        = map(string)
-  default     = {}
+  validation {
+    condition     = var.artifact_registry_untagged_retention_days >= 1 && floor(var.artifact_registry_untagged_retention_days) == var.artifact_registry_untagged_retention_days
+    error_message = "artifact_registry_untagged_retention_days must be a whole number of at least 1."
+  }
 }

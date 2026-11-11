@@ -7,13 +7,23 @@
 # -----------------------------------------------------------------------------
 
 variable "project_name" {
-  description = "Project name"
+  description = "Project name used in resource naming"
   type        = string
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9-]{0,38}[a-z0-9]$", var.project_name))
+    error_message = "Project name must be 2-40 characters of lowercase letters, numbers and hyphens, start with a letter and not end with a hyphen."
+  }
 }
 
 variable "environment" {
   description = "Environment name (e.g., dev, staging, prod)"
   type        = string
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9]{1,11}$", var.environment))
+    error_message = "Environment must be 2-12 lowercase letters or numbers and start with a letter."
+  }
 }
 
 variable "location" {
@@ -47,8 +57,8 @@ variable "sku" {
   default     = "PerGB2018"
 
   validation {
-    condition     = contains(["Free", "PerNode", "Premium", "Standard", "Standalone", "Unlimited", "CapacityReservation", "PerGB2018"], var.sku)
-    error_message = "SKU must be one of: Free, PerNode, Premium, Standard, Standalone, Unlimited, CapacityReservation, PerGB2018."
+    condition     = contains(["PerGB2018", "CapacityReservation"], var.sku)
+    error_message = "SKU must be PerGB2018 or CapacityReservation (the legacy tiers cannot be selected for new workspaces)."
   }
 }
 
@@ -71,9 +81,14 @@ variable "internet_query_enabled" {
 }
 
 variable "reservation_capacity_in_gb_per_day" {
-  description = "Reservation capacity in GB per day (for CapacityReservation SKU)"
+  description = "Reservation capacity in GB per day (required for the CapacityReservation SKU)"
   type        = number
   default     = null
+
+  validation {
+    condition     = var.reservation_capacity_in_gb_per_day == null || contains([100, 200, 300, 400, 500, 1000, 2000, 5000, 10000, 25000, 50000], coalesce(var.reservation_capacity_in_gb_per_day, 100))
+    error_message = "Reservation capacity must be one of: 100, 200, 300, 400, 500, 1000, 2000, 5000, 10000, 25000, 50000."
+  }
 }
 
 # -----------------------------------------------------------------------------
@@ -97,8 +112,19 @@ variable "application_insights_type" {
   }
 }
 
+variable "application_insights_retention_days" {
+  description = "Number of days to retain Application Insights data"
+  type        = number
+  default     = 90
+
+  validation {
+    condition     = contains([30, 60, 90, 120, 180, 270, 365, 550, 730], var.application_insights_retention_days)
+    error_message = "Application Insights retention days must be one of: 30, 60, 90, 120, 180, 270, 365, 550, 730."
+  }
+}
+
 variable "application_insights_daily_cap_gb" {
-  description = "Daily data cap in GB for Application Insights"
+  description = "Daily data cap in GB for Application Insights (null for the service default)"
   type        = number
   default     = null
 }
@@ -149,6 +175,7 @@ variable "alert_email" {
 variable "additional_alert_emails" {
   description = "Additional email addresses for alerts"
   type        = list(string)
+  nullable    = false
   default     = []
 }
 
@@ -159,13 +186,20 @@ variable "alert_sms_receivers" {
     country_code = string
     phone_number = string
   }))
-  default = []
+  nullable = false
+  default  = []
 }
 
 variable "alert_webhook_urls" {
   description = "Webhook URLs for alert notifications"
   type        = list(string)
+  nullable    = false
   default     = []
+
+  validation {
+    condition     = alltrue([for url in var.alert_webhook_urls : startswith(url, "https://")])
+    error_message = "Webhook URLs must use https."
+  }
 }
 
 variable "azure_app_push_receivers" {
@@ -174,7 +208,8 @@ variable "azure_app_push_receivers" {
     name          = string
     email_address = string
   }))
-  default = []
+  nullable = false
+  default  = []
 }
 
 variable "alert_frequency" {
@@ -189,13 +224,21 @@ variable "alert_frequency" {
 }
 
 variable "alert_window_size" {
-  description = "Time window for alert evaluation"
+  description = "Time window for alert evaluation (must not be shorter than alert_frequency)"
   type        = string
   default     = "PT15M"
 
   validation {
-    condition     = contains(["PT1M", "PT5M", "PT15M", "PT30M", "PT1H", "PT6H", "PT12H", "P1D"], var.alert_window_size)
-    error_message = "Alert window size must be one of: PT1M, PT5M, PT15M, PT30M, PT1H, PT6H, PT12H, P1D."
+    condition     = contains(["PT5M", "PT15M", "PT30M", "PT1H", "PT6H", "P1D"], var.alert_window_size)
+    error_message = "Alert window size must be one of: PT5M, PT15M, PT30M, PT1H, PT6H, P1D."
+  }
+
+  validation {
+    condition = (
+      lookup({ PT5M = 5, PT15M = 15, PT30M = 30, PT1H = 60, PT6H = 360, P1D = 1440 }, var.alert_window_size, 0) >=
+      lookup({ PT1M = 1, PT5M = 5, PT15M = 15, PT30M = 30, PT1H = 60 }, var.alert_frequency, 0)
+    )
+    error_message = "Alert window size must not be shorter than alert_frequency."
   }
 }
 
@@ -204,7 +247,13 @@ variable "alert_window_size" {
 # -----------------------------------------------------------------------------
 
 variable "monitored_resource_id" {
-  description = "Resource ID of the resource to monitor with metric alerts"
+  description = "Resource ID of the virtual machine or scale set watched by the CPU and memory alerts. Null creates neither alert. The value must be known at plan time"
+  type        = string
+  default     = null
+}
+
+variable "http_monitored_resource_id" {
+  description = "Resource ID of the App Service or Function App watched by the HTTP errors alert. Null creates no alert. The value must be known at plan time"
   type        = string
   default     = null
 }
@@ -214,7 +263,7 @@ variable "monitored_resource_id" {
 # -----------------------------------------------------------------------------
 
 variable "enable_cpu_alert" {
-  description = "Enable CPU usage alert"
+  description = "Enable CPU usage alert on monitored_resource_id"
   type        = bool
   default     = true
 }
@@ -242,9 +291,9 @@ variable "cpu_alert_severity" {
 }
 
 variable "cpu_metric_namespace" {
-  description = "Metric namespace for CPU metrics"
+  description = "Metric namespace for CPU metrics. Null uses the resource type of monitored_resource_id"
   type        = string
-  default     = "Microsoft.Compute/virtualMachines"
+  default     = null
 }
 
 variable "cpu_metric_name" {
@@ -258,13 +307,13 @@ variable "cpu_metric_name" {
 # -----------------------------------------------------------------------------
 
 variable "enable_memory_alert" {
-  description = "Enable memory usage alert"
+  description = "Enable memory usage alert on monitored_resource_id"
   type        = bool
   default     = true
 }
 
 variable "memory_threshold" {
-  description = "Memory percentage threshold for alerts"
+  description = "Memory usage percentage threshold for alerts"
   type        = number
   default     = 85
 
@@ -286,15 +335,15 @@ variable "memory_alert_severity" {
 }
 
 variable "memory_metric_namespace" {
-  description = "Metric namespace for memory metrics"
+  description = "Metric namespace for memory metrics. Null uses the resource type of monitored_resource_id"
   type        = string
-  default     = "Microsoft.Compute/virtualMachines"
+  default     = null
 }
 
 variable "memory_metric_name" {
-  description = "Metric name for memory usage"
+  description = "Metric reporting the percentage of memory still available; the alert fires when it drops below 100 - memory_threshold"
   type        = string
-  default     = "Available Memory Bytes"
+  default     = "Available Memory Percentage"
 }
 
 # -----------------------------------------------------------------------------
@@ -302,7 +351,7 @@ variable "memory_metric_name" {
 # -----------------------------------------------------------------------------
 
 variable "enable_disk_alert" {
-  description = "Enable disk usage alert"
+  description = "Enable the disk usage alert for every machine that reports VM insights data to the workspace"
   type        = bool
   default     = true
 }
@@ -329,24 +378,12 @@ variable "disk_alert_severity" {
   }
 }
 
-variable "disk_metric_namespace" {
-  description = "Metric namespace for disk metrics"
-  type        = string
-  default     = "Microsoft.Compute/virtualMachines"
-}
-
-variable "disk_metric_name" {
-  description = "Metric name for disk usage"
-  type        = string
-  default     = "OS Disk Used Percentage"
-}
-
 # -----------------------------------------------------------------------------
 # HTTP Errors Alert Configuration
 # -----------------------------------------------------------------------------
 
 variable "enable_http_errors_alert" {
-  description = "Enable HTTP 5xx errors alert"
+  description = "Enable HTTP 5xx errors alert on http_monitored_resource_id"
   type        = bool
   default     = true
 }
@@ -374,9 +411,9 @@ variable "http_errors_alert_severity" {
 }
 
 variable "http_errors_metric_namespace" {
-  description = "Metric namespace for HTTP error metrics"
+  description = "Metric namespace for HTTP error metrics. Null uses the resource type of http_monitored_resource_id"
   type        = string
-  default     = "Microsoft.Web/sites"
+  default     = null
 }
 
 variable "http_errors_metric_name" {
@@ -398,25 +435,28 @@ variable "enable_service_health_alert" {
 variable "service_health_events" {
   description = "Service health event types to alert on"
   type        = list(string)
+  nullable    = false
   default     = ["Incident", "Maintenance", "Security"]
 
   validation {
-    condition = alltrue([
+    condition = length(var.service_health_events) > 0 && alltrue([
       for event in var.service_health_events : contains(["ActionRequired", "Incident", "Maintenance", "Informational", "Security"], event)
     ])
-    error_message = "Service health events must be one of: ActionRequired, Incident, Maintenance, Informational, Security."
+    error_message = "Provide at least one service health event out of: ActionRequired, Incident, Maintenance, Informational, Security."
   }
 }
 
 variable "service_health_locations" {
   description = "Locations to monitor for service health (empty for all)"
   type        = list(string)
+  nullable    = false
   default     = []
 }
 
 variable "service_health_services" {
   description = "Azure services to monitor for health (empty for all)"
   type        = list(string)
+  nullable    = false
   default     = []
 }
 
@@ -435,20 +475,29 @@ variable "enable_dashboard" {
 # -----------------------------------------------------------------------------
 
 variable "diagnostic_setting_resource_id" {
-  description = "Resource ID to configure diagnostic settings for (example)"
+  description = "ID of an existing resource whose logs and metrics are sent to the workspace. Null creates no diagnostic setting. The value must be known at plan time"
   type        = string
   default     = null
 }
 
-variable "diagnostic_log_categories" {
-  description = "Log categories to enable for diagnostic settings"
+variable "diagnostic_log_category_groups" {
+  description = "Log category groups to collect from diagnostic_setting_resource_id"
   type        = list(string)
-  default     = ["AuditEvent"]
+  nullable    = false
+  default     = ["allLogs"]
+}
+
+variable "diagnostic_log_categories" {
+  description = "Individual log categories to collect from diagnostic_setting_resource_id, for resources without category groups"
+  type        = list(string)
+  nullable    = false
+  default     = []
 }
 
 variable "diagnostic_metric_categories" {
-  description = "Metric categories to enable for diagnostic settings"
+  description = "Metric categories to collect from diagnostic_setting_resource_id"
   type        = list(string)
+  nullable    = false
   default     = ["AllMetrics"]
 }
 
@@ -459,5 +508,6 @@ variable "diagnostic_metric_categories" {
 variable "tags" {
   description = "Tags for all resources"
   type        = map(string)
+  nullable    = false
   default     = {}
 }

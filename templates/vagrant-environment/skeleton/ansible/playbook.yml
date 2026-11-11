@@ -1,0 +1,45 @@
+---
+- name: Provision ${{ values.name }}
+  hosts: all
+  become: true
+  tasks:
+    - name: Install base packages
+      ansible.builtin.package:
+        name:
+          - curl
+          - ca-certificates
+          - git
+        state: present
+        update_cache: true
+{%- if values.install_docker %}
+
+    - name: Download the Docker install script
+      ansible.builtin.get_url:
+        url: https://get.docker.com
+        dest: /usr/local/src/get-docker.sh
+        mode: "0755"
+
+    - name: Install Docker
+      ansible.builtin.command: sh /usr/local/src/get-docker.sh
+      args:
+        creates: /usr/bin/docker
+
+    - name: Let the vagrant user run Docker
+      ansible.builtin.user:
+        name: vagrant
+        groups: docker
+        append: true
+{%- endif %}
+{%- if values.install_k3s %}
+
+    - name: Download the K3s install script
+      ansible.builtin.get_url:
+        url: https://get.k3s.io
+        dest: /usr/local/src/get-k3s.sh
+        mode: "0755"
+
+    - name: Install K3s
+      ansible.builtin.command: sh /usr/local/src/get-k3s.sh
+      args:
+        creates: /usr/local/bin/k3s
+{%- endif %}

@@ -147,6 +147,37 @@ spec:
           provisioner: ${{ parameters.provisioner }}
           install_docker: ${{ parameters.install_docker }}
           install_k3s: ${{ parameters.install_k3s }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+    # The skeleton carries the files of every provisioner; only the chosen
+    # one stays in the repository.
+    - id: remove-shell
+      name: Remove Shell Provisioning
+      if: ${{ parameters.provisioner != 'shell' }}
+      action: fs:delete
+      input:
+        files:
+          - scripts
+    - id: remove-ansible
+      name: Remove Ansible Provisioning
+      if: ${{ parameters.provisioner != 'ansible' and parameters.provisioner != 'ansible_local' }}
+      action: fs:delete
+      input:
+        files:
+          - ansible
+    - id: remove-puppet
+      name: Remove Puppet Provisioning
+      if: ${{ parameters.provisioner != 'puppet' }}
+      action: fs:delete
+      input:
+        files:
+          - puppet
+    - id: remove-chef
+      name: Remove Chef Provisioning
+      if: ${{ parameters.provisioner != 'chef' }}
+      action: fs:delete
+      input:
+        files:
+          - chef
     - id: publish
       name: Publish to GitHub
       action: publish:github

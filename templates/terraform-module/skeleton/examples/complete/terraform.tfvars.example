@@ -1,0 +1,33 @@
+{%- set aws = values.provider == 'aws' or values.provider == 'multi-cloud' -%}
+{%- set azure = values.provider == 'azure' or values.provider == 'multi-cloud' -%}
+{%- set gcp = values.provider == 'gcp' or values.provider == 'multi-cloud' -%}
+# Copy to terraform.tfvars and adjust.
+project_name = "example"
+environment  = "dev"
+
+tags = {
+  CostCenter = "engineering"
+  Team       = "platform"
+}
+{%- if aws %}
+
+aws_region = "us-east-1"
+{%- endif %}
+{%- if azure %}
+
+azure_location = "eastus2"
+{%- endif %}
+{%- if gcp %}
+
+gcp_project_id = "your-project-id"
+gcp_region     = "us-central1"
+{%- endif %}
+
+enable_network       = true
+enable_security      = true
+enable_storage       = true
+enable_observability = true
+enable_compute       = false
+enable_database      = false
+enable_kubernetes    = false
+enable_serverless    = false

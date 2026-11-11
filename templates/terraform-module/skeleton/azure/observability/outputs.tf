@@ -98,13 +98,13 @@ output "memory_alert_id" {
 }
 
 output "disk_alert_id" {
-  description = "The ID of the disk metric alert"
-  value       = var.enable_disk_alert && var.monitored_resource_id != null ? azurerm_monitor_metric_alert.low_disk_space[0].id : null
+  description = "The ID of the disk usage log alert"
+  value       = one(azurerm_monitor_scheduled_query_rules_alert_v2.low_disk_space[*].id)
 }
 
 output "http_errors_alert_id" {
   description = "The ID of the HTTP errors metric alert"
-  value       = var.enable_http_errors_alert && var.monitored_resource_id != null ? azurerm_monitor_metric_alert.http_errors[0].id : null
+  value       = one(azurerm_monitor_metric_alert.http_errors[*].id)
 }
 
 output "service_health_alert_id" {

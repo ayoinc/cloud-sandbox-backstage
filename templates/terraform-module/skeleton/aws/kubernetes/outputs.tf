@@ -70,7 +70,15 @@ output "oidc_provider_url" {
 
 output "kubeconfig_command" {
   description = "Command to update kubeconfig"
-  value       = "aws eks update-kubeconfig --name ${aws_eks_cluster.main.name} --region ${data.aws_region.current.name}"
+  value       = "aws eks update-kubeconfig --name ${aws_eks_cluster.main.name} --region ${data.aws_region.current.region}"
 }
 
-data "aws_region" "current" {}
+output "secrets_kms_key_arn" {
+  description = "ARN of the KMS key that envelope-encrypts Kubernetes secrets"
+  value       = local.secrets_kms_key_arn
+}
+
+output "log_group_name" {
+  description = "CloudWatch log group of the control plane logs"
+  value       = aws_cloudwatch_log_group.eks.name
+}

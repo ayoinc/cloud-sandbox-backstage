@@ -1,358 +1,205 @@
-{% raw %}
-name: Packer Image CI/CD
+{%- set windows = values.base_os == "windows-2022" -%}
+{%- set provider = values.cloud_provider -%}
+name: Packer
 
 on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
   workflow_dispatch:
-    inputs:
-      image_name:
-        description: 'Image template to build'
-        required: true
-        default: 'base'
-      cloud_provider:
-        description: 'Cloud provider target'
-        required: true
-        default: 'aws'
-        type: choice
-        options:
-          - aws
-          - azure
-          - gcp
-          - all
 
 permissions:
   contents: read
-  security-events: write
-  id-token: write
 
 env:
-  PACKER_VERSION: '1.11.2'
+  PACKER_VERSION: '1.16.2'
 
 jobs:
-  # ============================================
-  # LINT & VALIDATE
-  # ============================================
   validate:
     name: Validate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Packer
-        uses: hashicorp/setup-packer@main
+        uses: hashicorp/setup-packer@v3
         with:
-          version: ${{ env.PACKER_VERSION }}
+          version: {% raw %}${{ env.PACKER_VERSION }}{% endraw %}
 
-      - name: Packer Format Check
-        run: |
-          packer fmt -check -recursive .
+      - name: Check formatting
+        run: packer fmt -check -diff -recursive .
 
-      - name: Initialize Packer
-        run: |
-          for template in $(find . -name "*.pkr.hcl" -type f); do
-            dir=$(dirname "$template")
-            echo "Initializing: $dir"
-            packer init "$dir"
-          done
+      - name: Install plugins
+        run: packer init .
+        env:
+          PACKER_GITHUB_API_TOKEN: {% raw %}${{ secrets.GITHUB_TOKEN }}{% endraw %}
 
-      - name: Validate Packer Templates
-        run: |
-          for template in $(find . -name "*.pkr.hcl" -type f | grep -v variables); do
-            echo "Validating: $template"
-            packer validate -syntax-only "$template"
-          done
+      # Checks the whole template, plugins included, without contacting the
+      # provider.
+      - name: Validate template
+        run: packer validate .
+{%- if provider == "gcp" %}
+        # Placeholder for a value that only a build needs.
+        env:
+          GOOGLE_CLOUD_PROJECT: validate-only
+{%- elif provider == "vmware" %}
+        # Placeholders for values that only a build needs.
+        env:
+          VSPHERE_SERVER: vcenter.invalid
+          VSPHERE_USER: validate-only
+          VSPHERE_PASSWORD: validate-only
+          VSPHERE_CLUSTER: validate-only
+          PACKER_GUEST_USERNAME: validate-only
+          PACKER_GUEST_PASSWORD: validate-only
+{%- endif %}
 
-      - name: Run HCL lint
-        uses: terraform-linters/setup-tflint@v4
-        continue-on-error: true
-
-  # ============================================
-  # SECURITY SCANNING
-  # ============================================
-  security:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    needs: validate
+  scripts:
+    name: Lint provisioning scripts
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+{%- if windows %}
 
-      - name: Run Trivy IaC Scanner
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          scan-type: 'config'
-          scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-          severity: 'CRITICAL,HIGH,MEDIUM'
-
-      - name: Upload Trivy SARIF
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: trivy-results.sarif
-          category: trivy
-
-      - name: Check for hardcoded secrets
-        uses: trufflesecurity/trufflehog@main
-        with:
-          path: ./
-          base: ${{ github.event.repository.default_branch }}
-          head: HEAD
-        continue-on-error: true
-
-      - name: Check provisioner scripts
+      - name: Run PSScriptAnalyzer
+        shell: pwsh
         run: |
-          # Check shell scripts for security issues
-          if command -v shellcheck &> /dev/null; then
-            find . -name "*.sh" -exec shellcheck {} \; || true
+          if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
+            Install-Module -Name PSScriptAnalyzer -Scope CurrentUser -Force
+          }
+          $findings = Invoke-ScriptAnalyzer -Path scripts/provision.ps1 -Severity Warning, Error
+          $findings | Format-Table -AutoSize
+          if ($findings) { exit 1 }
+{%- else %}
+
+      - name: Check shell syntax
+        run: bash -n scripts/provision.sh
+
+      - name: Run ShellCheck
+        run: shellcheck scripts/*.sh
+{%- endif %}
+
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Scan for committed secrets
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: secret
+          exit-code: '1'
+
+  # A build needs access to the provider. Until it is configured the build is
+  # skipped, so a new repository is green from its first push.
+  credentials:
+    name: Check build credentials
+    runs-on: ubuntu-24.04
+    outputs:
+      available: {% raw %}${{ steps.check.outputs.available }}{% endraw %}
+    steps:
+      - name: Look for build credentials
+        id: check
+        env:
+{%- if provider == "aws" %}
+          REQUIRED: {% raw %}${{ secrets.AWS_ROLE_ARN }}{% endraw %}
+          MISSING: AWS_ROLE_ARN
+{%- elif provider == "azure" %}
+          REQUIRED: {% raw %}${{ secrets.AZURE_CLIENT_ID && secrets.AZURE_TENANT_ID && secrets.AZURE_SUBSCRIPTION_ID }}{% endraw %}
+          MISSING: AZURE_CLIENT_ID, AZURE_TENANT_ID and AZURE_SUBSCRIPTION_ID
+{%- elif provider == "gcp" %}
+          REQUIRED: {% raw %}${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER && secrets.GCP_SERVICE_ACCOUNT && secrets.GCP_PROJECT_ID }}{% endraw %}
+          MISSING: GCP_WORKLOAD_IDENTITY_PROVIDER, GCP_SERVICE_ACCOUNT and GCP_PROJECT_ID
+{%- elif provider == "vmware" %}
+          REQUIRED: {% raw %}${{ secrets.VSPHERE_SERVER && secrets.VSPHERE_USER && secrets.VSPHERE_PASSWORD }}{% endraw %}
+          MISSING: VSPHERE_SERVER, VSPHERE_USER and VSPHERE_PASSWORD
+{%- endif %}
+        run: |
+          if [ -n "$REQUIRED" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Image build skipped. Set the repository secrets $MISSING to enable it."
           fi
 
-  # ============================================
-  # BUILD - AWS AMI
-  # ============================================
-  build-aws:
-    name: Build AWS AMI
-    runs-on: ubuntu-latest
-    needs: [validate, security]
-    if: |
-      github.ref == 'refs/heads/main' ||
-      (github.event_name == 'workflow_dispatch' && 
-       (github.event.inputs.cloud_provider == 'aws' || github.event.inputs.cloud_provider == 'all'))
-    environment: aws
+  build:
+    name: Build image
+    needs: [validate, scripts, secret-scan, credentials]
+    if: needs.credentials.outputs.available == 'true' && github.event_name != 'pull_request'
+{%- if provider == "vmware" %}
+    # vCenter is rarely reachable from GitHub-hosted runners; set the
+    # PACKER_RUNNER variable to the label of a self-hosted runner that is.
+    runs-on: {% raw %}${{ vars.PACKER_RUNNER || 'ubuntu-24.04' }}{% endraw %}
+{%- else %}
+    runs-on: ubuntu-24.04
+{%- endif %}
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Packer
-        uses: hashicorp/setup-packer@main
+        uses: hashicorp/setup-packer@v3
         with:
-          version: ${{ env.PACKER_VERSION }}
+          version: {% raw %}${{ env.PACKER_VERSION }}{% endraw %}
+{%- if provider == "aws" %}
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION || 'us-west-2' }}
+          role-to-assume: {% raw %}${{ secrets.AWS_ROLE_ARN }}{% endraw %}
+          aws-region: ${{ values.region }}
+{%- elif provider == "azure" %}
 
-      - name: Initialize Packer
-        run: packer init aws/
-
-      - name: Build AMI
-        run: |
-          packer build \
-            -var "version=${{ github.sha }}" \
-            -var "build_number=${{ github.run_number }}" \
-            -color=false \
-            aws/
-        env:
-          PACKER_LOG: 1
-          PACKER_LOG_PATH: packer-aws.log
-
-      - name: Upload build log
-        uses: actions/upload-artifact@v4
-        if: always()
+      - name: Sign in to Azure
+        uses: azure/login@v3
         with:
-          name: packer-aws-log
-          path: packer-aws.log
-
-      - name: Output AMI ID
-        id: ami
-        run: |
-          AMI_ID=$(grep -oP 'ami-[a-z0-9]+' packer-aws.log | tail -1)
-          echo "ami_id=$AMI_ID" >> $GITHUB_OUTPUT
-          echo "Built AMI: $AMI_ID"
-
-  # ============================================
-  # BUILD - Azure Image
-  # ============================================
-  build-azure:
-    name: Build Azure Image
-    runs-on: ubuntu-latest
-    needs: [validate, security]
-    if: |
-      github.ref == 'refs/heads/main' ||
-      (github.event_name == 'workflow_dispatch' && 
-       (github.event.inputs.cloud_provider == 'azure' || github.event.inputs.cloud_provider == 'all'))
-    environment: azure
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Packer
-        uses: hashicorp/setup-packer@main
-        with:
-          version: ${{ env.PACKER_VERSION }}
-
-      - name: Azure Login
-        uses: azure/login@v2
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Initialize Packer
-        run: packer init azure/
-
-      - name: Build Azure Image
-        run: |
-          packer build \
-            -var "version=${{ github.sha }}" \
-            -var "build_number=${{ github.run_number }}" \
-            -color=false \
-            azure/
-        env:
-          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          PACKER_LOG: 1
-          PACKER_LOG_PATH: packer-azure.log
-
-      - name: Upload build log
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: packer-azure-log
-          path: packer-azure.log
-
-  # ============================================
-  # BUILD - GCP Image
-  # ============================================
-  build-gcp:
-    name: Build GCP Image
-    runs-on: ubuntu-latest
-    needs: [validate, security]
-    if: |
-      github.ref == 'refs/heads/main' ||
-      (github.event_name == 'workflow_dispatch' && 
-       (github.event.inputs.cloud_provider == 'gcp' || github.event.inputs.cloud_provider == 'all'))
-    environment: gcp
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Packer
-        uses: hashicorp/setup-packer@main
-        with:
-          version: ${{ env.PACKER_VERSION }}
+          client-id: {% raw %}${{ secrets.AZURE_CLIENT_ID }}{% endraw %}
+          tenant-id: {% raw %}${{ secrets.AZURE_TENANT_ID }}{% endraw %}
+          subscription-id: {% raw %}${{ secrets.AZURE_SUBSCRIPTION_ID }}{% endraw %}
+{%- elif provider == "gcp" %}
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
-          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+          workload_identity_provider: {% raw %}${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}{% endraw %}
+          service_account: {% raw %}${{ secrets.GCP_SERVICE_ACCOUNT }}{% endraw %}
+          project_id: {% raw %}${{ secrets.GCP_PROJECT_ID }}{% endraw %}
+{%- endif %}
 
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
-
-      - name: Initialize Packer
-        run: packer init gcp/
-
-      - name: Build GCP Image
-        run: |
-          packer build \
-            -var "project_id=${{ secrets.GCP_PROJECT_ID }}" \
-            -var "version=${{ github.sha }}" \
-            -var "build_number=${{ github.run_number }}" \
-            -color=false \
-            gcp/
+      - name: Install plugins
+        run: packer init .
         env:
-          PACKER_LOG: 1
-          PACKER_LOG_PATH: packer-gcp.log
+          PACKER_GITHUB_API_TOKEN: {% raw %}${{ secrets.GITHUB_TOKEN }}{% endraw %}
 
-      - name: Upload build log
-        uses: actions/upload-artifact@v4
-        if: always()
+      - name: Build image
+        run: packer build -color=false .
+{%- if provider == "azure" %}
+        env:
+          ARM_SUBSCRIPTION_ID: {% raw %}${{ secrets.AZURE_SUBSCRIPTION_ID }}{% endraw %}
+{%- elif provider == "gcp" %}
+        env:
+          GOOGLE_CLOUD_PROJECT: {% raw %}${{ secrets.GCP_PROJECT_ID }}{% endraw %}
+{%- elif provider == "vmware" %}
+        env:
+          VSPHERE_SERVER: {% raw %}${{ secrets.VSPHERE_SERVER }}{% endraw %}
+          VSPHERE_USER: {% raw %}${{ secrets.VSPHERE_USER }}{% endraw %}
+          VSPHERE_PASSWORD: {% raw %}${{ secrets.VSPHERE_PASSWORD }}{% endraw %}
+          VSPHERE_CLUSTER: {% raw %}${{ vars.VSPHERE_CLUSTER }}{% endraw %}
+          VSPHERE_DATASTORE: {% raw %}${{ vars.VSPHERE_DATASTORE }}{% endraw %}
+          PACKER_GUEST_USERNAME: {% raw %}${{ secrets.PACKER_GUEST_USERNAME }}{% endraw %}
+          PACKER_GUEST_PASSWORD: {% raw %}${{ secrets.PACKER_GUEST_PASSWORD }}{% endraw %}
+{%- endif %}
+
+      - name: Upload build manifest
+        uses: actions/upload-artifact@v6
         with:
-          name: packer-gcp-log
-          path: packer-gcp.log
-
-  # ============================================
-  # SCAN BUILT IMAGES
-  # ============================================
-  scan-images:
-    name: Scan Built Images
-    runs-on: ubuntu-latest
-    needs: [build-aws, build-azure, build-gcp]
-    if: always() && (needs.build-aws.result == 'success' || needs.build-azure.result == 'success' || needs.build-gcp.result == 'success')
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Configure AWS Credentials
-        if: needs.build-aws.result == 'success'
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION || 'us-west-2' }}
-
-      - name: Scan AMI with Inspector
-        if: needs.build-aws.result == 'success'
-        run: |
-          # Trigger AWS Inspector scan on the new AMI
-          echo "Triggering Inspector scan..."
-          # aws inspector2 create-findings-report ...
-        continue-on-error: true
-
-      - name: Document image metadata
-        run: |
-          echo "## Built Images" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Provider | Status | Image ID |" >> $GITHUB_STEP_SUMMARY
-          echo "|----------|--------|----------|" >> $GITHUB_STEP_SUMMARY
-          echo "| AWS | ${{ needs.build-aws.result }} | ${{ needs.build-aws.outputs.ami_id || 'N/A' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Azure | ${{ needs.build-azure.result }} | - |" >> $GITHUB_STEP_SUMMARY
-          echo "| GCP | ${{ needs.build-gcp.result }} | - |" >> $GITHUB_STEP_SUMMARY
-
-  # ============================================
-  # CLEANUP OLD IMAGES
-  # ============================================
-  cleanup:
-    name: Cleanup Old Images
-    runs-on: ubuntu-latest
-    needs: [build-aws, build-azure, build-gcp]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    steps:
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION || 'us-west-2' }}
-
-      - name: Cleanup old AMIs
-        run: |
-          # Keep only the 5 most recent AMIs
-          echo "Cleaning up old AMIs..."
-          # aws ec2 describe-images --owners self --query 'Images | sort_by(@, &CreationDate) | [:-5].[ImageId]' --output text | \
-          # xargs -I {} aws ec2 deregister-image --image-id {}
-        continue-on-error: true
-
-  # ============================================
-  # NOTIFY
-  # ============================================
-  notify:
-    name: Notify
-    runs-on: ubuntu-latest
-    needs: [build-aws, build-azure, build-gcp]
-    if: always() && github.ref == 'refs/heads/main'
-    steps:
-      - name: Create summary
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const results = {
-              aws: '${{ needs.build-aws.result }}',
-              azure: '${{ needs.build-azure.result }}',
-              gcp: '${{ needs.build-gcp.result }}'
-            };
-
-            let summary = '## Packer Build Summary\n\n';
-            for (const [provider, result] of Object.entries(results)) {
-              const emoji = result === 'success' ? '✅' : result === 'failure' ? '❌' : '⏭️';
-              summary += `- ${provider.toUpperCase()}: ${emoji} ${result}\n`;
-            }
-
-            console.log(summary);
-{% endraw %}
+          name: packer-manifest
+          path: manifest.json

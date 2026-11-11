@@ -2,9 +2,32 @@
 # AWS Security Module - Main Resources
 # -----------------------------------------------------------------------------
 
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+data "aws_partition" "current" {}
+
+locals {
+  # Lowercase, hyphen-separated and short enough for every AWS name limit.
+  project     = trimsuffix(substr(replace(lower(var.project_name), "/[^a-z0-9]+/", "-"), 0, 23), "-")
+  name_prefix = "${local.project}-${var.environment}"
+
+  # Secrets and log groups of the project live under this path.
+  path_prefix = "${local.project}/${var.environment}"
+
+  account_id = data.aws_caller_identity.current.account_id
+  region     = data.aws_region.current.region
+  partition  = data.aws_partition.current.partition
+
+  waf_managed_rule_groups = [
+    "AWSManagedRulesCommonRuleSet",
+    "AWSManagedRulesKnownBadInputsRuleSet",
+    "AWSManagedRulesSQLiRuleSet",
+  ]
+}
+
 # KMS Key for encryption
 resource "aws_kms_key" "main" {
-  description             = "KMS key for ${var.project_name} ${var.environment}"
+  description             = "KMS key for ${local.name_prefix}"
   deletion_window_in_days = var.environment == "prod" ? 30 : 7
   enable_key_rotation     = true
   multi_region            = var.kms_multi_region
@@ -13,19 +36,19 @@ resource "aws_kms_key" "main" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "Enable IAM User Permissions"
+        Sid    = "EnableIamPolicies"
         Effect = "Allow"
         Principal = {
-          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+          AWS = "arn:${local.partition}:iam::${local.account_id}:root"
         }
         Action   = "kms:*"
         Resource = "*"
       },
       {
-        Sid    = "Allow CloudWatch Logs"
+        Sid    = "AllowCloudWatchLogs"
         Effect = "Allow"
         Principal = {
-          Service = "logs.${data.aws_region.current.name}.amazonaws.com"
+          Service = "logs.${local.region}.amazonaws.com"
         }
         Action = [
           "kms:Encrypt*",
@@ -37,7 +60,24 @@ resource "aws_kms_key" "main" {
         Resource = "*"
         Condition = {
           ArnLike = {
-            "kms:EncryptionContext:aws:logs:arn" = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*"
+            "kms:EncryptionContext:aws:logs:arn" = "arn:${local.partition}:logs:${local.region}:${local.account_id}:*"
+          }
+        }
+      },
+      {
+        Sid    = "AllowCloudWatchAlarmsToEncryptedTopics"
+        Effect = "Allow"
+        Principal = {
+          Service = "cloudwatch.amazonaws.com"
+        }
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey*"
+        ]
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "aws:SourceAccount" = local.account_id
           }
         }
       }
@@ -45,12 +85,12 @@ resource "aws_kms_key" "main" {
   })
 
   tags = merge(var.tags, {
-    Name = "${var.project_name}-${var.environment}-kms"
+    Name = "${local.name_prefix}-kms"
   })
 }
 
 resource "aws_kms_alias" "main" {
-  name          = "alias/${var.project_name}-${var.environment}"
+  name          = "alias/${local.name_prefix}"
   target_key_id = aws_kms_key.main.key_id
 }
 
@@ -60,7 +100,7 @@ resource "aws_kms_alias" "main" {
 
 # Application Role
 resource "aws_iam_role" "application" {
-  name = "${var.project_name}-${var.environment}-app-role"
+  name = "${local.name_prefix}-app-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -92,7 +132,7 @@ resource "aws_iam_role_policy" "secrets_access" {
           "secretsmanager:GetSecretValue",
           "secretsmanager:DescribeSecret"
         ]
-        Resource = "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:${var.project_name}/${var.environment}/*"
+        Resource = "arn:${local.partition}:secretsmanager:${local.region}:${local.account_id}:secret:${local.path_prefix}/*"
       },
       {
         Effect = "Allow"
@@ -106,7 +146,7 @@ resource "aws_iam_role_policy" "secrets_access" {
   })
 }
 
-# Application Policy - S3 access
+# Application Policy - S3 access to the project's buckets
 resource "aws_iam_role_policy" "s3_access" {
   name = "s3-access"
   role = aws_iam_role.application.id
@@ -115,17 +155,18 @@ resource "aws_iam_role_policy" "s3_access" {
     Version = "2012-10-17"
     Statement = [
       {
+        Effect   = "Allow"
+        Action   = "s3:ListBucket"
+        Resource = "arn:${local.partition}:s3:::${local.name_prefix}-*"
+      },
+      {
         Effect = "Allow"
         Action = [
           "s3:GetObject",
           "s3:PutObject",
-          "s3:DeleteObject",
-          "s3:ListBucket"
+          "s3:DeleteObject"
         ]
-        Resource = [
-          "arn:aws:s3:::${var.project_name}-${var.environment}-*",
-          "arn:aws:s3:::${var.project_name}-${var.environment}-*/*"
-        ]
+        Resource = "arn:${local.partition}:s3:::${local.name_prefix}-*/*"
       }
     ]
   })
@@ -145,10 +186,9 @@ resource "aws_iam_role_policy" "cloudwatch_logs" {
           "logs:CreateLogGroup",
           "logs:CreateLogStream",
           "logs:PutLogEvents",
-          "logs:DescribeLogGroups",
           "logs:DescribeLogStreams"
         ]
-        Resource = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/${var.project_name}/${var.environment}/*"
+        Resource = "arn:${local.partition}:logs:${local.region}:${local.account_id}:log-group:/${local.path_prefix}/*"
       }
     ]
   })
@@ -157,28 +197,6 @@ resource "aws_iam_role_policy" "cloudwatch_logs" {
 # -----------------------------------------------------------------------------
 # Secrets Manager - Application Secrets
 # -----------------------------------------------------------------------------
-
-resource "aws_secretsmanager_secret" "app_secrets" {
-  name                    = "${var.project_name}/${var.environment}/app-secrets"
-  recovery_window_in_days = var.environment == "prod" ? 30 : 0
-  kms_key_id              = aws_kms_key.main.arn
-
-  tags = var.tags
-}
-
-resource "aws_secretsmanager_secret_version" "app_secrets" {
-  secret_id = aws_secretsmanager_secret.app_secrets.id
-  secret_string = jsonencode({
-    # Placeholder values - should be updated after creation
-    API_KEY    = "replace-me"
-    JWT_SECRET = random_password.jwt_secret.result
-    APP_SECRET = random_password.app_secret.result
-  })
-
-  lifecycle {
-    ignore_changes = [secret_string]
-  }
-}
 
 resource "random_password" "jwt_secret" {
   length  = 64
@@ -190,34 +208,48 @@ resource "random_password" "app_secret" {
   special = false
 }
 
+resource "aws_secretsmanager_secret" "app_secrets" {
+  name                    = "${local.path_prefix}/app-secrets"
+  description             = "Generated application secrets for ${local.name_prefix}"
+  recovery_window_in_days = var.environment == "prod" ? 30 : 0
+  kms_key_id              = aws_kms_key.main.arn
+
+  tags = var.tags
+}
+
+# Seeds the secret with generated values; later changes made outside Terraform
+# (rotation, extra keys) are kept.
+resource "aws_secretsmanager_secret_version" "app_secrets" {
+  secret_id = aws_secretsmanager_secret.app_secrets.id
+  secret_string = jsonencode({
+    JWT_SECRET = random_password.jwt_secret.result
+    APP_SECRET = random_password.app_secret.result
+  })
+
+  lifecycle {
+    ignore_changes = [secret_string]
+  }
+}
+
 # -----------------------------------------------------------------------------
 # Security Group - Bastion/Jump Host
 # -----------------------------------------------------------------------------
 
+data "aws_vpc" "bastion" {
+  count = var.enable_bastion_sg ? 1 : 0
+
+  id = var.vpc_id
+}
+
 resource "aws_security_group" "bastion" {
   count = var.enable_bastion_sg ? 1 : 0
 
-  name_prefix = "${var.project_name}-${var.environment}-bastion-"
+  name_prefix = "${local.name_prefix}-bastion-"
   description = "Security group for bastion host"
   vpc_id      = var.vpc_id
 
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = var.bastion_allowed_cidrs
-    description = "SSH access"
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
   tags = merge(var.tags, {
-    Name = "${var.project_name}-${var.environment}-bastion-sg"
+    Name = "${local.name_prefix}-bastion-sg"
   })
 
   lifecycle {
@@ -225,94 +257,76 @@ resource "aws_security_group" "bastion" {
   }
 }
 
+resource "aws_vpc_security_group_ingress_rule" "bastion_ssh" {
+  count = var.enable_bastion_sg ? length(var.bastion_allowed_cidrs) : 0
+
+  security_group_id = aws_security_group.bastion[0].id
+  description       = "SSH from an allowed network"
+  ip_protocol       = "tcp"
+  from_port         = 22
+  to_port           = 22
+  cidr_ipv4         = var.bastion_allowed_cidrs[count.index]
+
+  tags = var.tags
+}
+
+# The bastion only needs to open SSH sessions to hosts inside its VPC.
+resource "aws_vpc_security_group_egress_rule" "bastion_ssh" {
+  count = var.enable_bastion_sg ? 1 : 0
+
+  security_group_id = aws_security_group.bastion[0].id
+  description       = "SSH to hosts inside the VPC"
+  ip_protocol       = "tcp"
+  from_port         = 22
+  to_port           = 22
+  cidr_ipv4         = data.aws_vpc.bastion[0].cidr_block
+
+  tags = var.tags
+}
+
 # -----------------------------------------------------------------------------
-# AWS WAF Web ACL (for ALB/CloudFront)
+# AWS WAF Web ACL (regional: ALB, API Gateway, AppSync)
 # -----------------------------------------------------------------------------
 
 resource "aws_wafv2_web_acl" "main" {
   count = var.enable_waf ? 1 : 0
 
-  name        = "${var.project_name}-${var.environment}-waf"
-  description = "WAF rules for ${var.project_name} ${var.environment}"
+  name        = "${local.name_prefix}-waf"
+  description = "WAF rules for ${local.name_prefix}"
   scope       = "REGIONAL"
 
   default_action {
     allow {}
   }
 
-  # AWS Managed Rules - Common Rule Set
-  rule {
-    name     = "AWSManagedRulesCommonRuleSet"
-    priority = 1
+  dynamic "rule" {
+    for_each = local.waf_managed_rule_groups
+    content {
+      name     = rule.value
+      priority = rule.key + 1
 
-    override_action {
-      none {}
-    }
-
-    statement {
-      managed_rule_group_statement {
-        name        = "AWSManagedRulesCommonRuleSet"
-        vendor_name = "AWS"
+      override_action {
+        none {}
       }
-    }
 
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "AWSManagedRulesCommonRuleSet"
-      sampled_requests_enabled   = true
+      statement {
+        managed_rule_group_statement {
+          name        = rule.value
+          vendor_name = "AWS"
+        }
+      }
+
+      visibility_config {
+        cloudwatch_metrics_enabled = true
+        metric_name                = rule.value
+        sampled_requests_enabled   = true
+      }
     }
   }
 
-  # AWS Managed Rules - Known Bad Inputs
-  rule {
-    name     = "AWSManagedRulesKnownBadInputsRuleSet"
-    priority = 2
-
-    override_action {
-      none {}
-    }
-
-    statement {
-      managed_rule_group_statement {
-        name        = "AWSManagedRulesKnownBadInputsRuleSet"
-        vendor_name = "AWS"
-      }
-    }
-
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "AWSManagedRulesKnownBadInputsRuleSet"
-      sampled_requests_enabled   = true
-    }
-  }
-
-  # AWS Managed Rules - SQL Injection
-  rule {
-    name     = "AWSManagedRulesSQLiRuleSet"
-    priority = 3
-
-    override_action {
-      none {}
-    }
-
-    statement {
-      managed_rule_group_statement {
-        name        = "AWSManagedRulesSQLiRuleSet"
-        vendor_name = "AWS"
-      }
-    }
-
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "AWSManagedRulesSQLiRuleSet"
-      sampled_requests_enabled   = true
-    }
-  }
-
-  # Rate Limiting Rule
   rule {
     name     = "RateLimitRule"
-    priority = 4
+    priority = length(local.waf_managed_rule_groups) + 1
 
     action {
       block {}
@@ -334,13 +348,9 @@ resource "aws_wafv2_web_acl" "main" {
 
   visibility_config {
     cloudwatch_metrics_enabled = true
-    metric_name                = "${var.project_name}-${var.environment}-waf"
+    metric_name                = "${local.name_prefix}-waf"
     sampled_requests_enabled   = true
   }
 
   tags = var.tags
 }
-
-# Data Sources
-data "aws_caller_identity" "current" {}
-data "aws_region" "current" {}

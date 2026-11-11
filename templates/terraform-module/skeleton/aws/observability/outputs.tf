@@ -31,7 +31,7 @@ output "dashboard_name" {
 
 output "dashboard_url" {
   description = "CloudWatch dashboard URL"
-  value       = var.enable_dashboard ? "https://${data.aws_region.current.name}.console.aws.amazon.com/cloudwatch/home?region=${data.aws_region.current.name}#dashboards:name=${aws_cloudwatch_dashboard.main[0].dashboard_name}" : null
+  value       = var.enable_dashboard ? "https://${data.aws_region.current.region}.console.aws.amazon.com/cloudwatch/home?region=${data.aws_region.current.region}#dashboards:name=${aws_cloudwatch_dashboard.main[0].dashboard_name}" : null
 }
 
 # Alarm Outputs
@@ -49,4 +49,9 @@ output "alarm_arns" {
     rds_low_storage = aws_cloudwatch_metric_alarm.rds_low_storage[0].arn
     error_logs      = aws_cloudwatch_metric_alarm.error_logs[0].arn
   } : {}
+}
+
+output "xray_sampling_rule_arn" {
+  description = "X-Ray sampling rule ARN (null when X-Ray is disabled)"
+  value       = var.enable_xray ? aws_xray_sampling_rule.main[0].arn : null
 }

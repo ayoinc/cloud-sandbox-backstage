@@ -1,177 +1,97 @@
+{%- set aws = values.provider == 'aws' or values.provider == 'multi-cloud' -%}
+{%- set azure = values.provider == 'azure' or values.provider == 'multi-cloud' -%}
+{%- set gcp = values.provider == 'gcp' or values.provider == 'multi-cloud' -%}
 # ${{ values.name }}
 
 ${{ values.description }}
 
-## Overview
+A Terraform module of building blocks for {% if values.provider == 'multi-cloud' %}AWS, Azure and Google Cloud{% elif aws %}AWS{% elif azure %}Azure{% else %}Google Cloud{% endif %}. Each
+building block is a submodule that is switched on with an `enable_*` variable
+and can also be used on its own.
 
-This Terraform module provides production-ready infrastructure components for **{%- if values.provider == 'aws' %}Amazon Web Services (AWS){%- elif values.provider == 'azure' %}Microsoft Azure{%- elif values.provider == 'gcp' %}Google Cloud Platform (GCP){%- else %}Multi-Cloud{%- endif %}**.
+## Building blocks
 
-## Module Structure
+| Building block | Variable | Default |{% if aws %} AWS |{% endif %}{% if azure %} Azure |{% endif %}{% if gcp %} Google Cloud |{% endif %}
+| -------------- | -------- | ------- |{% if aws %} --- |{% endif %}{% if azure %} ----- |{% endif %}{% if gcp %} ------------ |{% endif %}
+| Network | `enable_network` | on |{% if aws %} VPC, public/private/database subnets, NAT, flow logs |{% endif %}{% if azure %} Virtual network, subnets per tier, NSGs, NAT gateway |{% endif %}{% if gcp %} VPC network, subnets, Cloud NAT, firewall rules |{% endif %}
+| Security | `enable_security` | on |{% if aws %} KMS key, Secrets Manager secret, application role |{% endif %}{% if azure %} Key Vault, managed identity |{% endif %}{% if gcp %} Cloud KMS key, Secret Manager, service account |{% endif %}
+| Storage | `enable_storage` | on |{% if aws %} S3 bucket, optional EFS |{% endif %}{% if azure %} Storage account, containers, optional file share |{% endif %}{% if gcp %} Cloud Storage bucket, optional Filestore |{% endif %}
+| Observability | `enable_observability` | on |{% if aws %} CloudWatch log groups, dashboard, alarms, SNS topic |{% endif %}{% if azure %} Log Analytics, Application Insights, alerts |{% endif %}{% if gcp %} Log sink and bucket, alert policies, dashboard |{% endif %}
+| Compute | `enable_compute` | off |{% if aws %} Launch template and Auto Scaling group |{% endif %}{% if azure %} Virtual machine scale set |{% endif %}{% if gcp %} Instance template and managed instance group |{% endif %}
+| Database | `enable_database` | off |{% if aws %} RDS, optional ElastiCache |{% endif %}{% if azure %} PostgreSQL flexible server, optional Managed Redis |{% endif %}{% if gcp %} Cloud SQL, optional Memorystore |{% endif %}
+| Kubernetes | `enable_kubernetes` | off |{% if aws %} EKS cluster and node group |{% endif %}{% if azure %} AKS cluster |{% endif %}{% if gcp %} GKE cluster, Artifact Registry |{% endif %}
+| Serverless | `enable_serverless` | off |{% if aws %} Lambda, optional API Gateway and SQS |{% endif %}{% if azure %} Function app, optional API Management and Service Bus |{% endif %}{% if gcp %} Cloud Run or Cloud Functions, optional Pub/Sub |{% endif %}
 
+Compute, database and Kubernetes run inside the network this module creates,
+so they need `enable_network = true`.
+{%- if values.provider == 'multi-cloud' %}
+
+The flags apply to every cloud: `enable_storage = true` creates object storage
+on AWS, on Azure and on Google Cloud.
+{%- endif %}
+
+## Usage
+
+```hcl
+{%- if aws %}
+provider "aws" {
+  region = "us-east-1"
+}
+{% endif %}
+{%- if azure %}
+provider "azurerm" {
+  features {}
+}
+{% endif %}
+{%- if gcp %}
+provider "google" {
+  project = "my-project"
+  region  = "us-central1"
+}
+{% endif %}
+module "platform" {
+  source = "github.com/${{ values.destination.owner }}/${{ values.destination.repo }}"
+
+  project_name = "billing"
+  environment  = "dev"
+{%- if gcp %}
+
+  gcp_project_id = "my-project"
+{%- endif %}
+
+  enable_compute  = true
+  enable_database = true
+}
 ```
-.
-{%- if values.provider == 'aws' or values.provider == 'multi-cloud' %}
-├── aws/
-│   ├── compute/       # EC2, Auto Scaling Groups, Launch Templates
-│   ├── network/       # VPC, Subnets, NAT Gateway, Security Groups
-│   ├── storage/       # S3 Buckets, EFS
-│   ├── database/      # RDS, ElastiCache
-│   ├── security/      # KMS, Secrets Manager, IAM
-│   ├── observability/ # CloudWatch, SNS Alerts
-│   ├── kubernetes/    # EKS, Node Groups, ECR
-│   └── serverless/    # Lambda, API Gateway, SQS
+
+`examples/complete` is a runnable configuration. Every variable is described in
+`variables.tf`, every output in `outputs.tf`. The submodules under
+{% if aws %}`aws/`{% endif %}{% if aws and (azure or gcp) %}, {% endif %}{% if azure %}`azure/`{% endif %}{% if azure and gcp %}, {% endif %}{% if gcp %}`gcp/`{% endif %} have many more settings than the root passes on; call a
+submodule directly, or extend `main.tf`, to use them. Each submodule has a
+`*.auto.tfvars.example` that shows its settings.
+
+## Requirements
+
+- Terraform `${{ values.terraform_version }}`
+{%- if aws %}
+- Provider `hashicorp/aws` `~> 6.0`
 {%- endif %}
-{%- if values.provider == 'azure' or values.provider == 'multi-cloud' %}
-├── azure/
-│   ├── compute/       # Virtual Machine Scale Sets
-│   ├── network/       # VNet, Subnets, NSGs, NAT Gateway
-│   ├── storage/       # Storage Account, Containers
-│   ├── database/      # PostgreSQL Flexible, Redis Cache
-│   ├── security/      # Key Vault, Managed Identity
-│   ├── observability/ # Log Analytics, Application Insights
-│   ├── kubernetes/    # AKS, Node Pools, ACR
-│   └── serverless/    # Function App, API Management, Service Bus
+{%- if azure %}
+- Provider `hashicorp/azurerm` `~> 4.0`
 {%- endif %}
-{%- if values.provider == 'gcp' or values.provider == 'multi-cloud' %}
-├── gcp/
-│   ├── compute/       # Managed Instance Groups, Instance Templates
-│   ├── network/       # VPC, Subnets, Cloud NAT, Firewall
-│   ├── storage/       # Cloud Storage, Filestore
-│   ├── database/      # Cloud SQL, Memorystore
-│   ├── security/      # KMS, Secret Manager, Service Accounts
-│   ├── observability/ # Cloud Monitoring, Log Sink, Alerts
-│   ├── kubernetes/    # GKE, Node Pools, Artifact Registry
-│   └── serverless/    # Cloud Functions, Cloud Run, Pub/Sub
+{%- if gcp %}
+- Provider `hashicorp/google` `~> 8.0`
 {%- endif %}
-├── examples/          # Usage examples
-├── tests/             # Terraform tests
-└── docs/              # Additional documentation
-```
 
-## Prerequisites
-
-- Terraform >= ${{ values.terraform_version }}
-  {%- if values.provider == 'aws' or values.provider == 'multi-cloud' %}
-- AWS CLI configured with appropriate credentials
-  {%- endif %}
-  {%- if values.provider == 'azure' or values.provider == 'multi-cloud' %}
-- Azure CLI configured with appropriate credentials
-  {%- endif %}
-  {%- if values.provider == 'gcp' or values.provider == 'multi-cloud' %}
-- Google Cloud SDK configured with appropriate credentials
-  {%- endif %}
-
-## Quick Start
-
-### 1. Initialize the module
+## Development
 
 ```bash
-terraform init
-```
-
-### 2. Configure your deployment
-
-Copy the example tfvars file and customize:
-
-```bash
-{%- if values.provider == 'aws' %}
-cp aws/compute/compute.auto.tfvars.example aws/compute/compute.auto.tfvars
-{%- elif values.provider == 'azure' %}
-cp azure/compute/compute.auto.tfvars.example azure/compute/compute.auto.tfvars
-{%- elif values.provider == 'gcp' %}
-cp gcp/compute/compute.auto.tfvars.example gcp/compute/compute.auto.tfvars
-{%- endif %}
-```
-
-### 3. Plan and Apply
-
-```bash
-terraform plan
-terraform apply
-```
-
-## Module Components
-
-### Compute
-
-Virtual machines and auto-scaling infrastructure with:
-
-- Configurable instance types and sizes
-- Auto-scaling based on metrics
-- User data/startup scripts for initialization
-
-### Network
-
-Complete networking infrastructure with:
-
-- VPC/VNet with configurable CIDR
-- Public and private subnets
-- NAT Gateway for private subnet egress
-- Security groups/NSGs with minimal required rules
-
-### Storage
-
-Object and file storage with:
-
-- Encrypted storage buckets
-- Lifecycle policies
-- Versioning support
-
-### Database
-
-Managed database services with:
-
-- High availability configurations
-- Encryption at rest
-- Automated backups
-
-### Security
-
-Security infrastructure with:
-
-- Key management (KMS)
-- Secrets management
-- IAM roles and policies
-
-### Observability
-
-Monitoring and alerting with:
-
-- Centralized logging
-- Metrics and dashboards
-- Alert policies
-
-### Kubernetes
-
-Container orchestration with:
-
-- Managed Kubernetes cluster
-- Node pools with auto-scaling
-- Container registry
-
-### Serverless
-
-Serverless compute with:
-
-- Functions/Lambda
-- API Gateway
-- Message queues
-
-## Testing
-
-Run Terraform tests:
-
-```bash
+terraform fmt -check -recursive
+terraform init -backend=false
+terraform validate
 terraform test
 ```
 
-## Contributing
-
-1. Create a feature branch
-2. Make your changes
-3. Run `terraform fmt` and `terraform validate`
-4. Submit a pull request
-
-## License
-
-This module is maintained by ${{ values.owner }}.
+The tests plan against mocked providers and need no cloud account. The same
+checks, TFLint and a Trivy scan run in `.github/workflows/terraform.yaml` on
+every push and pull request. See `docs/index.md`.

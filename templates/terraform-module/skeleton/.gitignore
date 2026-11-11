@@ -1,0 +1,21 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# TechDocs
+site/
+
+# Local variable files
+terraform.tfvars
+*.auto.tfvars
+
+# Build output of the serverless modules
+.build/

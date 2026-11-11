@@ -1,405 +1,243 @@
-# -----------------------------------------------------------------------------
-# GCP Network Module - Main Resources
-# -----------------------------------------------------------------------------
-
 locals {
-  name_prefix = "${var.project_id}-${var.environment}"
-  common_labels = merge(var.tags, {
-    project     = var.project_id
+  # Resource names are limited to 63 characters and service account IDs to 30,
+  # so the project name is shortened before the environment is appended.
+  name_prefix = "${trimsuffix(substr(var.project_name, 0, 16), "-")}-${var.environment}"
+
+  labels = merge(var.labels, {
     environment = var.environment
     managed_by  = "terraform"
   })
 
-  # Flatten subnet configurations for iteration
+  # Three equally sized subnets carved from the VPC range. The private subnet
+  # is first because it is the one workloads attach to.
   subnets = {
-    public = {
-      cidr             = var.subnet_cidrs.public
-      purpose          = "public"
-      secondary_ranges = {}
-    }
-    private = {
-      cidr    = var.subnet_cidrs.private
-      purpose = "private"
-      secondary_ranges = var.enable_gke_secondary_ranges ? {
-        pods     = var.secondary_ranges.pods
-        services = var.secondary_ranges.services
-      } : {}
-    }
-    database = {
-      cidr             = var.subnet_cidrs.database
-      purpose          = "database"
-      secondary_ranges = {}
-    }
+    private  = cidrsubnet(var.network_cidr, var.subnet_newbits, 0)
+    public   = cidrsubnet(var.network_cidr, var.subnet_newbits, 1)
+    database = cidrsubnet(var.network_cidr, var.subnet_newbits, 2)
   }
+  subnet_order = ["private", "public", "database"]
+
+  pods_range_name     = "${local.name_prefix}-pods"
+  services_range_name = "${local.name_prefix}-services"
+
+  # Google front ends that proxy IAP TCP forwarding and load balancer health checks.
+  iap_source_ranges          = ["35.235.240.0/20"]
+  health_check_source_ranges = ["130.211.0.0/22", "35.191.0.0/16"]
 }
 
 # -----------------------------------------------------------------------------
-# VPC Network
+# VPC and subnets
 # -----------------------------------------------------------------------------
 
 resource "google_compute_network" "main" {
-  name                            = "${var.network_name}-${var.environment}-vpc"
-  project                         = var.project_id
-  auto_create_subnetworks         = false
-  routing_mode                    = var.routing_mode
-  delete_default_routes_on_create = var.delete_default_routes
-
-  description = "VPC network for ${var.project_id} ${var.environment} environment"
+  project                 = var.project_id
+  name                    = "${local.name_prefix}-vpc"
+  description             = "VPC for ${var.project_name} (${var.environment})"
+  auto_create_subnetworks = false
+  routing_mode            = var.routing_mode
 }
 
-# -----------------------------------------------------------------------------
-# Subnets
-# -----------------------------------------------------------------------------
+resource "google_compute_subnetwork" "main" {
+  for_each = local.subnets
 
-resource "google_compute_subnetwork" "public" {
-  name                     = "${var.network_name}-${var.environment}-public-subnet"
   project                  = var.project_id
   region                   = var.region
+  name                     = "${local.name_prefix}-${each.key}"
+  description              = "${title(each.key)} subnet for ${var.project_name} (${var.environment})"
   network                  = google_compute_network.main.id
-  ip_cidr_range            = var.subnet_cidrs.public
-  private_ip_google_access = var.enable_private_google_access
+  ip_cidr_range            = each.value
+  private_ip_google_access = true
 
-  log_config {
-    aggregation_interval = "INTERVAL_5_SEC"
-    flow_sampling        = 0.5
-    metadata             = "INCLUDE_ALL_METADATA"
-  }
-
-  description = "Public subnet for ${var.project_id} ${var.environment}"
-}
-
-resource "google_compute_subnetwork" "private" {
-  name                     = "${var.network_name}-${var.environment}-private-subnet"
-  project                  = var.project_id
-  region                   = var.region
-  network                  = google_compute_network.main.id
-  ip_cidr_range            = var.subnet_cidrs.private
-  private_ip_google_access = var.enable_private_google_access
-
-  # Secondary IP ranges for GKE pods and services
   dynamic "secondary_ip_range" {
-    for_each = var.enable_gke_secondary_ranges ? [1] : []
+    for_each = each.key == "private" && var.enable_gke_secondary_ranges ? {
+      (local.pods_range_name)     = var.gke_pods_cidr
+      (local.services_range_name) = var.gke_services_cidr
+    } : {}
+
     content {
-      range_name    = "${var.network_name}-${var.environment}-pods"
-      ip_cidr_range = var.secondary_ranges.pods
+      range_name    = secondary_ip_range.key
+      ip_cidr_range = secondary_ip_range.value
     }
   }
 
-  dynamic "secondary_ip_range" {
-    for_each = var.enable_gke_secondary_ranges ? [1] : []
+  dynamic "log_config" {
+    for_each = var.enable_flow_logs ? [1] : []
+
     content {
-      range_name    = "${var.network_name}-${var.environment}-services"
-      ip_cidr_range = var.secondary_ranges.services
+      aggregation_interval = "INTERVAL_10_MIN"
+      flow_sampling        = var.flow_log_sampling
+      metadata             = "INCLUDE_ALL_METADATA"
     }
   }
-
-  log_config {
-    aggregation_interval = "INTERVAL_5_SEC"
-    flow_sampling        = 0.5
-    metadata             = "INCLUDE_ALL_METADATA"
-  }
-
-  description = "Private subnet for ${var.project_id} ${var.environment}"
-}
-
-resource "google_compute_subnetwork" "database" {
-  name                     = "${var.network_name}-${var.environment}-database-subnet"
-  project                  = var.project_id
-  region                   = var.region
-  network                  = google_compute_network.main.id
-  ip_cidr_range            = var.subnet_cidrs.database
-  private_ip_google_access = var.enable_private_google_access
-
-  log_config {
-    aggregation_interval = "INTERVAL_5_SEC"
-    flow_sampling        = 0.5
-    metadata             = "INCLUDE_ALL_METADATA"
-  }
-
-  description = "Database subnet for ${var.project_id} ${var.environment}"
 }
 
 # -----------------------------------------------------------------------------
-# Cloud Router (required for Cloud NAT)
+# Outbound internet access for instances without external addresses
 # -----------------------------------------------------------------------------
 
 resource "google_compute_router" "main" {
   count = var.enable_nat ? 1 : 0
 
-  name    = "${var.network_name}-${var.environment}-router"
   project = var.project_id
   region  = var.region
+  name    = "${local.name_prefix}-router"
   network = google_compute_network.main.id
-
-  bgp {
-    asn               = var.router_asn
-    advertise_mode    = "CUSTOM"
-    advertised_groups = ["ALL_SUBNETS"]
-
-    dynamic "advertised_ip_ranges" {
-      for_each = var.router_advertised_ip_ranges
-      content {
-        range       = advertised_ip_ranges.value.range
-        description = advertised_ip_ranges.value.description
-      }
-    }
-  }
-
-  description = "Cloud Router for ${var.project_id} ${var.environment}"
 }
 
-# -----------------------------------------------------------------------------
-# Cloud NAT
-# -----------------------------------------------------------------------------
+resource "google_compute_address" "nat" {
+  count = var.enable_nat ? var.nat_ip_count : 0
+
+  project      = var.project_id
+  region       = var.region
+  name         = "${local.name_prefix}-nat-${count.index + 1}"
+  description  = "Static egress address ${count.index + 1} for Cloud NAT"
+  address_type = "EXTERNAL"
+  labels       = local.labels
+}
 
 resource "google_compute_router_nat" "main" {
   count = var.enable_nat ? 1 : 0
 
-  name                               = "${var.network_name}-${var.environment}-nat"
-  project                            = var.project_id
-  region                             = var.region
-  router                             = google_compute_router.main[0].name
-  nat_ip_allocate_option             = var.nat_ip_allocate_option
+  project = var.project_id
+  region  = var.region
+  name    = "${local.name_prefix}-nat"
+  router  = google_compute_router.main[0].name
+
+  nat_ip_allocate_option = var.nat_ip_count > 0 ? "MANUAL_ONLY" : "AUTO_ONLY"
+  nat_ips                = var.nat_ip_count > 0 ? google_compute_address.nat[*].self_link : null
+
   source_subnetwork_ip_ranges_to_nat = "LIST_OF_SUBNETWORKS"
 
-  # NAT for private subnet
-  subnetwork {
-    name                    = google_compute_subnetwork.private.id
-    source_ip_ranges_to_nat = ["ALL_IP_RANGES"]
+  dynamic "subnetwork" {
+    for_each = ["private", "database"]
+
+    content {
+      name                    = google_compute_subnetwork.main[subnetwork.value].id
+      source_ip_ranges_to_nat = ["ALL_IP_RANGES"]
+    }
   }
-
-  # NAT for database subnet
-  subnetwork {
-    name                    = google_compute_subnetwork.database.id
-    source_ip_ranges_to_nat = ["ALL_IP_RANGES"]
-  }
-
-  # External IPs for NAT (if using manual allocation)
-  nat_ips = var.nat_ip_allocate_option == "MANUAL_ONLY" ? google_compute_address.nat[*].self_link : null
-
-  min_ports_per_vm                    = var.nat_min_ports_per_vm
-  max_ports_per_vm                    = var.nat_max_ports_per_vm
-  enable_dynamic_port_allocation      = var.enable_dynamic_port_allocation
-  enable_endpoint_independent_mapping = var.enable_endpoint_independent_mapping
-  icmp_idle_timeout_sec               = var.nat_icmp_idle_timeout_sec
-  tcp_established_idle_timeout_sec    = var.nat_tcp_established_idle_timeout_sec
-  tcp_transitory_idle_timeout_sec     = var.nat_tcp_transitory_idle_timeout_sec
-  udp_idle_timeout_sec                = var.nat_udp_idle_timeout_sec
 
   log_config {
     enable = true
-    filter = var.nat_log_filter
+    filter = "ERRORS_ONLY"
   }
 }
 
-# External IP addresses for NAT (when using manual allocation)
-resource "google_compute_address" "nat" {
-  count = var.enable_nat && var.nat_ip_allocate_option == "MANUAL_ONLY" ? var.nat_ip_count : 0
-
-  name         = "${var.network_name}-${var.environment}-nat-ip-${count.index + 1}"
-  project      = var.project_id
-  region       = var.region
-  address_type = "EXTERNAL"
-  network_tier = "PREMIUM"
-
-  description = "External IP for Cloud NAT ${count.index + 1}"
-
-  labels = local.common_labels
-}
-
 # -----------------------------------------------------------------------------
-# Firewall Rules
+# Firewall
 # -----------------------------------------------------------------------------
 
-# Allow internal traffic within VPC
 resource "google_compute_firewall" "allow_internal" {
-  name    = "${var.network_name}-${var.environment}-allow-internal"
-  project = var.project_id
-  network = google_compute_network.main.name
-
-  priority    = 1000
+  project     = var.project_id
+  name        = "${local.name_prefix}-allow-internal"
+  description = "Allow traffic between addresses inside the VPC"
+  network     = google_compute_network.main.name
   direction   = "INGRESS"
-  description = "Allow internal traffic between all instances in the VPC"
+  priority    = 1000
+
+  source_ranges = concat(
+    [var.network_cidr],
+    var.enable_gke_secondary_ranges ? [var.gke_pods_cidr] : [],
+  )
 
   allow {
     protocol = "tcp"
-    ports    = ["0-65535"]
   }
 
   allow {
     protocol = "udp"
-    ports    = ["0-65535"]
   }
 
   allow {
     protocol = "icmp"
   }
-
-  source_ranges = [
-    var.subnet_cidrs.public,
-    var.subnet_cidrs.private,
-    var.subnet_cidrs.database
-  ]
-
-  log_config {
-    metadata = "INCLUDE_ALL_METADATA"
-  }
 }
 
-# Allow SSH from specified ranges (typically bastion or IAP)
-resource "google_compute_firewall" "allow_ssh" {
-  name    = "${var.network_name}-${var.environment}-allow-ssh"
-  project = var.project_id
-  network = google_compute_network.main.name
+resource "google_compute_firewall" "allow_iap_ssh" {
+  count = var.enable_iap_ssh ? 1 : 0
 
-  priority    = 1100
-  direction   = "INGRESS"
-  description = "Allow SSH access from specified source ranges"
+  project       = var.project_id
+  name          = "${local.name_prefix}-allow-iap-ssh"
+  description   = "Allow SSH through Identity-Aware Proxy TCP forwarding"
+  network       = google_compute_network.main.name
+  direction     = "INGRESS"
+  priority      = 1000
+  source_ranges = local.iap_source_ranges
+  target_tags   = ["allow-iap-ssh"]
 
   allow {
     protocol = "tcp"
     ports    = ["22"]
   }
-
-  source_ranges = var.ssh_source_ranges
-  target_tags   = ["allow-ssh"]
-
-  log_config {
-    metadata = "INCLUDE_ALL_METADATA"
-  }
 }
 
-# Allow HTTP traffic
-resource "google_compute_firewall" "allow_http" {
-  name    = "${var.network_name}-${var.environment}-allow-http"
-  project = var.project_id
-  network = google_compute_network.main.name
-
-  priority    = 1200
-  direction   = "INGRESS"
-  description = "Allow HTTP traffic from internet"
-
-  allow {
-    protocol = "tcp"
-    ports    = ["80"]
-  }
-
-  source_ranges = var.http_source_ranges
-  target_tags   = ["allow-http", "http-server"]
-
-  log_config {
-    metadata = "INCLUDE_ALL_METADATA"
-  }
-}
-
-# Allow HTTPS traffic
-resource "google_compute_firewall" "allow_https" {
-  name    = "${var.network_name}-${var.environment}-allow-https"
-  project = var.project_id
-  network = google_compute_network.main.name
-
-  priority    = 1300
-  direction   = "INGRESS"
-  description = "Allow HTTPS traffic from internet"
-
-  allow {
-    protocol = "tcp"
-    ports    = ["443"]
-  }
-
-  source_ranges = var.https_source_ranges
-  target_tags   = ["allow-https", "https-server"]
-
-  log_config {
-    metadata = "INCLUDE_ALL_METADATA"
-  }
-}
-
-# Allow health check traffic from Google Cloud health checkers
 resource "google_compute_firewall" "allow_health_checks" {
-  name    = "${var.network_name}-${var.environment}-allow-health-checks"
-  project = var.project_id
-  network = google_compute_network.main.name
-
-  priority    = 1400
-  direction   = "INGRESS"
-  description = "Allow health check traffic from Google Cloud"
-
-  allow {
-    protocol = "tcp"
-  }
-
-  # Google Cloud health check IP ranges
-  source_ranges = ["35.191.0.0/16", "130.211.0.0/22", "209.85.152.0/22", "209.85.204.0/22"]
-
-  log_config {
-    metadata = "INCLUDE_ALL_METADATA"
-  }
-}
-
-# Allow IAP (Identity-Aware Proxy) for secure access
-resource "google_compute_firewall" "allow_iap" {
-  count = var.enable_iap_access ? 1 : 0
-
-  name    = "${var.network_name}-${var.environment}-allow-iap"
-  project = var.project_id
-  network = google_compute_network.main.name
-
-  priority    = 1500
-  direction   = "INGRESS"
-  description = "Allow IAP tunnel access for SSH and RDP"
+  project       = var.project_id
+  name          = "${local.name_prefix}-allow-health-checks"
+  description   = "Allow Google Cloud load balancer health check probes"
+  network       = google_compute_network.main.name
+  direction     = "INGRESS"
+  priority      = 1000
+  source_ranges = local.health_check_source_ranges
+  target_tags   = ["allow-health-check"]
 
   allow {
     protocol = "tcp"
-    ports    = ["22", "3389"]
-  }
-
-  # Google Cloud IAP IP range
-  source_ranges = ["35.235.240.0/20"]
-  target_tags   = ["allow-iap"]
-
-  log_config {
-    metadata = "INCLUDE_ALL_METADATA"
   }
 }
 
-# Deny all other ingress traffic (low priority catch-all)
+resource "google_compute_firewall" "allow_web" {
+  count = length(var.web_source_ranges) > 0 ? 1 : 0
+
+  project       = var.project_id
+  name          = "${local.name_prefix}-allow-web"
+  description   = "Allow HTTP and HTTPS from the configured source ranges"
+  network       = google_compute_network.main.name
+  direction     = "INGRESS"
+  priority      = 1000
+  source_ranges = var.web_source_ranges
+  target_tags   = ["web"]
+
+  allow {
+    protocol = "tcp"
+    ports    = ["80", "443"]
+  }
+}
+
+# The implied deny rule is not logged, so an explicit one records rejected connections.
 resource "google_compute_firewall" "deny_all_ingress" {
-  name    = "${var.network_name}-${var.environment}-deny-all-ingress"
-  project = var.project_id
-  network = google_compute_network.main.name
-
-  priority    = 65534
-  direction   = "INGRESS"
-  description = "Deny all other ingress traffic"
+  project       = var.project_id
+  name          = "${local.name_prefix}-deny-all-ingress"
+  description   = "Deny and log all ingress that no other rule allows"
+  network       = google_compute_network.main.name
+  direction     = "INGRESS"
+  priority      = 65534
+  source_ranges = ["0.0.0.0/0"]
 
   deny {
     protocol = "all"
   }
 
-  source_ranges = ["0.0.0.0/0"]
-
   log_config {
-    metadata = "INCLUDE_ALL_METADATA"
+    metadata = "EXCLUDE_ALL_METADATA"
   }
 }
 
 # -----------------------------------------------------------------------------
-# Private Service Access (for Cloud SQL, Memorystore, etc.)
+# Private service access (Cloud SQL, Memorystore, Filestore)
 # -----------------------------------------------------------------------------
 
 resource "google_compute_global_address" "private_service_access" {
   count = var.enable_private_service_access ? 1 : 0
 
-  name          = "${var.network_name}-${var.environment}-psa-range"
   project       = var.project_id
+  name          = "${local.name_prefix}-psa"
+  description   = "Address range reserved for Google managed services"
   purpose       = "VPC_PEERING"
   address_type  = "INTERNAL"
   prefix_length = var.private_service_access_prefix_length
   network       = google_compute_network.main.id
-  address       = var.private_service_access_address
-
-  description = "Private Service Access IP range for ${var.project_id} ${var.environment}"
+  labels        = local.labels
 }
 
 resource "google_service_networking_connection" "private_service_access" {
@@ -408,71 +246,37 @@ resource "google_service_networking_connection" "private_service_access" {
   network                 = google_compute_network.main.id
   service                 = "servicenetworking.googleapis.com"
   reserved_peering_ranges = [google_compute_global_address.private_service_access[0].name]
-
-  deletion_policy = "ABANDON"
-}
-
-# Export custom routes to peered networks (useful for VPN/Interconnect)
-resource "google_compute_network_peering_routes_config" "private_service_access" {
-  count = var.enable_private_service_access ? 1 : 0
-
-  project = var.project_id
-  peering = google_service_networking_connection.private_service_access[0].peering
-  network = google_compute_network.main.name
-
-  import_custom_routes = true
-  export_custom_routes = true
 }
 
 # -----------------------------------------------------------------------------
-# Private DNS Zone (Optional)
+# Private DNS
 # -----------------------------------------------------------------------------
 
 resource "google_dns_managed_zone" "private" {
   count = var.enable_private_dns ? 1 : 0
 
-  name        = "${var.network_name}-${var.environment}-private-zone"
   project     = var.project_id
+  name        = "${local.name_prefix}-private"
+  description = "Private zone for ${var.project_name} (${var.environment})"
   dns_name    = var.private_dns_domain
-  description = "Private DNS zone for ${var.project_id} ${var.environment}"
-
-  visibility = "private"
+  visibility  = "private"
+  labels      = local.labels
 
   private_visibility_config {
     networks {
       network_url = google_compute_network.main.id
     }
   }
-
-  labels = local.common_labels
-}
-
-# DNS record for private service access (if using Cloud SQL, etc.)
-resource "google_dns_record_set" "private_service_access" {
-  count = var.enable_private_dns && var.enable_private_service_access ? 1 : 0
-
-  name         = "*.${var.private_dns_domain}"
-  project      = var.project_id
-  managed_zone = google_dns_managed_zone.private[0].name
-  type         = "A"
-  ttl          = 300
-  rrdatas      = [google_compute_global_address.private_service_access[0].address]
 }
 
 # -----------------------------------------------------------------------------
-# Shared VPC (Optional)
+# Shared VPC
 # -----------------------------------------------------------------------------
 
-resource "google_compute_shared_vpc_host_project" "host" {
+resource "google_compute_shared_vpc_host_project" "main" {
   count = var.enable_shared_vpc_host ? 1 : 0
 
   project = var.project_id
+
+  depends_on = [google_compute_network.main]
 }
-
-# -----------------------------------------------------------------------------
-# VPC Flow Logs Export (Optional - to Cloud Logging)
-# -----------------------------------------------------------------------------
-
-# Flow logs are enabled per-subnet via log_config blocks above
-# Additional export to BigQuery or Cloud Storage can be configured via
-# Cloud Logging sinks in a separate logging module

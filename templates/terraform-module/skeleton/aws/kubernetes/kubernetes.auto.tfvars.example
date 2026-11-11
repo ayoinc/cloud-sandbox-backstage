@@ -1,55 +1,51 @@
 # -----------------------------------------------------------------------------
-# AWS Kubernetes (EKS) Module - Example tfvars
+# AWS Kubernetes (EKS) Module - Example tfvars (every optional feature enabled)
 # -----------------------------------------------------------------------------
 
-project     = "myproject"
-environment = "dev"
+project_name = "myproject"
+environment  = "dev"
 
-# Network
-vpc_id     = "vpc-xxxxxxxxx"
-subnet_ids = ["subnet-xxx", "subnet-yyy", "subnet-zzz"]
+# Network Configuration
+vpc_id     = "vpc-0123456789abcdef0"
+subnet_ids = ["subnet-0123456789abcdef0", "subnet-0123456789abcdef1"]
 
 # Encryption
-kms_key_arn = null  # Use KMS key from security module
+create_kms_key = true
+kms_key_arn    = "arn:aws:kms:eu-west-2:123456789012:key/11111111-2222-3333-4444-555555555555"
 
 # Cluster Configuration
-cluster_version      = "1.28"
+cluster_version      = "1.34"
 enable_public_access = true
-public_access_cidrs  = ["0.0.0.0/0"]  # Restrict in production
-
-# Control Plane Logging
-enabled_log_types = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
+public_access_cidrs  = ["203.0.113.0/24"]
+private_access_cidrs = ["10.0.0.0/16"]
+enabled_log_types    = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
 
 # Node Group Configuration
-node_instance_types = ["t3.medium"]
-capacity_type       = "ON_DEMAND"  # Use SPOT for cost savings in dev
-node_disk_size      = 50
+node_instance_types = ["t3.large"]
+node_ami_type       = "AL2023_x86_64_STANDARD"
+capacity_type       = "ON_DEMAND"
+node_disk_size      = 80
+node_min_size       = 2
+node_max_size       = 6
+node_desired_size   = 3
 
-# Node Scaling
-node_min_size     = 1
-node_max_size     = 5
-node_desired_size = 2
-
-# Node Labels and Taints
 node_labels = {
   workload = "general"
 }
 
-node_taints = []
-# Example taint:
-# node_taints = [
-#   {
-#     key    = "dedicated"
-#     value  = "gpu"
-#     effect = "NO_SCHEDULE"
-#   }
-# ]
+node_taints = [
+  {
+    key    = "dedicated"
+    value  = "general"
+    effect = "PREFER_NO_SCHEDULE"
+  }
+]
 
 # Addons
 enable_ebs_csi_driver = true
 
 # Logging
-log_retention_days = 30
+log_retention_days = 90
 
 # Tags
 tags = {

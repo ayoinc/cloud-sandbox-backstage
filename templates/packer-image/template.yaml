@@ -37,7 +37,6 @@ spec:
     - title: Image Configuration
       required:
         - cloud_provider
-        - base_os
       properties:
         cloud_provider:
           title: Cloud Provider
@@ -52,26 +51,112 @@ spec:
             - AWS (AMI)
             - Azure (Managed Image)
             - GCP (Compute Image)
-            - VMware (OVA/OVF)
-        base_os:
-          title: Base OS
-          type: string
-          default: ubuntu-22.04
-          enum:
-            - ubuntu-22.04
-            - ubuntu-20.04
-            - amazon-linux-2023
-            - rhel-9
-            - debian-12
-            - windows-2022
-        region:
-          title: Region
-          type: string
-          default: us-east-1
-        instance_type:
-          title: Instance Type
-          type: string
-          default: t3.medium
+            - VMware (vSphere Template)
+      # The base images, regions and machine sizes on offer differ per
+      # provider, so those fields follow the provider chosen above.
+      dependencies:
+        cloud_provider:
+          oneOf:
+            - required:
+                - base_os
+              properties:
+                cloud_provider:
+                  enum:
+                    - aws
+                base_os:
+                  title: Base OS
+                  type: string
+                  default: ubuntu-22.04
+                  enum:
+                    - ubuntu-22.04
+                    - ubuntu-20.04
+                    - amazon-linux-2023
+                    - rhel-9
+                    - debian-12
+                    - windows-2022
+                region:
+                  title: Region
+                  type: string
+                  default: us-east-1
+                instance_type:
+                  title: Instance Type
+                  type: string
+                  default: t3.medium
+            - required:
+                - base_os
+              properties:
+                cloud_provider:
+                  enum:
+                    - azure
+                base_os:
+                  title: Base OS
+                  type: string
+                  default: ubuntu-22.04
+                  enum:
+                    - ubuntu-22.04
+                    - ubuntu-20.04
+                    - rhel-9
+                    - debian-12
+                    - windows-2022
+                region:
+                  title: Location
+                  type: string
+                  default: eastus
+                instance_type:
+                  title: VM Size
+                  type: string
+                  default: Standard_B2s
+            - required:
+                - base_os
+              properties:
+                cloud_provider:
+                  enum:
+                    - gcp
+                base_os:
+                  title: Base OS
+                  type: string
+                  default: ubuntu-22.04
+                  enum:
+                    - ubuntu-22.04
+                    - ubuntu-20.04
+                    - rhel-9
+                    - debian-12
+                    - windows-2022
+                region:
+                  title: Region
+                  type: string
+                  default: us-central1
+                instance_type:
+                  title: Machine Type
+                  type: string
+                  default: e2-medium
+            - required:
+                - base_os
+              properties:
+                cloud_provider:
+                  enum:
+                    - vmware
+                base_os:
+                  title: Base OS
+                  type: string
+                  description: A VM template with this name is cloned; the name can be changed in image.pkr.hcl.
+                  default: ubuntu-22.04
+                  enum:
+                    - ubuntu-22.04
+                    - ubuntu-20.04
+                    - amazon-linux-2023
+                    - rhel-9
+                    - debian-12
+                    - windows-2022
+                region:
+                  title: vSphere Datacenter
+                  type: string
+                  default: Datacenter
+                instance_type:
+                  title: VM Size (CPUs x memory in MB)
+                  type: string
+                  default: 2x4096
+                  pattern: '^[1-9][0-9]*x[1-9][0-9]*$'
     - title: Provisioning
       properties:
         install_docker:
@@ -80,6 +165,7 @@ spec:
           default: true
         install_ansible:
           title: Install Ansible
+          description: On Windows, Ansible cannot run; OpenSSH Server is installed instead so that Ansible can manage the image.
           type: boolean
           default: false
         custom_packages:
@@ -119,6 +205,30 @@ spec:
           install_docker: ${{ parameters.install_docker }}
           install_ansible: ${{ parameters.install_ansible }}
           custom_packages: ${{ parameters.custom_packages }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+    # The skeleton carries the Linux and the Windows provisioning scripts;
+    # only the ones for the chosen base OS stay in the repository.
+    - id: remove-linux-scripts
+      name: Remove Linux Provisioning
+      if: ${{ parameters.base_os == 'windows-2022' }}
+      action: fs:delete
+      input:
+        files:
+          - scripts/provision.sh
+    - id: remove-windows-scripts
+      name: Remove Windows Provisioning
+      if: ${{ parameters.base_os != 'windows-2022' }}
+      action: fs:delete
+      input:
+        files:
+          - scripts/provision.ps1
+    - id: remove-winrm-user-data
+      name: Remove EC2 WinRM User Data
+      if: ${{ parameters.base_os != 'windows-2022' or parameters.cloud_provider != 'aws' }}
+      action: fs:delete
+      input:
+        files:
+          - scripts/enable-winrm.ps1
     - id: publish
       name: Publish to GitHub
       action: publish:github

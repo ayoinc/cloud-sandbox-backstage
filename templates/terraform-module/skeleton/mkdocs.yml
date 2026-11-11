@@ -1,7 +1,5 @@
-site_name: "${{ values.name }}"
-site_description: "Terraform module documentation for ${{ values.name }}"
-docs_dir: docs
-repo_url: https://github.com/${{ values.owner }}/${{ values.name }}
+site_name: ${{ values.name | dump }}
+site_description: ${{ values.description | dump }}
 
 nav:
   - Home: index.md

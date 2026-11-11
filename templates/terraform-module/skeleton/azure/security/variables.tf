@@ -3,13 +3,23 @@
 # -----------------------------------------------------------------------------
 
 variable "project_name" {
-  description = "Project name"
+  description = "Project name used in resource naming"
   type        = string
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9-]{0,38}[a-z0-9]$", var.project_name))
+    error_message = "Project name must be 2-40 characters of lowercase letters, numbers and hyphens, start with a letter and not end with a hyphen."
+  }
 }
 
 variable "environment" {
   description = "Environment name (e.g., dev, staging, prod)"
   type        = string
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9]{1,11}$", var.environment))
+    error_message = "Environment must be 2-12 lowercase letters or numbers and start with a letter."
+  }
 }
 
 variable "location" {
@@ -83,19 +93,15 @@ variable "enable_rbac_authorization" {
 # -----------------------------------------------------------------------------
 
 variable "network_acls" {
-  description = "Network ACLs configuration for Key Vault"
+  description = "Key Vault firewall. The default denies everything except trusted Azure services; list the public IPs (ip_rules) and subnets (virtual_network_subnet_ids) that may reach the vault"
   type = object({
-    default_action             = string
-    bypass                     = string
-    ip_rules                   = list(string)
-    virtual_network_subnet_ids = list(string)
+    default_action             = optional(string, "Deny")
+    bypass                     = optional(string, "AzureServices")
+    ip_rules                   = optional(list(string), [])
+    virtual_network_subnet_ids = optional(list(string), [])
   })
-  default = {
-    default_action             = "Deny"
-    bypass                     = "AzureServices"
-    ip_rules                   = []
-    virtual_network_subnet_ids = []
-  }
+  nullable = false
+  default  = {}
 
   validation {
     condition     = contains(["Allow", "Deny"], var.network_acls.default_action)
@@ -112,8 +118,25 @@ variable "network_acls" {
 # Encryption Key Configuration
 # -----------------------------------------------------------------------------
 
+variable "create_encryption_key" {
+  description = "Create a customer-managed encryption key with automatic rotation. Keys are created through the vault data plane, so the machine running Terraform must be admitted by network_acls"
+  type        = bool
+  default     = false
+}
+
+variable "rbac_propagation_wait" {
+  description = "Time to wait after granting Terraform access to the vault before creating the encryption key (role assignments are eventually consistent)"
+  type        = string
+  default     = "90s"
+
+  validation {
+    condition     = can(regex("^[0-9]+(s|m)$", var.rbac_propagation_wait))
+    error_message = "Use a duration in seconds or minutes, for example 90s or 2m."
+  }
+}
+
 variable "encryption_key_type" {
-  description = "Type of the encryption key (RSA or EC)"
+  description = "Type of the encryption key (RSA, RSA-HSM, EC or EC-HSM). HSM types need the premium vault SKU"
   type        = string
   default     = "RSA"
 
@@ -123,8 +146,19 @@ variable "encryption_key_type" {
   }
 }
 
+variable "encryption_key_curve" {
+  description = "Elliptic curve for EC and EC-HSM keys"
+  type        = string
+  default     = "P-256"
+
+  validation {
+    condition     = contains(["P-256", "P-256K", "P-384", "P-521"], var.encryption_key_curve)
+    error_message = "Encryption key curve must be P-256, P-256K, P-384 or P-521."
+  }
+}
+
 variable "encryption_key_size" {
-  description = "Size of the encryption key in bits"
+  description = "Size of RSA and RSA-HSM keys in bits"
   type        = number
   default     = 2048
 
@@ -183,9 +217,26 @@ variable "log_retention_days" {
 # -----------------------------------------------------------------------------
 
 variable "enable_defender" {
-  description = "Enable Microsoft Defender for Cloud (Security Center) pricing tiers"
+  description = "Enable the Microsoft Defender for Cloud Standard tier for defender_resource_types. The setting is subscription-wide: enable it from one deployment per subscription only"
   type        = bool
   default     = false
+}
+
+variable "defender_resource_types" {
+  description = "Resource types covered by Microsoft Defender for Cloud when enable_defender is true"
+  type        = list(string)
+  nullable    = false
+  default     = ["Arm", "KeyVaults", "StorageAccounts"]
+
+  validation {
+    condition = alltrue([
+      for resource_type in var.defender_resource_types : contains([
+        "AI", "Api", "AppServices", "Arm", "CloudPosture", "ContainerRegistry", "Containers", "CosmosDbs", "Dns", "KeyVaults",
+        "KubernetesService", "OpenSourceRelationalDatabases", "SqlServers", "SqlServerVirtualMachines", "StorageAccounts", "VirtualMachines",
+      ], resource_type)
+    ])
+    error_message = "Each entry must be a Microsoft Defender for Cloud resource type such as Arm, KeyVaults, StorageAccounts, Containers or VirtualMachines."
+  }
 }
 
 # -----------------------------------------------------------------------------
@@ -262,5 +313,6 @@ variable "application_insights_internet_query" {
 variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)
+  nullable    = false
   default     = {}
 }

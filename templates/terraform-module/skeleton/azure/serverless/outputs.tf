@@ -89,18 +89,12 @@ output "storage_account_primary_blob_endpoint" {
 
 output "application_insights_id" {
   description = "The ID of the Application Insights instance (null if using external)"
-  value       = var.application_insights_connection_string == null ? azurerm_application_insights.function[0].id : null
+  value       = one(azurerm_application_insights.function[*].id)
 }
 
 output "application_insights_connection_string" {
   description = "The connection string for Application Insights"
   value       = local.application_insights_connection_string
-  sensitive   = true
-}
-
-output "application_insights_instrumentation_key" {
-  description = "The instrumentation key for Application Insights"
-  value       = local.application_insights_key
   sensitive   = true
 }
 
@@ -181,8 +175,18 @@ output "event_grid_topic_endpoint" {
   value       = var.enable_event_grid ? azurerm_eventgrid_topic.main[0].endpoint : null
 }
 
+output "event_grid_subscription_id" {
+  description = "The ID of the Event Grid subscription to the function (if created)"
+  value       = one(azurerm_eventgrid_event_subscription.function[*].id)
+}
+
 output "event_grid_topic_primary_access_key" {
   description = "The primary access key for the Event Grid topic"
   value       = var.enable_event_grid ? azurerm_eventgrid_topic.main[0].primary_access_key : null
   sensitive   = true
+}
+
+output "deployment_container_name" {
+  description = "The storage container for function deployment packages"
+  value       = azurerm_storage_container.deployments.name
 }

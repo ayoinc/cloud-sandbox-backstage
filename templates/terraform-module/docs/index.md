@@ -1,59 +1,48 @@
 # Terraform Module Template
 
-This template creates a reusable Terraform module following HashiCorp best practices.
+Creates a repository with a reusable Terraform module for AWS, Azure, Google
+Cloud or all three.
 
-## Features
+## What You Get
 
-- **Multi-cloud support** - AWS, Azure, and GCP examples
-- **Testing framework** - Terratest integration
-- **Documentation** - Auto-generated docs with terraform-docs
-- **CI/CD** - GitHub Actions for validation and testing
-- **Compliance** - Pre-configured security scanning
+- A root module that switches eight building blocks on and off with `enable_*`
+  variables: network, security, storage, observability, compute, database,
+  Kubernetes and serverless.
+- One submodule per building block and cloud, each usable on its own, each
+  with its own tests and an example variables file.
+- `examples/complete`, a runnable configuration that calls the module.
+- Tests written for `terraform test` that plan against mocked providers, so
+  they need no cloud account.
+- A GitHub Actions pipeline that checks formatting, validates, lints with
+  TFLint, runs the tests and scans with Trivy on every push. It needs no
+  secrets and passes on the first push.
+- A catalog entry and TechDocs.
 
-## Getting Started
+## Form Fields
 
-1. Create a new repository using this template
-2. Define your module resources in `main.tf`
-3. Configure variables in `variables.tf`
-4. Add outputs in `outputs.tf`
-5. Write tests in the `test/` directory
+| Field                        | Effect                                                          |
+| ---------------------------- | --------------------------------------------------------------- |
+| Module Name                  | Repository and catalog name; must start with `terraform-`       |
+| Description                  | Catalog description and documentation                           |
+| Owner                        | Owner of the catalog entry                                      |
+| Cloud Provider               | Which submodules, providers and example the repository contains |
+| Terraform Version Constraint | `required_version` of the module and its example                |
 
-## Project Structure
-
-```
-├── main.tf           # Main module resources
-├── variables.tf      # Input variables
-├── outputs.tf        # Output values
-├── versions.tf       # Provider version constraints
-├── examples/         # Usage examples
-│   └── basic/
-├── test/             # Terratest tests
-└── docs/             # Additional documentation
-```
-
-## Usage
-
-```hcl
-module "example" {
-  source  = "github.com/org/module-name"
-  version = "1.0.0"
-
-  # Module inputs
-  name = "my-resource"
-  tags = {
-    Environment = "production"
-  }
-}
-```
-
-## Testing
+## After Creation
 
 ```bash
-# Run tests
-cd test/
-go test -v -timeout 30m
+terraform init -backend=false
+terraform validate
+terraform test
 ```
 
-## Support
+Use the module from another configuration:
 
-Contact the Platform Team for assistance.
+```hcl
+module "platform" {
+  source = "github.com/<owner>/<repository>"
+
+  project_name = "billing"
+  environment  = "dev"
+}
+```

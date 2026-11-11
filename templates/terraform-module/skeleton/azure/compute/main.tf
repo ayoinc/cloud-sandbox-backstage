@@ -2,128 +2,168 @@
 # Azure Compute Module - Main Resources
 # -----------------------------------------------------------------------------
 
-# Data source for latest Ubuntu 22.04 LTS image
-data "azurerm_platform_image" "ubuntu" {
-  location  = var.location
-  publisher = "Canonical"
-  offer     = "0001-com-ubuntu-server-jammy"
-  sku       = "22_04-lts-gen2"
+data "azurerm_subscription" "current" {}
+
+locals {
+  name_prefix = "${var.project_name}-${var.environment}"
+
+  generate_ssh_key = var.ssh_public_key == null || var.ssh_public_key == ""
+  ssh_public_key   = local.generate_ssh_key ? tls_private_key.ssh[0].public_key_openssh : var.ssh_public_key
+
+  nsg_rules = merge(
+    {
+      for name, rule in {
+        AllowSSH = {
+          priority = 100
+          ports    = ["22"]
+          sources  = var.ssh_allowed_cidrs
+        }
+      } : name => rule if length(var.ssh_allowed_cidrs) > 0
+    },
+    {
+      for name, rule in {
+        AllowApplication = {
+          priority = 200
+          ports    = [for port in var.ingress_ports : tostring(port)]
+          sources  = var.ingress_allowed_cidrs
+        }
+      } : name => rule if length(var.ingress_allowed_cidrs) > 0 && length(var.ingress_ports) > 0
+    }
+  )
 }
 
-# User Assigned Managed Identity for VMSS
+# -----------------------------------------------------------------------------
+# SSH key pair (generated when no public key is supplied)
+# -----------------------------------------------------------------------------
+
+resource "tls_private_key" "ssh" {
+  count = local.generate_ssh_key ? 1 : 0
+
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+# -----------------------------------------------------------------------------
+# Managed Identity
+# -----------------------------------------------------------------------------
+
 resource "azurerm_user_assigned_identity" "vmss" {
-  name                = "${var.project_name}-${var.environment}-vmss-identity"
+  name                = "${local.name_prefix}-vmss-identity"
   resource_group_name = var.resource_group_name
   location            = var.location
 
   tags = var.tags
 }
 
-# Role Assignment for Managed Identity (Reader on Resource Group)
+# Instances may read (not change) the resources of their own resource group.
 resource "azurerm_role_assignment" "vmss_reader" {
   scope                = "/subscriptions/${data.azurerm_subscription.current.subscription_id}/resourceGroups/${var.resource_group_name}"
   role_definition_name = "Reader"
   principal_id         = azurerm_user_assigned_identity.vmss.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
-# Data source for current subscription
-data "azurerm_subscription" "current" {}
+# -----------------------------------------------------------------------------
+# Network Security Group
+# -----------------------------------------------------------------------------
 
-# Network Security Group for Virtual Machines
 resource "azurerm_network_security_group" "vmss" {
-  name                = "${var.project_name}-${var.environment}-vmss-nsg"
+  name                = "${local.name_prefix}-vmss-nsg"
   resource_group_name = var.resource_group_name
   location            = var.location
-
-  # Allow SSH from internal networks
-  security_rule {
-    name                       = "AllowSSH"
-    priority                   = 100
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "22"
-    source_address_prefixes    = var.ssh_allowed_cidrs
-    destination_address_prefix = "*"
-    description                = "Allow SSH access from internal networks"
-  }
-
-  # Allow HTTP
-  security_rule {
-    name                       = "AllowHTTP"
-    priority                   = 200
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "80"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-    description                = "Allow HTTP traffic"
-  }
-
-  # Allow HTTPS
-  security_rule {
-    name                       = "AllowHTTPS"
-    priority                   = 300
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "443"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-    description                = "Allow HTTPS traffic"
-  }
-
-  # Deny all other inbound traffic
-  security_rule {
-    name                       = "DenyAllInbound"
-    priority                   = 4096
-    direction                  = "Inbound"
-    access                     = "Deny"
-    protocol                   = "*"
-    source_port_range          = "*"
-    destination_port_range     = "*"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-    description                = "Deny all other inbound traffic"
-  }
 
   tags = var.tags
 }
 
-# Linux Virtual Machine Scale Set
-resource "azurerm_linux_virtual_machine_scale_set" "main" {
-  name                = "${var.project_name}-${var.environment}-vmss"
-  resource_group_name = var.resource_group_name
-  location            = var.location
-  sku                 = var.vm_size
-  instances           = var.instances_default
+resource "azurerm_network_security_rule" "allow" {
+  for_each = local.nsg_rules
 
-  admin_username = var.admin_username
+  name                        = each.key
+  resource_group_name         = var.resource_group_name
+  network_security_group_name = azurerm_network_security_group.vmss.name
+
+  priority                   = each.value.priority
+  direction                  = "Inbound"
+  access                     = "Allow"
+  protocol                   = "Tcp"
+  source_port_range          = "*"
+  destination_port_ranges    = each.value.ports
+  source_address_prefixes    = each.value.sources
+  destination_address_prefix = "*"
+}
+
+# Load balancer health probes originate from the AzureLoadBalancer tag.
+resource "azurerm_network_security_rule" "allow_load_balancer" {
+  name                        = "AllowAzureLoadBalancer"
+  resource_group_name         = var.resource_group_name
+  network_security_group_name = azurerm_network_security_group.vmss.name
+
+  priority                   = 300
+  direction                  = "Inbound"
+  access                     = "Allow"
+  protocol                   = "*"
+  source_port_range          = "*"
+  destination_port_range     = "*"
+  source_address_prefix      = "AzureLoadBalancer"
+  destination_address_prefix = "*"
+}
+
+resource "azurerm_network_security_rule" "deny_all_inbound" {
+  name                        = "DenyAllInbound"
+  resource_group_name         = var.resource_group_name
+  network_security_group_name = azurerm_network_security_group.vmss.name
+
+  priority                   = 4096
+  direction                  = "Inbound"
+  access                     = "Deny"
+  protocol                   = "*"
+  source_port_range          = "*"
+  destination_port_range     = "*"
+  source_address_prefix      = "*"
+  destination_address_prefix = "*"
+}
+
+# -----------------------------------------------------------------------------
+# Linux Virtual Machine Scale Set
+# -----------------------------------------------------------------------------
+
+resource "azurerm_linux_virtual_machine_scale_set" "main" {
+  name                 = "${local.name_prefix}-vmss"
+  computer_name_prefix = trimsuffix(substr(local.name_prefix, 0, 40), "-")
+  resource_group_name  = var.resource_group_name
+  location             = var.location
+  sku                  = var.vm_size
+  instances            = var.instances_default
+  zones                = length(var.zones) > 0 ? var.zones : null
+
+  admin_username                  = var.admin_username
+  disable_password_authentication = true
 
   admin_ssh_key {
     username   = var.admin_username
-    public_key = var.ssh_public_key != "" ? var.ssh_public_key : file(var.ssh_public_key_path)
+    public_key = local.ssh_public_key
   }
 
   source_image_reference {
-    publisher = "Canonical"
-    offer     = "0001-com-ubuntu-server-jammy"
-    sku       = "22_04-lts-gen2"
-    version   = "latest"
+    publisher = var.source_image.publisher
+    offer     = var.source_image.offer
+    sku       = var.source_image.sku
+    version   = var.source_image.version
   }
 
+  # Trusted launch protects the boot chain of generation 2 images.
+  secure_boot_enabled        = var.enable_trusted_launch
+  vtpm_enabled               = var.enable_trusted_launch
+  encryption_at_host_enabled = var.enable_encryption_at_host
+
   os_disk {
-    storage_account_type = "Premium_LRS"
+    storage_account_type = var.os_disk_storage_account_type
     caching              = "ReadWrite"
     disk_size_gb         = var.os_disk_size_gb
   }
 
   network_interface {
-    name                      = "${var.project_name}-${var.environment}-vmss-nic"
+    name                      = "${local.name_prefix}-vmss-nic"
     primary                   = true
     network_security_group_id = azurerm_network_security_group.vmss.id
 
@@ -134,8 +174,9 @@ resource "azurerm_linux_virtual_machine_scale_set" "main" {
 
       dynamic "public_ip_address" {
         for_each = var.enable_public_ip ? [1] : []
+
         content {
-          name = "${var.project_name}-${var.environment}-vmss-pip"
+          name = "${local.name_prefix}-vmss-pip"
         }
       }
     }
@@ -149,24 +190,26 @@ resource "azurerm_linux_virtual_machine_scale_set" "main" {
   custom_data = base64encode(templatefile("${path.module}/templates/cloud-init.yaml", {
     project     = var.project_name
     environment = var.environment
+    health_port = var.health_check_port
   }))
 
-  # Enable boot diagnostics with managed storage
-  boot_diagnostics {
-    storage_account_uri = null # Uses managed storage account
-  }
-
-  # Automatic OS upgrades
-  automatic_os_upgrade_policy {
-    disable_automatic_rollback  = false
-    enable_automatic_os_upgrade = var.enable_automatic_os_upgrade
-  }
+  # Boot diagnostics in a platform-managed storage account.
+  boot_diagnostics {}
 
   upgrade_mode = var.enable_automatic_os_upgrade ? "Automatic" : "Manual"
 
-  # Rolling upgrade policy (required when upgrade_mode is Automatic)
+  dynamic "automatic_os_upgrade_policy" {
+    for_each = var.enable_automatic_os_upgrade ? [1] : []
+
+    content {
+      disable_automatic_rollback  = false
+      enable_automatic_os_upgrade = true
+    }
+  }
+
   dynamic "rolling_upgrade_policy" {
     for_each = var.enable_automatic_os_upgrade ? [1] : []
+
     content {
       max_batch_instance_percent              = 20
       max_unhealthy_instance_percent          = 20
@@ -175,45 +218,81 @@ resource "azurerm_linux_virtual_machine_scale_set" "main" {
     }
   }
 
-  # Health probe for rolling upgrades
-  dynamic "extension" {
-    for_each = var.enable_automatic_os_upgrade ? [1] : []
-    content {
-      name                       = "HealthExtension"
-      publisher                  = "Microsoft.ManagedServices"
-      type                       = "ApplicationHealthLinux"
-      type_handler_version       = "1.0"
-      auto_upgrade_minor_version = true
+  # Reports instance health from the endpoint served by cloud-init; automatic
+  # OS upgrades and instance repair rely on it.
+  extension {
+    name                       = "HealthExtension"
+    publisher                  = "Microsoft.ManagedServices"
+    type                       = "ApplicationHealthLinux"
+    type_handler_version       = "1.0"
+    auto_upgrade_minor_version = true
 
-      settings = jsonencode({
-        protocol = "http"
-        port     = 80
-        path     = "/health"
-      })
-    }
+    settings = jsonencode({
+      protocol    = "http"
+      port        = var.health_check_port
+      requestPath = "/health"
+    })
   }
 
-  # Azure Monitor Agent extension
+  # The agent authenticates with the scale set's user-assigned identity.
   extension {
     name                       = "AzureMonitorLinuxAgent"
     publisher                  = "Microsoft.Azure.Monitor"
     type                       = "AzureMonitorLinuxAgent"
-    type_handler_version       = "1.0"
+    type_handler_version       = "1.33"
     auto_upgrade_minor_version = true
+    automatic_upgrade_enabled  = true
+
+    settings = jsonencode({
+      authentication = {
+        managedIdentity = {
+          "identifier-name"  = "mi_res_id"
+          "identifier-value" = azurerm_user_assigned_identity.vmss.id
+        }
+      }
+    })
   }
 
   tags = merge(var.tags, {
-    Name = "${var.project_name}-${var.environment}-vmss"
+    Name = "${local.name_prefix}-vmss"
   })
 
   lifecycle {
+    # The autoscale setting owns the instance count after creation.
     ignore_changes = [instances]
+
+    precondition {
+      condition     = var.instances_min <= var.instances_default && var.instances_default <= var.instances_max
+      error_message = "Instance counts must satisfy instances_min <= instances_default <= instances_max."
+    }
+    precondition {
+      condition     = var.scale_in_cpu_threshold < var.scale_out_cpu_threshold
+      error_message = "scale_in_cpu_threshold must be lower than scale_out_cpu_threshold."
+    }
   }
+
+  depends_on = [
+    azurerm_network_security_rule.allow,
+    azurerm_network_security_rule.allow_load_balancer,
+    azurerm_network_security_rule.deny_all_inbound,
+  ]
 }
 
-# Autoscale Settings for VMSS
+# Sends the data selected by a data collection rule through the monitor agent.
+resource "azurerm_monitor_data_collection_rule_association" "vmss" {
+  count = var.data_collection_rule_id != null ? 1 : 0
+
+  name                    = "${local.name_prefix}-vmss-dcra"
+  target_resource_id      = azurerm_linux_virtual_machine_scale_set.main.id
+  data_collection_rule_id = var.data_collection_rule_id
+}
+
+# -----------------------------------------------------------------------------
+# Autoscale Settings
+# -----------------------------------------------------------------------------
+
 resource "azurerm_monitor_autoscale_setting" "vmss" {
-  name                = "${var.project_name}-${var.environment}-vmss-autoscale"
+  name                = "${local.name_prefix}-vmss-autoscale"
   resource_group_name = var.resource_group_name
   location            = var.location
   target_resource_id  = azurerm_linux_virtual_machine_scale_set.main.id
@@ -227,7 +306,6 @@ resource "azurerm_monitor_autoscale_setting" "vmss" {
       maximum = var.instances_max
     }
 
-    # Scale out rule - High CPU
     rule {
       metric_trigger {
         metric_name        = "Percentage CPU"
@@ -248,7 +326,6 @@ resource "azurerm_monitor_autoscale_setting" "vmss" {
       }
     }
 
-    # Scale in rule - Low CPU
     rule {
       metric_trigger {
         metric_name        = "Percentage CPU"
@@ -269,7 +346,6 @@ resource "azurerm_monitor_autoscale_setting" "vmss" {
       }
     }
 
-    # Scale out rule - High Memory
     rule {
       metric_trigger {
         metric_name        = "Available Memory Bytes"
@@ -291,11 +367,13 @@ resource "azurerm_monitor_autoscale_setting" "vmss" {
     }
   }
 
-  notification {
-    email {
-      send_to_subscription_administrator    = true
-      send_to_subscription_co_administrator = false
-      custom_emails                         = var.autoscale_notification_emails
+  dynamic "notification" {
+    for_each = length(var.autoscale_notification_emails) > 0 ? [1] : []
+
+    content {
+      email {
+        custom_emails = var.autoscale_notification_emails
+      }
     }
   }
 

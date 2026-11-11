@@ -1,29 +1,30 @@
 # -----------------------------------------------------------------------------
-# AWS Observability Module - Example tfvars
+# AWS Observability Module - Example tfvars (every optional feature enabled)
 # -----------------------------------------------------------------------------
 
-project     = "myproject"
-environment = "dev"
+project_name = "myproject"
+environment  = "dev"
 
-# Encryption
-kms_key_arn = null  # Use KMS key from security module
+kms_key_arn = "arn:aws:kms:eu-west-2:123456789012:key/11111111-2222-3333-4444-555555555555"
 
-# Log Retention
+# Log Configuration
 log_retention_days          = 30
 security_log_retention_days = 365
+
+# Monitored resources
+autoscaling_group_name = "myproject-dev-asg"
+db_instance_identifier = "myproject-dev-db"
 
 # Dashboard
 enable_dashboard = true
 
 # Alarms
-enable_alarms   = true
-alarm_email     = "alerts@example.com"
-
-# Alarm Thresholds
+enable_alarms               = true
+alarm_email                 = "alerts@example.com"
 cpu_alarm_threshold         = 80
 memory_alarm_threshold      = 80
 rds_cpu_alarm_threshold     = 80
-rds_storage_alarm_threshold = 10  # GB
+rds_storage_alarm_threshold = 10
 error_log_threshold         = 10
 
 # X-Ray

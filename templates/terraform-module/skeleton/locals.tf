@@ -1,30 +1,28 @@
+{%- set aws = values.provider == 'aws' or values.provider == 'multi-cloud' -%}
+{%- set azure = values.provider == 'azure' or values.provider == 'multi-cloud' -%}
+{%- set gcp = values.provider == 'gcp' or values.provider == 'multi-cloud' -%}
 locals {
-  # Common naming prefix
-  name_prefix = "${var.project_name}-${var.environment}"
-
-  # Common tags applied to all resources
+  # Tags applied to every resource; callers add their own through var.tags.
   common_tags = merge(
     {
       Project     = var.project_name
       Environment = var.environment
       ManagedBy   = "terraform"
       Module      = "${{ values.name }}"
-      Owner       = "${{ values.owner }}"
     },
-    var.tags
+    var.tags,
   )
+{%- if azure %}
 
-{%- if values.provider == 'azure' or values.provider == 'multi-cloud' %}
-
-  # Azure-specific locals
-  azure_resource_group_name = var.azure_resource_group_name != "" ? var.azure_resource_group_name : "${local.name_prefix}-rg"
+  azure_resource_group_name = coalesce(var.azure_resource_group_name, "${var.project_name}-${var.environment}-rg")
 {%- endif %}
+{%- if gcp %}
 
-{%- if values.provider == 'gcp' or values.provider == 'multi-cloud' %}
-
-  # GCP-specific locals
+  # Google Cloud labels allow only lowercase letters, digits, hyphens and
+  # underscores.
   gcp_labels = {
-    for k, v in local.common_tags : lower(replace(k, "/[^a-z0-9_-]/", "_")) => lower(replace(v, "/[^a-z0-9_-]/", "_"))
+    for key, value in local.common_tags :
+    replace(lower(key), "/[^a-z0-9_-]/", "_") => replace(lower(value), "/[^a-z0-9_-]/", "_")
   }
 {%- endif %}
 }

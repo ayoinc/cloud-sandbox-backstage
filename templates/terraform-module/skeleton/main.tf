@@ -1,24 +1,14 @@
-# ==============================================================================
+{%- set aws = values.provider == 'aws' or values.provider == 'multi-cloud' -%}
+{%- set azure = values.provider == 'azure' or values.provider == 'multi-cloud' -%}
+{%- set gcp = values.provider == 'gcp' or values.provider == 'multi-cloud' -%}
 # ${{ values.name }}
-# ${{ values.description }}
-# ==============================================================================
+#
+# Each building block is a submodule switched on by an enable_* variable.
+{%- if aws %}
 
-{%- if values.provider == 'aws' or values.provider == 'multi-cloud' %}
-
-# ==============================================================================
-# AWS Modules
-# ==============================================================================
-
-module "aws_network" {
-  count  = var.enable_network ? 1 : 0
-  source = "./aws/network"
-
-  environment        = var.environment
-  project_name       = var.project_name
-  vpc_cidr           = var.aws_vpc_cidr
-  availability_zones = var.aws_availability_zones
-  tags               = local.common_tags
-}
+# -----------------------------------------------------------------------------
+# AWS
+# -----------------------------------------------------------------------------
 
 module "aws_security" {
   count  = var.enable_security ? 1 : 0
@@ -29,13 +19,25 @@ module "aws_security" {
   tags         = local.common_tags
 }
 
+module "aws_network" {
+  count  = var.enable_network ? 1 : 0
+  source = "./aws/network"
+
+  environment        = var.environment
+  project_name       = var.project_name
+  vpc_cidr           = var.aws_vpc_cidr
+  availability_zones = var.aws_availability_zones
+  kms_key_arn        = one(module.aws_security[*].kms_key_arn)
+  tags               = local.common_tags
+}
+
 module "aws_storage" {
   count  = var.enable_storage ? 1 : 0
   source = "./aws/storage"
 
   environment  = var.environment
   project_name = var.project_name
-  kms_key_arn  = var.enable_security ? module.aws_security[0].kms_key_arn : null
+  kms_key_arn  = one(module.aws_security[*].kms_key_arn)
   tags         = local.common_tags
 }
 
@@ -43,36 +45,24 @@ module "aws_compute" {
   count  = var.enable_compute ? 1 : 0
   source = "./aws/compute"
 
-  environment        = var.environment
-  project_name       = var.project_name
-  vpc_id             = var.enable_network ? module.aws_network[0].vpc_id : null
-  subnet_ids         = var.enable_network ? module.aws_network[0].private_subnet_ids : []
-  tags               = local.common_tags
-
-  depends_on = [module.aws_network]
+  environment  = var.environment
+  project_name = var.project_name
+  vpc_id       = one(module.aws_network[*].vpc_id)
+  subnet_ids   = flatten(module.aws_network[*].private_subnet_ids)
+  tags         = local.common_tags
 }
 
 module "aws_database" {
   count  = var.enable_database ? 1 : 0
   source = "./aws/database"
 
-  environment   = var.environment
-  project_name  = var.project_name
-  vpc_id        = var.enable_network ? module.aws_network[0].vpc_id : null
-  subnet_ids    = var.enable_network ? module.aws_network[0].private_subnet_ids : []
-  kms_key_arn   = var.enable_security ? module.aws_security[0].kms_key_arn : null
-  tags          = local.common_tags
-
-  depends_on = [module.aws_network, module.aws_security]
-}
-
-module "aws_observability" {
-  count  = var.enable_observability ? 1 : 0
-  source = "./aws/observability"
-
-  environment  = var.environment
-  project_name = var.project_name
-  tags         = local.common_tags
+  environment             = var.environment
+  project_name            = var.project_name
+  vpc_id                  = one(module.aws_network[*].vpc_id)
+  subnet_ids              = flatten(module.aws_network[*].database_subnet_ids)
+  allowed_security_groups = module.aws_compute[*].security_group_id
+  kms_key_arn             = one(module.aws_security[*].kms_key_arn)
+  tags                    = local.common_tags
 }
 
 module "aws_kubernetes" {
@@ -81,11 +71,10 @@ module "aws_kubernetes" {
 
   environment  = var.environment
   project_name = var.project_name
-  vpc_id       = var.enable_network ? module.aws_network[0].vpc_id : null
-  subnet_ids   = var.enable_network ? module.aws_network[0].private_subnet_ids : []
+  vpc_id       = one(module.aws_network[*].vpc_id)
+  subnet_ids   = flatten(module.aws_network[*].private_subnet_ids)
+  kms_key_arn  = one(module.aws_security[*].kms_key_arn)
   tags         = local.common_tags
-
-  depends_on = [module.aws_network]
 }
 
 module "aws_serverless" {
@@ -94,18 +83,27 @@ module "aws_serverless" {
 
   environment  = var.environment
   project_name = var.project_name
+  kms_key_arn  = one(module.aws_security[*].kms_key_arn)
+  tags         = local.common_tags
+}
+
+module "aws_observability" {
+  count  = var.enable_observability ? 1 : 0
+  source = "./aws/observability"
+
+  environment  = var.environment
+  project_name = var.project_name
+  kms_key_arn  = one(module.aws_security[*].kms_key_arn)
   tags         = local.common_tags
 }
 {%- endif %}
+{%- if azure %}
 
-{%- if values.provider == 'azure' or values.provider == 'multi-cloud' %}
-
-# ==============================================================================
-# Azure Modules
-# ==============================================================================
+# -----------------------------------------------------------------------------
+# Azure
+# -----------------------------------------------------------------------------
 
 resource "azurerm_resource_group" "main" {
-  count    = var.enable_network ? 1 : 0
   name     = local.azure_resource_group_name
   location = var.azure_location
   tags     = local.common_tags
@@ -117,8 +115,8 @@ module "azure_network" {
 
   environment         = var.environment
   project_name        = var.project_name
-  resource_group_name = azurerm_resource_group.main[0].name
-  location            = var.azure_location
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
   vnet_cidr           = var.azure_vnet_cidr
   tags                = local.common_tags
 }
@@ -129,11 +127,9 @@ module "azure_security" {
 
   environment         = var.environment
   project_name        = var.project_name
-  resource_group_name = azurerm_resource_group.main[0].name
-  location            = var.azure_location
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
   tags                = local.common_tags
-
-  depends_on = [azurerm_resource_group.main]
 }
 
 module "azure_storage" {
@@ -142,11 +138,9 @@ module "azure_storage" {
 
   environment         = var.environment
   project_name        = var.project_name
-  resource_group_name = azurerm_resource_group.main[0].name
-  location            = var.azure_location
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
   tags                = local.common_tags
-
-  depends_on = [azurerm_resource_group.main]
 }
 
 module "azure_compute" {
@@ -155,12 +149,10 @@ module "azure_compute" {
 
   environment         = var.environment
   project_name        = var.project_name
-  resource_group_name = azurerm_resource_group.main[0].name
-  location            = var.azure_location
-  subnet_id           = var.enable_network ? module.azure_network[0].subnet_ids["private"] : null
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+  subnet_id           = one(module.azure_network[*].subnet_ids["private"])
   tags                = local.common_tags
-
-  depends_on = [module.azure_network]
 }
 
 module "azure_database" {
@@ -169,25 +161,10 @@ module "azure_database" {
 
   environment         = var.environment
   project_name        = var.project_name
-  resource_group_name = azurerm_resource_group.main[0].name
-  location            = var.azure_location
-  subnet_id           = var.enable_network ? module.azure_network[0].subnet_ids["database"] : null
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+  subnet_id           = one(module.azure_network[*].subnet_ids["database"])
   tags                = local.common_tags
-
-  depends_on = [module.azure_network]
-}
-
-module "azure_observability" {
-  count  = var.enable_observability ? 1 : 0
-  source = "./azure/observability"
-
-  environment         = var.environment
-  project_name        = var.project_name
-  resource_group_name = azurerm_resource_group.main[0].name
-  location            = var.azure_location
-  tags                = local.common_tags
-
-  depends_on = [azurerm_resource_group.main]
 }
 
 module "azure_kubernetes" {
@@ -196,12 +173,13 @@ module "azure_kubernetes" {
 
   environment         = var.environment
   project_name        = var.project_name
-  resource_group_name = azurerm_resource_group.main[0].name
-  location            = var.azure_location
-  subnet_id           = var.enable_network ? module.azure_network[0].subnet_ids["kubernetes"] : null
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+  subnet_id           = one(module.azure_network[*].subnet_ids["kubernetes"])
   tags                = local.common_tags
 
-  depends_on = [module.azure_network]
+  # The network module attaches a NAT gateway to the Kubernetes subnet.
+  outbound_type = "userAssignedNATGateway"
 }
 
 module "azure_serverless" {
@@ -210,30 +188,52 @@ module "azure_serverless" {
 
   environment         = var.environment
   project_name        = var.project_name
-  resource_group_name = azurerm_resource_group.main[0].name
-  location            = var.azure_location
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
   tags                = local.common_tags
+}
 
-  depends_on = [azurerm_resource_group.main]
+module "azure_observability" {
+  count  = var.enable_observability ? 1 : 0
+  source = "./azure/observability"
+
+  environment         = var.environment
+  project_name        = var.project_name
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+  tags                = local.common_tags
 }
 {%- endif %}
+{%- if gcp %}
 
-{%- if values.provider == 'gcp' or values.provider == 'multi-cloud' %}
+# -----------------------------------------------------------------------------
+# Google Cloud
+# -----------------------------------------------------------------------------
 
-# ==============================================================================
-# GCP Modules
-# ==============================================================================
+locals {
+  gcp_zone = coalesce(var.gcp_zone, "${var.gcp_region}-a")
 
-module "gcp_network" {
-  count  = var.enable_network ? 1 : 0
-  source = "./gcp/network"
+  # APIs needed by the features that are switched on.
+  gcp_apis = var.gcp_enable_apis ? toset(concat(
+    ["cloudresourcemanager.googleapis.com", "iam.googleapis.com"],
+    var.enable_network || var.enable_compute ? ["compute.googleapis.com", "dns.googleapis.com", "servicenetworking.googleapis.com"] : [],
+    var.enable_security ? ["cloudkms.googleapis.com", "secretmanager.googleapis.com"] : [],
+    var.enable_storage ? ["storage.googleapis.com", "file.googleapis.com"] : [],
+    var.enable_database ? ["sqladmin.googleapis.com", "redis.googleapis.com", "secretmanager.googleapis.com"] : [],
+    var.enable_kubernetes ? ["container.googleapis.com", "artifactregistry.googleapis.com"] : [],
+    var.enable_serverless ? ["run.googleapis.com", "cloudfunctions.googleapis.com", "cloudbuild.googleapis.com", "pubsub.googleapis.com", "cloudscheduler.googleapis.com"] : [],
+    var.enable_observability ? ["logging.googleapis.com", "monitoring.googleapis.com"] : [],
+  )) : toset([])
+}
 
-  environment  = var.environment
-  project_name = var.project_name
-  project_id   = var.gcp_project_id
-  region       = var.gcp_region
-  network_cidr = var.gcp_network_cidr
-  labels       = local.gcp_labels
+# The APIs stay enabled when the module is destroyed, because other workloads
+# in the project may rely on them.
+resource "google_project_service" "this" {
+  for_each = local.gcp_apis
+
+  project            = var.gcp_project_id
+  service            = each.value
+  disable_on_destroy = false
 }
 
 module "gcp_security" {
@@ -245,20 +245,36 @@ module "gcp_security" {
   project_id   = var.gcp_project_id
   region       = var.gcp_region
   labels       = local.gcp_labels
+
+  depends_on = [google_project_service.this]
+}
+
+module "gcp_network" {
+  count  = var.enable_network ? 1 : 0
+  source = "./gcp/network"
+
+  environment  = var.environment
+  project_name = var.project_name
+  project_id   = var.gcp_project_id
+  region       = var.gcp_region
+  network_cidr = var.gcp_network_cidr
+  labels       = local.gcp_labels
+
+  depends_on = [google_project_service.this]
 }
 
 module "gcp_storage" {
   count  = var.enable_storage ? 1 : 0
   source = "./gcp/storage"
 
-  environment    = var.environment
-  project_name   = var.project_name
-  project_id     = var.gcp_project_id
-  region         = var.gcp_region
-  kms_key_id     = var.enable_security ? module.gcp_security[0].kms_key_id : null
-  labels         = local.gcp_labels
+  environment  = var.environment
+  project_name = var.project_name
+  project_id   = var.gcp_project_id
+  region       = var.gcp_region
+  kms_key_id   = one(module.gcp_security[*].kms_key_id)
+  labels       = local.gcp_labels
 
-  depends_on = [module.gcp_security]
+  depends_on = [google_project_service.this]
 }
 
 module "gcp_compute" {
@@ -269,38 +285,27 @@ module "gcp_compute" {
   project_name = var.project_name
   project_id   = var.gcp_project_id
   region       = var.gcp_region
-  zone         = var.gcp_zone
-  network_name = var.enable_network ? module.gcp_network[0].network_name : null
-  subnet_name  = var.enable_network ? module.gcp_network[0].subnet_names[0] : null
+  zone         = local.gcp_zone
+  network_name = one(module.gcp_network[*].network_name)
+  subnet_name  = one(module.gcp_network[*].subnet_names[0])
   labels       = local.gcp_labels
 
-  depends_on = [module.gcp_network]
+  depends_on = [google_project_service.this]
 }
 
 module "gcp_database" {
   count  = var.enable_database ? 1 : 0
   source = "./gcp/database"
 
-  environment         = var.environment
-  project_name        = var.project_name
-  project_id          = var.gcp_project_id
-  region              = var.gcp_region
-  network_id          = var.enable_network ? module.gcp_network[0].network_id : null
-  private_ip_range    = var.enable_network ? module.gcp_network[0].private_ip_range : null
-  labels              = local.gcp_labels
+  environment      = var.environment
+  project_name     = var.project_name
+  project_id       = var.gcp_project_id
+  region           = var.gcp_region
+  network_id       = one(module.gcp_network[*].network_id)
+  private_ip_range = one(module.gcp_network[*].private_ip_range)
+  labels           = local.gcp_labels
 
-  depends_on = [module.gcp_network]
-}
-
-module "gcp_observability" {
-  count  = var.enable_observability ? 1 : 0
-  source = "./gcp/observability"
-
-  environment  = var.environment
-  project_name = var.project_name
-  project_id   = var.gcp_project_id
-  region       = var.gcp_region
-  labels       = local.gcp_labels
+  depends_on = [google_project_service.this]
 }
 
 module "gcp_kubernetes" {
@@ -311,11 +316,11 @@ module "gcp_kubernetes" {
   project_name = var.project_name
   project_id   = var.gcp_project_id
   region       = var.gcp_region
-  network_name = var.enable_network ? module.gcp_network[0].network_name : null
-  subnet_name  = var.enable_network ? module.gcp_network[0].subnet_names[0] : null
+  network_name = one(module.gcp_network[*].network_name)
+  subnet_name  = one(module.gcp_network[*].subnet_names[0])
   labels       = local.gcp_labels
 
-  depends_on = [module.gcp_network]
+  depends_on = [google_project_service.this]
 }
 
 module "gcp_serverless" {
@@ -327,5 +332,20 @@ module "gcp_serverless" {
   project_id   = var.gcp_project_id
   region       = var.gcp_region
   labels       = local.gcp_labels
+
+  depends_on = [google_project_service.this]
+}
+
+module "gcp_observability" {
+  count  = var.enable_observability ? 1 : 0
+  source = "./gcp/observability"
+
+  environment  = var.environment
+  project_name = var.project_name
+  project_id   = var.gcp_project_id
+  region       = var.gcp_region
+  labels       = local.gcp_labels
+
+  depends_on = [google_project_service.this]
 }
 {%- endif %}

@@ -1,508 +1,245 @@
-# -----------------------------------------------------------------------------
-# GCP Database Module - Variables
-# -----------------------------------------------------------------------------
-
-# -----------------------------------------------------------------------------
-# Common Variables
-# -----------------------------------------------------------------------------
-
 variable "project_name" {
-  description = "Project name for resource naming"
+  description = "Project name used as a prefix for resource names."
   type        = string
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9-]{0,62}$", var.project_name))
+    error_message = "project_name must start with a lowercase letter and contain only lowercase letters, digits and hyphens (max 63 characters)."
+  }
+}
+
+variable "environment" {
+  description = "Environment name (for example dev, staging, prod)."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9]{0,7}$", var.environment))
+    error_message = "environment must be 1-8 lowercase letters or digits and start with a letter."
+  }
 }
 
 variable "project_id" {
-  description = "GCP project ID"
+  description = "ID of the Google Cloud project that owns the resources."
   type        = string
 
   validation {
     condition     = can(regex("^[a-z][a-z0-9-]{4,28}[a-z0-9]$", var.project_id))
-    error_message = "Project ID must be 6-30 characters, start with a letter, and contain only lowercase letters, numbers, and hyphens."
+    error_message = "project_id must be a valid Google Cloud project ID (6-30 lowercase letters, digits or hyphens)."
   }
 }
 
 variable "region" {
-  description = "GCP region for resources"
-  type        = string
-  default     = "us-central1"
-}
-
-variable "environment" {
-  description = "Environment name (e.g., dev, staging, prod)"
-  type        = string
-
-  validation {
-    condition     = contains(["dev", "staging", "prod", "test", "uat"], var.environment)
-    error_message = "Environment must be one of: dev, staging, prod, test, uat."
-  }
-}
-
-# -----------------------------------------------------------------------------
-# Network Variables
-# -----------------------------------------------------------------------------
-
-variable "network_self_link" {
-  description = "Self link of the VPC network for private IP connectivity"
+  description = "Google Cloud region for regional resources."
   type        = string
 }
 
-variable "enable_private_ip" {
-  description = "Enable private IP for Cloud SQL instance"
-  type        = bool
-  default     = true
+variable "labels" {
+  description = "Labels applied to every resource that supports them."
+  type        = map(string)
+  default     = {}
+  nullable    = false
 }
 
-variable "enable_public_ip" {
-  description = "Enable public IP for Cloud SQL instance (not recommended for production)"
-  type        = bool
-  default     = false
+variable "network_id" {
+  description = "ID of the VPC (projects/<project>/global/networks/<name>) the database is reachable from. Null uses the project's default network."
+  type        = string
+  default     = null
+}
+
+variable "private_ip_range" {
+  description = "Name of an allocated range that is already peered with Google managed services on the VPC. Null makes the module reserve and peer its own range."
+  type        = string
+  default     = null
 }
 
 variable "private_ip_prefix_length" {
-  description = "Prefix length for private IP range (e.g., 16 for /16 CIDR)"
+  description = "Prefix length of the range reserved when private_ip_range is null."
   type        = number
-  default     = 16
-}
-
-variable "authorized_networks" {
-  description = "List of authorized networks for public IP access"
-  type = list(object({
-    name = string
-    cidr = string
-  }))
-  default = []
-}
-
-variable "require_ssl" {
-  description = "Require SSL connections to the database"
-  type        = bool
-  default     = true
-}
-
-variable "enable_private_path_for_google_cloud_services" {
-  description = "Enable private path for Google Cloud services"
-  type        = bool
-  default     = true
-}
-
-# -----------------------------------------------------------------------------
-# Cloud SQL Instance Variables
-# -----------------------------------------------------------------------------
-
-variable "database_version" {
-  description = "Database version (POSTGRES_15, POSTGRES_14, MYSQL_8_0, MYSQL_5_7)"
-  type        = string
-  default     = "POSTGRES_15"
+  default     = 20
 
   validation {
-    condition     = can(regex("^(POSTGRES_1[1-6]|MYSQL_[58]_[07])$", var.database_version))
-    error_message = "Database version must be a valid Cloud SQL version (e.g., POSTGRES_15, MYSQL_8_0)."
+    condition     = var.private_ip_prefix_length >= 16 && var.private_ip_prefix_length <= 24
+    error_message = "private_ip_prefix_length must be between 16 and 24."
   }
 }
 
-variable "tier" {
-  description = "Machine tier for the Cloud SQL instance (e.g., db-f1-micro, db-g1-small, db-custom-2-4096)"
+variable "database_version" {
+  description = "Cloud SQL engine and major version, PostgreSQL or MySQL."
   type        = string
-  default     = "db-f1-micro"
+  default     = "POSTGRES_17"
+
+  validation {
+    condition     = can(regex("^(POSTGRES_(1[4-9]|[2-9][0-9])|MYSQL_8_[04])$", var.database_version))
+    error_message = "database_version must be POSTGRES_14 or newer, MYSQL_8_0 or MYSQL_8_4."
+  }
 }
 
 variable "edition" {
-  description = "Cloud SQL edition (ENTERPRISE or ENTERPRISE_PLUS)"
+  description = "Cloud SQL edition: ENTERPRISE or ENTERPRISE_PLUS. The tier must belong to the edition."
   type        = string
   default     = "ENTERPRISE"
 
   validation {
     condition     = contains(["ENTERPRISE", "ENTERPRISE_PLUS"], var.edition)
-    error_message = "Edition must be ENTERPRISE or ENTERPRISE_PLUS."
+    error_message = "edition must be ENTERPRISE or ENTERPRISE_PLUS."
   }
 }
 
-variable "availability_type" {
-  description = "Availability type (ZONAL or REGIONAL for high availability)"
+variable "tier" {
+  description = "Machine tier of the instance (db-custom-<vCPUs>-<memory MB> for ENTERPRISE, db-perf-optimized-N-<size> for ENTERPRISE_PLUS)."
   type        = string
-  default     = "ZONAL"
-
-  validation {
-    condition     = contains(["ZONAL", "REGIONAL"], var.availability_type)
-    error_message = "Availability type must be ZONAL or REGIONAL."
-  }
+  default     = "db-custom-1-3840"
 }
 
-variable "disk_size" {
-  description = "Disk size in GB"
-  type        = number
-  default     = 10
-
-  validation {
-    condition     = var.disk_size >= 10 && var.disk_size <= 65536
-    error_message = "Disk size must be between 10 and 65536 GB."
-  }
-}
-
-variable "disk_type" {
-  description = "Disk type (PD_SSD or PD_HDD)"
-  type        = string
-  default     = "PD_SSD"
-
-  validation {
-    condition     = contains(["PD_SSD", "PD_HDD"], var.disk_type)
-    error_message = "Disk type must be PD_SSD or PD_HDD."
-  }
-}
-
-variable "disk_autoresize" {
-  description = "Enable automatic disk size increase"
+variable "high_availability" {
+  description = "Run a standby in a second zone with automatic failover."
   type        = bool
-  default     = true
+  default     = false
 }
 
-variable "activation_policy" {
-  description = "Activation policy (ALWAYS, NEVER, ON_DEMAND)"
-  type        = string
-  default     = "ALWAYS"
+variable "disk_size_gb" {
+  description = "Initial size of the data disk in GB. The disk grows automatically."
+  type        = number
+  default     = 20
 
   validation {
-    condition     = contains(["ALWAYS", "NEVER", "ON_DEMAND"], var.activation_policy)
-    error_message = "Activation policy must be ALWAYS, NEVER, or ON_DEMAND."
+    condition     = var.disk_size_gb >= 10
+    error_message = "disk_size_gb must be at least 10."
   }
+}
+
+variable "kms_key_id" {
+  description = "ID of a Cloud KMS key in region that encrypts the instance and the Redis cache. The Cloud SQL and Memorystore service agents must be allowed to use it. Null uses Google-managed encryption."
+  type        = string
+  default     = null
 }
 
 variable "deletion_protection" {
-  description = "Enable deletion protection for the instance"
+  description = "Protect the instance against deletion, in Terraform and in the Cloud SQL API."
   type        = bool
   default     = true
 }
 
-# -----------------------------------------------------------------------------
-# Database and User Variables
-# -----------------------------------------------------------------------------
-
 variable "database_name" {
-  description = "Name of the database to create"
+  description = "Name of the application database."
   type        = string
-  default     = "appdb"
+  default     = "app"
 
   validation {
-    condition     = can(regex("^[a-z][a-z0-9_]*$", var.database_name))
-    error_message = "Database name must start with a letter and contain only lowercase letters, numbers, and underscores."
-  }
-}
-
-variable "database_deletion_policy" {
-  description = "Deletion policy for the database (DELETE or ABANDON)"
-  type        = string
-  default     = "DELETE"
-
-  validation {
-    condition     = contains(["DELETE", "ABANDON"], var.database_deletion_policy)
-    error_message = "Database deletion policy must be DELETE or ABANDON."
+    condition     = can(regex("^[a-z_][a-z0-9_]{0,62}$", var.database_name))
+    error_message = "database_name must start with a lowercase letter or underscore and contain only lowercase letters, digits and underscores."
   }
 }
 
 variable "user_name" {
-  description = "Database user name"
+  description = "Name of the application database user. Its generated password is stored in Secret Manager."
   type        = string
-  default     = "dbadmin"
+  default     = "app"
 
   validation {
-    condition     = !contains(["postgres", "root", "admin", "cloudsqlsuperuser"], lower(var.user_name))
-    error_message = "User name cannot be a reserved name (postgres, root, admin, cloudsqlsuperuser)."
+    condition     = can(regex("^[a-z_][a-z0-9_]{0,30}$", var.user_name)) && !contains(["postgres", "root"], var.user_name)
+    error_message = "user_name must be a lowercase identifier other than postgres or root."
   }
 }
 
-variable "user_deletion_policy" {
-  description = "Deletion policy for the user (DELETE or ABANDON)"
-  type        = string
-  default     = "DELETE"
-
-  validation {
-    condition     = contains(["DELETE", "ABANDON"], var.user_deletion_policy)
-    error_message = "User deletion policy must be DELETE or ABANDON."
-  }
+variable "database_flags" {
+  description = "Database flags merged over the module's hardening defaults (connection and lock logging for PostgreSQL, local_infile off for MySQL)."
+  type        = map(string)
+  default     = {}
+  nullable    = false
 }
-
-# -----------------------------------------------------------------------------
-# Backup Configuration Variables
-# -----------------------------------------------------------------------------
 
 variable "backup_enabled" {
-  description = "Enable automated backups"
+  description = "Take daily backups and keep transaction logs for point-in-time recovery."
   type        = bool
   default     = true
 }
 
 variable "backup_start_time" {
-  description = "Backup start time in HH:MM format (UTC)"
+  description = "Start of the daily backup window in UTC, HH:MM."
   type        = string
   default     = "03:00"
 
   validation {
     condition     = can(regex("^([01][0-9]|2[0-3]):[0-5][0-9]$", var.backup_start_time))
-    error_message = "Backup start time must be in HH:MM format."
-  }
-}
-
-variable "backup_location" {
-  description = "Location for storing backups (region or multi-region)"
-  type        = string
-  default     = null
-}
-
-variable "point_in_time_recovery_enabled" {
-  description = "Enable point-in-time recovery (PostgreSQL only)"
-  type        = bool
-  default     = true
-}
-
-variable "transaction_log_retention_days" {
-  description = "Number of days to retain transaction logs (1-7)"
-  type        = number
-  default     = 7
-
-  validation {
-    condition     = var.transaction_log_retention_days >= 1 && var.transaction_log_retention_days <= 7
-    error_message = "Transaction log retention days must be between 1 and 7."
+    error_message = "backup_start_time must use the 24-hour HH:MM format."
   }
 }
 
 variable "retained_backups" {
-  description = "Number of backups to retain"
+  description = "Number of daily backups to keep."
   type        = number
   default     = 7
 
   validation {
     condition     = var.retained_backups >= 1 && var.retained_backups <= 365
-    error_message = "Retained backups must be between 1 and 365."
+    error_message = "retained_backups must be between 1 and 365."
   }
 }
 
-# -----------------------------------------------------------------------------
-# Maintenance Window Variables
-# -----------------------------------------------------------------------------
-
 variable "maintenance_window_day" {
-  description = "Day of week for maintenance window (1=Monday, 7=Sunday)"
+  description = "Day of the week for maintenance, 1 (Monday) to 7 (Sunday)."
   type        = number
   default     = 7
 
   validation {
-    condition     = var.maintenance_window_day >= 1 && var.maintenance_window_day <= 7
-    error_message = "Maintenance window day must be between 1 (Monday) and 7 (Sunday)."
+    condition     = contains([1, 2, 3, 4, 5, 6, 7], var.maintenance_window_day)
+    error_message = "maintenance_window_day must be between 1 and 7."
   }
 }
 
 variable "maintenance_window_hour" {
-  description = "Hour of day for maintenance window (0-23)"
+  description = "Hour of the day in UTC at which maintenance starts, 0 to 23."
   type        = number
   default     = 4
 
   validation {
-    condition     = var.maintenance_window_hour >= 0 && var.maintenance_window_hour <= 23
-    error_message = "Maintenance window hour must be between 0 and 23."
+    condition     = var.maintenance_window_hour >= 0 && var.maintenance_window_hour <= 23 && floor(var.maintenance_window_hour) == var.maintenance_window_hour
+    error_message = "maintenance_window_hour must be a whole number between 0 and 23."
   }
 }
-
-variable "maintenance_window_update_track" {
-  description = "Maintenance update track (stable or canary)"
-  type        = string
-  default     = "stable"
-
-  validation {
-    condition     = contains(["stable", "canary"], var.maintenance_window_update_track)
-    error_message = "Maintenance update track must be stable or canary."
-  }
-}
-
-variable "deny_maintenance_period" {
-  description = "Deny maintenance period configuration"
-  type = object({
-    start_date = string
-    end_date   = string
-    time       = string
-  })
-  default = null
-}
-
-# -----------------------------------------------------------------------------
-# Query Insights Variables
-# -----------------------------------------------------------------------------
 
 variable "query_insights_enabled" {
-  description = "Enable Query Insights"
+  description = "Collect query performance data with Query Insights."
   type        = bool
   default     = true
 }
-
-variable "query_string_length" {
-  description = "Maximum query string length stored in bytes (256-4500)"
-  type        = number
-  default     = 1024
-
-  validation {
-    condition     = var.query_string_length >= 256 && var.query_string_length <= 4500
-    error_message = "Query string length must be between 256 and 4500."
-  }
-}
-
-variable "record_application_tags" {
-  description = "Record application tags in Query Insights"
-  type        = bool
-  default     = true
-}
-
-variable "record_client_address" {
-  description = "Record client address in Query Insights"
-  type        = bool
-  default     = true
-}
-
-variable "query_plans_per_minute" {
-  description = "Number of query plans to capture per minute (0-20)"
-  type        = number
-  default     = 5
-
-  validation {
-    condition     = var.query_plans_per_minute >= 0 && var.query_plans_per_minute <= 20
-    error_message = "Query plans per minute must be between 0 and 20."
-  }
-}
-
-# -----------------------------------------------------------------------------
-# Database Flags Variables
-# -----------------------------------------------------------------------------
-
-variable "database_flags" {
-  description = "List of database flags to set"
-  type = list(object({
-    name  = string
-    value = string
-  }))
-  default = []
-}
-
-# -----------------------------------------------------------------------------
-# Redis (Memorystore) Variables
-# -----------------------------------------------------------------------------
 
 variable "enable_redis" {
-  description = "Enable Memorystore Redis"
+  description = "Create a Memorystore for Redis instance with AUTH and in-transit encryption."
   type        = bool
   default     = false
 }
 
 variable "redis_tier" {
-  description = "Redis tier (BASIC or STANDARD_HA)"
+  description = "Memorystore tier: BASIC (single node) or STANDARD_HA (replicated with failover)."
   type        = string
   default     = "BASIC"
 
   validation {
     condition     = contains(["BASIC", "STANDARD_HA"], var.redis_tier)
-    error_message = "Redis tier must be BASIC or STANDARD_HA."
+    error_message = "redis_tier must be BASIC or STANDARD_HA."
   }
 }
 
 variable "redis_memory_size_gb" {
-  description = "Redis memory size in GB"
+  description = "Memory of the Redis instance in GB."
   type        = number
   default     = 1
 
   validation {
     condition     = var.redis_memory_size_gb >= 1 && var.redis_memory_size_gb <= 300
-    error_message = "Redis memory size must be between 1 and 300 GB."
+    error_message = "redis_memory_size_gb must be between 1 and 300."
   }
 }
 
 variable "redis_version" {
-  description = "Redis version (REDIS_7_0, REDIS_6_X, REDIS_5_0)"
-  type        = string
-  default     = "REDIS_7_0"
-
-  validation {
-    condition     = can(regex("^REDIS_[567]_[0X]$", var.redis_version))
-    error_message = "Redis version must be a valid version (e.g., REDIS_7_0, REDIS_6_X)."
-  }
-}
-
-variable "redis_connect_mode" {
-  description = "Redis connection mode (DIRECT_PEERING or PRIVATE_SERVICE_ACCESS)"
-  type        = string
-  default     = "DIRECT_PEERING"
-
-  validation {
-    condition     = contains(["DIRECT_PEERING", "PRIVATE_SERVICE_ACCESS"], var.redis_connect_mode)
-    error_message = "Redis connect mode must be DIRECT_PEERING or PRIVATE_SERVICE_ACCESS."
-  }
-}
-
-variable "redis_reserved_ip_range" {
-  description = "Reserved IP range for Redis (CIDR notation)"
-  type        = string
-  default     = null
-}
-
-variable "redis_configs" {
-  description = "Redis configuration parameters"
-  type        = map(string)
-  default = {
-    maxmemory-policy = "volatile-lru"
-  }
-}
-
-variable "redis_auth_enabled" {
-  description = "Enable Redis AUTH"
-  type        = bool
-  default     = true
-}
-
-variable "redis_transit_encryption_mode" {
-  description = "Redis transit encryption mode (DISABLED or SERVER_AUTHENTICATION)"
-  type        = string
-  default     = "SERVER_AUTHENTICATION"
-
-  validation {
-    condition     = contains(["DISABLED", "SERVER_AUTHENTICATION"], var.redis_transit_encryption_mode)
-    error_message = "Redis transit encryption mode must be DISABLED or SERVER_AUTHENTICATION."
-  }
-}
-
-variable "redis_maintenance_policy" {
-  description = "Redis maintenance policy configuration"
-  type = object({
-    day          = string
-    start_hour   = number
-    start_minute = number
-  })
-  default = null
-}
-
-variable "redis_persistence_mode" {
-  description = "Redis persistence mode (DISABLED or RDB)"
+  description = "Redis version such as REDIS_7_2. Null uses the current Memorystore default."
   type        = string
   default     = null
 
   validation {
-    condition     = var.redis_persistence_mode == null || contains(["DISABLED", "RDB"], var.redis_persistence_mode)
-    error_message = "Redis persistence mode must be DISABLED or RDB."
+    condition     = var.redis_version == null || can(regex("^REDIS_[0-9]+_[0-9X]+$", var.redis_version))
+    error_message = "redis_version must look like REDIS_7_2."
   }
-}
-
-variable "redis_rdb_snapshot_period" {
-  description = "Redis RDB snapshot period (ONE_HOUR, SIX_HOURS, TWELVE_HOURS, TWENTY_FOUR_HOURS)"
-  type        = string
-  default     = "TWELVE_HOURS"
-
-  validation {
-    condition     = contains(["ONE_HOUR", "SIX_HOURS", "TWELVE_HOURS", "TWENTY_FOUR_HOURS"], var.redis_rdb_snapshot_period)
-    error_message = "Redis RDB snapshot period must be ONE_HOUR, SIX_HOURS, TWELVE_HOURS, or TWENTY_FOUR_HOURS."
-  }
-}
-
-# -----------------------------------------------------------------------------
-# Labels
-# -----------------------------------------------------------------------------
-
-variable "labels" {
-  description = "Labels to apply to all resources"
-  type        = map(string)
-  default     = {}
 }

@@ -1,6 +1,8 @@
-site_name: ${{ values.name }}
-docs_dir: docs
-plugins:
-  - techdocs-core
+site_name: ${{ values.name | dump }}
+site_description: ${{ values.description | dump }}
+
 nav:
   - Home: index.md
+
+plugins:
+  - techdocs-core

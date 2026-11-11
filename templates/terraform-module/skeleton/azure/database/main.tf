@@ -1,79 +1,45 @@
 # -----------------------------------------------------------------------------
 # Azure Database Module - Main Resources
-# PostgreSQL Flexible Server with Private Endpoint and Optional Redis Cache
+# PostgreSQL Flexible Server with VNet integration and optional Azure Managed Redis
 # -----------------------------------------------------------------------------
 
-terraform {
-  required_version = ">= 1.5"
-  required_providers {
-    azurerm = {
-      source  = "hashicorp/azurerm"
-      version = ">= 4.0"
-    }
-    random = {
-      source  = "hashicorp/random"
-      version = ">= 3.0"
-    }
-  }
+data "azurerm_client_config" "current" {}
+
+resource "random_id" "database" {
+  byte_length = 4
 }
-
-# -----------------------------------------------------------------------------
-# Locals
-# -----------------------------------------------------------------------------
 
 locals {
   name_prefix = "${var.project_name}-${var.environment}"
 
-  postgresql_server_name = "${local.name_prefix}-psql"
-  private_endpoint_name  = "${local.name_prefix}-psql-pe"
-  redis_name             = "${local.name_prefix}-redis"
+  # Server and cache names are global DNS labels of at most 63 characters.
+  short_prefix           = trimsuffix(substr(local.name_prefix, 0, 46), "-")
+  postgresql_server_name = "${local.short_prefix}-psql-${random_id.database.hex}"
+  redis_name             = "${local.short_prefix}-redis-${random_id.database.hex}"
 
-  # Private DNS zone name for PostgreSQL Flexible Server
-  postgresql_private_dns_zone_name = "${var.project_name}${var.environment}.postgres.database.azure.com"
+  # The zone must end in postgres.database.azure.com and differ from the server name.
+  postgresql_private_dns_zone_name = "${local.name_prefix}.private.postgres.database.azure.com"
+
+  # The virtual network that owns the delegated subnet.
+  vnet_id = var.vnet_id != null ? var.vnet_id : regex("^(.+)/subnets/[^/]+$", var.subnet_id)[0]
+
+  tenant_id = var.tenant_id != null ? var.tenant_id : data.azurerm_client_config.current.tenant_id
+
+  store_redis_key = var.enable_redis && var.redis_access_keys_enabled && var.store_credentials_in_key_vault
 }
 
 # -----------------------------------------------------------------------------
-# Random Password for PostgreSQL Admin
+# PostgreSQL administrator password
 # -----------------------------------------------------------------------------
 
 resource "random_password" "postgresql_admin" {
   length           = 32
   special          = true
-  override_special = "!#$%&*()-_=+[]{}<>:?"
+  override_special = "!#*()-_=+[]<>:?"
   min_lower        = 4
   min_upper        = 4
   min_numeric      = 4
   min_special      = 4
-}
-
-# -----------------------------------------------------------------------------
-# Store Password in Key Vault
-# -----------------------------------------------------------------------------
-
-resource "azurerm_key_vault_secret" "postgresql_admin_password" {
-  name         = "${local.name_prefix}-psql-admin-password"
-  value        = random_password.postgresql_admin.result
-  key_vault_id = var.key_vault_id
-
-  content_type = "PostgreSQL Admin Password"
-
-  tags = merge(var.tags, {
-    Purpose = "PostgreSQL Admin Password"
-  })
-}
-
-resource "azurerm_key_vault_secret" "postgresql_connection_string" {
-  name         = "${local.name_prefix}-psql-connection-string"
-  value        = "postgresql://${var.admin_username}:${random_password.postgresql_admin.result}@${azurerm_postgresql_flexible_server.main.fqdn}:5432/${var.database_name}?sslmode=require"
-  key_vault_id = var.key_vault_id
-
-  content_type = "PostgreSQL Connection String"
-
-  tags = merge(var.tags, {
-    Purpose = "PostgreSQL Connection String"
-  })
-
-  depends_on = [azurerm_postgresql_flexible_server.main]
 }
 
 # -----------------------------------------------------------------------------
@@ -90,7 +56,7 @@ resource "azurerm_private_dns_zone" "postgresql" {
 resource "azurerm_private_dns_zone_virtual_network_link" "postgresql" {
   name                  = "${local.name_prefix}-psql-dns-link"
   private_dns_zone_name = azurerm_private_dns_zone.postgresql.name
-  virtual_network_id    = var.vnet_id
+  virtual_network_id    = local.vnet_id
   resource_group_name   = var.resource_group_name
   registration_enabled  = false
 
@@ -106,49 +72,43 @@ resource "azurerm_postgresql_flexible_server" "main" {
   resource_group_name = var.resource_group_name
   location            = var.location
 
-  # Version and SKU
   version  = var.postgresql_version
   sku_name = var.sku_name
 
-  # Storage configuration
   storage_mb        = var.storage_mb
   auto_grow_enabled = var.auto_grow_enabled
 
-  # Admin credentials
-  administrator_login    = var.admin_username
-  administrator_password = random_password.postgresql_admin.result
+  administrator_login    = var.enable_password_auth ? var.admin_username : null
+  administrator_password = var.enable_password_auth ? random_password.postgresql_admin.result : null
 
-  # Network configuration - use delegated subnet for VNet integration
+  # The server lives in the delegated subnet and has no public endpoint.
   delegated_subnet_id           = var.subnet_id
   private_dns_zone_id           = azurerm_private_dns_zone.postgresql.id
   public_network_access_enabled = false
 
-  # Backup configuration
   backup_retention_days        = var.backup_retention_days
   geo_redundant_backup_enabled = var.geo_redundant_backup
 
-  # Availability zone
   zone = var.availability_zone
 
-  # Authentication block
   authentication {
     active_directory_auth_enabled = var.enable_aad_auth
     password_auth_enabled         = var.enable_password_auth
-    tenant_id                     = var.enable_aad_auth ? var.tenant_id : null
+    tenant_id                     = var.enable_aad_auth ? local.tenant_id : null
   }
 
-  # High Availability (optional)
   dynamic "high_availability" {
     for_each = var.enable_high_availability ? [1] : []
+
     content {
       mode                      = var.high_availability_mode
       standby_availability_zone = var.standby_availability_zone
     }
   }
 
-  # Maintenance window
   dynamic "maintenance_window" {
     for_each = var.maintenance_window != null ? [var.maintenance_window] : []
+
     content {
       day_of_week  = maintenance_window.value.day_of_week
       start_hour   = maintenance_window.value.start_hour
@@ -157,24 +117,47 @@ resource "azurerm_postgresql_flexible_server" "main" {
   }
 
   tags = merge(var.tags, {
-    Name = local.postgresql_server_name
+    Name = "${local.name_prefix}-psql"
   })
 
   lifecycle {
+    # Azure swaps the primary and standby zones after a failover.
     ignore_changes = [
       zone,
       high_availability[0].standby_availability_zone,
-      administrator_password
     ]
+
+    precondition {
+      condition     = var.enable_password_auth || var.enable_aad_auth
+      error_message = "At least one of enable_password_auth and enable_aad_auth must be true."
+    }
+    precondition {
+      condition     = !var.enable_high_availability || !startswith(var.sku_name, "B_")
+      error_message = "High availability is not available on Burstable SKUs: use a GP_ or MO_ sku_name."
+    }
+    precondition {
+      condition     = !var.enable_aad_auth || var.aad_administrator != null
+      error_message = "aad_administrator is required when enable_aad_auth is true."
+    }
   }
 
-  depends_on = [
-    azurerm_private_dns_zone_virtual_network_link.postgresql
-  ]
+  # The server resolves its own name through the linked zone while provisioning.
+  depends_on = [azurerm_private_dns_zone_virtual_network_link.postgresql]
+}
+
+resource "azurerm_postgresql_flexible_server_active_directory_administrator" "main" {
+  count = var.enable_aad_auth ? 1 : 0
+
+  server_name         = azurerm_postgresql_flexible_server.main.name
+  resource_group_name = var.resource_group_name
+  tenant_id           = local.tenant_id
+  object_id           = var.aad_administrator.object_id
+  principal_name      = var.aad_administrator.principal_name
+  principal_type      = var.aad_administrator.principal_type
 }
 
 # -----------------------------------------------------------------------------
-# PostgreSQL Database
+# PostgreSQL Database and Server Parameters
 # -----------------------------------------------------------------------------
 
 resource "azurerm_postgresql_flexible_server_database" "main" {
@@ -183,33 +166,6 @@ resource "azurerm_postgresql_flexible_server_database" "main" {
   collation = var.database_collation
   charset   = var.database_charset
 }
-
-# -----------------------------------------------------------------------------
-# PostgreSQL Firewall Rules
-# -----------------------------------------------------------------------------
-
-resource "azurerm_postgresql_flexible_server_firewall_rule" "rules" {
-  for_each = var.firewall_rules
-
-  name             = each.key
-  server_id        = azurerm_postgresql_flexible_server.main.id
-  start_ip_address = each.value.start_ip_address
-  end_ip_address   = each.value.end_ip_address
-}
-
-# Allow Azure services (optional)
-resource "azurerm_postgresql_flexible_server_firewall_rule" "azure_services" {
-  count = var.allow_azure_services ? 1 : 0
-
-  name             = "AllowAllAzureServicesAndResourcesWithinAzureIps"
-  server_id        = azurerm_postgresql_flexible_server.main.id
-  start_ip_address = "0.0.0.0"
-  end_ip_address   = "0.0.0.0"
-}
-
-# -----------------------------------------------------------------------------
-# PostgreSQL Server Configurations
-# -----------------------------------------------------------------------------
 
 resource "azurerm_postgresql_flexible_server_configuration" "configs" {
   for_each = var.postgresql_configurations
@@ -220,140 +176,176 @@ resource "azurerm_postgresql_flexible_server_configuration" "configs" {
 }
 
 # -----------------------------------------------------------------------------
-# Private Endpoint for PostgreSQL (for private connectivity)
-# Note: When using delegated_subnet_id, private endpoint is not needed.
-# This is provided for scenarios where you use public access with private endpoint
+# Credentials in Key Vault (Optional)
 # -----------------------------------------------------------------------------
 
-resource "azurerm_private_endpoint" "postgresql" {
-  count = var.create_private_endpoint ? 1 : 0
+resource "azurerm_key_vault_secret" "postgresql_admin_password" {
+  count = var.store_credentials_in_key_vault && var.enable_password_auth ? 1 : 0
 
-  name                = local.private_endpoint_name
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  subnet_id           = var.private_endpoint_subnet_id
+  name            = "${local.name_prefix}-psql-admin-password"
+  value           = random_password.postgresql_admin.result
+  key_vault_id    = var.key_vault_id
+  content_type    = "text/plain"
+  expiration_date = var.secret_expiration_date
 
-  private_service_connection {
-    name                           = "${local.name_prefix}-psql-psc"
-    private_connection_resource_id = azurerm_postgresql_flexible_server.main.id
-    subresource_names              = ["postgresqlServer"]
-    is_manual_connection           = false
+  tags = merge(var.tags, {
+    Purpose = "PostgreSQL administrator password"
+  })
+
+  lifecycle {
+    precondition {
+      condition     = var.key_vault_id != null
+      error_message = "key_vault_id is required when store_credentials_in_key_vault is true."
+    }
   }
+}
 
-  private_dns_zone_group {
-    name                 = "postgresql-dns-group"
-    private_dns_zone_ids = [azurerm_private_dns_zone.postgresql.id]
+resource "azurerm_key_vault_secret" "postgresql_connection_string" {
+  count = var.store_credentials_in_key_vault && var.enable_password_auth ? 1 : 0
+
+  name            = "${local.name_prefix}-psql-connection-string"
+  value           = "postgresql://${var.admin_username}:${urlencode(random_password.postgresql_admin.result)}@${azurerm_postgresql_flexible_server.main.fqdn}:5432/${var.database_name}?sslmode=require"
+  key_vault_id    = var.key_vault_id
+  content_type    = "text/plain"
+  expiration_date = var.secret_expiration_date
+
+  tags = merge(var.tags, {
+    Purpose = "PostgreSQL connection string"
+  })
+
+  lifecycle {
+    precondition {
+      condition     = var.key_vault_id != null
+      error_message = "key_vault_id is required when store_credentials_in_key_vault is true."
+    }
   }
-
-  tags = var.tags
 }
 
 # -----------------------------------------------------------------------------
-# Azure Redis Cache (Optional)
+# Azure Managed Redis (Optional)
 # -----------------------------------------------------------------------------
 
-resource "random_password" "redis" {
-  count = var.enable_redis ? 1 : 0
-
-  length      = 32
-  special     = false
-  min_lower   = 4
-  min_upper   = 4
-  min_numeric = 4
-}
-
-resource "azurerm_redis_cache" "main" {
+resource "azurerm_managed_redis" "main" {
   count = var.enable_redis ? 1 : 0
 
   name                = local.redis_name
   location            = var.location
   resource_group_name = var.resource_group_name
-  capacity            = var.redis_capacity
-  family              = var.redis_family
   sku_name            = var.redis_sku
-  enable_non_ssl_port = false
-  minimum_tls_version = "1.2"
 
-  # Redis configuration
-  redis_configuration {
-    aof_backup_enabled              = var.redis_sku == "Premium" ? var.redis_aof_backup_enabled : null
-    aof_storage_connection_string_0 = var.redis_sku == "Premium" && var.redis_aof_backup_enabled ? var.redis_aof_storage_connection_string : null
-    enable_authentication           = true
-    maxmemory_policy                = var.redis_maxmemory_policy
-    maxfragmentationmemory_reserved = var.redis_sku == "Premium" || var.redis_sku == "Standard" ? var.redis_maxfragmentationmemory_reserved : null
-    maxmemory_reserved              = var.redis_sku == "Premium" || var.redis_sku == "Standard" ? var.redis_maxmemory_reserved : null
-  }
+  high_availability_enabled = var.redis_high_availability_enabled
+  public_network_access     = "Disabled"
 
-  # Private endpoint for Redis (Premium SKU only)
-  public_network_access_enabled = var.redis_sku == "Premium" ? false : true
-
-  # Patch schedule
-  dynamic "patch_schedule" {
-    for_each = var.redis_patch_schedule != null ? [var.redis_patch_schedule] : []
-    content {
-      day_of_week        = patch_schedule.value.day_of_week
-      start_hour_utc     = patch_schedule.value.start_hour_utc
-      maintenance_window = patch_schedule.value.maintenance_window
-    }
+  default_database {
+    # Clients authenticate with Microsoft Entra ID unless access keys are enabled.
+    access_keys_authentication_enabled = var.redis_access_keys_enabled
+    client_protocol                    = "Encrypted"
+    clustering_policy                  = var.redis_clustering_policy
+    eviction_policy                    = var.redis_eviction_policy
   }
 
   tags = merge(var.tags, {
-    Name = local.redis_name
+    Name = "${local.name_prefix}-redis"
   })
 }
 
-# Store Redis credentials in Key Vault
-resource "azurerm_key_vault_secret" "redis_primary_key" {
-  count = var.enable_redis ? 1 : 0
+resource "azurerm_private_dns_zone" "redis" {
+  count = var.enable_redis && var.create_redis_private_dns_zone ? 1 : 0
 
-  name         = "${local.name_prefix}-redis-primary-key"
-  value        = azurerm_redis_cache.main[0].primary_access_key
-  key_vault_id = var.key_vault_id
+  name                = "privatelink.redis.azure.net"
+  resource_group_name = var.resource_group_name
 
-  content_type = "Redis Primary Access Key"
-
-  tags = merge(var.tags, {
-    Purpose = "Redis Primary Access Key"
-  })
+  tags = var.tags
 }
 
-resource "azurerm_key_vault_secret" "redis_connection_string" {
-  count = var.enable_redis ? 1 : 0
+resource "azurerm_private_dns_zone_virtual_network_link" "redis" {
+  count = var.enable_redis && var.create_redis_private_dns_zone ? 1 : 0
 
-  name         = "${local.name_prefix}-redis-connection-string"
-  value        = azurerm_redis_cache.main[0].primary_connection_string
-  key_vault_id = var.key_vault_id
+  name                  = "${local.name_prefix}-redis-dns-link"
+  private_dns_zone_name = azurerm_private_dns_zone.redis[0].name
+  virtual_network_id    = local.vnet_id
+  resource_group_name   = var.resource_group_name
+  registration_enabled  = false
 
-  content_type = "Redis Connection String"
-
-  tags = merge(var.tags, {
-    Purpose = "Redis Connection String"
-  })
+  tags = var.tags
 }
 
-# Private Endpoint for Redis (Premium SKU only)
+# The cache is reachable only through this endpoint. It cannot share the
+# PostgreSQL subnet, because delegated subnets do not accept private endpoints.
 resource "azurerm_private_endpoint" "redis" {
-  count = var.enable_redis && var.redis_sku == "Premium" ? 1 : 0
+  count = var.enable_redis ? 1 : 0
 
   name                = "${local.name_prefix}-redis-pe"
   location            = var.location
   resource_group_name = var.resource_group_name
-  subnet_id           = var.private_endpoint_subnet_id != null ? var.private_endpoint_subnet_id : var.subnet_id
+  subnet_id           = var.private_endpoint_subnet_id
 
   private_service_connection {
     name                           = "${local.name_prefix}-redis-psc"
-    private_connection_resource_id = azurerm_redis_cache.main[0].id
-    subresource_names              = ["redisCache"]
+    private_connection_resource_id = azurerm_managed_redis.main[0].id
+    subresource_names              = ["redisEnterprise"]
     is_manual_connection           = false
   }
 
-  dynamic "private_dns_zone_group" {
-    for_each = var.redis_private_dns_zone_id != null ? [1] : []
-    content {
-      name                 = "redis-dns-group"
-      private_dns_zone_ids = [var.redis_private_dns_zone_id]
-    }
+  private_dns_zone_group {
+    name                 = "redis-dns-group"
+    private_dns_zone_ids = [var.create_redis_private_dns_zone ? azurerm_private_dns_zone.redis[0].id : var.redis_private_dns_zone_id]
   }
 
   tags = var.tags
+
+  lifecycle {
+    precondition {
+      condition     = var.private_endpoint_subnet_id != null
+      error_message = "private_endpoint_subnet_id is required when enable_redis is true (a subnet without delegation, for example the private subnet)."
+    }
+    precondition {
+      condition     = var.create_redis_private_dns_zone || var.redis_private_dns_zone_id != null
+      error_message = "redis_private_dns_zone_id is required when create_redis_private_dns_zone is false."
+    }
+  }
+
+  depends_on = [azurerm_private_dns_zone_virtual_network_link.redis]
+}
+
+resource "azurerm_key_vault_secret" "redis_primary_key" {
+  count = local.store_redis_key ? 1 : 0
+
+  name            = "${local.name_prefix}-redis-primary-key"
+  value           = azurerm_managed_redis.main[0].default_database[0].primary_access_key
+  key_vault_id    = var.key_vault_id
+  content_type    = "text/plain"
+  expiration_date = var.secret_expiration_date
+
+  tags = merge(var.tags, {
+    Purpose = "Redis primary access key"
+  })
+
+  lifecycle {
+    precondition {
+      condition     = var.key_vault_id != null
+      error_message = "key_vault_id is required when store_credentials_in_key_vault is true."
+    }
+  }
+}
+
+resource "azurerm_key_vault_secret" "redis_connection_string" {
+  count = local.store_redis_key ? 1 : 0
+
+  name            = "${local.name_prefix}-redis-connection-string"
+  value           = "rediss://:${urlencode(azurerm_managed_redis.main[0].default_database[0].primary_access_key)}@${azurerm_managed_redis.main[0].hostname}:${azurerm_managed_redis.main[0].default_database[0].port}"
+  key_vault_id    = var.key_vault_id
+  content_type    = "text/plain"
+  expiration_date = var.secret_expiration_date
+
+  tags = merge(var.tags, {
+    Purpose = "Redis connection string"
+  })
+
+  lifecycle {
+    precondition {
+      condition     = var.key_vault_id != null
+      error_message = "key_vault_id is required when store_credentials_in_key_vault is true."
+    }
+  }
 }

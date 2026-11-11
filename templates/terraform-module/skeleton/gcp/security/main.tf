@@ -1,70 +1,51 @@
-# -----------------------------------------------------------------------------
-# GCP Security Module - Main Resources
-# -----------------------------------------------------------------------------
-
-# -----------------------------------------------------------------------------
-# Data Sources
-# -----------------------------------------------------------------------------
-
-data "google_project" "current" {
-  project_id = var.project_id
-}
-
-data "google_client_config" "current" {}
-
-# -----------------------------------------------------------------------------
-# Local Variables
-# -----------------------------------------------------------------------------
-
 locals {
-  name_prefix = "${var.project_id}-${var.environment}"
+  # Resource names are limited to 63 characters and service account IDs to 30,
+  # so the project name is shortened before the environment is appended.
+  name_prefix = "${trimsuffix(substr(var.project_name, 0, 16), "-")}-${var.environment}"
 
-  default_labels = {
-    project     = var.project_id
+  labels = merge(var.labels, {
     environment = var.environment
     managed_by  = "terraform"
-  }
+  })
 
-  labels = merge(local.default_labels, var.labels)
+  service_account_member = "serviceAccount:${google_service_account.application.email}"
+
+  org_policy_parent = "projects/${var.project_id}"
 }
 
 # -----------------------------------------------------------------------------
-# KMS Key Ring
+# Customer-managed encryption key
 # -----------------------------------------------------------------------------
 
+# Key rings can never be deleted, so a suffix keeps the name free for a later re-creation.
+resource "random_id" "key_ring" {
+  byte_length = 4
+}
+
 resource "google_kms_key_ring" "main" {
-  name     = "${local.name_prefix}-keyring"
   project  = var.project_id
+  name     = "${local.name_prefix}-${random_id.key_ring.hex}"
   location = var.region
 }
 
-# -----------------------------------------------------------------------------
-# KMS Crypto Key with Rotation Schedule
-# -----------------------------------------------------------------------------
-
 resource "google_kms_crypto_key" "main" {
-  name     = "${local.name_prefix}-key"
-  key_ring = google_kms_key_ring.main.id
-  purpose  = "ENCRYPT_DECRYPT"
-
-  # Rotation period (default 90 days = 7776000 seconds)
+  name            = "${local.name_prefix}-key"
+  key_ring        = google_kms_key_ring.main.id
+  purpose         = "ENCRYPT_DECRYPT"
   rotation_period = var.kms_key_rotation_period
+  labels          = local.labels
 
   version_template {
-    algorithm        = var.kms_key_algorithm
+    algorithm        = "GOOGLE_SYMMETRIC_ENCRYPTION"
     protection_level = var.kms_key_protection_level
-  }
-
-  labels = local.labels
-
-  lifecycle {
-    prevent_destroy = false
   }
 }
 
-# -----------------------------------------------------------------------------
-# KMS Crypto Key IAM Members
-# -----------------------------------------------------------------------------
+resource "google_kms_crypto_key_iam_member" "application" {
+  crypto_key_id = google_kms_crypto_key.main.id
+  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+  member        = local.service_account_member
+}
 
 resource "google_kms_crypto_key_iam_member" "encrypter_decrypters" {
   for_each = toset(var.kms_encrypter_decrypters)
@@ -74,214 +55,85 @@ resource "google_kms_crypto_key_iam_member" "encrypter_decrypters" {
   member        = each.value
 }
 
-# Grant service account access to KMS key
-resource "google_kms_crypto_key_iam_member" "service_account_access" {
+# Cloud Storage encrypts buckets with its own service agent, which needs access to the key.
+data "google_storage_project_service_account" "main" {
+  count = var.grant_storage_service_agent ? 1 : 0
+
+  project = var.project_id
+}
+
+resource "google_kms_crypto_key_iam_member" "storage_service_agent" {
+  count = var.grant_storage_service_agent ? 1 : 0
+
   crypto_key_id = google_kms_crypto_key.main.id
   role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
-  member        = "serviceAccount:${google_service_account.application.email}"
+  member        = "serviceAccount:${data.google_storage_project_service_account.main[0].email_address}"
 }
 
 # -----------------------------------------------------------------------------
-# Service Account for Applications
+# Application service account
 # -----------------------------------------------------------------------------
 
 resource "google_service_account" "application" {
-  account_id   = "${local.name_prefix}-app-sa"
-  display_name = "Application Service Account for ${local.name_prefix}"
   project      = var.project_id
-  description  = "Managed by Terraform - Service account for application workloads"
+  account_id   = "${local.name_prefix}-app"
+  display_name = "${var.project_name} ${var.environment} application"
+  description  = "Identity for ${var.project_name} workloads in ${var.environment}"
 }
 
-# -----------------------------------------------------------------------------
-# Service Account IAM Roles
-# -----------------------------------------------------------------------------
-
-resource "google_project_iam_member" "service_account_roles" {
+resource "google_project_iam_member" "application" {
   for_each = toset(var.service_account_roles)
 
   project = var.project_id
   role    = each.value
-  member  = "serviceAccount:${google_service_account.application.email}"
+  member  = local.service_account_member
 }
 
 # -----------------------------------------------------------------------------
-# Secret Manager - Application Secrets
+# Secret Manager
 # -----------------------------------------------------------------------------
 
-resource "google_secret_manager_secret" "app_secrets" {
-  secret_id = "${local.name_prefix}-app-secrets"
+# Only the secret containers are managed here. Values are added as versions
+# outside Terraform so they never reach the state file.
+resource "google_secret_manager_secret" "main" {
+  for_each = toset(var.secret_names)
+
   project   = var.project_id
+  secret_id = "${local.name_prefix}-${each.value}"
+  labels    = local.labels
 
   replication {
-    auto {
-      customer_managed_encryption {
-        kms_key_name = google_kms_crypto_key.main.id
+    user_managed {
+      replicas {
+        location = var.region
       }
     }
   }
-
-  labels = local.labels
 }
 
-# Secret Version with Placeholder Values
-resource "google_secret_manager_secret_version" "app_secrets" {
-  secret      = google_secret_manager_secret.app_secrets.id
-  secret_data = jsonencode(var.secret_data)
+resource "google_secret_manager_secret_iam_member" "application" {
+  for_each = google_secret_manager_secret.main
 
-  lifecycle {
-    ignore_changes = [secret_data]
-  }
-}
-
-# -----------------------------------------------------------------------------
-# Secret Manager IAM - Access Control
-# -----------------------------------------------------------------------------
-
-# Grant service account access to secrets
-resource "google_secret_manager_secret_iam_member" "service_account_access" {
-  secret_id = google_secret_manager_secret.app_secrets.secret_id
   project   = var.project_id
+  secret_id = each.value.secret_id
   role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${google_service_account.application.email}"
+  member    = local.service_account_member
 }
 
-# Additional secret accessors
-resource "google_secret_manager_secret_iam_member" "secret_accessors" {
-  for_each = toset(var.secret_accessors)
-
-  secret_id = google_secret_manager_secret.app_secrets.secret_id
-  project   = var.project_id
-  role      = "roles/secretmanager.secretAccessor"
-  member    = each.value
-}
-
-# -----------------------------------------------------------------------------
-# Additional Secrets (Dynamic)
-# -----------------------------------------------------------------------------
-
-resource "google_secret_manager_secret" "additional" {
-  for_each = var.additional_secrets
-
-  secret_id = "${local.name_prefix}-${each.key}"
-  project   = var.project_id
-
-  replication {
-    auto {
-      customer_managed_encryption {
-        kms_key_name = google_kms_crypto_key.main.id
-      }
-    }
-  }
-
-  labels = merge(local.labels, each.value.labels)
-}
-
-resource "google_secret_manager_secret_version" "additional" {
-  for_each = var.additional_secrets
-
-  secret      = google_secret_manager_secret.additional[each.key].id
-  secret_data = each.value.secret_data
-
-  lifecycle {
-    ignore_changes = [secret_data]
-  }
-}
-
-resource "google_secret_manager_secret_iam_member" "additional_accessors" {
+resource "google_secret_manager_secret_iam_member" "accessors" {
   for_each = {
-    for pair in flatten([
-      for secret_key, secret in var.additional_secrets : [
-        for accessor in secret.accessors : {
-          key      = "${secret_key}-${accessor}"
-          secret   = secret_key
-          accessor = accessor
-        }
-      ]
-    ]) : pair.key => pair
+    for pair in setproduct(var.secret_names, var.secret_accessors) :
+    "${pair[0]}/${pair[1]}" => { secret = pair[0], member = pair[1] }
   }
 
-  secret_id = google_secret_manager_secret.additional[each.value.secret].secret_id
   project   = var.project_id
+  secret_id = google_secret_manager_secret.main[each.value.secret].secret_id
   role      = "roles/secretmanager.secretAccessor"
-  member    = each.value.accessor
+  member    = each.value.member
 }
 
 # -----------------------------------------------------------------------------
-# Organization Policy (Optional)
-# -----------------------------------------------------------------------------
-
-resource "google_project_organization_policy" "domain_restricted_sharing" {
-  count = var.enable_org_policies && var.allowed_policy_member_domains != null ? 1 : 0
-
-  project    = var.project_id
-  constraint = "iam.allowedPolicyMemberDomains"
-
-  list_policy {
-    allow {
-      values = var.allowed_policy_member_domains
-    }
-  }
-}
-
-resource "google_project_organization_policy" "uniform_bucket_level_access" {
-  count = var.enable_org_policies ? 1 : 0
-
-  project    = var.project_id
-  constraint = "storage.uniformBucketLevelAccess"
-
-  boolean_policy {
-    enforced = true
-  }
-}
-
-resource "google_project_organization_policy" "public_access_prevention" {
-  count = var.enable_org_policies ? 1 : 0
-
-  project    = var.project_id
-  constraint = "storage.publicAccessPrevention"
-
-  boolean_policy {
-    enforced = true
-  }
-}
-
-resource "google_project_organization_policy" "require_os_login" {
-  count = var.enable_org_policies && var.require_os_login ? 1 : 0
-
-  project    = var.project_id
-  constraint = "compute.requireOsLogin"
-
-  boolean_policy {
-    enforced = true
-  }
-}
-
-resource "google_project_organization_policy" "disable_serial_port_access" {
-  count = var.enable_org_policies ? 1 : 0
-
-  project    = var.project_id
-  constraint = "compute.disableSerialPortAccess"
-
-  boolean_policy {
-    enforced = true
-  }
-}
-
-resource "google_project_organization_policy" "vm_external_ip" {
-  count = var.enable_org_policies && var.restrict_vm_external_ips ? 1 : 0
-
-  project    = var.project_id
-  constraint = "compute.vmExternalIpAccess"
-
-  list_policy {
-    deny {
-      all = true
-    }
-  }
-}
-
-# -----------------------------------------------------------------------------
-# Cloud Audit Logs Configuration
+# Audit logging
 # -----------------------------------------------------------------------------
 
 resource "google_project_iam_audit_config" "all_services" {
@@ -290,52 +142,56 @@ resource "google_project_iam_audit_config" "all_services" {
   project = var.project_id
   service = "allServices"
 
-  audit_log_config {
-    log_type = "ADMIN_READ"
-  }
+  dynamic "audit_log_config" {
+    for_each = ["ADMIN_READ", "DATA_READ", "DATA_WRITE"]
 
-  audit_log_config {
-    log_type = "DATA_READ"
-  }
-
-  audit_log_config {
-    log_type = "DATA_WRITE"
+    content {
+      log_type = audit_log_config.value
+    }
   }
 }
 
 # -----------------------------------------------------------------------------
-# Service Account Key (Optional - for external systems)
+# Organization policies enforced on the project
 # -----------------------------------------------------------------------------
 
-resource "google_service_account_key" "application" {
-  count = var.create_service_account_key ? 1 : 0
+resource "google_org_policy_policy" "require_os_login" {
+  count = var.enable_org_policies && var.require_os_login ? 1 : 0
 
-  service_account_id = google_service_account.application.name
-  key_algorithm      = "KEY_ALG_RSA_2048"
-  private_key_type   = "TYPE_GOOGLE_CREDENTIALS_FILE"
+  name   = "${local.org_policy_parent}/policies/compute.requireOsLogin"
+  parent = local.org_policy_parent
+
+  spec {
+    rules {
+      enforce = "TRUE"
+    }
+  }
 }
 
-# Store the service account key in Secret Manager (if created)
-resource "google_secret_manager_secret" "service_account_key" {
-  count = var.create_service_account_key ? 1 : 0
+resource "google_org_policy_policy" "restrict_vm_external_ips" {
+  count = var.enable_org_policies && var.restrict_vm_external_ips ? 1 : 0
 
-  secret_id = "${local.name_prefix}-sa-key"
-  project   = var.project_id
+  name   = "${local.org_policy_parent}/policies/compute.vmExternalIpAccess"
+  parent = local.org_policy_parent
 
-  replication {
-    auto {
-      customer_managed_encryption {
-        kms_key_name = google_kms_crypto_key.main.id
+  spec {
+    rules {
+      deny_all = "TRUE"
+    }
+  }
+}
+
+resource "google_org_policy_policy" "allowed_policy_member_domains" {
+  count = var.enable_org_policies && length(var.allowed_policy_member_domains) > 0 ? 1 : 0
+
+  name   = "${local.org_policy_parent}/policies/iam.allowedPolicyMemberDomains"
+  parent = local.org_policy_parent
+
+  spec {
+    rules {
+      values {
+        allowed_values = var.allowed_policy_member_domains
       }
     }
   }
-
-  labels = local.labels
-}
-
-resource "google_secret_manager_secret_version" "service_account_key" {
-  count = var.create_service_account_key ? 1 : 0
-
-  secret      = google_secret_manager_secret.service_account_key[0].id
-  secret_data = base64decode(google_service_account_key.application[0].private_key)
 }

@@ -1,30 +1,27 @@
+{%- set aws = values.provider == 'aws' or values.provider == 'multi-cloud' -%}
+{%- set azure = values.provider == 'azure' or values.provider == 'multi-cloud' -%}
+{%- set gcp = values.provider == 'gcp' or values.provider == 'multi-cloud' -%}
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: ${{ values.name }}
-  description: ${{ values.description }}
+  description: ${{ values.description | dump }}
   annotations:
-    backstage.io/techdocs-ref: dir:.
     github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
+    backstage.io/techdocs-ref: dir:.
   tags:
     - terraform
     - infrastructure-as-code
-{%- if values.provider == 'aws' or values.provider == 'multi-cloud' %}
+{%- if aws %}
     - aws
 {%- endif %}
-{%- if values.provider == 'azure' or values.provider == 'multi-cloud' %}
+{%- if azure %}
     - azure
 {%- endif %}
-{%- if values.provider == 'gcp' or values.provider == 'multi-cloud' %}
+{%- if gcp %}
     - gcp
 {%- endif %}
-  links:
-    - url: https://registry.terraform.io/
-      title: Terraform Registry
-      icon: dashboard
 spec:
   type: infrastructure
   lifecycle: production
   owner: ${{ values.owner }}
-  providesApis: []
-  dependsOn: []

@@ -35,7 +35,7 @@ output "role_arn" {
 
 output "security_group_id" {
   description = "Lambda security group ID"
-  value       = var.vpc_id != null ? aws_security_group.lambda[0].id : null
+  value       = var.enable_vpc ? aws_security_group.lambda[0].id : null
 }
 
 output "log_group_name" {
@@ -56,7 +56,7 @@ output "api_endpoint" {
 
 output "api_url" {
   description = "API Gateway URL (with stage)"
-  value       = var.enable_api_gateway ? "${aws_apigatewayv2_api.main[0].api_endpoint}/${var.environment}" : null
+  value       = var.enable_api_gateway ? aws_apigatewayv2_stage.main[0].invoke_url : null
 }
 
 # SQS Outputs
