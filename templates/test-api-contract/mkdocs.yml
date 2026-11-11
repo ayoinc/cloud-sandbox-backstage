@@ -1,0 +1,8 @@
+site_name: API Contract Testing
+site_description: How to use the API contract testing template
+
+nav:
+  - Home: index.md
+
+plugins:
+  - techdocs-core

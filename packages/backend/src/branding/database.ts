@@ -61,6 +61,17 @@ export async function initializeTables(
     });
   }
 
+  // Logo files, one row per kind.
+  if (!(await knex.schema.hasTable('branding_logos'))) {
+    logger.info('Creating branding_logos table');
+    await knex.schema.createTable('branding_logos', table => {
+      table.string('kind').primary();
+      table.string('content_type').notNullable();
+      table.binary('bytes').notNullable();
+      table.string('updated_at').notNullable();
+    });
+  }
+
   // Create branding_admins table if not exists
   const hasAdminsTable = await knex.schema.hasTable('branding_admins');
   if (!hasAdminsTable) {

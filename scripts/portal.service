@@ -1,0 +1,29 @@
+# Installed as /etc/systemd/system/portal.service by scripts/install-vm.sh,
+# with @DIR@ replaced by the installation directory.
+
+[Unit]
+Description=Developer portal (Backstage backend)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=portal
+Group=portal
+WorkingDirectory=@DIR@/app
+EnvironmentFile=/etc/portal/portal.env
+Environment=NODE_ENV=production
+Environment=PATH=@DIR@/node/bin:@DIR@/techdocs/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=@DIR@/node/bin/node packages/backend --config app-config.yaml --config app-config.production.yaml --config app-config.vm.yaml
+Restart=on-failure
+RestartSec=5
+
+# The service writes only its data directory.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=@DIR@/data
+
+[Install]
+WantedBy=multi-user.target

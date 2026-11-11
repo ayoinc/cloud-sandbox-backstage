@@ -2,14 +2,15 @@
 # This file is merged with app-config.yaml
 
 app:
-  title: Cloud Sandbox
-  baseUrl: http://localhost
+  title: Developer Portal
+  # The address people open, for example https://portal.example.org
+  baseUrl: ${APP_BASE_URL:-http://localhost}
 
 organization:
   name: Platform Team
 
 backend:
-  baseUrl: http://localhost
+  baseUrl: ${APP_BASE_URL:-http://localhost}
   listen: ':7007'
   csp:
     connect-src: ["'self'", 'http:', 'https:']
@@ -86,13 +87,13 @@ auth:
       production:
         clientId: ${GITHUB_CLIENT_ID}
         clientSecret: ${GITHUB_CLIENT_SECRET}
-        callbackUrl: http://localhost/api/auth/github/handler/frame
+        callbackUrl: ${APP_BASE_URL:-http://localhost}/api/auth/github/handler/frame
 
 scaffolder:
   defaultAuthor:
-    name: Cloud Sandbox
-    email: platform-team@company.com
-  defaultCommitMessage: 'Initial commit from Cloud Sandbox template'
+    name: ${SCAFFOLDER_AUTHOR_NAME:-Developer Portal}
+    email: ${SCAFFOLDER_AUTHOR_EMAIL:-portal@localhost}
+  defaultCommitMessage: 'Initial commit from a portal template'
 
 # Proxy configuration for external API access
 proxy:
@@ -650,6 +651,10 @@ catalog:
         - allow: [Template]
     - type: file
       target: ./templates/observability-opentelemetry/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/test-api-contract/template.yaml
       rules:
         - allow: [Template]
 

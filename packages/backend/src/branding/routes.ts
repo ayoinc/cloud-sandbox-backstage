@@ -9,6 +9,7 @@
  * - GET    /                  - Get current branding settings
  * - POST   /                  - Update branding settings (admin only)
  * - POST   /logo/upload       - Upload logo files (admin only)
+ * - GET    /logo/:kind        - The uploaded full or icon logo (public)
  * - DELETE /logo              - Reset logo to default (admin only)
  * - DELETE /                  - Reset all branding to default (admin only)
  * - GET    /admin-check       - Check if current user is admin
@@ -23,7 +24,6 @@ import { Router, json, Request, Response } from 'express';
 import multer from 'multer';
 import type { Knex } from 'knex';
 import type { LoggerService } from '@backstage/backend-plugin-api';
-import type { S3Client } from '@aws-sdk/client-s3';
 import { ALLOWED_MIME_TYPES, DEFAULT_SETTINGS } from './types';
 import {
   getCurrentSettings,
@@ -35,7 +35,13 @@ import {
   getAdminCount,
   getAdminById,
 } from './database';
-import { uploadLogo, deleteLogos } from './storage';
+import {
+  MAX_LOGO_BYTES,
+  deleteLogos,
+  isLogoKind,
+  readLogo,
+  saveLogo,
+} from './storage';
 
 /**
  * Dependencies for creating the router
@@ -43,8 +49,6 @@ import { uploadLogo, deleteLogos } from './storage';
 interface RouterDeps {
   knex: Knex;
   logger: LoggerService;
-  s3Client: S3Client;
-  bucket: string;
   httpAuth: any;
   userInfo: any;
 }
@@ -55,7 +59,7 @@ interface RouterDeps {
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB max file size
+    fileSize: MAX_LOGO_BYTES,
   },
   fileFilter: (_req, file, cb) => {
     if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
@@ -74,7 +78,7 @@ const upload = multer({
  * Create the branding settings router with all endpoints
  */
 export function createRouter(deps: RouterDeps): Router {
-  const { knex, logger, s3Client, bucket, httpAuth, userInfo } = deps;
+  const { knex, logger, httpAuth, userInfo } = deps;
   const router = Router();
 
   // Add JSON body parser middleware
@@ -202,7 +206,21 @@ export function createRouter(deps: RouterDeps): Router {
   router.post(
     '/logo/upload',
     (req, res, next) => {
-      uploadMiddleware(req as any, res as any, next);
+      uploadMiddleware(req as any, res as any, (error: unknown) => {
+        if (!error) {
+          next();
+          return;
+        }
+        // An oversized or unsupported file is the sender's mistake.
+        const tooLarge =
+          error instanceof multer.MulterError &&
+          error.code === 'LIMIT_FILE_SIZE';
+        res.status(tooLarge ? 413 : 400).json({
+          error: tooLarge
+            ? 'A logo can be at most 1 MB.'
+            : (error as Error).message,
+        });
+      });
     },
     async (req: Request, res: Response): Promise<void> => {
       const userEntityRef = await requireAdmin(req, res);
@@ -218,23 +236,11 @@ export function createRouter(deps: RouterDeps): Router {
         let logoIconUrl = currentSettings.logoIconUrl;
 
         if (files.logoFull && files.logoFull[0]) {
-          logoFullUrl = await uploadLogo(
-            s3Client,
-            bucket,
-            files.logoFull[0],
-            'full',
-            logger,
-          );
+          logoFullUrl = await saveLogo(knex, 'full', files.logoFull[0]);
         }
 
         if (files.logoIcon && files.logoIcon[0]) {
-          logoIconUrl = await uploadLogo(
-            s3Client,
-            bucket,
-            files.logoIcon[0],
-            'icon',
-            logger,
-          );
+          logoIconUrl = await saveLogo(knex, 'icon', files.logoIcon[0]);
         }
 
         await updateSettings(knex, {
@@ -256,6 +262,33 @@ export function createRouter(deps: RouterDeps): Router {
   );
 
   // =======================================================================
+  // GET /logo/:kind - The uploaded logo (public: the sign-in page shows it)
+  // =======================================================================
+  router.get(
+    '/logo/:kind',
+    async (req: Request, res: Response): Promise<void> => {
+      const { kind } = req.params;
+      const logo = isLogoKind(kind) ? await readLogo(knex, kind) : undefined;
+      if (!logo) {
+        res.status(404).json({ error: 'No such logo' });
+        return;
+      }
+      res
+        .status(200)
+        .set({
+          'content-type': logo.contentType,
+          // The address changes with every upload.
+          'cache-control': 'public, max-age=31536000, immutable',
+          'x-content-type-options': 'nosniff',
+          // An uploaded SVG must not run script when opened on its own.
+          'content-security-policy':
+            "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+        })
+        .send(logo.bytes);
+    },
+  );
+
+  // =======================================================================
   // DELETE /logo - Reset logo to default (admin only)
   // =======================================================================
   router.delete('/logo', async (req: Request, res: Response): Promise<void> => {
@@ -263,7 +296,7 @@ export function createRouter(deps: RouterDeps): Router {
     if (!userEntityRef) return;
 
     try {
-      await deleteLogos(s3Client, bucket, logger);
+      await deleteLogos(knex);
 
       await updateSettings(knex, {
         logo_full_url: null,
@@ -290,7 +323,7 @@ export function createRouter(deps: RouterDeps): Router {
     if (!userEntityRef) return;
 
     try {
-      await deleteLogos(s3Client, bucket, logger);
+      await deleteLogos(knex);
 
       await updateSettings(knex, {
         organization_name: null,

@@ -1,0 +1,32 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.name }}
+  description: ${{ (values.description or "") | dump }}
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
+  tags:
+    - testing
+    - api
+    - contract-testing
+spec:
+  type: test-suite
+  lifecycle: production
+  owner: ${{ values.owner }}
+  providesApis:
+    - ${{ values.name }}-api
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: ${{ values.name }}-api
+  description: ${{ ("The contract tested by " + values.name) | dump }}
+  tags:
+    - openapi
+spec:
+  type: openapi
+  lifecycle: production
+  owner: ${{ values.owner }}
+  definition:
+    $text: ./openapi/openapi.yaml

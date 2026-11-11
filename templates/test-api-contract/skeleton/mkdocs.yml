@@ -1,0 +1,14 @@
+site_name: ${{ values.name | dump }}
+site_description: ${{ (values.description or "API contract tests") | dump }}
+
+nav:
+  - Home: index.md
+
+plugins:
+  - techdocs-core
+
+validation:
+  links:
+    not_found: warn
+    anchors: warn
+    unrecognized_links: warn

@@ -95,15 +95,13 @@ services:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-backstage}
       MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-backstage123}
       TECHDOCS_BUCKET: ${TECHDOCS_BUCKET:-techdocs}
-      BRANDING_BUCKET: ${BRANDING_BUCKET:-backstage-assets}
     entrypoint:
       - /bin/sh
       - -ec
       - |
         mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"
-        mc mb --ignore-existing "local/$${TECHDOCS_BUCKET}" local/scaffolder "local/$${BRANDING_BUCKET}"
+        mc mb --ignore-existing "local/$${TECHDOCS_BUCKET}" local/scaffolder
         mc anonymous set download "local/$${TECHDOCS_BUCKET}"
-        mc anonymous set download "local/$${BRANDING_BUCKET}"
         echo 'MinIO buckets initialised'
     restart: 'no'
 

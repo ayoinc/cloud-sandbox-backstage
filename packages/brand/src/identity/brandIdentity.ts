@@ -27,7 +27,20 @@ const FIELDS = [
 // first paint is already in their organisation's theme.
 const STORAGE_KEY = 'brand-identity';
 
-function pick(source: unknown): BrandIdentity {
+/**
+ * A logo's address as the backend gives it, made usable from this page. The
+ * backend names its own path; where the app is served from another origin,
+ * as in development, that path has to be read against the backend's.
+ */
+function logoAddress(value: string | null, backendUrl?: string) {
+  if (!value || !backendUrl || !value.startsWith('/')) {
+    return value;
+  }
+  const { origin } = new URL(backendUrl);
+  return origin === window.location.origin ? value : origin + value;
+}
+
+function pick(source: unknown, backendUrl?: string): BrandIdentity {
   const record = (
     typeof source === 'object' && source !== null ? source : {}
   ) as Record<string, unknown>;
@@ -35,8 +48,8 @@ function pick(source: unknown): BrandIdentity {
     typeof record[key] === 'string' && record[key] ? record[key] : null;
   return {
     organizationName: text('organizationName'),
-    logoFullUrl: text('logoFullUrl'),
-    logoIconUrl: text('logoIconUrl'),
+    logoFullUrl: logoAddress(text('logoFullUrl'), backendUrl),
+    logoIconUrl: logoAddress(text('logoIconUrl'), backendUrl),
     primaryColor: text('primaryColor'),
     themePreset: text('themePreset'),
   };
@@ -61,10 +74,11 @@ export function getBrandIdentity(): BrandIdentity {
 
 /**
  * Replaces the identity with what the branding settings API returned, and
- * re-themes everything that reads it.
+ * re-themes everything that reads it. `backendUrl` is any address on the
+ * backend the settings came from.
  */
-export function setBrandIdentity(settings: unknown): void {
-  const next = pick(settings);
+export function setBrandIdentity(settings: unknown, backendUrl?: string): void {
+  const next = pick(settings, backendUrl);
   if (FIELDS.every(field => next[field] === current[field])) {
     return;
   }
@@ -117,11 +131,10 @@ export function useLoadBrandIdentity(): void {
     let live = true;
     discoveryApi
       .getBaseUrl('branding-settings')
-      .then(url => fetch(url))
-      .then(response => (response.ok ? response.json() : undefined))
-      .then(settings => {
-        if (live && settings) {
-          setBrandIdentity(settings);
+      .then(async url => {
+        const response = await fetch(url);
+        if (live && response.ok) {
+          setBrandIdentity(await response.json(), url);
         }
       })
       // Unreachable settings leave the last known identity in place.

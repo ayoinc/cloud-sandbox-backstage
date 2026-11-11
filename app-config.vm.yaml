@@ -1,0 +1,16 @@
+# One machine, no containers: the backend as a service with PostgreSQL beside
+# it, and nothing else to run. Loaded after app-config.production.yaml by
+# scripts/install-vm.sh, it replaces the two services that file expects from
+# docker-compose.yaml.
+
+backend:
+  # Redis earns its place with several backends. One process caches in memory.
+  cache:
+    store: memory
+
+techdocs:
+  # Built documentation is kept on disk instead of in an object store.
+  publisher:
+    type: local
+    local:
+      publishDirectory: ${PORTAL_DATA_DIR}/techdocs

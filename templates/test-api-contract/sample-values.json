@@ -1,0 +1,10 @@
+{
+  "values": {
+    "name": "sample-contract-tests",
+    "description": "Contract tests for the \"records\" API: every operation, every response",
+    "owner": "group:default/platform-team",
+    "baseUrl": "",
+    "maxExamples": 50,
+    "repoUrl": "github.com?owner=example-org&repo=sample-contract-tests"
+  }
+}

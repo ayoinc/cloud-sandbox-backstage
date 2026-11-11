@@ -753,6 +753,10 @@ catalog:
       target: ../../templates/observability-opentelemetry/template.yaml
       rules:
         - allow: [Template]
+    - type: file
+      target: ../../templates/test-api-contract/template.yaml
+      rules:
+        - allow: [Template]
 
 kubernetes:
   serviceLocatorMethod:

@@ -1,0 +1,107 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: test-api-contract
+  title: API Contract Testing
+  description: Test an API against its OpenAPI description with Schemathesis, and publish the description to the portal's API explorer
+  tags:
+    - testing
+    - api
+    - openapi
+    - contract-testing
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: group:qa-team
+  type: test-suite
+
+  parameters:
+    - title: Project Information
+      required:
+        - name
+        - owner
+      properties:
+        name:
+          title: Project Name
+          type: string
+          description: Name of the contract testing project
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Which API this tests, in a sentence
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns this resource
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+    - title: Test Configuration
+      properties:
+        baseUrl:
+          title: Base URL
+          type: string
+          description: Optional. The deployed API to test on a manual run, for example https://api.staging.example.org. Every push tests the bundled sample API, so the project passes from its first commit
+          pattern: '^(https?://[A-Za-z0-9.-]+(:[0-9]+)?(/[^ ]*)?)?$'
+          default: ''
+        maxExamples:
+          title: Examples per operation
+          type: integer
+          description: How many generated requests each operation gets
+          default: 50
+          minimum: 1
+          maximum: 1000
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          baseUrl: ${{ parameters.baseUrl }}
+          maxExamples: ${{ parameters.maxExamples }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: 'API contract tests: ${{ parameters.name }}'
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

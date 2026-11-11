@@ -1,0 +1,84 @@
+name: API contract
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'API to test (empty: the BASE_URL variable, then the bundled sample API)'
+        required: false
+
+permissions:
+  contents: read
+
+env:
+  SCHEMATHESIS_VERSION: '4.33.2'
+  DEFAULT_BASE_URL: ${{ values.baseUrl | dump }}
+{% raw %}
+jobs:
+  contract:
+    name: Test the API against its description
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Validate the description
+        run: uvx --from openapi-spec-validator==0.7.2 openapi-spec-validator openapi/openapi.yaml
+
+      - name: Choose the API to test
+        id: target
+        env:
+          INPUT_BASE_URL: ${{ inputs.base_url }}
+          VARIABLE_BASE_URL: ${{ vars.BASE_URL }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          # A push always tests the bundled sample API: it proves the suite
+          # itself works. A manual run tests a deployed API when one is named.
+          url=""
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            url="${INPUT_BASE_URL:-${VARIABLE_BASE_URL:-$DEFAULT_BASE_URL}}"
+          fi
+          if [ -z "$url" ]; then
+            node test-target/server.js &
+            for _ in $(seq 1 20); do
+              curl -fsS -o /dev/null http://127.0.0.1:3000/health && break
+              sleep 0.5
+            done
+            url="http://127.0.0.1:3000"
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Testing $url"
+
+      - name: Run the contract tests
+        env:
+          BASE_URL: ${{ steps.target.outputs.url }}
+          API_TOKEN: ${{ secrets.API_TOKEN }}
+        run: |
+          set -- run openapi/openapi.yaml --url "$BASE_URL" --report junit --report-dir report
+          # A deployed API usually wants a token: set the API_TOKEN secret.
+          if [ -n "$API_TOKEN" ]; then
+            set -- "$@" --header "Authorization: Bearer $API_TOKEN"
+          fi
+          uvx "schemathesis==$SCHEMATHESIS_VERSION" "$@"
+
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: contract-report
+          path: report/
+          if-no-files-found: ignore
+{% endraw %}

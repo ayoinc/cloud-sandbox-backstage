@@ -7,21 +7,16 @@
  * - Organization/Team name
  * - Custom logo (full and icon versions)
  *
- * Logo files are stored in MinIO (S3-compatible storage).
- * Settings metadata are stored in PostgreSQL.
+ * Settings and logo files are stored in the plugin's database.
  *
  * Endpoints:
  * - GET    /api/branding-settings              - Get current branding settings
  * - POST   /api/branding-settings              - Update branding settings (admin only)
  * - POST   /api/branding-settings/logo/upload  - Upload logo files (admin only)
+ * - GET    /api/branding-settings/logo/:kind   - The full or icon logo (public)
  * - DELETE /api/branding-settings/logo         - Reset logo to default (admin only)
  * - DELETE /api/branding-settings              - Reset all branding to default (admin only)
  * - GET    /api/branding-settings/admin-check  - Check if current user is admin
- *
- * MinIO Bucket: backstage-assets
- * Logo paths:
- * - logos/logo-full.{ext}   - Full sidebar logo
- * - logos/logo-icon.{ext}   - Collapsed sidebar icon
  *
  * =============================================================================
  */
@@ -31,7 +26,6 @@ import {
   coreServices,
 } from '@backstage/backend-plugin-api';
 import { initializeTables } from './database';
-import { createS3Client } from './storage';
 import { createRouter } from './routes';
 
 export type { BrandingSettings } from './types';
@@ -46,11 +40,10 @@ export const brandingSettingsPlugin = createBackendPlugin({
         httpRouter: coreServices.httpRouter,
         logger: coreServices.logger,
         database: coreServices.database,
-        config: coreServices.rootConfig,
         httpAuth: coreServices.httpAuth,
         userInfo: coreServices.userInfo,
       },
-      async init({ httpRouter, logger, database, config, httpAuth, userInfo }) {
+      async init({ httpRouter, logger, database, httpAuth, userInfo }) {
         logger.info('Initializing branding-settings plugin');
 
         // Get database client for branding settings storage
@@ -59,45 +52,10 @@ export const brandingSettingsPlugin = createBackendPlugin({
         // Initialize database tables
         await initializeTables(knex, logger);
 
-        // Get MinIO configuration
-        const minioEndpoint =
-          config.getOptionalString('brandingSettings.minio.endpoint') ||
-          process.env.MINIO_ENDPOINT ||
-          'http://minio:9000';
-        const minioAccessKey =
-          config.getOptionalString('brandingSettings.minio.accessKeyId') ||
-          process.env.MINIO_ACCESS_KEY;
-        const minioSecretKey =
-          config.getOptionalString('brandingSettings.minio.secretAccessKey') ||
-          process.env.MINIO_SECRET_KEY;
-        const minioBucket =
-          config.getOptionalString('brandingSettings.minio.bucket') ||
-          process.env.BRANDING_BUCKET ||
-          'backstage-assets';
-
-        if (!minioAccessKey || !minioSecretKey) {
-          logger.warn(
-            'MinIO credentials not configured - logo upload will fail. Set MINIO_ACCESS_KEY and MINIO_SECRET_KEY environment variables.',
-          );
-        }
-
-        // Create S3 client for MinIO
-        const s3Client = createS3Client(
-          minioEndpoint,
-          minioAccessKey || '',
-          minioSecretKey || '',
-        );
-
-        logger.info(
-          `Branding settings using MinIO at ${minioEndpoint}, bucket: ${minioBucket}`,
-        );
-
         // Create and register the router
         const router = createRouter({
           knex,
           logger,
-          s3Client,
-          bucket: minioBucket,
           httpAuth,
           userInfo,
         });

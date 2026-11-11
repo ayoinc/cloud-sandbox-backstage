@@ -8,12 +8,13 @@ This guide provides comprehensive instructions for setting up the Cloud Sandbox 
 2. [Quick Start (5 minutes)](#quick-start-5-minutes)
 3. [Detailed Setup - Devbox Mode](#detailed-setup---devbox-mode)
 4. [Detailed Setup - Docker Mode](#detailed-setup---docker-mode)
-5. [GitHub OAuth Configuration](#github-oauth-configuration)
-6. [Environment Configuration](#environment-configuration)
-7. [Database Setup](#database-setup)
-8. [TechDocs Configuration](#techdocs-configuration)
-9. [Production Deployment](#production-deployment)
-10. [Troubleshooting](#troubleshooting)
+5. [Detailed Setup - Virtual Machine](#detailed-setup---virtual-machine)
+6. [GitHub OAuth Configuration](#github-oauth-configuration)
+7. [Environment Configuration](#environment-configuration)
+8. [Database Setup](#database-setup)
+9. [TechDocs Configuration](#techdocs-configuration)
+10. [Production Deployment](#production-deployment)
+11. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -300,6 +301,31 @@ docker compose -f docker-compose.yaml -f docker-compose.services.yaml ps
 
 ---
 
+## Detailed Setup - Virtual Machine
+
+For one Debian or Ubuntu machine and no containers. The installer puts
+Node.js, the documentation toolchain and PostgreSQL on the machine, builds the
+portal under `/opt/portal`, and runs it as the `portal` systemd service.
+Documentation is kept on disk and logos in the database, so there is no
+object store or Redis to run.
+
+```bash
+git clone https://github.com/ayoinc/cloud-sandbox-backstage.git
+cd cloud-sandbox-backstage
+sudo scripts/install-vm.sh --base-url https://portal.example.org
+```
+
+| Afterwards | How                                                                                                                 |
+| ---------- | ------------------------------------------------------------------------------------------------------------------- |
+| Settings   | `/etc/portal/portal.env`: fill in the GitHub token and OAuth app, then `sudo systemctl restart portal`              |
+| TLS        | Put a reverse proxy in front of port 7007                                                                           |
+| Logs       | `journalctl -u portal`                                                                                              |
+| Upgrade    | `git pull`, then `sudo scripts/install-vm.sh` again. It rebuilds, keeps the settings and the database, and restarts |
+| Roll back  | The previous build is kept in `/opt/portal/app.previous`                                                            |
+
+The `VM install check` workflow runs this installer on a fresh Ubuntu machine
+whenever it or the backend changes.
+
 ## GitHub OAuth Configuration
 
 ### Step 1: Create OAuth App
@@ -378,7 +404,6 @@ MINIO_ROOT_PASSWORD=backstage123
 MINIO_ACCESS_KEY=backstage
 MINIO_SECRET_KEY=backstage123
 TECHDOCS_BUCKET=techdocs
-BRANDING_BUCKET=backstage-assets
 
 # =============================================================================
 # Authentication (Optional)

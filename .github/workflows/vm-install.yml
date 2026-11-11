@@ -1,0 +1,73 @@
+# =============================================================================
+# VM install check
+# =============================================================================
+# Installs the portal on a fresh Ubuntu machine exactly as an operator would
+# (scripts/install-vm.sh: Node.js, the documentation toolchain, PostgreSQL, a
+# systemd service), then asks the running service for its health, its
+# branding settings and its front page. The installer is then run a second
+# time, which is how an upgrade is done.
+#
+# The repository is public: nothing a pull request, issue or fork does starts
+# a run, and every run must have been started by the repository owner.
+# =============================================================================
+
+name: VM install check
+
+on:
+  push:
+    paths:
+      - 'scripts/install-vm.sh'
+      - 'scripts/portal.service'
+      - 'app-config.vm.yaml'
+      - 'app-config.production.yaml'
+      - 'packages/backend/**'
+      - '.github/workflows/vm-install.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vm-install-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  install:
+    name: Install and start on Ubuntu
+    if: github.actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install the portal
+        run: sudo scripts/install-vm.sh --base-url http://localhost:7007
+
+      - name: Ask the running service
+        run: |
+          set -eu
+          systemctl is-active portal
+          curl -fsS http://127.0.0.1:7007/.backstage/health/v1/readiness
+          echo
+          settings="$(curl -fsS http://127.0.0.1:7007/api/branding-settings)"
+          echo "$settings"
+          echo "$settings" | jq -e '.organizationName == null and .logoFullUrl == null and .themePreset == null' >/dev/null
+          [ "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:7007/api/branding-settings/logo/full)" = 404 ]
+          [ "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:7007/api/catalog/entities)" = 401 ]
+          curl -fsS http://127.0.0.1:7007/ | grep -o '<title>[^<]*</title>'
+          sudo test "$(sudo stat -c '%a' /etc/portal/portal.env)" = 640
+
+      - name: Upgrade in place
+        run: |
+          set -eu
+          before="$(sudo sha256sum /etc/portal/portal.env)"
+          sudo scripts/install-vm.sh
+          [ "$before" = "$(sudo sha256sum /etc/portal/portal.env)" ]
+          curl -fsS http://127.0.0.1:7007/.backstage/health/v1/readiness
+
+      - name: Show the service log
+        if: always()
+        run: sudo journalctl -u portal --no-pager | tail -n 80

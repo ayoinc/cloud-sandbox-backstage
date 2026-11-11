@@ -1,0 +1,21 @@
+# How Schemathesis tests the API. Reference:
+# https://schemathesis.readthedocs.io/en/stable/reference/configuration/
+
+# Stop a run that has clearly found a broken API.
+max-failures = 20
+
+[generation]
+# Generated requests per operation.
+max-examples = ${{ values.maxExamples }}
+
+[checks]
+# Every response must match the description: status code, content type,
+# headers and body. A 5xx is always a failure.
+not_a_server_error.enabled = true
+status_code_conformance.enabled = true
+content_type_conformance.enabled = true
+response_schema_conformance.enabled = true
+response_headers_conformance.enabled = true
+# Invalid input must be refused, and valid input accepted.
+negative_data_rejection.enabled = true
+positive_data_acceptance.enabled = true

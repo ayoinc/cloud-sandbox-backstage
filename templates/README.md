@@ -155,12 +155,13 @@ This directory contains all scaffolder templates for the Cloud Sandbox Backstage
 | `docs-project`         | Create comprehensive project documentation with TechDocs                                                                                                |
 | `docs-runbook`         | Create operational runbooks for incident response and procedures                                                                                        |
 
-### Testing (2 templates)
+### Testing (3 templates)
 
-| Template          | Description                                                           |
-| ----------------- | --------------------------------------------------------------------- |
-| `test-k6-load`    | Create a k6 load testing project for performance and stress testing   |
-| `test-playwright` | Create a Playwright end-to-end testing project with Page Object Model |
+| Template            | Description                                                                                                             |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `test-api-contract` | Test an API against its OpenAPI description with Schemathesis, and publish the description to the portal's API explorer |
+| `test-k6-load`      | Create a k6 load testing project for performance and stress testing                                                     |
+| `test-playwright`   | Create a Playwright end-to-end testing project with Page Object Model                                                   |
 
 ### DevOps and SRE (3 templates)
 

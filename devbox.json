@@ -28,8 +28,7 @@
     "MINIO_ROOT_PASSWORD": "backstage123",
     "MINIO_ACCESS_KEY": "backstage",
     "MINIO_SECRET_KEY": "backstage123",
-    "TECHDOCS_BUCKET": "techdocs",
-    "BRANDING_BUCKET": "backstage-assets"
+    "TECHDOCS_BUCKET": "techdocs"
   },
   "shell": {
     "init_hook": [
