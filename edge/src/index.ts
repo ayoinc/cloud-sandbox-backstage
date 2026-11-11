@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { accountLinkRoutes } from './accountLinks';
 import { guestRoutes, requireUser } from './auth';
 import { organisationRoutes, publicOrganisationRoutes } from './organisations';
 import { portalAdminRoutes } from './portalAdmins';
@@ -55,6 +56,7 @@ app.route('/api/permission', permissionRoutes);
 app.route('/api/user-settings', userSettingsRoutes);
 app.route('/api/branding-settings', portalAdminRoutes);
 app.route('/api/organisations', organisationRoutes);
+app.route('/api/account-links', accountLinkRoutes);
 app.route('/api/ownership-management', ownershipRoutes);
 app.route('/api/notifications', notificationRoutes);
 app.route('/api/search', searchRoutes);

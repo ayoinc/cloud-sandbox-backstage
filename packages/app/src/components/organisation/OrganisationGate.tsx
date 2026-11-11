@@ -1,6 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchApiRef, useApi } from '@backstage/core-plugin-api';
+import {
+  fetchApiRef,
+  identityApiRef,
+  useApi,
+} from '@backstage/core-plugin-api';
 import { organisationPath, organisationSlug } from '@internal/brand';
 import { ORGANISATIONS_API, answer } from './OrganisationContext';
 import type { Membership } from './OrganisationContext';
@@ -36,6 +40,7 @@ function shownBefore(user: string): string[] {
  */
 export const OrganisationGate = () => {
   const fetchApi = useApi(fetchApiRef);
+  const identityApi = useApi(identityApiRef);
   // The router hands out a new function on every page change; this effect
   // is for the load, not for each page.
   const navigate = useRef(useNavigate());
@@ -43,6 +48,11 @@ export const OrganisationGate = () => {
   useEffect(() => {
     let live = true;
     (async () => {
+      // The gate is drawn before anyone has signed in. This waits for the
+      // sign-in, however long it takes, so that someone who signs in on
+      // the sign-in page is placed too, not only someone who loads the app
+      // already signed in.
+      await identityApi.getBackstageIdentity();
       const { organisation, canCreate, invitations, userEntityRef } =
         await answer<Membership>(
           await fetchApi.fetch(ORGANISATIONS_API),
@@ -84,7 +94,7 @@ export const OrganisationGate = () => {
     return () => {
       live = false;
     };
-  }, [fetchApi]);
+  }, [fetchApi, identityApi]);
 
   return null;
 };

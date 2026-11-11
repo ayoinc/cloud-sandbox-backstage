@@ -21,6 +21,7 @@ import {
 } from './OrganisationContext';
 import type { ReceivedInvitation } from './OrganisationContext';
 import { OrganisationSettingsPanel } from './OrganisationSettingsPanel';
+import { SignInMethods } from './SignInMethods';
 
 /**
  * An organisation that has asked the user to join, with the two answers.
@@ -111,6 +112,9 @@ const Controls = () => {
         </Grid>
         <Grid item xs={12} md={4}>
           <OrganisationMembers />
+          <Box mt={3}>
+            <SignInMethods />
+          </Box>
         </Grid>
       </Grid>
     );
@@ -136,6 +140,9 @@ const Controls = () => {
             an organisation. Sign in with your own account to create one.
           </Alert>
         )}
+      </Grid>
+      <Grid item xs={12} md={4}>
+        <SignInMethods />
       </Grid>
     </Grid>
   );

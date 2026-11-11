@@ -14,6 +14,7 @@ import {
 } from './auth';
 import { googleUserName } from '../../packages/backend/src/organisations/rules';
 import { carryOver, recordSignIn } from './catalog/users';
+import { linkAccount, linkIntent } from './accountLinks';
 import { bytesToBase64, decodeJson, encodeJson } from './encoding';
 import {
   authenticationError,
@@ -332,6 +333,12 @@ function whyNotAllowed(env: Env, session: Session): string | undefined {
 }
 
 /**
+ * Sessions whose account was linked to another person's account: they
+ * sign in as that account, and are not recorded as people of their own.
+ */
+const linkedSessions = new WeakSet<Session>();
+
+/**
  * The session under the user ref its account has now. A session from
  * before its provider changed how it names users is given the new ref, and
  * what the person had under the old one is carried over to it: once, as it
@@ -339,6 +346,21 @@ function whyNotAllowed(env: Env, session: Session): string | undefined {
  * theirs alone. For a session `whyNotAllowed` accepts.
  */
 async function upToDate<T extends Session>(env: Env, session: T): Promise<T> {
+  // A sign-in method linked to an account signs in as that account. This
+  // comes first: the account it was before linking is not used any more.
+  const linked = await env.DB.prepare(
+    'SELECT user_ref FROM account_links WHERE provider = ? AND id = ?',
+  )
+    .bind(session.provider, session.id.toLowerCase())
+    .first<{ user_ref: string }>();
+  if (linked) {
+    const as =
+      session.sub === linked.user_ref
+        ? session
+        : { ...session, sub: linked.user_ref };
+    linkedSessions.add(as);
+    return as;
+  }
   const refs = providers[session.provider]?.refs?.(env, session.id);
   if (!refs?.now) {
     return session;
@@ -492,13 +514,31 @@ oauthRoutes.get('/:provider/handler/frame', async c => {
         `${account.id} is not allowed to sign in to this portal`,
       );
     }
+    // Opened from Settings to link this account to the one signed in
+    // there: nobody signs in here, the link is made.
+    const linkTo = await linkIntent(c, id);
+    if (linkTo) {
+      await linkAccount(
+        c.env.DB,
+        id,
+        account.id,
+        account.userEntityRef,
+        linkTo,
+      );
+      return await popupResponse(c, origin, {
+        type: 'portal-account-link',
+        linked: { provider: id, id: account.id.toLowerCase() },
+      });
+    }
     const session = await upToDate<Session>(c.env, {
       provider: id,
       id: account.id,
       sub: account.userEntityRef,
       profile: account.profile,
     });
-    await recordSignIn(c.env.DB, session);
+    if (!linkedSessions.has(session)) {
+      await recordSignIn(c.env.DB, session);
+    }
     const sessionToken = await signToken(
       c.env.SESSION_SECRET,
       SESSION_AUDIENCE,
@@ -568,7 +608,9 @@ oauthRoutes.get('/:provider/refresh', async c => {
         : `the ${id}-session cookie holds a ${own.session.provider} session`;
     if (!problem) {
       const session = await upToDate(c.env, own.session);
-      await recordSignIn(c.env.DB, session);
+      if (!linkedSessions.has(session)) {
+        await recordSignIn(c.env.DB, session);
+      }
       const remaining = session.exp - Math.floor(Date.now() / 1000);
       let { token } = own;
       if (session !== own.session) {

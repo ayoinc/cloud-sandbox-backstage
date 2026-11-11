@@ -163,6 +163,18 @@ Google name always has a `.` in it and a GitHub login never does, so the two
 can never be the same
 name. To invite someone who signs in with Google, give their email address.
 
+Without a link, your GitHub sign-in and your Google sign-in are two
+accounts: an organisation you created with one does not show when you sign
+in with the other. To make them one, sign in with the account you created
+your organisation with, open **Settings > Organisation**, and under
+**Sign-in methods** choose **Link a Google account** (or GitHub). From then
+on either sign-in makes you that account: the same organisation and look,
+files, settings and administrator role. Unlink it there to make it an
+account of its own again. A sign-in method that already has an
+organisation or registered files of its own cannot be linked, so nothing
+it holds is hidden by the link. Linking is on the serverless host, where
+the portal offers both sign-ins.
+
 A serverless portal that ran before this rule named Google users by the part
 of the address before the `@`. The next time such a person signs in, their
 settings, organisation, template runs and registered files move to the new
