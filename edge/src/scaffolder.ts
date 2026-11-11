@@ -5,6 +5,7 @@ import { inJsonArray } from './catalog/filter';
 import { entityByName } from './catalog/queries';
 import { inputError, notFoundError } from './errors';
 import { isRecord, rawJson, readJson } from './json';
+import { runProgress } from './runProgress';
 import type { AppEnv } from './types';
 
 /**
@@ -23,12 +24,13 @@ const ACTIONS_KEY = 'scaffolder-actions';
 const WORKFLOW_FILE = 'portal-scaffold.yml';
 const MAX_TASK_BYTES = 256 * 1024;
 
-// D1 allows 50 queries per request on the Workers free plan. One long poll
-// and one event stream each stay under that, then end so the client asks
-// again from the last event it saw.
+// The Workers free plan allows 50 subrequests per request, database queries
+// and calls to GitHub together. One long poll and one event stream each stay
+// under that, counting what runProgress adds (two per six seconds), then end
+// so the client asks again from the last event it saw.
 const POLL_INTERVAL_MS = 2000;
 const LONG_POLL_MS = 25_000;
-const MAX_STREAM_POLLS = 40;
+const MAX_STREAM_POLLS = 25;
 
 interface TemplateStep {
   id?: string;
@@ -530,8 +532,10 @@ scaffolderRoutes.get('/v2/tasks/:taskId/events', async c => {
   await ownTask(c, taskId);
   const after = parseAfter(c.req.query('after'));
   const deadline = Date.now() + LONG_POLL_MS;
+  const progress = runProgress(c.env, taskId);
   let events = await listEvents(c.env.DB, taskId, after);
   while (!events.length && Date.now() < deadline) {
+    await progress.check();
     await scheduler.wait(POLL_INTERVAL_MS);
     events = await listEvents(c.env.DB, taskId, after);
   }
@@ -546,8 +550,10 @@ scaffolderRoutes.get('/v2/tasks/:taskId/eventstream', async c => {
   const taskId = c.req.param('taskId');
   await ownTask(c, taskId);
   let after = parseAfter(c.req.query('after'));
+  const progress = runProgress(c.env, taskId);
   return streamSSE(c, async stream => {
     for (let poll = 0; poll < MAX_STREAM_POLLS && !stream.aborted; poll++) {
+      await progress.check();
       for (const event of await listEvents(c.env.DB, taskId, after)) {
         await stream.writeSSE({ event: event.type, data: event.json });
         if (event.type === 'completion') {

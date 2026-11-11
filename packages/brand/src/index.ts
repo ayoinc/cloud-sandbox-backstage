@@ -57,3 +57,9 @@ export {
 } from './techdocs/TechDocsBrandStyles';
 
 export { brandTranslations } from './translations';
+
+export { RunActivityCard } from './activity/RunActivityCard';
+export type {
+  RunActivityCardProps,
+  RunActivityLine,
+} from './activity/RunActivityCard';

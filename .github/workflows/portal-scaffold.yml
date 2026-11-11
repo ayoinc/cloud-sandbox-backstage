@@ -16,7 +16,8 @@
 # =============================================================================
 
 name: Portal scaffold
-run-name: Create from ${{ inputs.template_ref }} for ${{ inputs.created_by }}
+# The portal finds a task's run by the task id in this name
+run-name: Create from ${{ inputs.template_ref }} for ${{ inputs.created_by }} (${{ inputs.task_id }})
 
 on:
   workflow_dispatch:
