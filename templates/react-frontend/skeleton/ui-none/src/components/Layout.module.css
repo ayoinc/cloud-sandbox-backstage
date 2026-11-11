@@ -1,0 +1,34 @@
+.header {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.75rem 1.5rem;
+  background: #1565c0;
+  color: #ffffff;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.nav {
+  display: flex;
+  gap: 1rem;
+}
+
+.nav a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* React Router marks the link of the current page with the class "active". */
+.nav :global(a.active) {
+  text-decoration: underline;
+}
+
+.main {
+  max-width: 56rem;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}

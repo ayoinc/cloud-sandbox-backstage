@@ -3,7 +3,10 @@ spring:
     name: ${{ values.name }}
 
 server:
-  port: ${{ values.serverPort }}
+  port: ${SERVER_PORT:${{ values.serverPort }}}
+
+app:
+  environment: ${APP_ENV:${{ values.environment }}}
 
 management:
   endpoints:

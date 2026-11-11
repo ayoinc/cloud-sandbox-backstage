@@ -1,0 +1,20 @@
+{
+  "values": {
+    "name": "sample-react-app",
+    "description": "Storefront for the team's \"main\" shop: catalogue, basket & checkout",
+    "owner": "group:default/platform-team",
+    "react_version": "19",
+    "ui_framework": "mui",
+    "state_management": "redux",
+    "routing": "react-router",
+    "api_client": "react-query",
+    "api_base_url": "/api",
+    "enable_mock_api": true,
+    "enable_linting": true,
+    "enable_storybook": true,
+    "enable_pwa": false,
+    "enable_monitoring": true,
+    "enable_docker": true,
+    "repoUrl": "github.com?owner=example-org&repo=sample-react-app"
+  }
+}

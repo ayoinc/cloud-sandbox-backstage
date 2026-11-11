@@ -2,62 +2,46 @@
 
 ${{ values.description }}
 
-## Overview
+Spring Boot 3 service (Java ${{ values.javaVersion }}, Maven).
 
-Spring Boot application with Java/Kotlin and production-ready features.
+## Getting started
 
-## Getting Started
-
-```bash
-./gradlew bootRun
-# or
-./mvnw spring-boot:run
-```
-
-Application available at [http://localhost:8080](http://localhost:8080)
-
-## Build
+Requires JDK ${{ values.javaVersion }} and Maven 3.9.
 
 ```bash
-./gradlew build
-# or
-./mvnw package
+mvn spring-boot:run
 ```
 
-## Scripts
+The application listens on <http://localhost:${{ values.serverPort }}>.
 
-- `./gradlew bootRun` - Start development server
-- `./gradlew build` - Build JAR
-- `./gradlew test` - Run tests
-- `./gradlew bootJar` - Create executable JAR
+## Commands
 
-## API Endpoints
+- `mvn spring-boot:run` starts the application
+- `mvn verify` compiles, runs the tests and builds the executable JAR in `target/`
+- `mvn test` runs the tests only
+- `mvn compile spotbugs:check` runs the SpotBugs static analysis
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | /actuator/health | Health check |
-| GET | /api/v1/* | API routes |
+## Endpoints
 
-## Project Structure
-
-```
-├── src/main/java/
-│   └── com/example/
-│       ├── controller/
-│       ├── service/
-│       ├── repository/
-│       └── Application.java
-└── src/test/java/
-```
+| Method | Path               | Description                    |
+| ------ | ------------------ | ------------------------------ |
+| GET    | `/api`             | Service name and version       |
+| GET    | `/api/health`      | Status, timestamp, environment |
+| GET    | `/actuator/health` | Spring Boot Actuator health    |
 
 ## Configuration
 
-Edit `application.yml` or use environment variables.
+Settings live in `src/main/resources/application.yml`. `SERVER_PORT` overrides
+the port (default `${{ values.serverPort }}`) and `APP_ENV` the environment
+name (default `${{ values.environment }}`).
 
-## License
+## Docker
 
-MIT
+```bash
+docker build -t ${{ values.name }} .
+docker run --rm -p ${{ values.serverPort }}:${{ values.serverPort }} ${{ values.name }}
+```
 
-## Author
+## Owner
 
 ${{ values.owner }}

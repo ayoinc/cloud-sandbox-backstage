@@ -1,0 +1,29 @@
+name: Policy check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  conftest:
+    name: Check manifests against the policies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install conftest
+        run: |
+          curl -fsSL https://github.com/open-policy-agent/conftest/releases/download/v0.71.1/conftest_0.71.1_Linux_x86_64.tar.gz \
+            | tar -xz -C "$RUNNER_TEMP" conftest
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
+      - name: Unit tests of the policies
+        run: conftest verify --policy policy
+
+      - name: Check the manifests
+        run: bash scripts/check-policies.sh

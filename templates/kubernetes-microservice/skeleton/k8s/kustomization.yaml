@@ -1,0 +1,23 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+{%- if values.environment_strategy != 'multi-env' %}
+
+namespace: ${{ values.kubernetes_namespace }}
+{%- endif %}
+
+resources:
+{%- if values.environment_strategy == 'multi-env' or values.kubernetes_namespace != 'default' %}
+  - namespace.yaml
+{%- endif %}
+  - serviceaccount.yaml
+  - configmap.yaml
+  - workload.yaml
+  - service.yaml
+  - ingress.yaml
+  - networkpolicy.yaml
+{%- if values.enable_hpa %}
+  - hpa.yaml
+{%- endif %}
+{%- if values.enable_pdb %}
+  - pdb.yaml
+{%- endif %}

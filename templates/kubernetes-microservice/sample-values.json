@@ -1,0 +1,23 @@
+{
+  "values": {
+    "name": "sample-orders-service",
+    "description": "Order processing microservice of the sample team: it's the \"orders\" domain",
+    "owner": "group:default/platform-team",
+    "language": "nodejs",
+    "database_type": "postgresql",
+    "message_queue": "none",
+    "cloud_provider": "aws",
+    "environment_strategy": "multi-env",
+    "kubernetes_namespace": "orders",
+    "deployment_strategy": "rolling-update",
+    "enable_hpa": true,
+    "enable_pdb": true,
+    "monitoring_stack": "prometheus-grafana",
+    "enable_tracing": true,
+    "enable_security_scanning": true,
+    "enable_policy_enforcement": true,
+    "enable_automated_testing": true,
+    "enable_code_quality": true,
+    "repoUrl": "github.com?owner=example-org&repo=sample-orders-service"
+  }
+}

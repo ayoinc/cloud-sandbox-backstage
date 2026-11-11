@@ -1,0 +1,12 @@
+{
+  "values": {
+    "name": "sample-orders-api",
+    "description": "REST API for the sample team's orders: the \"v1\" contract",
+    "owner": "group:default/platform-team",
+    "environment": "development",
+    "framework": "express",
+    "port": 3000,
+    "enableDocker": true,
+    "repoUrl": "github.com?owner=example-org&repo=sample-orders-api"
+  }
+}

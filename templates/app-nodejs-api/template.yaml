@@ -88,15 +88,51 @@ spec:
       name: Fetch Base Template
       action: fetch:template
       input:
-        url: ./skeleton
+        url: ./skeleton/base
+        copyWithoutTemplating:
+          - .github/workflows/*
         values:
           name: ${{ parameters.name }}
-          description: ${{ parameters.description }}
+          description: ${{ parameters.description or 'Node.js API' }}
           owner: ${{ parameters.owner }}
           environment: ${{ parameters.environment }}
           framework: ${{ parameters.framework }}
-          port: ${{ parameters.port }}
+          port: ${{ parameters.port or 3000 }}
           enableDocker: ${{ parameters.enableDocker }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: fetch-framework
+      name: Add Framework Sources
+      action: fetch:template
+      input:
+        url: ./skeleton/framework-${{ parameters.framework }}
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'Node.js API' }}
+          owner: ${{ parameters.owner }}
+          environment: ${{ parameters.environment }}
+          framework: ${{ parameters.framework }}
+          port: ${{ parameters.port or 3000 }}
+          enableDocker: ${{ parameters.enableDocker }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: fetch-docker
+      name: Add Docker Image and Kubernetes Manifests
+      if: ${{ parameters.enableDocker }}
+      action: fetch:template
+      input:
+        url: ./skeleton/docker
+        copyWithoutTemplating:
+          - .github/workflows/*
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'Node.js API' }}
+          owner: ${{ parameters.owner }}
+          environment: ${{ parameters.environment }}
+          framework: ${{ parameters.framework }}
+          port: ${{ parameters.port or 3000 }}
+          enableDocker: ${{ parameters.enableDocker }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
 
     - id: publish
       name: Publish to GitHub

@@ -3,7 +3,7 @@ kind: Template
 metadata:
   name: docker-application-template
   title: Docker Application
-  description: Create a new Docker-based application with custom actions
+  description: Create a containerised service with a tested, scanned and published Docker image
   annotations:
     backstage.io/techdocs-ref: dir:.
   tags:
@@ -50,46 +50,111 @@ spec:
           ui:options:
             allowedHosts:
               - github.com
-              - gitlab.com
     - title: Docker Configuration
+      required:
+        - baseImage
       properties:
         baseImage:
           title: Base Image
           type: string
-          description: Docker base image to use
-          default: 'node:18-alpine'
+          description: Image the application is built on. It also selects the language of the starter application.
+          default: 'node:24-alpine'
           enum:
-            - 'node:18-alpine'
-            - 'python:3.11-alpine'
-            - 'openjdk:17-alpine'
-            - 'golang:1.20-alpine'
+            - 'node:24-alpine'
+            - 'python:3.13-alpine'
+            - 'eclipse-temurin:21-jdk-alpine'
+            - 'golang:1.27-alpine'
           enumNames:
-            - 'Node.js 18 (Alpine)'
-            - 'Python 3.11 (Alpine)'
-            - 'OpenJDK 17 (Alpine)'
-            - 'Go 1.20 (Alpine)'
+            - 'Node.js 24 (Alpine)'
+            - 'Python 3.13 (Alpine)'
+            - 'Java 21, Eclipse Temurin (Alpine)'
+            - 'Go 1.27 (Alpine)'
         port:
           title: Container Port
-          type: number
-          description: Port the application will listen on
+          type: integer
+          description: Port the application listens on. The container runs as a non-root user, so use 1024 or higher.
           default: 8080
+          minimum: 1024
+          maximum: 65535
         includeHealthcheck:
           title: Include Healthcheck
           type: boolean
-          description: Include Docker healthcheck configuration
+          description: Add a HEALTHCHECK instruction that calls /health to the Dockerfile
           default: true
   steps:
     - id: fetch
       name: Fetch Template
       action: fetch:template
       input:
-        url: ./skeleton
+        url: ./skeleton/base
+        copyWithoutTemplating:
+          - .github/workflows/*
         values:
           name: ${{ parameters.name }}
           description: ${{ parameters.description }}
           owner: ${{ parameters.owner }}
           baseImage: ${{ parameters.baseImage }}
-          port: ${{ parameters.port }}
+          port: ${{ parameters.port or 8080 }}
+          includeHealthcheck: ${{ parameters.includeHealthcheck }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: fetch-node
+      name: Add Node.js Application
+      if: ${{ parameters.baseImage == 'node:24-alpine' }}
+      action: fetch:template
+      input:
+        url: ./skeleton/node
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          baseImage: ${{ parameters.baseImage }}
+          port: ${{ parameters.port or 8080 }}
+          includeHealthcheck: ${{ parameters.includeHealthcheck }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: fetch-python
+      name: Add Python Application
+      if: ${{ parameters.baseImage == 'python:3.13-alpine' }}
+      action: fetch:template
+      input:
+        url: ./skeleton/python
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          baseImage: ${{ parameters.baseImage }}
+          port: ${{ parameters.port or 8080 }}
+          includeHealthcheck: ${{ parameters.includeHealthcheck }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: fetch-java
+      name: Add Java Application
+      if: ${{ parameters.baseImage == 'eclipse-temurin:21-jdk-alpine' }}
+      action: fetch:template
+      input:
+        url: ./skeleton/java
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          baseImage: ${{ parameters.baseImage }}
+          port: ${{ parameters.port or 8080 }}
+          includeHealthcheck: ${{ parameters.includeHealthcheck }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: fetch-golang
+      name: Add Go Application
+      if: ${{ parameters.baseImage == 'golang:1.27-alpine' }}
+      action: fetch:template
+      input:
+        url: ./skeleton/golang
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          baseImage: ${{ parameters.baseImage }}
+          port: ${{ parameters.port or 8080 }}
           includeHealthcheck: ${{ parameters.includeHealthcheck }}
           destination: ${{ parameters.repoUrl | parseRepoUrl }}
 

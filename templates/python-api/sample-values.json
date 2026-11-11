@@ -1,0 +1,23 @@
+{
+  "values": {
+    "name": "sample-python-api",
+    "description": "The sample team's \"items\" API: stores, caches and serves items",
+    "owner": "group:default/platform-team",
+    "repoUrl": "github.com?owner=example-org&repo=sample-python-api",
+    "python_version": "3.12",
+    "database_type": "postgresql",
+    "enable_migrations": true,
+    "auth_type": "jwt",
+    "containerization": "docker-compose",
+    "enable_caching": true,
+    "enable_rate_limiting": true,
+    "enable_cors": true,
+    "enable_security_headers": true,
+    "enable_docs": true,
+    "enable_logging": true,
+    "enable_metrics": true,
+    "enable_coverage": true,
+    "enable_linting": true,
+    "enable_type_checking": true
+  }
+}

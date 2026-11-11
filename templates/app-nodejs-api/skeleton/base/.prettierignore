@@ -1,0 +1,10 @@
+dist
+coverage
+node_modules
+package-lock.json
+
+# Hold text entered in the developer portal, which Prettier would reformat
+README.md
+catalog-info.yaml
+mkdocs.yml
+docs

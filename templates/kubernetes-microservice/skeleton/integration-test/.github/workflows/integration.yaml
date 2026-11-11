@@ -1,0 +1,30 @@
+name: Integration test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  kind:
+    name: Deploy to a kind cluster
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          tags: app:ci
+          cache-from: type=gha
+
+      - name: Deploy the manifests and call the service
+        run: bash scripts/kind-test.sh app:ci

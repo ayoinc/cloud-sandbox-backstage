@@ -1,265 +1,80 @@
 # Kubernetes Microservice Template
 
-This template creates a production-ready microservice with Kubernetes deployment, CI/CD pipelines, monitoring, and security best practices.
-
-## Overview
-
-Build and deploy containerized microservices to Kubernetes with built-in observability, security scanning, and deployment automation across multiple cloud providers.
-
-## Features
-
-### Multi-Language Support
-
-- **Node.js** (Express)
-- **Python** (FastAPI)
-- **Java** (Spring Boot)
-- **Go** (Gin)
-- **.NET Core**
-
-### Architecture Patterns
-
-- REST API Service
-- GraphQL API Service
-- gRPC Service
-- Event-Driven Service
-- Batch Processor
-
-### Database Integration
-
-- PostgreSQL
-- MySQL
-- MongoDB
-- Redis
-- Elasticsearch
-
-### Message Queues
-
-- RabbitMQ
-- Apache Kafka
-- Redis Pub/Sub
-- AWS SQS
-
-## Configuration Options
-
-| Parameter             | Description             | Default        |
-| --------------------- | ----------------------- | -------------- |
-| `language`            | Programming language    | nodejs         |
-| `architecture_type`   | Service architecture    | rest-api       |
-| `database_type`       | Database technology     | postgresql     |
-| `cloud_provider`      | Target cloud            | aws            |
-| `deployment_strategy` | K8s deployment strategy | rolling-update |
-
-## Getting Started
-
-### Prerequisites
-
-- Kubernetes cluster (EKS, AKS, GKE, or on-premise)
-- kubectl configured
-- Docker installed
-- CI/CD platform access
-
-### Local Development
-
-1. **Clone and install dependencies**
-
-   ```bash
-   git clone <repository-url>
-   cd <service-name>
-   npm install  # or pip install, mvn install, etc.
-   ```
-
-2. **Start local services**
-
-   ```bash
-   docker-compose up -d
-   ```
-
-3. **Run the application**
-   ```bash
-   npm run dev
-   ```
-
-### Kubernetes Deployment
-
-1. **Build and push container**
-
-   ```bash
-   docker build -t your-registry/service-name:tag .
-   docker push your-registry/service-name:tag
-   ```
-
-2. **Deploy to Kubernetes**
-
-   ```bash
-   kubectl apply -f k8s/
-   ```
-
-3. **Verify deployment**
-   ```bash
-   kubectl get pods -l app=service-name
-   kubectl get svc service-name
-   ```
-
-## Architecture
-
-```d2
-direction: right
-
-ingress: Ingress Controller {
-  style.fill: "#e3f2fd"
-}
-
-cluster: Kubernetes Cluster {
-  style.fill: "#f5f5f5"
-
-  service: Service {
-    style.fill: "#c8e6c9"
-    label: "Service\n(ClusterIP/LoadBalancer)"
-  }
-
-  pod1: Pod 1 {
-    style.fill: "#b3e5fc"
-  }
-
-  pod2: Pod 2 {
-    style.fill: "#b3e5fc"
-  }
-
-  hpa: HPA {
-    style.fill: "#fff3e0"
-    label: "Horizontal Pod\nAutoscaler"
-  }
-
-  service -> pod1
-  service -> pod2
-  hpa -> pod1: scales
-  hpa -> pod2: scales
-}
-
-ingress -> cluster.service
-```
-
-## Kubernetes Resources
-
-### Deployment Configuration
-
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: service-name
-spec:
-  replicas: 3
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
-```
-
-### Horizontal Pod Autoscaler
-
-```yaml
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-spec:
-  minReplicas: 2
-  maxReplicas: 10
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: 70
-```
-
-### Pod Disruption Budget
-
-```yaml
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-spec:
-  minAvailable: 1
-  selector:
-    matchLabels:
-      app: service-name
-```
-
-## Observability
-
-### Monitoring Stack Options
-
-- **Prometheus + Grafana** - Cloud-native metrics
-- **Elastic Stack (ELK)** - Centralized logging
-- **Datadog** - Full-stack observability
-- **New Relic** - APM and infrastructure
-
-### Distributed Tracing
-
-OpenTelemetry integration for end-to-end request tracing across services.
-
-### Health Checks
-
-```yaml
-livenessProbe:
-  httpGet:
-    path: /health/live
-    port: 8080
-  initialDelaySeconds: 10
-  periodSeconds: 10
-
-readinessProbe:
-  httpGet:
-    path: /health/ready
-    port: 8080
-  initialDelaySeconds: 5
-  periodSeconds: 5
-```
-
-## Security
-
-### Container Security
-
-- Non-root container execution
-- Read-only root filesystem
-- Resource limits enforced
-- Security context constraints
-
-### CI/CD Security Scanning
-
-- **Trivy** - Container vulnerability scanning
-- **Snyk** - Dependency scanning
-- **OWASP** - Security testing
-
-### Policy Enforcement
-
-OPA/Gatekeeper policies for Kubernetes resource compliance.
-
-## CI/CD Platforms
-
-- GitHub Actions
-- GitLab CI/CD
-- Jenkins
-- Azure DevOps
-- Tekton Pipelines
-
-## Deployment Strategies
-
-### Rolling Update
-
-Zero-downtime deployment with gradual pod replacement.
-
-### Blue-Green
-
-Run two identical environments, switch traffic instantly.
-
-### Canary
-
-Gradual traffic shifting to new version for safe rollouts.
-
-## Related Templates
-
-- [Python API](../python-api) - Python-specific API template
-- [React Frontend](../react-frontend) - Frontend application template
-- [Terraform Infrastructure](../terraform-infrastructure) - Infrastructure provisioning
+Creates a containerised microservice with Kubernetes manifests in a new GitHub
+repository. The pipeline lints, tests, validates the manifests, deploys the
+image to a throwaway kind cluster and publishes it; it passes on the first
+push.
+
+## Form
+
+| Field                     | Effect                                                                                                                                         |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Service Name              | Name of the service, the Kubernetes resources and the catalog entry                                                                            |
+| Description               | Catalog entry, OpenAPI description, documentation                                                                                              |
+| Owner                     | Owner of the catalog entries                                                                                                                   |
+| Programming Language      | Starter service, its tests and its Dockerfile: Node.js, Python, Java, Go or .NET                                                               |
+| Database Type             | `DATABASE_URL` from the Secret `<name>-secrets`, the database port in the NetworkPolicy, a catalog Resource                                    |
+| Message Queue             | `MESSAGE_QUEUE_URL` from the same Secret, the broker port in the NetworkPolicy, a catalog Resource                                             |
+| Cloud Provider            | Ingress class and annotations; how `deploy.yaml` signs in to the cluster (EKS, AKS, GKE, or a kubeconfig)                                      |
+| Environment Strategy      | One set of manifests; or a base with dev, staging and production overlays; or one set plus an Argo CD Application and no deployment workflow   |
+| Kubernetes Namespace      | Namespace of the resources; with the multi-environment strategy a prefix for `-dev`, `-staging` and `-production`                              |
+| Deployment Strategy       | Deployment with rolling updates, or an Argo Rollouts Rollout with a blue-green or canary strategy                                              |
+| Horizontal Pod Autoscaler | Adds `hpa.yaml` (2 to 10 pods on CPU and memory)                                                                                               |
+| Pod Disruption Budget     | Adds `pdb.yaml` (one pod unavailable at most)                                                                                                  |
+| Monitoring Stack          | Pod annotations for Prometheus or New Relic scraping, Datadog autodiscovery or Elastic hints; Basic adds none                                  |
+| Distributed Tracing       | Pod annotation for OpenTelemetry Operator auto-instrumentation, `OTEL_SERVICE_NAME`, OTLP ports in the NetworkPolicy                           |
+| Security Scanning         | Adds `security.yaml`: Trivy reports for manifests, dependencies and image                                                                      |
+| Policy Enforcement        | Adds OPA policies with tests and `policy.yaml` (conftest); enforces the restricted Pod Security Standard on the namespace the template creates |
+| Integration Testing       | Adds `scripts/kind-test.sh` and `integration.yaml`, which deploy to a kind cluster and call the service                                        |
+| Code Quality Analysis     | Adds `sonar-project.properties` and `code-quality.yaml`; the analysis is skipped until `SONAR_TOKEN` is set                                    |
+| Repository                | GitHub repository to create                                                                                                                    |
+
+The database and the message broker themselves are not created, and the
+starter service does not connect to them: the template wires the settings.
+
+## What is generated
+
+- A starter service on port 8080 with `/`, `/health`, `/ready` and `/metrics`,
+  and its unit tests
+- `Dockerfile` with a `test` stage that runs the unit tests and a runtime
+  stage that runs as a non-root user
+- `k8s/`: kustomize manifests (ServiceAccount, ConfigMap, Deployment or
+  Rollout, Service, Ingress, NetworkPolicy and the selected options)
+- `scripts/`: render, validate and deploy the manifests
+- `api-spec.yaml`: OpenAPI description, registered as an API in the catalog
+- `.github/workflows/ci.yaml` and the workflows of the selected options
+- `catalog-info.yaml`, `mkdocs.yml` and `docs/index.md` for the portal
+
+## What needs configuration
+
+Nothing for the pipeline to pass. These only do work once they are set up:
+
+| Workflow            | Setting                                                                 |
+| ------------------- | ----------------------------------------------------------------------- |
+| `deploy.yaml`       | Repository variables for the cloud sign-in, or the `KUBE_CONFIG` secret |
+| `code-quality.yaml` | The `SONAR_TOKEN` secret                                                |
+
+Until then each of them runs a short job that reports what is missing and
+skips the rest. The generated documentation lists the settings.
+
+Blue-green and canary deployments need the Argo Rollouts controller in the
+cluster, tracing needs the OpenTelemetry Operator, and the GitOps strategy
+needs Argo CD, where `argocd/application.yaml` is applied once.
+
+## Template layout
+
+| Directory                    | Used                                                 |
+| ---------------------------- | ---------------------------------------------------- |
+| `skeleton/base`              | Always                                               |
+| `skeleton/lang-<language>`   | The selected language                                |
+| `skeleton/k8s`               | Always; written to `k8s/` or `k8s/base/`             |
+| `skeleton/k8s-namespace`     | Multi-environment, or a namespace other than default |
+| `skeleton/k8s-hpa`           | Horizontal Pod Autoscaler                            |
+| `skeleton/k8s-pdb`           | Pod Disruption Budget                                |
+| `skeleton/k8s-overlays`      | Multi-environment                                    |
+| `skeleton/argocd`            | GitOps                                               |
+| `skeleton/deploy-<provider>` | Single and multi-environment                         |
+| `skeleton/integration-test`  | Integration Testing                                  |
+| `skeleton/security`          | Security Scanning                                    |
+| `skeleton/policy`            | Policy Enforcement                                   |
+| `skeleton/code-quality`      | Code Quality Analysis                                |

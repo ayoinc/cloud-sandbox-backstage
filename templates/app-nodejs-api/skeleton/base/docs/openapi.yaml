@@ -1,0 +1,118 @@
+openapi: 3.0.3
+info:
+  title: ${{ values.name }} API
+  description: ${{ values.description | dump }}
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:${{ values.port }}
+    description: Local development
+
+paths:
+  /health:
+    get:
+      summary: Service status
+      operationId: getHealth
+      tags: [Health]
+      responses:
+        '200':
+          description: The service is running
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+
+  /health/ready:
+    get:
+      summary: Readiness probe
+      operationId: getReadiness
+      tags: [Health]
+      responses:
+        '200':
+          description: The service can take traffic
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ready]
+                properties:
+                  ready:
+                    type: boolean
+
+  /health/live:
+    get:
+      summary: Liveness probe
+      operationId: getLiveness
+      tags: [Health]
+      responses:
+        '200':
+          description: The process is alive
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [alive]
+                properties:
+                  alive:
+                    type: boolean
+
+  /api:
+    get:
+      summary: Welcome message
+      operationId: getApiRoot
+      tags: [API]
+      responses:
+        '200':
+          description: Name and version of the API
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message, version]
+                properties:
+                  message:
+                    type: string
+                  version:
+                    type: string
+
+  /api/example:
+    get:
+      summary: Example endpoint
+      operationId: getExample
+      tags: [API]
+      responses:
+        '200':
+          description: Example data
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: string
+
+components:
+  schemas:
+    Health:
+      type: object
+      required: [status, timestamp, service, environment]
+      properties:
+        status:
+          type: string
+          example: healthy
+        timestamp:
+          type: string
+          format: date-time
+        service:
+          type: string
+          example: ${{ values.name }}
+        environment:
+          type: string
+          example: ${{ values.environment }}
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string

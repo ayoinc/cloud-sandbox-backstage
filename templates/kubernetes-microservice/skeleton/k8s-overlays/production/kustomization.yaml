@@ -1,0 +1,43 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: ${{ values.kubernetes_namespace }}-production
+
+resources:
+  - ../../base
+
+patches:
+  - target:
+      kind: ConfigMap
+      name: ${{ values.name }}-config
+    patch: |-
+      - op: replace
+        path: /data/ENVIRONMENT
+        value: production
+  - target:
+      kind: Ingress
+      name: ${{ values.name }}
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: ${{ values.name }}.example.com
+{%- if values.enable_hpa %}
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: ${{ values.name }}
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 2
+      - op: replace
+        path: /spec/maxReplicas
+        value: 10
+{%- else %}
+  - target:
+      kind: {% if values.deployment_strategy == 'rolling-update' %}Deployment{% else %}Rollout{% endif %}
+      name: ${{ values.name }}
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 2
+{%- endif %}

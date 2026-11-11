@@ -1,0 +1,4 @@
+node_modules
+
+# Throwaway kustomization written by scripts/deploy.sh
+.deploy.*/

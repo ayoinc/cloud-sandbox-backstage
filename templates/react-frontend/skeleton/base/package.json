@@ -1,0 +1,102 @@
+{
+  "name": "${{ values.name }}",
+  "version": "0.1.0",
+  "private": true,
+  "description": ${{ values.description | dump }},
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+{%- if values.enable_linting %}
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+{%- endif %}
+{%- if values.enable_storybook %}
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build",
+{%- endif %}
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+{%- if values.ui_framework == 'mui' %}
+    "@emotion/react": "11.14.0",
+    "@emotion/styled": "11.14.1",
+    "@mui/material": "9.5.0",
+{%- endif %}
+{%- if values.state_management == 'redux' %}
+    "@reduxjs/toolkit": "2.14.0",
+{%- endif %}
+{%- if values.api_client == 'react-query' %}
+    "@tanstack/react-query": "5.107.1",
+{%- endif %}
+{%- if values.api_client == 'axios' %}
+    "axios": "1.21.1",
+{%- endif %}
+{%- if values.react_version == '18' %}
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+{%- else %}
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+{%- endif %}
+{%- if values.state_management == 'redux' %},
+    "react-redux": "9.3.1"
+{%- endif %}
+{%- if values.routing == 'react-router' %},
+    "react-router-dom": "7.18.5"
+{%- endif %}
+{%- if values.enable_monitoring %},
+    "web-vitals": "6.2.3"
+{%- endif %}
+{%- if values.state_management == 'zustand' %},
+    "zustand": "5.1.0"
+{%- endif %}
+  },
+  "devDependencies": {
+{%- if values.enable_linting %}
+    "@biomejs/biome": "2.6.6",
+{%- endif %}
+{%- if values.enable_storybook %}
+    "@storybook/react-vite": "10.6.7",
+{%- endif %}
+{%- if values.ui_framework == 'tailwind' %}
+    "@tailwindcss/vite": "4.3.5",
+{%- endif %}
+    "@testing-library/dom": "10.4.2",
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.9",
+{%- if values.react_version == '18' %}
+    "@types/react": "18.3.31",
+    "@types/react-dom": "18.3.7",
+{%- else %}
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+{%- endif %}
+    "@vitejs/plugin-react": "6.3.0",
+    "@vitest/coverage-v8": "5.1.0",
+    "jsdom": "31.0.0",
+{%- if values.enable_mock_api %}
+    "msw": "3.0.4",
+{%- endif %}
+{%- if values.enable_storybook %}
+    "storybook": "10.6.7",
+{%- endif %}
+{%- if values.ui_framework == 'tailwind' %}
+    "tailwindcss": "4.3.5",
+{%- endif %}
+    "typescript": "7.0.2",
+    "vite": "8.3.7",
+{%- if values.enable_pwa %}
+    "vite-plugin-pwa": "2.0.0",
+{%- endif %}
+    "vitest": "5.1.0"
+  },
+  "engines": {
+    "node": ">=22.22.2"
+  }
+}

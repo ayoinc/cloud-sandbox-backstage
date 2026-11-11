@@ -1,286 +1,56 @@
 # Python API Service Template
 
-This template creates a production-ready Python API with FastAPI, authentication, monitoring, and comprehensive testing.
-
-## Overview
-
-Build high-performance Python APIs with modern async support, automatic documentation, and enterprise-ready features out of the box.
-
-## Features
-
-### Framework Options
-
-- **FastAPI** (Recommended) - Modern, fast, async-first
-- **Flask + Flask-RESTful** - Lightweight and flexible
-- **Django REST Framework** - Full-featured with admin
-- **Starlette** - Minimal ASGI framework
-
-### API Types
-
-- REST CRUD API
-- REST Microservice
-- GraphQL API
-- WebSocket Service
-- Async Task Processor
-
-### Database Support
-
-| Database   | ORM/ODM                  |
-| ---------- | ------------------------ |
-| PostgreSQL | SQLAlchemy               |
-| MySQL      | SQLAlchemy, Tortoise ORM |
-| MongoDB    | MongoEngine              |
-| Redis      | Redis OM                 |
-| SQLite     | SQLAlchemy, Peewee       |
-
-## Configuration Options
-
-| Parameter        | Description    | Default    |
-| ---------------- | -------------- | ---------- |
-| `python_version` | Python version | 3.11       |
-| `framework`      | Web framework  | fastapi    |
-| `database_type`  | Database       | postgresql |
-| `auth_type`      | Authentication | jwt        |
-| `enable_async`   | Async support  | true       |
-
-## Getting Started
-
-### Prerequisites
-
-- Python 3.9+
-- pip or Poetry
-- Docker (optional)
-
-### Local Development
-
-1. **Create virtual environment**
-
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # Linux/Mac
-   # or
-   .\venv\Scripts\activate  # Windows
-   ```
-
-2. **Install dependencies**
-
-   ```bash
-   pip install -r requirements.txt
-   # or with Poetry
-   poetry install
-   ```
-
-3. **Set up environment**
-
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
-   ```
-
-4. **Run database migrations**
-
-   ```bash
-   alembic upgrade head
-   ```
-
-5. **Start the server**
-   ```bash
-   uvicorn app.main:app --reload
-   ```
-
-### API Documentation
-
-FastAPI automatically generates interactive documentation:
-
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
-- **OpenAPI JSON**: http://localhost:8000/openapi.json
-
-## Project Structure
-
-```
-├── app/
-│   ├── __init__.py
-│   ├── main.py              # Application entry point
-│   ├── config.py            # Configuration settings
-│   ├── api/
-│   │   ├── __init__.py
-│   │   ├── routes/          # API route handlers
-│   │   └── dependencies.py  # Dependency injection
-│   ├── core/
-│   │   ├── security.py      # Authentication/authorization
-│   │   └── logging.py       # Structured logging
-│   ├── models/              # Database models
-│   ├── schemas/             # Pydantic schemas
-│   ├── services/            # Business logic
-│   └── repositories/        # Data access layer
-├── tests/
-│   ├── unit/
-│   ├── integration/
-│   └── conftest.py
-├── alembic/                 # Database migrations
-├── Dockerfile
-├── docker-compose.yaml
-└── requirements.txt
-```
-
-## Authentication
-
-### JWT Authentication
-
-```python
-from fastapi import Depends, HTTPException
-from fastapi.security import OAuth2PasswordBearer
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
-async def get_current_user(token: str = Depends(oauth2_scheme)):
-    user = decode_token(token)
-    if not user:
-        raise HTTPException(status_code=401)
-    return user
-```
-
-### Supported Auth Methods
-
-- JWT Tokens
-- OAuth2 / OpenID Connect
-- API Key Authentication
-- Basic Authentication
-- LDAP Authentication
-
-## Database Migrations
-
-Using Alembic for database migrations:
-
-```bash
-# Create a new migration
-alembic revision --autogenerate -m "Add users table"
-
-# Apply migrations
-alembic upgrade head
-
-# Rollback
-alembic downgrade -1
-```
-
-## Testing
-
-### Run Tests
-
-```bash
-# Run all tests
-pytest
-
-# With coverage
-pytest --cov=app --cov-report=html
-
-# Run specific tests
-pytest tests/unit/
-pytest tests/integration/
-```
-
-### Test Configuration
-
-```python
-# conftest.py
-import pytest
-from httpx import AsyncClient
-
-@pytest.fixture
-async def client():
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        yield ac
-```
-
-## Code Quality
-
-### Linting and Formatting
-
-```bash
-# Format code
-black app/ tests/
-isort app/ tests/
-
-# Lint
-flake8 app/ tests/
-
-# Type checking
-mypy app/
-```
-
-### Pre-commit Hooks
-
-```yaml
-# .pre-commit-config.yaml
-repos:
-  - repo: https://github.com/psf/black
-    hooks:
-      - id: black
-  - repo: https://github.com/pycqa/isort
-    hooks:
-      - id: isort
-  - repo: https://github.com/pycqa/flake8
-    hooks:
-      - id: flake8
-```
-
-## Docker Deployment
-
-### Build and Run
-
-```bash
-# Build image
-docker build -t my-api:latest .
-
-# Run container
-docker run -p 8000:8000 my-api:latest
-
-# With docker-compose
-docker-compose up -d
-```
-
-### Multi-stage Dockerfile
-
-```dockerfile
-FROM python:3.11-slim as builder
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-FROM python:3.11-slim
-WORKDIR /app
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY . .
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0"]
-```
-
-## Monitoring
-
-### Health Checks
-
-```python
-@app.get("/health")
-async def health():
-    return {"status": "healthy"}
-
-@app.get("/health/ready")
-async def readiness():
-    # Check database connection
-    # Check external dependencies
-    return {"status": "ready"}
-```
-
-### Prometheus Metrics
-
-```python
-from prometheus_fastapi_instrumentator import Instrumentator
-
-Instrumentator().instrument(app).expose(app)
-```
-
-## Related Templates
-
-- [Kubernetes Microservice](../kubernetes-microservice) - Deploy to Kubernetes
-- [Docker Application](../docker-application) - Containerization template
-- [React Frontend](../react-frontend) - Frontend for your API
+Creates a repository with a FastAPI service, its tests, a container image and GitHub
+Actions workflows that pass on the first push without any secret or variable.
+
+## What every repository gets
+
+- A FastAPI application in `src/app/` (import name `app`, started with `uvicorn app.main:app`)
+  with a sample `items` resource under `/api/v1/items`, a liveness endpoint `/health`
+  and a readiness endpoint `/health/ready`
+- Settings read from environment variables (`src/app/config.py`, `.env.example`). The
+  service starts without any; with `APP_ENV=production` it refuses development secrets
+- `pyproject.toml` (hatchling) with runtime dependencies bounded by major version, and
+  pytest tests of every generated module
+- A multi-stage `Dockerfile` (`python:<version>-slim`, unprivileged user, health check)
+- `.github/workflows/ci.yaml`: tests, Hadolint, image build, container smoke test on
+  `/health`, Trivy reports, image publication to `ghcr.io` on push
+- `catalog-info.yaml`, `mkdocs.yml` and `docs/index.md` describing what was generated
+
+## Form
+
+| Parameter                 | Values                                   | Effect on the repository                                                                                                                                                                                                                   |
+| ------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `name`                    | lowercase letters, numbers, hyphens      | Repository, catalog entity, package and image name                                                                                                                                                                                         |
+| `description`             | text                                     | Description in the catalog, `pyproject.toml` and the docs                                                                                                                                                                                  |
+| `owner`                   | group or user                            | `spec.owner` of the catalog entity                                                                                                                                                                                                         |
+| `repoUrl`                 | github.com repository                    | Where the repository is published                                                                                                                                                                                                          |
+| `python_version`          | `3.11`, `3.12`, `3.13`                   | `.python-version` (read by the workflows), base image, `requires-python`, Ruff and mypy target                                                                                                                                             |
+| `database_type`           | `none`, `postgresql`, `mysql`, `sqlite`  | `none` keeps items in memory; the others store them through SQLAlchemy 2 (async) with asyncpg, aiomysql or aiosqlite                                                                                                                       |
+| `enable_migrations`       | on/off, shown for a SQL database         | On: Alembic with an initial migration and tests of upgrade and downgrade. Off: `python -m app.init_db` creates the tables                                                                                                                  |
+| `enable_caching`          | on/off                                   | Cache-aside reads of items in Redis when `REDIS_URL` is set, otherwise in memory                                                                                                                                                           |
+| `auth_type`               | `none`, `jwt`, `api-key`, `basic-auth`   | Protection of the items routes: bearer tokens issued by `POST /api/v1/auth/token`, an `X-API-Key` header, or HTTP Basic                                                                                                                    |
+| `enable_rate_limiting`    | on/off                                   | Middleware limiting requests per client address (`RATE_LIMIT`), built on the `limits` library                                                                                                                                              |
+| `enable_cors`             | on/off                                   | CORS middleware for the origins in `CORS_ORIGINS`                                                                                                                                                                                          |
+| `enable_security_headers` | on/off                                   | Middleware adding security headers to every response                                                                                                                                                                                       |
+| `enable_docs`             | on/off                                   | Swagger UI, ReDoc and `/openapi.json` served or not                                                                                                                                                                                        |
+| `enable_logging`          | on/off                                   | structlog JSON logging and a request logging middleware                                                                                                                                                                                    |
+| `enable_metrics`          | on/off                                   | Prometheus metrics on `/metrics`                                                                                                                                                                                                           |
+| `enable_coverage`         | on/off                                   | pytest-cov in the test run, failing below 90 percent                                                                                                                                                                                       |
+| `enable_linting`          | on/off                                   | Ruff configuration and `.github/workflows/lint.yaml`                                                                                                                                                                                       |
+| `enable_type_checking`    | on/off                                   | mypy strict configuration and `.github/workflows/typecheck.yaml`                                                                                                                                                                           |
+| `containerization`        | `docker`, `docker-compose`, `kubernetes` | `docker-compose` adds `docker-compose.yaml` with the database and Redis the options need, `scripts/smoke.sh` and a workflow that starts the stack and calls the API; `kubernetes` adds `k8s/` manifests and a workflow that validates them |
+
+Every option adds its own tests, so the test workflow covers what was selected.
+
+## Steps
+
+1. Render `skeleton/base/` and the `skeleton/<variant>/` directories the options select
+2. Publish the result as a private GitHub repository with `main` as default branch
+3. Register `catalog-info.yaml` in the catalog
+
+## After creation
+
+The first push starts the workflows; the links of the task page open the repository,
+the catalog entity and the workflow runs. The generated `README.md` and `docs/index.md`
+list the commands, endpoints and settings of the service.

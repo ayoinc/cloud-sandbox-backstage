@@ -1,0 +1,40 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ${{ values.name }}
+  labels:
+    app.kubernetes.io/name: ${{ values.name }}
+    backstage.io/kubernetes-id: ${{ values.name }}
+{%- if values.cloud_provider == 'aws' %}
+  annotations:
+    # AWS Load Balancer Controller: an internal Application Load Balancer
+    # that sends traffic straight to the pods.
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+{%- elif values.cloud_provider == 'gcp' %}
+  annotations:
+    # GKE Ingress: an external Application Load Balancer
+    kubernetes.io/ingress.class: gce
+{%- endif %}
+spec:
+{%- if values.cloud_provider == 'aws' %}
+  ingressClassName: alb
+{%- elif values.cloud_provider == 'azure' %}
+  # Application routing add-on of AKS
+  ingressClassName: webapprouting.kubernetes.azure.com
+{%- elif values.cloud_provider == 'on-premise' %}
+  ingressClassName: nginx
+{%- endif %}
+  rules:
+    # Replace with the host name the service is published under.
+    - host: ${{ values.name }}.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ${{ values.name }}
+                port:
+                  name: http

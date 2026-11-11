@@ -83,13 +83,16 @@ spec:
       action: fetch:template
       input:
         url: ./skeleton
+        copyWithoutTemplating:
+          - .github/workflows/*
         values:
           name: ${{ parameters.name }}
-          description: ${{ parameters.description }}
+          description: ${{ parameters.description or 'Spring Boot API' }}
           owner: ${{ parameters.owner }}
           environment: ${{ parameters.environment }}
           javaVersion: ${{ parameters.javaVersion }}
-          serverPort: ${{ parameters.serverPort }}
+          serverPort: ${{ parameters.serverPort or 8080 }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
 
     - id: publish
       name: Publish to GitHub

@@ -1,0 +1,7 @@
+classes/
+test-classes/
+*.jar
+*.class
+
+# Throwaway kustomization written by scripts/deploy.sh
+.deploy.*/

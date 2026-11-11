@@ -1,0 +1,50 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ${{ values.name }}
+  labels:
+    app.kubernetes.io/name: ${{ values.name }}
+    backstage.io/kubernetes-id: ${{ values.name }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: ${{ values.name }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Only the HTTP port is reachable.
+    - ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    # DNS
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # HTTPS
+    - ports:
+        - protocol: TCP
+          port: 443
+{%- if values.database_type != 'none' %}
+    # Database (${{ values.database_type }})
+    - ports:
+        - protocol: TCP
+          port: {% if values.database_type == 'postgresql' %}5432{% elif values.database_type == 'mysql' %}3306{% elif values.database_type == 'mongodb' %}27017{% elif values.database_type == 'redis' %}6379{% else %}9200{% endif %}
+{%- endif %}
+{%- if values.message_queue in ['rabbitmq', 'kafka', 'redis-pub-sub'] %}
+    # Message queue (${{ values.message_queue }})
+    - ports:
+        - protocol: TCP
+          port: {% if values.message_queue == 'rabbitmq' %}5672{% elif values.message_queue == 'kafka' %}9092{% else %}6379{% endif %}
+{%- endif %}
+{%- if values.enable_tracing %}
+    # OpenTelemetry collector (OTLP over gRPC and HTTP)
+    - ports:
+        - protocol: TCP
+          port: 4317
+        - protocol: TCP
+          port: 4318
+{%- endif %}

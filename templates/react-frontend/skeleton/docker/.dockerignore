@@ -1,0 +1,14 @@
+.git
+.github
+node_modules
+dist
+dev-dist
+coverage
+storybook-static
+docs
+tests
+.storybook
+*.md
+.env
+.env.local
+.env.*.local

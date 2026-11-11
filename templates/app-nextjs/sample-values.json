@@ -1,0 +1,11 @@
+{
+  "values": {
+    "name": "sample-nextjs-app",
+    "description": "Customer portal for the sample team's orders: the \"self-service\" edition",
+    "owner": "group:default/platform-team",
+    "environment": "development",
+    "styling": "tailwind",
+    "enableDocker": true,
+    "repoUrl": "github.com?owner=example-org&repo=sample-nextjs-app"
+  }
+}

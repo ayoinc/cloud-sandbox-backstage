@@ -3,7 +3,7 @@ kind: Template
 metadata:
   name: kubernetes-microservice
   title: Kubernetes Microservice
-  description: Create a production-ready microservice with Kubernetes deployment, CI/CD, monitoring, and security
+  description: Create a containerised microservice with Kubernetes manifests, a tested pipeline and a deployment workflow
   annotations:
     backstage.io/techdocs-ref: dir:.
   tags:
@@ -27,18 +27,19 @@ spec:
         name:
           title: Service Name
           type: string
-          description: Unique name of the microservice
-          pattern: '^[a-z0-9\-]+$'
+          description: Name of the microservice. It names the Kubernetes resources.
+          pattern: '^[a-z]([a-z0-9-]*[a-z0-9])?$'
+          maxLength: 40
           ui:autofocus: true
-          ui:help: 'Use lowercase letters, numbers, and hyphens only'
+          ui:help: 'Lowercase letters, numbers and hyphens; starts with a letter'
         description:
           title: Description
           type: string
-          description: Brief description of the microservice functionality
+          description: Brief description of the microservice
         owner:
           title: Owner
           type: string
-          description: Owner of the service
+          description: Owner of the microservice
           ui:field: OwnerPicker
           ui:options:
             catalogFilter:
@@ -46,7 +47,7 @@ spec:
         language:
           title: Programming Language
           type: string
-          description: Primary programming language
+          description: Language of the starter service and of its image
           default: nodejs
           enum:
             - nodejs
@@ -55,11 +56,11 @@ spec:
             - golang
             - dotnet
           enumNames:
-            - Node.js (Express)
-            - Python (FastAPI)
-            - Java (Spring Boot)
-            - Go (Gin)
-            - .NET Core
+            - Node.js 24
+            - Python 3.13
+            - Java 21
+            - Go 1.27
+            - .NET 10
 
     - title: Repository Configuration
       required:
@@ -72,31 +73,18 @@ spec:
           ui:options:
             allowedHosts:
               - github.com
-              - gitlab.com
 
-    - title: Architecture & Infrastructure
+    - title: Dependencies
+      required:
+        - database_type
+        - message_queue
       properties:
-        architecture_type:
-          title: Architecture Type
-          type: string
-          description: Service architecture pattern
-          default: rest-api
-          enum:
-            - rest-api
-            - graphql-api
-            - grpc-service
-            - event-driven
-            - batch-processor
-          enumNames:
-            - REST API Service
-            - GraphQL API Service
-            - gRPC Service
-            - Event-Driven Service
-            - Batch Processor
         database_type:
           title: Database Type
           type: string
-          description: Primary database technology
+          description: >-
+            Gives the pods a DATABASE_URL from the Secret <name>-secrets, opens the database port in the
+            NetworkPolicy and registers the database as a catalog resource. The database itself is not created.
           default: postgresql
           enum:
             - none
@@ -115,7 +103,9 @@ spec:
         message_queue:
           title: Message Queue
           type: string
-          description: Message queue system
+          description: >-
+            Gives the pods a MESSAGE_QUEUE_URL from the Secret <name>-secrets, opens the broker port in the
+            NetworkPolicy and registers the queue as a catalog resource. The broker itself is not created.
           default: none
           enum:
             - none
@@ -131,11 +121,16 @@ spec:
             - AWS SQS
 
     - title: Cloud & Deployment
+      required:
+        - cloud_provider
+        - environment_strategy
+        - kubernetes_namespace
+        - deployment_strategy
       properties:
         cloud_provider:
           title: Cloud Provider
           type: string
-          description: Target cloud platform
+          description: Selects the Ingress class and how the deployment workflow signs in to the cluster
           default: aws
           enum:
             - aws
@@ -143,14 +138,16 @@ spec:
             - gcp
             - on-premise
           enumNames:
-            - Amazon Web Services
-            - Microsoft Azure
-            - Google Cloud Platform
+            - Amazon Web Services (EKS)
+            - Microsoft Azure (AKS)
+            - Google Cloud Platform (GKE)
             - On-Premise
         environment_strategy:
           title: Environment Strategy
           type: string
-          description: Deployment environment setup
+          description: >-
+            Single environment: one set of manifests. Multi-environment: a base with dev, staging and production
+            overlays. GitOps: one set of manifests and an Argo CD Application that syncs them; no deployment workflow.
           default: multi-env
           enum:
             - single-env
@@ -159,29 +156,52 @@ spec:
           enumNames:
             - Single Environment
             - Multi-Environment (Dev/Staging/Prod)
-            - GitOps with ArgoCD
+            - GitOps with Argo CD
         kubernetes_namespace:
           title: Kubernetes Namespace
           type: string
-          description: Target Kubernetes namespace
+          description: >-
+            Namespace to deploy to. With the multi-environment strategy it is a prefix: <namespace>-dev,
+            <namespace>-staging and <namespace>-production.
           default: default
+          pattern: '^[a-z0-9]([a-z0-9-]*[a-z0-9])?$'
+          maxLength: 50
+        deployment_strategy:
+          title: Deployment Strategy
+          type: string
+          description: >-
+            Rolling update uses a Deployment. Blue-green and canary use an Argo Rollouts Rollout and need the
+            Argo Rollouts controller in the cluster.
+          default: rolling-update
+          enum:
+            - rolling-update
+            - blue-green
+            - canary
+          enumNames:
+            - Rolling Update
+            - Blue-Green Deployment (Argo Rollouts)
+            - Canary Deployment (Argo Rollouts)
         enable_hpa:
           title: Enable Horizontal Pod Autoscaler
           type: boolean
-          description: Auto-scale pods based on CPU/memory usage
+          description: Scale between 2 and 10 pods on CPU and memory use
           default: true
         enable_pdb:
           title: Enable Pod Disruption Budget
           type: boolean
-          description: Ensure minimum pod availability during updates
+          description: Let node drains take down one pod at a time
           default: true
 
     - title: Observability & Security
+      required:
+        - monitoring_stack
       properties:
         monitoring_stack:
           title: Monitoring Stack
           type: string
-          description: Observability and monitoring tools
+          description: >-
+            The service always exposes Prometheus metrics on /metrics. This adds the pod annotations the selected
+            stack uses to discover and scrape them; Basic adds none.
           default: prometheus-grafana
           enum:
             - basic
@@ -190,97 +210,410 @@ spec:
             - datadog
             - new-relic
           enumNames:
-            - Basic (Health checks only)
+            - Basic (no scraping annotations)
             - Prometheus + Grafana
-            - Elastic Stack (ELK)
+            - Elastic Stack
             - Datadog
             - New Relic
         enable_tracing:
           title: Enable Distributed Tracing
           type: boolean
-          description: Include Jaeger/OpenTelemetry tracing
+          description: >-
+            Annotate the pods for auto-instrumentation by the OpenTelemetry Operator, which must be installed in the
+            cluster, and allow OTLP traffic in the NetworkPolicy
           default: true
         enable_security_scanning:
           title: Enable Security Scanning
           type: boolean
-          description: Include Trivy, Snyk, and OWASP scanning
+          description: Add a workflow that scans the manifests, the dependencies and the image with Trivy
           default: true
         enable_policy_enforcement:
           title: Enable Policy Enforcement
           type: boolean
-          description: Include OPA/Gatekeeper policies
+          description: >-
+            Add OPA policies for the manifests, checked in the pipeline with conftest, and enforce the restricted
+            Pod Security Standard on the namespace the template creates
           default: true
 
     - title: CI/CD Configuration
       properties:
-        ci_cd_platform:
-          title: CI/CD Platform
-          type: string
-          description: Continuous integration and deployment platform
-          default: github-actions
-          enum:
-            - github-actions
-            - gitlab-ci
-            - jenkins
-            - azure-devops
-            - tekton
-          enumNames:
-            - GitHub Actions
-            - GitLab CI/CD
-            - Jenkins
-            - Azure DevOps
-            - Tekton Pipelines
         enable_automated_testing:
-          title: Enable Automated Testing
+          title: Enable Integration Testing
           type: boolean
-          description: Include unit, integration, and e2e tests
+          description: >-
+            Add a workflow that deploys the image to a throwaway kind cluster with the manifests and calls the
+            service. Unit tests always run.
           default: true
         enable_code_quality:
-          title: Enable Code Quality Checks
+          title: Enable Code Quality Analysis
           type: boolean
-          description: Include SonarQube, ESLint, etc.
+          description: Add a SonarQube analysis workflow. It is skipped until the SONAR_TOKEN secret is set.
           default: true
-        deployment_strategy:
-          title: Deployment Strategy
-          type: string
-          description: Kubernetes deployment strategy
-          default: rolling-update
-          enum:
-            - rolling-update
-            - blue-green
-            - canary
-          enumNames:
-            - Rolling Update
-            - Blue-Green Deployment
-            - Canary Deployment
 
   steps:
     - id: fetch
       name: Fetch Base Template
       action: fetch:template
       input:
-        url: ./skeleton
+        url: ./skeleton/base
+        copyWithoutTemplating:
+          - .github/workflows/*
         values:
           name: ${{ parameters.name }}
           description: ${{ parameters.description }}
           owner: ${{ parameters.owner }}
           language: ${{ parameters.language }}
-          architecture_type: ${{ parameters.architecture_type }}
           database_type: ${{ parameters.database_type }}
           message_queue: ${{ parameters.message_queue }}
           cloud_provider: ${{ parameters.cloud_provider }}
           environment_strategy: ${{ parameters.environment_strategy }}
           kubernetes_namespace: ${{ parameters.kubernetes_namespace }}
+          deployment_strategy: ${{ parameters.deployment_strategy }}
           enable_hpa: ${{ parameters.enable_hpa }}
           enable_pdb: ${{ parameters.enable_pdb }}
           monitoring_stack: ${{ parameters.monitoring_stack }}
           enable_tracing: ${{ parameters.enable_tracing }}
           enable_security_scanning: ${{ parameters.enable_security_scanning }}
           enable_policy_enforcement: ${{ parameters.enable_policy_enforcement }}
-          ci_cd_platform: ${{ parameters.ci_cd_platform }}
           enable_automated_testing: ${{ parameters.enable_automated_testing }}
           enable_code_quality: ${{ parameters.enable_code_quality }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: fetch-language
+      name: Add Service Sources
+      action: fetch:template
+      input:
+        url: ./skeleton/lang-${{ parameters.language }}
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          language: ${{ parameters.language }}
+          database_type: ${{ parameters.database_type }}
+          message_queue: ${{ parameters.message_queue }}
+          cloud_provider: ${{ parameters.cloud_provider }}
+          environment_strategy: ${{ parameters.environment_strategy }}
+          kubernetes_namespace: ${{ parameters.kubernetes_namespace }}
           deployment_strategy: ${{ parameters.deployment_strategy }}
+          enable_hpa: ${{ parameters.enable_hpa }}
+          enable_pdb: ${{ parameters.enable_pdb }}
+          monitoring_stack: ${{ parameters.monitoring_stack }}
+          enable_tracing: ${{ parameters.enable_tracing }}
+          enable_security_scanning: ${{ parameters.enable_security_scanning }}
+          enable_policy_enforcement: ${{ parameters.enable_policy_enforcement }}
+          enable_automated_testing: ${{ parameters.enable_automated_testing }}
+          enable_code_quality: ${{ parameters.enable_code_quality }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: fetch-manifests
+      name: Add Kubernetes Manifests
+      action: fetch:template
+      input:
+        url: ./skeleton/k8s
+        targetPath: ${{ 'k8s/base' if parameters.environment_strategy == 'multi-env' else 'k8s' }}
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          language: ${{ parameters.language }}
+          database_type: ${{ parameters.database_type }}
+          message_queue: ${{ parameters.message_queue }}
+          cloud_provider: ${{ parameters.cloud_provider }}
+          environment_strategy: ${{ parameters.environment_strategy }}
+          kubernetes_namespace: ${{ parameters.kubernetes_namespace }}
+          deployment_strategy: ${{ parameters.deployment_strategy }}
+          enable_hpa: ${{ parameters.enable_hpa }}
+          enable_pdb: ${{ parameters.enable_pdb }}
+          monitoring_stack: ${{ parameters.monitoring_stack }}
+          enable_tracing: ${{ parameters.enable_tracing }}
+          enable_security_scanning: ${{ parameters.enable_security_scanning }}
+          enable_policy_enforcement: ${{ parameters.enable_policy_enforcement }}
+          enable_automated_testing: ${{ parameters.enable_automated_testing }}
+          enable_code_quality: ${{ parameters.enable_code_quality }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: fetch-namespace
+      name: Add Namespace
+      if: ${{ parameters.environment_strategy == 'multi-env' or parameters.kubernetes_namespace != 'default' }}
+      action: fetch:template
+      input:
+        url: ./skeleton/k8s-namespace
+        targetPath: ${{ 'k8s/base' if parameters.environment_strategy == 'multi-env' else 'k8s' }}
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          language: ${{ parameters.language }}
+          database_type: ${{ parameters.database_type }}
+          message_queue: ${{ parameters.message_queue }}
+          cloud_provider: ${{ parameters.cloud_provider }}
+          environment_strategy: ${{ parameters.environment_strategy }}
+          kubernetes_namespace: ${{ parameters.kubernetes_namespace }}
+          deployment_strategy: ${{ parameters.deployment_strategy }}
+          enable_hpa: ${{ parameters.enable_hpa }}
+          enable_pdb: ${{ parameters.enable_pdb }}
+          monitoring_stack: ${{ parameters.monitoring_stack }}
+          enable_tracing: ${{ parameters.enable_tracing }}
+          enable_security_scanning: ${{ parameters.enable_security_scanning }}
+          enable_policy_enforcement: ${{ parameters.enable_policy_enforcement }}
+          enable_automated_testing: ${{ parameters.enable_automated_testing }}
+          enable_code_quality: ${{ parameters.enable_code_quality }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: fetch-hpa
+      name: Add Horizontal Pod Autoscaler
+      if: ${{ parameters.enable_hpa }}
+      action: fetch:template
+      input:
+        url: ./skeleton/k8s-hpa
+        targetPath: ${{ 'k8s/base' if parameters.environment_strategy == 'multi-env' else 'k8s' }}
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          language: ${{ parameters.language }}
+          database_type: ${{ parameters.database_type }}
+          message_queue: ${{ parameters.message_queue }}
+          cloud_provider: ${{ parameters.cloud_provider }}
+          environment_strategy: ${{ parameters.environment_strategy }}
+          kubernetes_namespace: ${{ parameters.kubernetes_namespace }}
+          deployment_strategy: ${{ parameters.deployment_strategy }}
+          enable_hpa: ${{ parameters.enable_hpa }}
+          enable_pdb: ${{ parameters.enable_pdb }}
+          monitoring_stack: ${{ parameters.monitoring_stack }}
+          enable_tracing: ${{ parameters.enable_tracing }}
+          enable_security_scanning: ${{ parameters.enable_security_scanning }}
+          enable_policy_enforcement: ${{ parameters.enable_policy_enforcement }}
+          enable_automated_testing: ${{ parameters.enable_automated_testing }}
+          enable_code_quality: ${{ parameters.enable_code_quality }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: fetch-pdb
+      name: Add Pod Disruption Budget
+      if: ${{ parameters.enable_pdb }}
+      action: fetch:template
+      input:
+        url: ./skeleton/k8s-pdb
+        targetPath: ${{ 'k8s/base' if parameters.environment_strategy == 'multi-env' else 'k8s' }}
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          language: ${{ parameters.language }}
+          database_type: ${{ parameters.database_type }}
+          message_queue: ${{ parameters.message_queue }}
+          cloud_provider: ${{ parameters.cloud_provider }}
+          environment_strategy: ${{ parameters.environment_strategy }}
+          kubernetes_namespace: ${{ parameters.kubernetes_namespace }}
+          deployment_strategy: ${{ parameters.deployment_strategy }}
+          enable_hpa: ${{ parameters.enable_hpa }}
+          enable_pdb: ${{ parameters.enable_pdb }}
+          monitoring_stack: ${{ parameters.monitoring_stack }}
+          enable_tracing: ${{ parameters.enable_tracing }}
+          enable_security_scanning: ${{ parameters.enable_security_scanning }}
+          enable_policy_enforcement: ${{ parameters.enable_policy_enforcement }}
+          enable_automated_testing: ${{ parameters.enable_automated_testing }}
+          enable_code_quality: ${{ parameters.enable_code_quality }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: fetch-overlays
+      name: Add Environment Overlays
+      if: ${{ parameters.environment_strategy == 'multi-env' }}
+      action: fetch:template
+      input:
+        url: ./skeleton/k8s-overlays
+        targetPath: k8s/overlays
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          language: ${{ parameters.language }}
+          database_type: ${{ parameters.database_type }}
+          message_queue: ${{ parameters.message_queue }}
+          cloud_provider: ${{ parameters.cloud_provider }}
+          environment_strategy: ${{ parameters.environment_strategy }}
+          kubernetes_namespace: ${{ parameters.kubernetes_namespace }}
+          deployment_strategy: ${{ parameters.deployment_strategy }}
+          enable_hpa: ${{ parameters.enable_hpa }}
+          enable_pdb: ${{ parameters.enable_pdb }}
+          monitoring_stack: ${{ parameters.monitoring_stack }}
+          enable_tracing: ${{ parameters.enable_tracing }}
+          enable_security_scanning: ${{ parameters.enable_security_scanning }}
+          enable_policy_enforcement: ${{ parameters.enable_policy_enforcement }}
+          enable_automated_testing: ${{ parameters.enable_automated_testing }}
+          enable_code_quality: ${{ parameters.enable_code_quality }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: fetch-argocd
+      name: Add Argo CD Application
+      if: ${{ parameters.environment_strategy == 'gitops' }}
+      action: fetch:template
+      input:
+        url: ./skeleton/argocd
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          language: ${{ parameters.language }}
+          database_type: ${{ parameters.database_type }}
+          message_queue: ${{ parameters.message_queue }}
+          cloud_provider: ${{ parameters.cloud_provider }}
+          environment_strategy: ${{ parameters.environment_strategy }}
+          kubernetes_namespace: ${{ parameters.kubernetes_namespace }}
+          deployment_strategy: ${{ parameters.deployment_strategy }}
+          enable_hpa: ${{ parameters.enable_hpa }}
+          enable_pdb: ${{ parameters.enable_pdb }}
+          monitoring_stack: ${{ parameters.monitoring_stack }}
+          enable_tracing: ${{ parameters.enable_tracing }}
+          enable_security_scanning: ${{ parameters.enable_security_scanning }}
+          enable_policy_enforcement: ${{ parameters.enable_policy_enforcement }}
+          enable_automated_testing: ${{ parameters.enable_automated_testing }}
+          enable_code_quality: ${{ parameters.enable_code_quality }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: fetch-deploy
+      name: Add Deployment Workflow
+      if: ${{ parameters.environment_strategy != 'gitops' }}
+      action: fetch:template
+      input:
+        url: ./skeleton/deploy-${{ parameters.cloud_provider }}
+        copyWithoutTemplating:
+          - .github/workflows/*
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          language: ${{ parameters.language }}
+          database_type: ${{ parameters.database_type }}
+          message_queue: ${{ parameters.message_queue }}
+          cloud_provider: ${{ parameters.cloud_provider }}
+          environment_strategy: ${{ parameters.environment_strategy }}
+          kubernetes_namespace: ${{ parameters.kubernetes_namespace }}
+          deployment_strategy: ${{ parameters.deployment_strategy }}
+          enable_hpa: ${{ parameters.enable_hpa }}
+          enable_pdb: ${{ parameters.enable_pdb }}
+          monitoring_stack: ${{ parameters.monitoring_stack }}
+          enable_tracing: ${{ parameters.enable_tracing }}
+          enable_security_scanning: ${{ parameters.enable_security_scanning }}
+          enable_policy_enforcement: ${{ parameters.enable_policy_enforcement }}
+          enable_automated_testing: ${{ parameters.enable_automated_testing }}
+          enable_code_quality: ${{ parameters.enable_code_quality }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: fetch-integration-test
+      name: Add Integration Test
+      if: ${{ parameters.enable_automated_testing }}
+      action: fetch:template
+      input:
+        url: ./skeleton/integration-test
+        copyWithoutTemplating:
+          - .github/workflows/*
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          language: ${{ parameters.language }}
+          database_type: ${{ parameters.database_type }}
+          message_queue: ${{ parameters.message_queue }}
+          cloud_provider: ${{ parameters.cloud_provider }}
+          environment_strategy: ${{ parameters.environment_strategy }}
+          kubernetes_namespace: ${{ parameters.kubernetes_namespace }}
+          deployment_strategy: ${{ parameters.deployment_strategy }}
+          enable_hpa: ${{ parameters.enable_hpa }}
+          enable_pdb: ${{ parameters.enable_pdb }}
+          monitoring_stack: ${{ parameters.monitoring_stack }}
+          enable_tracing: ${{ parameters.enable_tracing }}
+          enable_security_scanning: ${{ parameters.enable_security_scanning }}
+          enable_policy_enforcement: ${{ parameters.enable_policy_enforcement }}
+          enable_automated_testing: ${{ parameters.enable_automated_testing }}
+          enable_code_quality: ${{ parameters.enable_code_quality }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: fetch-security
+      name: Add Security Scan
+      if: ${{ parameters.enable_security_scanning }}
+      action: fetch:template
+      input:
+        url: ./skeleton/security
+        copyWithoutTemplating:
+          - .github/workflows/*
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          language: ${{ parameters.language }}
+          database_type: ${{ parameters.database_type }}
+          message_queue: ${{ parameters.message_queue }}
+          cloud_provider: ${{ parameters.cloud_provider }}
+          environment_strategy: ${{ parameters.environment_strategy }}
+          kubernetes_namespace: ${{ parameters.kubernetes_namespace }}
+          deployment_strategy: ${{ parameters.deployment_strategy }}
+          enable_hpa: ${{ parameters.enable_hpa }}
+          enable_pdb: ${{ parameters.enable_pdb }}
+          monitoring_stack: ${{ parameters.monitoring_stack }}
+          enable_tracing: ${{ parameters.enable_tracing }}
+          enable_security_scanning: ${{ parameters.enable_security_scanning }}
+          enable_policy_enforcement: ${{ parameters.enable_policy_enforcement }}
+          enable_automated_testing: ${{ parameters.enable_automated_testing }}
+          enable_code_quality: ${{ parameters.enable_code_quality }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: fetch-policy
+      name: Add Policies
+      if: ${{ parameters.enable_policy_enforcement }}
+      action: fetch:template
+      input:
+        url: ./skeleton/policy
+        copyWithoutTemplating:
+          - .github/workflows/*
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          language: ${{ parameters.language }}
+          database_type: ${{ parameters.database_type }}
+          message_queue: ${{ parameters.message_queue }}
+          cloud_provider: ${{ parameters.cloud_provider }}
+          environment_strategy: ${{ parameters.environment_strategy }}
+          kubernetes_namespace: ${{ parameters.kubernetes_namespace }}
+          deployment_strategy: ${{ parameters.deployment_strategy }}
+          enable_hpa: ${{ parameters.enable_hpa }}
+          enable_pdb: ${{ parameters.enable_pdb }}
+          monitoring_stack: ${{ parameters.monitoring_stack }}
+          enable_tracing: ${{ parameters.enable_tracing }}
+          enable_security_scanning: ${{ parameters.enable_security_scanning }}
+          enable_policy_enforcement: ${{ parameters.enable_policy_enforcement }}
+          enable_automated_testing: ${{ parameters.enable_automated_testing }}
+          enable_code_quality: ${{ parameters.enable_code_quality }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: fetch-code-quality
+      name: Add Code Quality Analysis
+      if: ${{ parameters.enable_code_quality }}
+      action: fetch:template
+      input:
+        url: ./skeleton/code-quality
+        copyWithoutTemplating:
+          - .github/workflows/*
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          language: ${{ parameters.language }}
+          database_type: ${{ parameters.database_type }}
+          message_queue: ${{ parameters.message_queue }}
+          cloud_provider: ${{ parameters.cloud_provider }}
+          environment_strategy: ${{ parameters.environment_strategy }}
+          kubernetes_namespace: ${{ parameters.kubernetes_namespace }}
+          deployment_strategy: ${{ parameters.deployment_strategy }}
+          enable_hpa: ${{ parameters.enable_hpa }}
+          enable_pdb: ${{ parameters.enable_pdb }}
+          monitoring_stack: ${{ parameters.monitoring_stack }}
+          enable_tracing: ${{ parameters.enable_tracing }}
+          enable_security_scanning: ${{ parameters.enable_security_scanning }}
+          enable_policy_enforcement: ${{ parameters.enable_policy_enforcement }}
+          enable_automated_testing: ${{ parameters.enable_automated_testing }}
+          enable_code_quality: ${{ parameters.enable_code_quality }}
           destination: ${{ parameters.repoUrl | parseRepoUrl }}
 
     - id: publish
@@ -301,17 +634,6 @@ spec:
         repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
         catalogInfoPath: '/catalog-info.yaml'
 
-    - id: create-argocd-app
-      name: Create ArgoCD Application
-      action: argocd:create-app
-      if: ${{ parameters.environment_strategy == 'gitops' }}
-      input:
-        appName: ${{ parameters.name }}
-        argoInstance: default
-        namespace: ${{ parameters.kubernetes_namespace }}
-        repoUrl: ${{ steps.publish.output.remoteUrl }}
-        path: 'k8s'
-
   output:
     links:
       - title: Repository
@@ -320,4 +642,4 @@ spec:
         icon: catalog
         entityRef: ${{ steps.register.output.entityRef }}
       - title: CI/CD Pipeline
-        url: ${{ steps.publish.output.remoteUrl + '/actions' if parameters.ci_cd_platform == 'github-actions' else steps.publish.output.remoteUrl + '/-/pipelines' }}
+        url: ${{ steps.publish.output.remoteUrl + '/actions' }}

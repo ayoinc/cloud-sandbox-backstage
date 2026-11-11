@@ -1,0 +1,106 @@
+{%- set server_db = values.database_type in ['postgresql', 'mysql'] -%}
+# Local stack: the service{% if server_db %}, its database{% endif %}{% if values.enable_caching %}, Redis{% endif %}.
+#   docker compose up --build --wait
+services:
+  app:
+    build: .
+    ports:
+      - '8000:8000'
+{%- if server_db or values.enable_caching %}
+    environment:
+{%- if values.database_type == 'postgresql' %}
+      DATABASE_URL: postgresql+asyncpg://app:app@db:5432/app
+{%- elif values.database_type == 'mysql' %}
+      DATABASE_URL: mysql+aiomysql://app:app@db:3306/app
+{%- endif %}
+{%- if values.enable_caching %}
+      REDIS_URL: redis://redis:6379/0
+{%- endif %}
+{%- endif %}
+{%- if values.sql %}
+    # {% if values.migrations %}Apply the migrations{% else %}Create missing tables{% endif %}, then start the server.
+    command:
+      - sh
+      - -c
+      - >-
+        {% if values.migrations %}alembic upgrade head{% else %}python -m app.init_db{% endif %} &&
+        exec uvicorn app.main:app --host 0.0.0.0 --port 8000{% if values.enable_logging %} --no-access-log{% endif %}
+{%- endif %}
+    # Checked more often than the HEALTHCHECK of the image so that
+    # `docker compose up --wait` returns soon after the server is up.
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)
+      interval: 5s
+      timeout: 3s
+      retries: 12
+{%- if values.database_type == 'sqlite' %}
+    volumes:
+      - app-data:/data
+{%- endif %}
+{%- if server_db or values.enable_caching %}
+    depends_on:
+{%- if server_db %}
+      db:
+        condition: service_healthy
+{%- endif %}
+{%- if values.enable_caching %}
+      redis:
+        condition: service_healthy
+{%- endif %}
+{%- endif %}
+{%- if values.database_type == 'postgresql' %}
+
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready --username app --dbname app']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+{%- elif values.database_type == 'mysql' %}
+
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_USER: app
+      MYSQL_PASSWORD: app
+      MYSQL_DATABASE: app
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      # Asks over TCP, which the server accepts only after its initialisation.
+      test: ['CMD', 'mysqladmin', 'ping', '--host=127.0.0.1', '--user=app', '--password=app']
+      interval: 5s
+      timeout: 3s
+      retries: 24
+{%- endif %}
+{%- if values.enable_caching %}
+
+  redis:
+    image: redis:8-alpine
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+{%- endif %}
+{%- if values.sql %}
+
+volumes:
+{%- if values.database_type == 'sqlite' %}
+  app-data:
+{%- else %}
+  db-data:
+{%- endif %}
+{%- endif %}

@@ -1,0 +1,96 @@
+{%- set needs_secret = values.database_type in ['postgresql', 'mysql'] or values.auth_type != 'none' -%}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${{ values.name }}
+  labels:
+    app: ${{ values.name }}
+spec:
+{%- if values.database_type == 'none' %}
+  # Items are kept in the memory of the process, so replicas would not share them.
+  replicas: 1
+{%- elif values.database_type == 'sqlite' %}
+  # The SQLite file belongs to one pod, so replicas would not share it.
+  replicas: 1
+{%- else %}
+  replicas: 2
+{%- endif %}
+  selector:
+    matchLabels:
+      app: ${{ values.name }}
+  template:
+    metadata:
+      labels:
+        app: ${{ values.name }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+{%- if values.sql %}
+      initContainers:
+        # {% if values.migrations %}Applies the migrations{% else %}Creates missing tables{% endif %} before the server starts.
+        - name: {% if values.migrations %}migrate{% else %}init-db{% endif %}
+          image: ghcr.io/${{ values.destination.owner | lower }}/${{ values.destination.repo | lower }}:latest
+          command: {% if values.migrations %}['alembic', 'upgrade', 'head']{% else %}['python', '-m', 'app.init_db']{% endif %}
+          env:
+            - name: APP_ENV
+              value: production
+{%- if needs_secret or values.enable_caching %}
+          envFrom:
+            - secretRef:
+                name: ${{ values.name }}-env
+{%- if not needs_secret %}
+                optional: true
+{%- endif %}
+{%- endif %}
+          securityContext:
+            allowPrivilegeEscalation: false
+{%- if values.database_type == 'sqlite' %}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+{%- endif %}
+{%- endif %}
+      containers:
+        - name: app
+          image: ghcr.io/${{ values.destination.owner | lower }}/${{ values.destination.repo | lower }}:latest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: APP_ENV
+              value: production
+{%- if needs_secret or values.enable_caching %}
+          envFrom:
+            - secretRef:
+                name: ${{ values.name }}-env
+{%- if not needs_secret %}
+                optional: true
+{%- endif %}
+{%- endif %}
+          securityContext:
+            allowPrivilegeEscalation: false
+          resources:
+            requests:
+              memory: 128Mi
+              cpu: 100m
+            limits:
+              memory: 256Mi
+              cpu: 500m
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8000
+            initialDelaySeconds: 5
+{%- if values.database_type == 'sqlite' %}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        # Lives as long as the pod. Use a PersistentVolumeClaim to keep the data.
+        - name: data
+          emptyDir: {}
+{%- endif %}

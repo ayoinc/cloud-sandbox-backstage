@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.venv/
+
+# Throwaway kustomization written by scripts/deploy.sh
+.deploy.*/

@@ -1,0 +1,2 @@
+# The application uses the standard library only. Add dependencies here, one
+# per line with a pinned version, for example: requests==2.32.3

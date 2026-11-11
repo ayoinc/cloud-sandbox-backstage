@@ -1,0 +1,9 @@
+services:
+  app:
+    build: .
+    image: ${{ values.name }}:local
+    ports:
+      - '${{ values.port }}:${{ values.port }}'
+    environment:
+      PORT: '${{ values.port }}'
+    restart: unless-stopped

@@ -1,328 +1,78 @@
 # React Frontend Application Template
 
-This template creates a modern React frontend application with TypeScript, testing, and deployment pipeline.
-
-## Overview
-
-Build production-ready React applications with modern tooling, component libraries, state management, and CI/CD automation.
-
-## Features
-
-### Build Tools
-
-- **Vite** (Recommended) - Lightning fast HMR
-- **Webpack** - Feature-rich bundling
-- **Parcel** - Zero configuration
-- **ESBuild** - Extremely fast builds
-
-### UI Frameworks
-
-- Material-UI (MUI)
-- Ant Design
-- Chakra UI
-- Mantine
-- Tailwind CSS
-
-### State Management
-
-- React Context (built-in)
-- Redux Toolkit
-- Zustand
-- Jotai
-- Recoil
-
-## Configuration Options
-
-| Parameter          | Description          | Default |
-| ------------------ | -------------------- | ------- |
-| `react_version`    | React version        | 18      |
-| `typescript`       | Enable TypeScript    | true    |
-| `build_tool`       | Build tool           | vite    |
-| `ui_framework`     | UI component library | mui     |
-| `state_management` | State management     | context |
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 18+
-- npm or yarn
-
-### Local Development
-
-1. **Install dependencies**
-
-   ```bash
-   npm install
-   ```
-
-2. **Start development server**
-
-   ```bash
-   npm run dev
-   ```
-
-3. **Open in browser**
-   ```
-   http://localhost:5173
-   ```
-
-### Available Scripts
-
-```bash
-# Development
-npm run dev          # Start dev server
-npm run build        # Production build
-npm run preview      # Preview production build
-
-# Testing
-npm run test         # Run tests
-npm run test:watch   # Watch mode
-npm run test:coverage # Coverage report
-
-# Code Quality
-npm run lint         # ESLint
-npm run format       # Prettier
-npm run type-check   # TypeScript check
-
-# Storybook
-npm run storybook    # Start Storybook
-npm run build-storybook # Build Storybook
-```
-
-## Project Structure
-
-```
-├── src/
-│   ├── main.tsx              # Application entry
-│   ├── App.tsx               # Root component
-│   ├── components/           # Reusable components
-│   │   ├── common/           # Generic components
-│   │   ├── layout/           # Layout components
-│   │   └── features/         # Feature-specific
-│   ├── pages/                # Page components
-│   ├── hooks/                # Custom hooks
-│   ├── context/              # React Context providers
-│   ├── services/             # API services
-│   ├── utils/                # Utility functions
-│   ├── types/                # TypeScript types
-│   └── styles/               # Global styles
-├── public/                   # Static assets
-├── tests/                    # Test files
-├── .storybook/              # Storybook config
-└── vite.config.ts           # Vite configuration
-```
-
-## Component Development
-
-### Function Component with TypeScript
-
-```tsx
-interface ButtonProps {
-  label: string;
-  onClick: () => void;
-  variant?: 'primary' | 'secondary';
-}
-
-export const Button: React.FC<ButtonProps> = ({
-  label,
-  onClick,
-  variant = 'primary',
-}) => {
-  return (
-    <button className={`btn btn-${variant}`} onClick={onClick}>
-      {label}
-    </button>
-  );
-};
-```
-
-### Custom Hook Example
-
-```tsx
-import { useState, useEffect } from 'react';
-
-export function useFetch<T>(url: string) {
-  const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-
-  useEffect(() => {
-    fetch(url)
-      .then(res => res.json())
-      .then(setData)
-      .catch(setError)
-      .finally(() => setLoading(false));
-  }, [url]);
-
-  return { data, loading, error };
-}
-```
-
-## Routing
-
-### React Router Setup
-
-```tsx
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-
-function App() {
-  return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/about" element={<About />} />
-        <Route path="/users/:id" element={<UserDetail />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </BrowserRouter>
-  );
-}
-```
-
-## State Management
-
-### React Context Example
-
-```tsx
-// AuthContext.tsx
-const AuthContext = createContext<AuthContextType | null>(null);
-
-export function AuthProvider({ children }: PropsWithChildren) {
-  const [user, setUser] = useState<User | null>(null);
-
-  const login = async (credentials: Credentials) => {
-    const user = await authService.login(credentials);
-    setUser(user);
-  };
-
-  return (
-    <AuthContext.Provider value={{ user, login }}>
-      {children}
-    </AuthContext.Provider>
-  );
-}
-```
-
-### Redux Toolkit Example
-
-```tsx
-// userSlice.ts
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-
-const userSlice = createSlice({
-  name: 'user',
-  initialState: { user: null, loading: false },
-  reducers: {
-    setUser: (state, action: PayloadAction<User>) => {
-      state.user = action.payload;
-    },
-  },
-});
-```
-
-## Testing
-
-### Component Testing
-
-```tsx
-import { render, screen, fireEvent } from '@testing-library/react';
-import { Button } from './Button';
-
-describe('Button', () => {
-  it('renders with label', () => {
-    render(<Button label="Click me" onClick={() => {}} />);
-    expect(screen.getByText('Click me')).toBeInTheDocument();
-  });
-
-  it('calls onClick when clicked', () => {
-    const handleClick = jest.fn();
-    render(<Button label="Click" onClick={handleClick} />);
-    fireEvent.click(screen.getByText('Click'));
-    expect(handleClick).toHaveBeenCalled();
-  });
-});
-```
-
-### API Mocking with MSW
-
-```tsx
-import { rest } from 'msw';
-import { setupServer } from 'msw/node';
-
-const server = setupServer(
-  rest.get('/api/users', (req, res, ctx) => {
-    return res(ctx.json([{ id: 1, name: 'John' }]));
-  }),
-);
-
-beforeAll(() => server.listen());
-afterEach(() => server.resetHandlers());
-afterAll(() => server.close());
-```
-
-## Storybook
-
-### Component Story
-
-```tsx
-// Button.stories.tsx
-import type { Meta, StoryObj } from '@storybook/react';
-import { Button } from './Button';
-
-const meta: Meta<typeof Button> = {
-  component: Button,
-  title: 'Components/Button',
-};
-
-export default meta;
-type Story = StoryObj<typeof Button>;
-
-export const Primary: Story = {
-  args: {
-    label: 'Primary Button',
-    variant: 'primary',
-  },
-};
-```
-
-## Deployment
-
-### Docker Build
-
-```dockerfile
-FROM node:18-alpine as build
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
-
-FROM nginx:alpine
-COPY --from=build /app/dist /usr/share/nginx/html
-EXPOSE 80
-```
-
-### Static Hosting
-
-The built application can be deployed to:
-
-- Netlify
-- Vercel
-- AWS S3 + CloudFront
-- Azure Static Web Apps
-- GitHub Pages
-
-## Performance Optimization
-
-- Code splitting with dynamic imports
-- Image optimization
-- Bundle analysis with `vite-bundle-visualizer`
-- React.lazy for route-based splitting
-- useMemo and useCallback for expensive operations
-
-## Related Templates
-
-- [Python API](../python-api) - Backend API for your frontend
-- [Node.js API](../app-nodejs-api) - Node.js backend
-- [Kubernetes Microservice](../kubernetes-microservice) - Container deployment
+Creates a React single-page application in a new GitHub repository, with
+tests and a pipeline that passes on the first push. The tool chain is fixed:
+Vite, TypeScript, Vitest with React Testing Library, and Node.js 22.
+
+## Form
+
+| Field                         | Options                              | Effect                                                                                           |
+| ----------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| Application Name              |                                      | Repository, package and catalog entry name; shown in the header                                  |
+| Description                   |                                      | Package and catalog description; shown on the home page                                          |
+| Owner                         |                                      | Owner of the catalog entry                                                                       |
+| Repository Location           | github.com                           | GitHub repository to create                                                                      |
+| React Version                 | `18`, `19`                           | Versions of `react`, `react-dom` and their type packages                                         |
+| UI Framework                  | `none`, `mui`, `tailwind`            | `Button`, `Layout` and `Section` built with CSS modules, Material UI or Tailwind CSS             |
+| State Management              | `context`, `zustand`, `redux`        | Counter state in React Context, a Zustand store or a Redux Toolkit slice                         |
+| Routing Library               | `none`, `react-router`               | Single page, or React Router with Home, About and Not Found pages                                |
+| API Client                    | `fetch`, `axios`, `react-query`      | Item list loaded with `fetch`, an Axios instance, or TanStack Query                              |
+| API Base URL                  | path or absolute URL, default `/api` | Default of `VITE_API_BASE_URL`, stored in `src/app.json`                                         |
+| Enable Mock API               | on, off                              | Mock Service Worker handlers used by the tests and, on request, by the development server        |
+| Enable Linting and Formatting | on, off                              | Biome, `npm run lint` and the `lint.yaml` workflow                                               |
+| Enable Storybook              | on, off                              | Storybook, stories for `Button` and `Section`, and the `storybook.yaml` workflow                 |
+| Progressive Web App           | on, off                              | `vite-plugin-pwa`: web app manifest, icons and a service worker in the production build          |
+| Enable Web Vitals Reporting   | on, off                              | `web-vitals` measurements sent to the console or to `VITE_VITALS_ENDPOINT`                       |
+| Enable Docker                 | on, off                              | nginx image with `/healthz`, and the `docker.yaml` workflow that builds, starts and publishes it |
+
+Every option changes the generated repository; there are no informational
+fields.
+
+## What is generated
+
+- `src/`: the application. `main.tsx` mounts `App` inside `AppProviders`;
+  `components/` holds `Button`, `Layout`, `Section` and the two example
+  features `Counter` (state) and `ItemList` (API); `store/` and `api/` hold
+  the implementation chosen in the form
+- `tests/`: Vitest tests for the components, the store, the API client, the
+  application shell and, when enabled, the Web Vitals reporting. No test
+  uses the network: requests are answered by Mock Service Worker, or by a
+  stub of `fetch` or of the Axios adapter when the mock API is off
+- `package.json` with every dependency pinned to an exact version, `.nvmrc`,
+  `tsconfig.json`, `vite.config.ts`
+- `.github/workflows/ci.yaml`: type check, tests with coverage, production
+  build with a check of its output, and a Trivy dependency report
+- Optional: `biome.json` and `lint.yaml`; `.storybook/` and `storybook.yaml`;
+  `Dockerfile`, `nginx/default.conf` and `docker.yaml`
+- `catalog-info.yaml`, `mkdocs.yml` and `docs/index.md` for the portal
+
+No secret or variable has to be configured. The image is published to the
+GitHub Container Registry with the workflow's own token.
+
+## Lockfile
+
+The options change the dependency set, so the template cannot ship a
+`package-lock.json`. The workflows and the `Dockerfile` run `npm install`,
+which resolves the exact versions in `package.json`. The first `npm install`
+on a developer machine creates the lockfile; commit it to pin the transitive
+dependencies as well.
+
+## Layout of the template
+
+`template.yaml` fetches `skeleton/base` and then one directory per choice:
+
+| Directory                             | Added when                     |
+| ------------------------------------- | ------------------------------ |
+| `skeleton/ui-<ui_framework>`          | Always, by UI Framework        |
+| `skeleton/state-<state_management>`   | Always, by State Management    |
+| `skeleton/routing-<routing>`          | Always, by Routing Library     |
+| `skeleton/api-<api_client>`           | Always, by API Client          |
+| `skeleton/mock-api`                   | Mock API on                    |
+| `skeleton/api-stub-fetch` or `-axios` | Mock API off, by API Client    |
+| `skeleton/linting`                    | Linting on                     |
+| `skeleton/storybook`                  | Storybook on                   |
+| `skeleton/pwa`                        | Progressive Web App on (icons) |
+| `skeleton/monitoring`                 | Web Vitals Reporting on        |
+| `skeleton/docker`                     | Docker on                      |
+
+Workflow files are copied without templating, so they contain no form values.

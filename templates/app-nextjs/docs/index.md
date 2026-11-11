@@ -1,67 +1,47 @@
 # Next.js Application Template
 
-This template creates a production-ready Next.js application with TypeScript, testing, and CI/CD.
+Creates a Next.js 14 application (App Router, TypeScript) in a new GitHub
+repository, with tests and a pipeline that passes on the first push.
 
-## Features
+## Form
 
-- **Next.js 14** - Latest App Router with React Server Components
-- **TypeScript** - Full type safety
-- **Tailwind CSS** - Utility-first styling
-- **ESLint & Prettier** - Code quality tools
-- **Jest & Testing Library** - Unit and integration tests
-- **GitHub Actions** - CI/CD pipeline
+| Field         | Effect                                                                                          |
+| ------------- | ----------------------------------------------------------------------------------------------- |
+| Project Name  | Name of the application, the package and the catalog entry                                      |
+| Description   | Shown on the home page and in the page metadata                                                 |
+| Owner         | Owner of the catalog entry                                                                      |
+| Environment   | Reported by `/api/health`; lifecycle of the catalog entry                                       |
+| Styling       | Tailwind CSS (Tailwind, PostCSS, utility classes) or CSS Modules (plain CSS, no extra packages) |
+| Enable Docker | Adds a Dockerfile, Kubernetes manifests and a workflow that builds and publishes the image      |
+| Repository    | GitHub repository to create                                                                     |
 
-## Prerequisites
+## What is generated
 
-- Node.js 18+
-- npm or yarn
-- Git
+- `src/app/`: home page, root layout and the `GET /api/health` route
+- `__tests__/`: Jest unit tests with React Testing Library
+- `e2e/`: Playwright tests that run against the production build
+- ESLint (Next.js rules) and Prettier configuration
+- `package-lock.json` matching the selected styling option
+- `.github/workflows/nextjs.yaml`: lint, unit tests, build, end-to-end tests,
+  dependency report
+- With Docker: `Dockerfile`, `k8s/`, and `.github/workflows/docker.yaml`, which
+  lints the Dockerfile and manifests, builds the image, starts it, calls the
+  health endpoint and publishes to the GitHub Container Registry on `main`
+- `catalog-info.yaml`, `mkdocs.yml` and `docs/index.md` for the portal
 
-## Quick Start
+No secret or variable has to be configured: the image is published with the
+workflow's own token.
 
-```bash
-# Install dependencies
-npm install
+## Template layout
 
-# Run development server
-npm run dev
+| Directory                      | Used                      |
+| ------------------------------ | ------------------------- |
+| `skeleton/base`                | Always                    |
+| `skeleton/styling-tailwind`    | Styling is Tailwind CSS   |
+| `skeleton/styling-css-modules` | Styling is CSS Modules    |
+| `skeleton/docker`              | Enable Docker is selected |
 
-# Build for production
-npm run build
-
-# Run tests
-npm test
-```
-
-## Project Structure
-
-```
-├── app/                # App Router pages and layouts
-│   ├── layout.tsx      # Root layout
-│   ├── page.tsx        # Home page
-│   └── api/            # API routes
-├── components/         # React components
-├── lib/                # Utility functions
-├── public/             # Static assets
-├── styles/             # Global styles
-└── tests/              # Test files
-```
-
-## Environment Variables
-
-| Variable              | Description                | Required |
-| --------------------- | -------------------------- | -------- |
-| `NEXT_PUBLIC_API_URL` | Backend API URL            | Yes      |
-| `DATABASE_URL`        | Database connection string | No       |
-
-## Deployment
-
-The application can be deployed to:
-
-- Vercel (recommended)
-- AWS Amplify
-- Docker container
-
-## Support
-
-Contact the Platform Team for assistance.
+Each styling directory holds the `package-lock.json` for its dependency set.
+After changing `skeleton/base/package.json`, render the template for both
+styling options, run `npm install` in each result and copy the lockfile back
+with the package name replaced by `${{ values.name }}`.

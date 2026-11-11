@@ -1,0 +1,24 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.name }}
+  description: ${{ values.description | dump }}
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
+  tags:
+    - react
+    - frontend
+    - typescript
+    - vite
+{%- if values.ui_framework != 'none' %}
+    - ${{ values.ui_framework }}
+{%- endif %}
+  links:
+    - url: https://react.dev/
+      title: React Documentation
+      icon: docs
+spec:
+  type: website
+  lifecycle: experimental
+  owner: ${{ values.owner }}

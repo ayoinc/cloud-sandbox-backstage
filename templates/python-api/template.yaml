@@ -3,7 +3,7 @@ kind: Template
 metadata:
   name: python-api
   title: Python API Service
-  description: Create a production-ready Python API with FastAPI, authentication, monitoring, and comprehensive testing
+  description: Create a tested FastAPI service with a container image and a GitHub Actions pipeline
   annotations:
     backstage.io/techdocs-ref: dir:.
   tags:
@@ -25,10 +25,11 @@ spec:
         name:
           title: Service Name
           type: string
-          description: Name of the Python API service
-          pattern: '^[a-z0-9\-]+$'
+          description: Name of the service, its repository and its catalog entry
+          pattern: '^[a-z]([a-z0-9-]*[a-z0-9])?$'
+          maxLength: 63
           ui:autofocus: true
-          ui:help: 'Use lowercase letters, numbers, and hyphens only'
+          ui:help: 'Lowercase letters, numbers and hyphens, starting with a letter'
         description:
           title: Description
           type: string
@@ -53,337 +54,352 @@ spec:
           ui:options:
             allowedHosts:
               - github.com
-              - gitlab.com
 
-    - title: API Configuration
+    - title: Runtime
       properties:
-        api_type:
-          title: API Type
-          type: string
-          description: Primary API pattern
-          default: rest-crud
-          enum:
-            - rest-crud
-            - rest-microservice
-            - graphql
-            - websocket
-            - async-tasks
-          enumNames:
-            - REST CRUD API
-            - REST Microservice
-            - GraphQL API
-            - WebSocket Service
-            - Async Task Processor
         python_version:
           title: Python Version
           type: string
-          description: Python version to use
-          default: '3.11'
+          description: Version used by the pipeline, the container image and the linters
+          default: '3.12'
           enum:
-            - '3.9'
-            - '3.10'
             - '3.11'
             - '3.12'
-        framework:
-          title: Web Framework
-          type: string
-          description: Python web framework
-          default: fastapi
-          enum:
-            - fastapi
-            - flask
-            - django-rest
-            - starlette
-          enumNames:
-            - FastAPI
-            - Flask + Flask-RESTful
-            - Django REST Framework
-            - Starlette
-        enable_async:
-          title: Enable Async Support
-          type: boolean
-          description: Enable asynchronous programming features
-          default: true
+            - '3.13'
 
-    - title: Database & Storage
+    - title: Database and Cache
       properties:
         database_type:
-          title: Database Type
+          title: Database
           type: string
-          description: Primary database technology
+          description: Where the items of the sample resource are stored
           default: postgresql
           enum:
             - none
             - postgresql
             - mysql
-            - mongodb
-            - redis
             - sqlite
           enumNames:
-            - No Database
-            - PostgreSQL
-            - MySQL
-            - MongoDB
-            - Redis
-            - SQLite (Dev only)
-        orm_type:
-          title: ORM/ODM
-          type: string
-          description: Object-Relational Mapping tool
-          default: sqlalchemy
-          enum:
-            - sqlalchemy
-            - tortoise-orm
-            - peewee
-            - mongoengine
-            - redis-om
-          enumNames:
-            - SQLAlchemy
-            - Tortoise ORM
-            - Peewee
-            - MongoEngine
-            - Redis OM
-        enable_migrations:
-          title: Enable Database Migrations
-          type: boolean
-          description: Include database migration support
-          default: true
+            - No database (items kept in memory)
+            - PostgreSQL (SQLAlchemy, asyncpg)
+            - MySQL (SQLAlchemy, aiomysql)
+            - SQLite (SQLAlchemy, aiosqlite)
         enable_caching:
           title: Enable Caching
           type: boolean
-          description: Include Redis caching layer
+          description: Cache item reads in Redis when REDIS_URL is set, otherwise in memory
           default: true
+      dependencies:
+        database_type:
+          oneOf:
+            - properties:
+                database_type:
+                  enum:
+                    - none
+            - properties:
+                database_type:
+                  enum:
+                    - postgresql
+                    - mysql
+                    - sqlite
+                enable_migrations:
+                  title: Enable Database Migrations
+                  type: boolean
+                  description: Manage the schema with Alembic migrations. Without them, python -m app.init_db creates the tables.
+                  default: true
 
-    - title: Authentication & Security
+    - title: Authentication and Security
       properties:
         auth_type:
-          title: Authentication Type
+          title: Authentication
           type: string
-          description: Authentication mechanism
+          description: How callers of the items API authenticate
           default: jwt
           enum:
             - none
             - jwt
-            - oauth2
-            - basic-auth
             - api-key
-            - ldap
+            - basic-auth
           enumNames:
-            - No Authentication
-            - JWT Tokens
-            - OAuth2 / OpenID Connect
-            - Basic Authentication
-            - API Key Authentication
-            - LDAP Authentication
-        enable_rbac:
-          title: Enable Role-Based Access Control
-          type: boolean
-          description: Include RBAC for authorization
-          default: false
+            - No authentication
+            - JWT bearer tokens
+            - API key header
+            - HTTP Basic
         enable_rate_limiting:
           title: Enable Rate Limiting
           type: boolean
-          description: Include API rate limiting
+          description: Limit requests per client address with slowapi
           default: true
         enable_cors:
           title: Enable CORS
           type: boolean
-          description: Enable Cross-Origin Resource Sharing
+          description: Allow browser calls from the origins listed in CORS_ORIGINS
           default: true
         enable_security_headers:
           title: Enable Security Headers
           type: boolean
-          description: Include security headers middleware
+          description: Add security headers to every response
           default: true
 
-    - title: Features & Integrations
+    - title: Features
       properties:
         enable_docs:
           title: Enable API Documentation
           type: boolean
-          description: Auto-generate OpenAPI/Swagger docs
-          default: true
-        enable_validation:
-          title: Enable Input Validation
-          type: boolean
-          description: Include Pydantic validation
+          description: Serve Swagger UI, ReDoc and the OpenAPI document
           default: true
         enable_logging:
           title: Enable Structured Logging
           type: boolean
-          description: Include structured logging with JSON format
+          description: Log every request as JSON with structlog
           default: true
         enable_metrics:
-          title: Enable Metrics Collection
+          title: Enable Metrics
           type: boolean
-          description: Include Prometheus metrics
+          description: Expose Prometheus metrics on /metrics
           default: true
-        enable_health_checks:
-          title: Enable Health Checks
-          type: boolean
-          description: Include health check endpoints
-          default: true
-        enable_background_tasks:
-          title: Enable Background Tasks
-          type: boolean
-          description: Include Celery for background tasks
-          default: false
-        message_queue:
-          title: Message Queue
-          type: string
-          description: Message queue for async tasks
-          default: none
-          enum:
-            - none
-            - redis
-            - rabbitmq
-            - kafka
-          enumNames:
-            - No Message Queue
-            - Redis
-            - RabbitMQ
-            - Apache Kafka
 
-    - title: Testing & Quality
+    - title: Quality Checks
       properties:
-        enable_testing:
-          title: Enable Comprehensive Testing
-          type: boolean
-          description: Include unit, integration, and API tests
-          default: true
-        testing_framework:
-          title: Testing Framework
-          type: string
-          description: Python testing framework
-          default: pytest
-          enum:
-            - pytest
-            - unittest
-            - nose2
-          enumNames:
-            - pytest
-            - unittest
-            - nose2
         enable_coverage:
           title: Enable Code Coverage
           type: boolean
-          description: Include code coverage reporting
+          description: Measure coverage in the test run and fail below 90 percent
           default: true
         enable_linting:
-          title: Enable Code Linting
+          title: Enable Linting
           type: boolean
-          description: Include linting tools (flake8, black, isort)
+          description: Add a workflow that checks the code with Ruff (lint and format)
           default: true
         enable_type_checking:
           title: Enable Type Checking
           type: boolean
-          description: Include mypy for static type checking
+          description: Add a workflow that checks the code with mypy in strict mode
           default: true
 
-    - title: Deployment & DevOps
+    - title: Deployment
       properties:
         containerization:
           title: Containerization
           type: string
-          description: Container configuration
+          description: Files added next to the Dockerfile, which every service gets
           default: docker
           enum:
             - docker
             - docker-compose
             - kubernetes
           enumNames:
-            - Docker Only
-            - Docker + Docker Compose
-            - Docker + Kubernetes
-        enable_ci_cd:
-          title: Enable CI/CD Pipeline
-          type: boolean
-          description: Include GitHub Actions workflow
-          default: true
-        deployment_target:
-          title: Deployment Target
-          type: string
-          description: Primary deployment platform
-          default: kubernetes
-          enum:
-            - local
-            - docker
-            - kubernetes
-            - serverless
-            - vm
-          enumNames:
-            - Local Development
-            - Docker Containers
-            - Kubernetes
-            - Serverless (Lambda/Functions)
-            - Virtual Machines
+            - Dockerfile only
+            - Dockerfile and Docker Compose stack
+            - Dockerfile and Kubernetes manifests
 
   steps:
-    - id: fetch
-      name: Fetch Python API Template
+    - id: fetch-base
+      name: Fetch Base Template
       action: fetch:template
       input:
-        url: ./skeleton
+        url: ./skeleton/base
+        copyWithoutTemplating:
+          - .github/workflows/*
         values:
           name: ${{ parameters.name }}
-          description: ${{ parameters.description }}
+          description: ${{ parameters.description or 'Python API service' }}
           owner: ${{ parameters.owner }}
-          api_type: ${{ parameters.api_type }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
           python_version: ${{ parameters.python_version }}
-          framework: ${{ parameters.framework }}
-          enable_async: ${{ parameters.enable_async }}
           database_type: ${{ parameters.database_type }}
-          orm_type: ${{ parameters.orm_type }}
-          enable_migrations: ${{ parameters.enable_migrations }}
+          sql: ${{ parameters.database_type != 'none' }}
+          migrations: ${{ parameters.database_type != 'none' and parameters.enable_migrations }}
           enable_caching: ${{ parameters.enable_caching }}
           auth_type: ${{ parameters.auth_type }}
-          enable_rbac: ${{ parameters.enable_rbac }}
           enable_rate_limiting: ${{ parameters.enable_rate_limiting }}
           enable_cors: ${{ parameters.enable_cors }}
           enable_security_headers: ${{ parameters.enable_security_headers }}
           enable_docs: ${{ parameters.enable_docs }}
-          enable_validation: ${{ parameters.enable_validation }}
           enable_logging: ${{ parameters.enable_logging }}
           enable_metrics: ${{ parameters.enable_metrics }}
-          enable_health_checks: ${{ parameters.enable_health_checks }}
-          enable_background_tasks: ${{ parameters.enable_background_tasks }}
-          message_queue: ${{ parameters.message_queue }}
-          enable_testing: ${{ parameters.enable_testing }}
-          testing_framework: ${{ parameters.testing_framework }}
           enable_coverage: ${{ parameters.enable_coverage }}
           enable_linting: ${{ parameters.enable_linting }}
           enable_type_checking: ${{ parameters.enable_type_checking }}
           containerization: ${{ parameters.containerization }}
-          enable_ci_cd: ${{ parameters.enable_ci_cd }}
-          deployment_target: ${{ parameters.deployment_target }}
+
+    - id: fetch-database
+      name: Add Item Storage
+      action: fetch:template
+      input:
+        url: ./skeleton/db-${{ 'none' if parameters.database_type == 'none' else 'sql' }}
+
+    - id: fetch-migrations
+      name: Add Alembic Migrations
+      if: ${{ parameters.database_type != 'none' and parameters.enable_migrations }}
+      action: fetch:template
+      input:
+        url: ./skeleton/migrations
+        copyWithoutTemplating:
+          - migrations/script.py.mako
+
+    - id: fetch-db-init
+      name: Add Table Creation Command
+      if: ${{ parameters.database_type != 'none' and not parameters.enable_migrations }}
+      action: fetch:template
+      input:
+        url: ./skeleton/db-init
+
+    - id: fetch-caching
+      name: Add Cache
+      if: ${{ parameters.enable_caching }}
+      action: fetch:template
+      input:
+        url: ./skeleton/caching
+
+    - id: fetch-auth
+      name: Add Authentication
+      if: ${{ parameters.auth_type != 'none' }}
+      action: fetch:template
+      input:
+        url: ./skeleton/auth-${{ parameters.auth_type }}
+
+    - id: fetch-rate-limiting
+      name: Add Rate Limiting
+      if: ${{ parameters.enable_rate_limiting }}
+      action: fetch:template
+      input:
+        url: ./skeleton/rate-limiting
+
+    - id: fetch-cors
+      name: Add CORS Tests
+      if: ${{ parameters.enable_cors }}
+      action: fetch:template
+      input:
+        url: ./skeleton/cors
+
+    - id: fetch-security-headers
+      name: Add Security Headers
+      if: ${{ parameters.enable_security_headers }}
+      action: fetch:template
+      input:
+        url: ./skeleton/security-headers
+
+    - id: fetch-docs
+      name: Add API Documentation Tests
+      action: fetch:template
+      input:
+        url: ./skeleton/docs-${{ 'true' if parameters.enable_docs else 'false' }}
+
+    - id: fetch-logging
+      name: Add Structured Logging
+      if: ${{ parameters.enable_logging }}
+      action: fetch:template
+      input:
+        url: ./skeleton/logging
+
+    - id: fetch-metrics
+      name: Add Metrics
+      if: ${{ parameters.enable_metrics }}
+      action: fetch:template
+      input:
+        url: ./skeleton/metrics
+
+    - id: fetch-linting
+      name: Add Lint Workflow
+      if: ${{ parameters.enable_linting }}
+      action: fetch:template
+      input:
+        url: ./skeleton/linting
+        copyWithoutTemplating:
+          - .github/workflows/*
+
+    - id: fetch-type-checking
+      name: Add Type Check Workflow
+      if: ${{ parameters.enable_type_checking }}
+      action: fetch:template
+      input:
+        url: ./skeleton/type-checking
+        copyWithoutTemplating:
+          - .github/workflows/*
+
+    - id: fetch-docker-compose
+      name: Add Docker Compose Stack
+      if: ${{ parameters.containerization == 'docker-compose' }}
+      action: fetch:template
+      input:
+        url: ./skeleton/containerization-docker-compose
+        copyWithoutTemplating:
+          - .github/workflows/*
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'Python API service' }}
+          owner: ${{ parameters.owner }}
           destination: ${{ parameters.repoUrl | parseRepoUrl }}
+          python_version: ${{ parameters.python_version }}
+          database_type: ${{ parameters.database_type }}
+          sql: ${{ parameters.database_type != 'none' }}
+          migrations: ${{ parameters.database_type != 'none' and parameters.enable_migrations }}
+          enable_caching: ${{ parameters.enable_caching }}
+          auth_type: ${{ parameters.auth_type }}
+          enable_rate_limiting: ${{ parameters.enable_rate_limiting }}
+          enable_cors: ${{ parameters.enable_cors }}
+          enable_security_headers: ${{ parameters.enable_security_headers }}
+          enable_docs: ${{ parameters.enable_docs }}
+          enable_logging: ${{ parameters.enable_logging }}
+          enable_metrics: ${{ parameters.enable_metrics }}
+          enable_coverage: ${{ parameters.enable_coverage }}
+          enable_linting: ${{ parameters.enable_linting }}
+          enable_type_checking: ${{ parameters.enable_type_checking }}
+          containerization: ${{ parameters.containerization }}
+
+    - id: fetch-kubernetes
+      name: Add Kubernetes Manifests
+      if: ${{ parameters.containerization == 'kubernetes' }}
+      action: fetch:template
+      input:
+        url: ./skeleton/containerization-kubernetes
+        copyWithoutTemplating:
+          - .github/workflows/*
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'Python API service' }}
+          owner: ${{ parameters.owner }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+          python_version: ${{ parameters.python_version }}
+          database_type: ${{ parameters.database_type }}
+          sql: ${{ parameters.database_type != 'none' }}
+          migrations: ${{ parameters.database_type != 'none' and parameters.enable_migrations }}
+          enable_caching: ${{ parameters.enable_caching }}
+          auth_type: ${{ parameters.auth_type }}
+          enable_rate_limiting: ${{ parameters.enable_rate_limiting }}
+          enable_cors: ${{ parameters.enable_cors }}
+          enable_security_headers: ${{ parameters.enable_security_headers }}
+          enable_docs: ${{ parameters.enable_docs }}
+          enable_logging: ${{ parameters.enable_logging }}
+          enable_metrics: ${{ parameters.enable_metrics }}
+          enable_coverage: ${{ parameters.enable_coverage }}
+          enable_linting: ${{ parameters.enable_linting }}
+          enable_type_checking: ${{ parameters.enable_type_checking }}
+          containerization: ${{ parameters.containerization }}
 
     - id: publish
-      name: Publish to Repository
+      name: Publish to GitHub
       action: publish:github
       input:
-        description: ${{ parameters.description }}
         repoUrl: ${{ parameters.repoUrl }}
+        description: ${{ parameters.description }}
+        repoVisibility: private
         defaultBranch: main
-        gitCommitMessage: 'Initial Python API setup from DevOps Platform'
-        gitAuthorName: 'DevOps Platform'
-        gitAuthorEmail: 'devops@company.com'
 
     - id: register
-      name: Register in Software Catalog
+      name: Register in Catalog
       action: catalog:register
       input:
-        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
         catalogInfoPath: '/catalog-info.yaml'
 
   output:
     links:
       - title: Repository
-        url: ${{ steps.publish.output.remoteUrl }}
+        url: ${{ steps['publish'].output.remoteUrl }}
       - title: Open in catalog
         icon: catalog
-        entityRef: ${{ steps.register.output.entityRef }}
-      - title: API Documentation
-        url: ${{ steps.publish.output.remoteUrl }}/blob/main/docs/api.md
-      - title: Local Development Guide
-        url: ${{ steps.publish.output.remoteUrl }}/blob/main/README.md#development
+        entityRef: ${{ steps['register'].output.entityRef }}
+      - title: CI runs
+        url: ${{ steps['publish'].output.remoteUrl + '/actions' }}

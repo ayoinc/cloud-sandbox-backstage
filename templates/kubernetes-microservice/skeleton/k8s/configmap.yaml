@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ${{ values.name }}-config
+  labels:
+    app.kubernetes.io/name: ${{ values.name }}
+    backstage.io/kubernetes-id: ${{ values.name }}
+data:
+  # Returned by GET / of the service.
+  ENVIRONMENT: production
+  LOG_LEVEL: info
+{%- if values.enable_tracing %}
+  OTEL_SERVICE_NAME: ${{ values.name }}
+{%- endif %}

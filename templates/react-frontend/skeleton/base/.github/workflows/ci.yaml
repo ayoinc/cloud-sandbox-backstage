@@ -1,0 +1,113 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Type check and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      # npm install resolves the exact versions pinned in package.json and
+      # uses package-lock.json once it has been committed.
+      - run: npm install --no-audit --no-fund
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Vitest with coverage
+        run: npm run test:coverage
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - run: npm install --no-audit --no-fund
+
+      - name: Production build
+        run: npm run build
+
+      - name: Check the build output
+        run: |
+          test -s dist/index.html
+          ls dist/assets/*.js > /dev/null
+          # Projects that use vite-plugin-pwa must also emit the service
+          # worker and the web app manifest.
+          if grep -q '"vite-plugin-pwa"' package.json; then
+            test -s dist/sw.js
+            test -s dist/manifest.webmanifest
+            grep -q 'manifest.webmanifest' dist/index.html
+          fi
+
+      - name: Serve the build and request the page
+        run: |
+          npm run preview -- --port 4173 --strictPort &
+          for _ in $(seq 1 15); do
+            if curl --fail --silent http://localhost:4173/ | grep -q '<div id="root">'; then
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+          retention-days: 7
+
+  security:
+    name: Dependency scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v7
+
+      # Reports known vulnerabilities in package-lock.json once that file has
+      # been committed. It does not fail the build: the advisory database
+      # changes daily, so the same commit would pass one day and fail the next.
+      - name: Trivy dependency report
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: table
+          severity: CRITICAL,HIGH
+
+      # Code scanning accepts uploads from public repositories without setup.
+      - name: Trivy dependency report for the Security tab
+        if: github.event_name == 'push' && !github.event.repository.private
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-results.sarif
+
+      - name: Upload the report to the Security tab
+        if: github.event_name == 'push' && !github.event.repository.private
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-dependencies

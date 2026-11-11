@@ -1,0 +1,78 @@
+name: Deploy
+
+# Runs after a successful CI run on main, which publishes the image, and on
+# demand. Nothing is deployed until the settings below exist.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to deploy to (empty for the default)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+jobs:
+  settings:
+    name: Check deployment settings
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - id: check
+        env:
+          AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          EKS_CLUSTER_NAME: ${{ vars.EKS_CLUSTER_NAME }}
+        run: |
+          if [ -n "$AWS_ROLE_ARN" ] && [ -n "$AWS_REGION" ] && [ -n "$EKS_CLUSTER_NAME" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Deployment is skipped. Set the repository variables AWS_ROLE_ARN, AWS_REGION and EKS_CLUSTER_NAME to enable it."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: settings
+    if: needs.settings.outputs.configured == 'true'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.COMMIT }}
+
+      # The role trusts this repository through GitHub's OIDC provider, so no
+      # access key is stored.
+      - name: Assume the AWS role
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Get EKS credentials
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          EKS_CLUSTER_NAME: ${{ vars.EKS_CLUSTER_NAME }}
+        run: aws eks update-kubeconfig --region "$AWS_REGION" --name "$EKS_CLUSTER_NAME"
+
+      - name: Deploy
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}:sha-${COMMIT:0:7}"
+          if [ -n "$ENVIRONMENT" ]; then
+            bash scripts/deploy.sh "$image" "$ENVIRONMENT"
+          else
+            bash scripts/deploy.sh "$image"
+          fi

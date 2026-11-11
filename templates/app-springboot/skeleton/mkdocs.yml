@@ -1,10 +1,9 @@
 site_name: ${{ values.name }}
-site_description: ${{ values.description }}
+site_description: ${{ values.description | dump }}
 
 nav:
   - Home: index.md
-  - API Reference: api.md
-  - Development: development.md
 
 plugins:
   - techdocs-core
+  - d2

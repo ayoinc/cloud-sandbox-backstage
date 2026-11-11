@@ -1,0 +1,5 @@
+{
+  "name": ${{ values.name | dump }},
+  "description": ${{ values.description | dump }},
+  "apiBaseUrl": ${{ values.api_base_url | dump }}
+}

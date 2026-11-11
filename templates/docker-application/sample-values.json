@@ -1,0 +1,11 @@
+{
+  "values": {
+    "name": "sample-docker-app",
+    "description": "Containerised service for the sample team's jobs: the \"nightly\" batch",
+    "owner": "group:default/platform-team",
+    "baseImage": "node:24-alpine",
+    "port": 8080,
+    "includeHealthcheck": true,
+    "repoUrl": "github.com?owner=example-org&repo=sample-docker-app"
+  }
+}

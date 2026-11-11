@@ -1,0 +1,175 @@
+{%- set rollout = values.deployment_strategy != 'rolling-update' -%}
+{%- if rollout -%}
+# Argo Rollouts must be installed in the cluster:
+# https://argo-rollouts.readthedocs.io/en/stable/installation/
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+{%- else -%}
+apiVersion: apps/v1
+kind: Deployment
+{%- endif %}
+metadata:
+  name: ${{ values.name }}
+  labels:
+    app.kubernetes.io/name: ${{ values.name }}
+    backstage.io/kubernetes-id: ${{ values.name }}
+spec:
+{%- if not values.enable_hpa %}
+  replicas: 2
+{%- endif %}
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ${{ values.name }}
+  strategy:
+{%- if values.deployment_strategy == 'blue-green' %}
+    # The new version starts beside the old one and is reachable through the
+    # preview Service; promotion switches the active Service to it.
+    blueGreen:
+      activeService: ${{ values.name }}
+      previewService: ${{ values.name }}-preview
+      autoPromotionEnabled: false
+{%- elif values.deployment_strategy == 'canary' %}
+    # A fifth of the pods get the new version first; the rollout then waits
+    # for promotion before it continues.
+    canary:
+      steps:
+        - setWeight: 20
+        - pause: {}
+        - setWeight: 50
+        - pause:
+            duration: 5m
+{%- else %}
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+{%- endif %}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ${{ values.name }}
+        backstage.io/kubernetes-id: ${{ values.name }}
+{%- if values.monitoring_stack == 'datadog' %}
+        tags.datadoghq.com/service: ${{ values.name }}
+{%- endif %}
+{%- if values.monitoring_stack != 'basic' or values.enable_tracing %}
+      annotations:
+{%- endif %}
+{%- if values.monitoring_stack in ['prometheus-grafana', 'new-relic'] %}
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '8080'
+        prometheus.io/path: /metrics
+{%- elif values.monitoring_stack == 'datadog' %}
+        ad.datadoghq.com/${{ values.name }}.checks: |
+          {
+            "openmetrics": {
+              "instances": [
+                {
+                  "openmetrics_endpoint": "http://%%host%%:8080/metrics",
+                  "namespace": "${{ values.name }}",
+                  "metrics": [".*"]
+                }
+              ]
+            }
+          }
+{%- elif values.monitoring_stack == 'elastic-stack' %}
+        co.elastic.logs/enabled: 'true'
+        co.elastic.metrics/module: prometheus
+        co.elastic.metrics/hosts: '${data.host}:8080'
+        co.elastic.metrics/metrics_path: /metrics
+        co.elastic.metrics/period: 30s
+{%- endif %}
+{%- if values.enable_tracing %}
+        # Read by the OpenTelemetry Operator, which adds the tracing agent.
+{%- if values.language == 'golang' %}
+        instrumentation.opentelemetry.io/inject-go: 'true'
+        instrumentation.opentelemetry.io/otel-go-auto-target-exe: /app/app
+{%- else %}
+        instrumentation.opentelemetry.io/inject-${{ values.language }}: 'true'
+{%- endif %}
+{%- endif %}
+    spec:
+      serviceAccountName: ${{ values.name }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: ${{ values.name }}
+          # The pipeline publishes this image; scripts/deploy.sh replaces the
+          # tag with the one that is being deployed.
+          image: ghcr.io/${{ values.destination.owner | lower }}/${{ values.destination.repo | lower }}:latest
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: PORT
+              value: '8080'
+{%- if values.database_type != 'none' %}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ${{ values.name }}-secrets
+                  key: database-url
+{%- endif %}
+{%- if values.message_queue != 'none' %}
+            - name: MESSAGE_QUEUE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ${{ values.name }}-secrets
+                  key: message-queue-url
+{%- endif %}
+          envFrom:
+            - configMapRef:
+                name: ${{ values.name }}-config
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: ${{ values.name }}

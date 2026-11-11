@@ -1,0 +1,5 @@
+{
+  "name": "${{ values.name }}",
+  "description": ${{ values.description | dump }},
+  "environment": "${{ values.environment }}"
+}

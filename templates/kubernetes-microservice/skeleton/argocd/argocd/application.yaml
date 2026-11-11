@@ -1,0 +1,27 @@
+# Argo CD keeps the cluster in sync with the k8s/ directory of this
+# repository. Register it once, in the cluster that runs Argo CD:
+#
+#   kubectl apply --namespace argocd --filename argocd/application.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ${{ values.name }}
+  namespace: argocd
+  finalizers:
+    # Deletes the deployed resources when the Application is deleted.
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}.git
+    targetRevision: main
+    path: k8s
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ${{ values.kubernetes_namespace }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

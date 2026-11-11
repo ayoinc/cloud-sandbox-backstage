@@ -1,0 +1,17 @@
+# Checks of the built image, run by container-structure-test:
+#   container-structure-test test --image <image> --config tests/container-structure-test.yaml
+schemaVersion: 2.0.0
+
+metadataTest:
+  workdir: /app
+  exposedPorts: ['${{ values.port }}']
+  user: '10001:10001'
+  envVars:
+    - key: PORT
+      value: '${{ values.port }}'
+
+commandTests:
+  - name: runs as a non-root user
+    command: id
+    args: ['-u']
+    expectedOutput: ['10001']

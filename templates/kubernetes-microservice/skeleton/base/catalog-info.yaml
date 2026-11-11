@@ -1,0 +1,71 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.name }}
+  description: ${{ values.description | dump }}
+  annotations:
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
+    backstage.io/techdocs-ref: dir:.
+    backstage.io/kubernetes-id: ${{ values.name }}
+{%- if values.environment_strategy == 'gitops' %}
+    argocd/app-name: ${{ values.name }}
+{%- endif %}
+  tags:
+    - microservice
+    - kubernetes
+    - ${{ values.language }}
+  links:
+    - url: https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}/actions
+      title: CI/CD Pipeline
+      icon: dashboard
+spec:
+  type: service
+  lifecycle: experimental
+  owner: ${{ values.owner }}
+  providesApis:
+    - ${{ values.name }}-api
+{%- if values.database_type != 'none' or values.message_queue != 'none' %}
+  dependsOn:
+{%- if values.database_type != 'none' %}
+    - resource:${{ values.name }}-database
+{%- endif %}
+{%- if values.message_queue != 'none' %}
+    - resource:${{ values.name }}-messagequeue
+{%- endif %}
+{%- endif %}
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: ${{ values.name }}-api
+  description: HTTP API of ${{ values.name }}
+  annotations:
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
+spec:
+  type: openapi
+  lifecycle: experimental
+  owner: ${{ values.owner }}
+  definition:
+    $text: ./api-spec.yaml
+{%- if values.database_type != 'none' %}
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: ${{ values.name }}-database
+  description: Database of ${{ values.name }} (${{ values.database_type }})
+spec:
+  type: database
+  owner: ${{ values.owner }}
+{%- endif %}
+{%- if values.message_queue != 'none' %}
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: ${{ values.name }}-messagequeue
+  description: Message queue of ${{ values.name }} (${{ values.message_queue }})
+spec:
+  type: message-queue
+  owner: ${{ values.owner }}
+{%- endif %}

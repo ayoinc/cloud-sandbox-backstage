@@ -1,0 +1,32 @@
+name: Type check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  mypy:
+    name: Mypy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      # Installs the mypy version pinned in pyproject.toml and the packages
+      # whose types the code uses.
+      - name: Install the project and its development dependencies
+        run: pip install -e '.[dev]'
+
+      # Checked paths and strictness are set in pyproject.toml.
+      - name: Mypy
+        run: mypy

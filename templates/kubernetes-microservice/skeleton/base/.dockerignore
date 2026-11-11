@@ -1,0 +1,13 @@
+.git
+.github
+.deploy.*
+argocd
+docs
+k8s
+policy
+scripts
+*.md
+api-spec.yaml
+catalog-info.yaml
+mkdocs.yml
+sonar-project.properties

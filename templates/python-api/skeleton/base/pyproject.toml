@@ -1,0 +1,107 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "${{ values.name }}"
+version = "0.1.0"
+description = ${{ values.description | dump }}
+requires-python = ">=${{ values.python_version }}"
+dependencies = [
+    "fastapi>=0.162,<1",
+    "pydantic-settings>=2.16,<3",
+    "uvicorn[standard]>=0.54,<1",
+{%- if values.sql %}
+    "sqlalchemy[asyncio]>=2.1,<3",
+{%- endif %}
+{%- if values.database_type == 'postgresql' %}
+    "asyncpg>=0.32,<1",
+{%- elif values.database_type == 'mysql' %}
+    # The rsa extra installs cryptography, which MySQL 8 password authentication needs.
+    "aiomysql[rsa]>=0.3,<1",
+{%- elif values.database_type == 'sqlite' %}
+    "aiosqlite>=0.22,<1",
+{%- endif %}
+{%- if values.migrations %}
+    "alembic>=1.20,<2",
+{%- endif %}
+{%- if values.enable_caching %}
+    "redis>=8.1,<9",
+{%- endif %}
+{%- if values.auth_type == 'jwt' %}
+    "pyjwt>=2.15,<3",
+    # Parses the form body of the token endpoint.
+    "python-multipart>=0.0.33,<1",
+{%- endif %}
+{%- if values.enable_rate_limiting %}
+    "limits>=5.8,<6",
+{%- endif %}
+{%- if values.enable_logging %}
+    "structlog>=26.1,<27",
+{%- endif %}
+{%- if values.enable_metrics %}
+    "prometheus-fastapi-instrumentator>=8.1,<9",
+{%- endif %}
+]
+
+[project.optional-dependencies]
+dev = [
+    "httpx>=0.28,<1",
+    "pytest>=9.2,<10",
+    "pytest-asyncio>=1.4,<2",
+{%- if values.enable_coverage %}
+    "pytest-cov>=7.1,<8",
+{%- endif %}
+{%- if values.sql and values.database_type != 'sqlite' %}
+    # The tests run on in-memory SQLite.
+    "aiosqlite>=0.22,<1",
+{%- endif %}
+{%- if values.enable_caching %}
+    "fakeredis>=2.40,<3",
+{%- endif %}
+{%- if values.enable_linting %}
+    "ruff==0.17.4",
+{%- endif %}
+{%- if values.enable_type_checking %}
+    "mypy==2.4.1",
+{%- endif %}
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+{%- if values.enable_coverage %}
+addopts = "--cov=app --cov-report=term-missing --cov-fail-under=90"
+{%- endif %}
+{%- if values.enable_coverage and values.sql %}
+
+[tool.coverage.run]
+# SQLAlchemy runs database calls in greenlets; without this their lines count as missed.
+concurrency = ["thread", "greenlet"]
+{%- endif %}
+{%- if values.enable_linting %}
+
+[tool.ruff]
+target-version = "py${{ values.python_version | replace('.', '') }}"
+line-length = 100
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "C4", "ASYNC", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests assert, and use fixed example credentials.
+"tests/*" = ["S101", "S105", "S106"]
+{%- endif %}
+{%- if values.enable_type_checking %}
+
+[tool.mypy]
+python_version = "${{ values.python_version }}"
+strict = true
+files = ["src", "tests"{% if values.migrations %}, "migrations"{% endif %}]
+plugins = ["pydantic.mypy"]
+{%- endif %}

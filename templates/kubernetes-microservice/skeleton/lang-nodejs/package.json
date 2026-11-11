@@ -1,0 +1,14 @@
+{
+  "name": "${{ values.name }}",
+  "version": "1.0.0",
+  "description": ${{ values.description | dump }},
+  "private": true,
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

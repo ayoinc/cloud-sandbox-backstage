@@ -1,65 +1,53 @@
 # Docker Application Template
 
-This template creates a containerized application with Docker best practices.
+Creates a small containerised HTTP service in a new GitHub repository, with a
+pipeline that lints, tests, scans and publishes the image and passes on the
+first push.
 
-## Features
+## Form
 
-- **Multi-stage builds** - Optimized image sizes
-- **Docker Compose** - Local development environment
-- **Health checks** - Container health monitoring
-- **Security** - Non-root user, minimal base images
-- **CI/CD** - GitHub Actions for building and pushing
+| Field               | Effect                                                                                 |
+| ------------------- | -------------------------------------------------------------------------------------- |
+| Name                | Name of the service and the catalog entry                                              |
+| Description         | Catalog entry and documentation                                                        |
+| Owner               | Owner of the catalog entry                                                             |
+| Base Image          | Image the application is built on; it also selects the language of the starter service |
+| Container Port      | Default of `PORT`, the exposed port, and the port in `compose.yaml` and the tests      |
+| Include Healthcheck | Adds a `HEALTHCHECK` that calls `/health`; the container test waits for it to pass     |
+| Repository          | GitHub repository to create                                                            |
 
-## Prerequisites
+| Base image                      | Starter service                                    |
+| ------------------------------- | -------------------------------------------------- |
+| `node:24-alpine`                | Node.js, `node:http`, tests with `node --test`     |
+| `python:3.13-alpine`            | Python, `http.server`, tests with `unittest`       |
+| `eclipse-temurin:21-jdk-alpine` | Java, JDK HTTP server, tests with plain assertions |
+| `golang:1.27-alpine`            | Go, `net/http`, tests with `go test`               |
 
-- Docker 20+
-- Docker Compose 2+
+The starter services use the standard library only and answer on `/` and
+`/health`.
 
-## Quick Start
+## What is generated
 
-```bash
-# Build image
-docker build -t myapp .
+- The starter service and its unit tests
+- `Dockerfile` with a `test` stage that runs the unit tests and a runtime
+  stage that runs as a non-root user
+- `compose.yaml` for local runs
+- `tests/container-structure-test.yaml` and `tests/docker-test.sh`, which
+  check the image metadata and the running container
+- `.github/workflows/docker.yaml`: Hadolint, unit tests, image build,
+  structure and container tests, Trivy report, bill of materials, and a
+  multi-platform image published to the GitHub Container Registry on pushes
+- `catalog-info.yaml`, `mkdocs.yml` and `docs/index.md` for the portal
 
-# Run container
-docker run -p 8080:8080 myapp
+No secret or variable has to be configured: the image is published with the
+workflow's own token.
 
-# Development with compose
-docker-compose up -d
-```
+## Template layout
 
-## Project Structure
-
-```
-├── Dockerfile          # Production image
-├── Dockerfile.dev      # Development image
-├── docker-compose.yml  # Local services
-├── .dockerignore       # Build exclusions
-└── scripts/
-    ├── entrypoint.sh   # Container entrypoint
-    └── healthcheck.sh  # Health check script
-```
-
-## Dockerfile Best Practices
-
-```dockerfile
-# Multi-stage build
-FROM node:18-alpine AS builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
-
-FROM node:18-alpine
-RUN addgroup -g 1001 appgroup && adduser -u 1001 -G appgroup -s /bin/sh -D appuser
-WORKDIR /app
-COPY --from=builder /app/dist ./dist
-USER appuser
-EXPOSE 8080
-CMD ["node", "dist/index.js"]
-```
-
-## Support
-
-Contact the Platform Team for assistance.
+| Directory         | Used                                          |
+| ----------------- | --------------------------------------------- |
+| `skeleton/base`   | Always                                        |
+| `skeleton/node`   | Base image is `node:24-alpine`                |
+| `skeleton/python` | Base image is `python:3.13-alpine`            |
+| `skeleton/java`   | Base image is `eclipse-temurin:21-jdk-alpine` |
+| `skeleton/golang` | Base image is `golang:1.27-alpine`            |

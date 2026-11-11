@@ -1,0 +1,11 @@
+{
+  "values": {
+    "name": "sample-billing-service",
+    "description": "Billing service for the sample team's invoices: the \"core\" ledger",
+    "owner": "group:default/platform-team",
+    "environment": "development",
+    "javaVersion": "21",
+    "serverPort": 8080,
+    "repoUrl": "github.com?owner=example-org&repo=sample-billing-service"
+  }
+}

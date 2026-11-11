@@ -43,6 +43,7 @@ spec:
     - title: Application Configuration
       required:
         - environment
+        - styling
       properties:
         environment:
           title: Environment
@@ -81,14 +82,48 @@ spec:
       name: Fetch Base Template
       action: fetch:template
       input:
-        url: ./skeleton
+        url: ./skeleton/base
+        copyWithoutTemplating:
+          - .github/workflows/*
         values:
           name: ${{ parameters.name }}
-          description: ${{ parameters.description }}
+          description: ${{ parameters.description or 'Next.js application' }}
           owner: ${{ parameters.owner }}
           environment: ${{ parameters.environment }}
           styling: ${{ parameters.styling }}
           enableDocker: ${{ parameters.enableDocker }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: fetch-styling
+      name: Add Styling
+      action: fetch:template
+      input:
+        url: ./skeleton/styling-${{ parameters.styling }}
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'Next.js application' }}
+          owner: ${{ parameters.owner }}
+          environment: ${{ parameters.environment }}
+          styling: ${{ parameters.styling }}
+          enableDocker: ${{ parameters.enableDocker }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: fetch-docker
+      name: Add Docker Image and Kubernetes Manifests
+      if: ${{ parameters.enableDocker }}
+      action: fetch:template
+      input:
+        url: ./skeleton/docker
+        copyWithoutTemplating:
+          - .github/workflows/*
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'Next.js application' }}
+          owner: ${{ parameters.owner }}
+          environment: ${{ parameters.environment }}
+          styling: ${{ parameters.styling }}
+          enableDocker: ${{ parameters.enableDocker }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
 
     - id: publish
       name: Publish to GitHub

@@ -1,0 +1,84 @@
+openapi: 3.0.3
+info:
+  title: ${{ values.name }} API
+  description: ${{ values.description | dump }}
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+paths:
+  /:
+    get:
+      summary: Service information
+      operationId: getService
+      tags: [Service]
+      responses:
+        '200':
+          description: Name of the service and of the environment it runs in
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [service, environment]
+                properties:
+                  service:
+                    type: string
+                    example: ${{ values.name }}
+                  environment:
+                    type: string
+                    example: production
+
+  /health:
+    get:
+      summary: Liveness probe
+      operationId: getHealth
+      tags: [Probes]
+      responses:
+        '200':
+          description: The process is alive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+
+  /ready:
+    get:
+      summary: Readiness probe
+      operationId: getReady
+      tags: [Probes]
+      responses:
+        '200':
+          description: The service can take traffic
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      operationId: getMetrics
+      tags: [Observability]
+      responses:
+        '200':
+          description: Metrics in the Prometheus text exposition format
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: |
+                  # HELP http_requests_total Requests handled by the service.
+                  # TYPE http_requests_total counter
+                  http_requests_total 42
+
+components:
+  schemas:
+    Status:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          example: healthy
