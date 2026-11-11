@@ -118,7 +118,8 @@ const Controls = () => {
   return (
     <Grid container spacing={3}>
       <Grid item xs={12} md={8}>
-        {error && (
+        {/* The create form shows the error beside its fields. */}
+        {error && !canCreate && (
           <Box mb={3}>
             <Alert severity="error">{error}</Alert>
           </Box>
