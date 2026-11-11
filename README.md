@@ -605,6 +605,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
 
 - [Complete Setup Guide](SETUP.md) - Detailed installation and configuration
 - [Architecture Overview](ARCHITECTURE.md) - System design and components
+- [Hosting Parity](docs/hosting-parity.md) - What works on a VM, in containers and on Cloudflare Workers
 - [Contributing Guidelines](CONTRIBUTING.md) - How to contribute
 - [Backstage Documentation](https://backstage.io/docs) - Official Backstage docs
 - [Template Development Guide](templates/README.md) - Creating custom templates

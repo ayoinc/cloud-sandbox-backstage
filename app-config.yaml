@@ -176,6 +176,10 @@ techdocs:
   builder: 'local'
   generator:
     runIn: 'local'
+    mkdocs:
+      # The generator drops plugins it does not know, and without this one
+      # every D2 diagram is published as a block of source text.
+      dangerouslyAllowAdditionalPlugins: [d2]
   publisher:
     type: 'awsS3'
     awsS3:
