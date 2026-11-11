@@ -72,7 +72,11 @@ jobs:
           ansible-galaxy collection build --output-path dist
           echo "artifact=$(basename dist/*.tar.gz)" >> "$GITHUB_OUTPUT"
 
+      # GitHub keeps attestations for public repositories, and for private
+      # ones only on Enterprise Cloud: set the ATTEST_PRIVATE variable to
+      # 'true' there.
       - name: Attest build provenance
+        if: (!github.event.repository.private || vars.ATTEST_PRIVATE == 'true')
         uses: actions/attest-build-provenance@v4
         with:
           subject-path: dist/*.tar.gz

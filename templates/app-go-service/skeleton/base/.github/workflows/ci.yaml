@@ -49,7 +49,10 @@ jobs:
 
       - name: Start the server and call the health endpoint
         run: |
-          PORT=8080 go run ./cmd/server &
+          # Built first, so the wait below is for the server starting and not
+          # for the compiler.
+          go build -o "$RUNNER_TEMP/server" ./cmd/server
+          PORT=8080 "$RUNNER_TEMP/server" &
           for _ in $(seq 1 30); do
             if curl --fail --silent http://localhost:8080/health; then
               echo

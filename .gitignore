@@ -84,3 +84,8 @@ worker-configuration.d.ts
 
 # Browser captures taken while testing
 cmux-assets/
+
+# A skeleton is what a new repository starts with, so nothing in one is
+# ignored: these two are files a generated project pins its tools with.
+!**/skeleton/**/.nvmrc
+!**/skeleton/**/.terraform.lock.hcl
