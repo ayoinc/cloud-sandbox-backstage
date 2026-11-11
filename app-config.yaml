@@ -757,6 +757,10 @@ catalog:
       target: ../../templates/test-api-contract/template.yaml
       rules:
         - allow: [Template]
+    - type: file
+      target: ../../templates/template-starter/template.yaml
+      rules:
+        - allow: [Template]
 
 kubernetes:
   serviceLocatorMethod:

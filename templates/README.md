@@ -186,6 +186,12 @@ This directory contains all scaffolder templates for the Cloud Sandbox Backstage
 | `github-team-member` | Add a GitHub user to a team of a GitHub organization, or change their role in it. |
 | `github-user`        | Invite a person to join a GitHub organization by email, optionally into teams.    |
 
+### Platform (1 templates)
+
+| Template           | Description                                                                                                                                                                 |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `template-starter` | Start a software template of your own in its own repository, with a skeleton, sample values and a check that runs on every push. Register it in the portal when it is ready |
+
 ## Template Structure
 
 Each template follows this standard structure:

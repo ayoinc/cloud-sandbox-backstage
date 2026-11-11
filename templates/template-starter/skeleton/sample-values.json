@@ -1,0 +1,8 @@
+{
+  "values": {
+    "name": "sample-service",
+    "description": "A sample: created to check the template",
+    "owner": "group:default/platform-team",
+    "repoUrl": "github.com?owner=example-org&repo=sample-service"
+  }
+}

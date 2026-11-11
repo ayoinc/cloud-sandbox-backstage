@@ -225,9 +225,13 @@ async function renderTemplate(backend, dir) {
   };
 
   const files = await render(sample.values);
-  const unrendered = files
-    .filter(file => UNRENDERED.test(file.content.toString('utf8')))
-    .map(file => file.path);
+  // A template that creates templates writes template syntax on purpose.
+  // Its sample-values.json says so with "writesTemplates": true.
+  const unrendered = sample.writesTemplates
+    ? []
+    : files
+        .filter(file => UNRENDERED.test(file.content.toString('utf8')))
+        .map(file => file.path);
   if (unrendered.length > 0) {
     throw new Error(
       `Template syntax was left in ${unrendered.length} files: ${unrendered

@@ -1,0 +1,10 @@
+{
+  "writesTemplates": true,
+  "values": {
+    "name": "sample-template",
+    "templateTitle": "Team Service",
+    "description": "The team's \"paved road\": a service with CI, docs and ownership",
+    "owner": "group:default/platform-team",
+    "repoUrl": "github.com?owner=example-org&repo=sample-template"
+  }
+}

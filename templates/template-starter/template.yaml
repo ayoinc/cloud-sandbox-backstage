@@ -1,0 +1,94 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: template-starter
+  title: Software Template
+  description: Start a software template of your own in its own repository, with a skeleton, sample values and a check that runs on every push. Register it in the portal when it is ready
+  tags:
+    - template
+    - scaffolder
+    - platform
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: group:platform-team
+  type: template
+
+  parameters:
+    - title: Template Information
+      required:
+        - name
+        - templateTitle
+        - description
+        - owner
+      properties:
+        name:
+          title: Template Name
+          type: string
+          description: The template's id and the name of its repository
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          ui:autofocus: true
+        templateTitle:
+          title: Title
+          type: string
+          description: What people see in the Create page
+          maxLength: 60
+        description:
+          title: Description
+          type: string
+          description: What the template creates, in a sentence
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns the template
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        copyWithoutTemplating:
+          - skeleton/**
+          - scripts/**
+        values:
+          name: ${{ parameters.name }}
+          templateTitle: ${{ parameters.templateTitle }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: 'Software template: ${{ parameters.templateTitle }}'
+        repoVisibility: private
+        defaultBranch: main
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+    text:
+      - title: Next
+        content: |
+          Edit the template in its repository and try it in **Create > Template Editor**.
+          When its check passes, register `template.yaml` at **Register a Component**.

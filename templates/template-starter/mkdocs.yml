@@ -1,0 +1,8 @@
+site_name: Software Template
+site_description: How to start a software template of your own
+
+nav:
+  - Home: index.md
+
+plugins:
+  - techdocs-core
