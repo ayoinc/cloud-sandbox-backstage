@@ -1,0 +1,12 @@
+// Serves the built site as static assets of a Cloudflare Worker. The file
+// holds no account identifier and no secret: both come from the environment
+// of the deployment workflow.
+{
+  "$schema": "https://unpkg.com/wrangler@4/config-schema.json",
+  "name": "${{ values.name }}",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "404-page",
+  },
+}

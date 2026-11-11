@@ -1,0 +1,109 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: policy-as-code
+  title: Policy as Code for Terraform
+  description: Create a policy repository for Terraform and OpenTofu with OPA policies for plans tested with Conftest, custom Checkov checks, a shared TFLint configuration and a reusable workflow that other repositories call
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - policy-as-code
+    - opa
+    - conftest
+    - checkov
+    - tflint
+    - terraform
+spec:
+  owner: platform-team
+  type: infrastructure
+  parameters:
+    - title: Project Information
+      required:
+        - name
+        - description
+        - owner
+      properties:
+        name:
+          title: Repository Name
+          type: string
+          description: Name of the policy repository
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          ui:autofocus: true
+          ui:help: 'Lowercase letters, numbers and hyphens'
+        description:
+          title: Description
+          type: string
+          description: Whose infrastructure these policies govern
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns the repository
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: [Group, User]
+    - title: Repository Information
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: ${{ parameters.description }}
+        repoVisibility: private
+        defaultBranch: main
+        gitCommitMessage: 'Initial commit: Policy repository ${{ parameters.name }}'
+        topics:
+          - policy-as-code
+          - opa
+          - conftest
+          - checkov
+          - tflint
+          - terraform
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}
+    text:
+      - title: Next Steps
+        content: |
+          ## Your policy repository has been created
+
+          The pipeline formats, checks and unit-tests the policies and runs them against the fixtures on every push. It needs no cloud account.
+
+          1. Clone the repository and run `make test` (OPA and Conftest are required).
+          2. Adjust `policy/terraform/config.rego`: required tags, protected resource types and allowed provider namespaces.
+          3. Tag a release such as `v1` and call the reusable workflow from your Terraform repositories as shown in the README.

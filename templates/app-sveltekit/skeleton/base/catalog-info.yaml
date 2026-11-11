@@ -1,0 +1,21 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.name }}
+  description: ${{ values.description | dump }}
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
+  tags:
+    - svelte
+    - sveltekit
+    - typescript
+    - frontend
+  links:
+    - url: https://svelte.dev/docs/kit
+      title: SvelteKit Documentation
+      icon: docs
+spec:
+  type: website
+  lifecycle: experimental
+  owner: ${{ values.owner }}

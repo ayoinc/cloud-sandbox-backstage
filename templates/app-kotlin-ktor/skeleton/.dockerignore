@@ -1,0 +1,8 @@
+.git
+.github
+.gradle
+.kotlin
+build
+docs
+*.md
+.env*

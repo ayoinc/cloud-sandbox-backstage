@@ -1,0 +1,67 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deployment at a time; a newer push waits for the running one.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  # Skipped until the repository variable AWS_ROLE_ARN exists. Variables:
+  #   AWS_ROLE_ARN                 role the workflow assumes with its OIDC token
+  #   AWS_REGION                   region of the bucket
+  #   S3_BUCKET                    private bucket behind the distribution
+  #   CLOUDFRONT_DISTRIBUTION_ID   distribution to invalidate
+  # No access key is stored: the role trusts this repository's OIDC subject.
+  deploy:
+    name: Deploy to Amazon S3
+    runs-on: ubuntu-latest
+    if: vars.AWS_ROLE_ARN != ''
+    permissions:
+      contents: read
+      id-token: write
+    environment:
+      name: production
+    env:
+      S3_BUCKET: ${{ vars.S3_BUCKET }}
+      CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      # Files under _astro/ carry a content hash in their name and never
+      # change; everything else is revalidated on each request.
+      - name: Upload hashed assets
+        run: >-
+          aws s3 sync dist/_astro "s3://$S3_BUCKET/_astro"
+          --cache-control "public, max-age=31536000, immutable"
+
+      - name: Upload pages and remove deleted files
+        run: >-
+          aws s3 sync dist "s3://$S3_BUCKET" --delete --exclude "_astro/*"
+          --cache-control "public, max-age=0, must-revalidate"
+
+      - name: Invalidate the CDN cache
+        run: >-
+          aws cloudfront create-invalidation
+          --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" --paths "/*"

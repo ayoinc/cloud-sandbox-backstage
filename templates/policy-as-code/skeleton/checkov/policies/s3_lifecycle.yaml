@@ -1,0 +1,22 @@
+# Buckets do not grow without bound: each has a lifecycle configuration.
+metadata:
+  id: CKV2_CUSTOM_2
+  name: Ensure S3 buckets have a lifecycle configuration
+  category: GENERAL_SECURITY
+  severity: LOW
+  guideline: Add an aws_s3_bucket_lifecycle_configuration that refers to the bucket.
+scope:
+  provider: aws
+definition:
+  and:
+    - cond_type: filter
+      attribute: resource_type
+      operator: within
+      value:
+        - aws_s3_bucket
+    - cond_type: connection
+      resource_types:
+        - aws_s3_bucket
+      connected_resource_types:
+        - aws_s3_bucket_lifecycle_configuration
+      operator: exists

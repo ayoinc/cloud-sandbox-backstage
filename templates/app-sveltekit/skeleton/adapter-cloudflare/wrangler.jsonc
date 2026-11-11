@@ -1,0 +1,17 @@
+// Worker configuration. It holds no account identifier and no secret: the
+// account comes from the environment at deployment and secrets are set with
+// `wrangler secret put`.
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "${{ values.name }}",
+	"main": ".svelte-kit/cloudflare/_worker.js",
+	"compatibility_date": "2026-11-01",
+	"compatibility_flags": ["nodejs_als"],
+	"assets": {
+		"binding": "ASSETS",
+		"directory": ".svelte-kit/cloudflare"
+	},
+	"observability": {
+		"enabled": true
+	}
+}

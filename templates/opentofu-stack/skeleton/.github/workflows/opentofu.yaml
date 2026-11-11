@@ -1,0 +1,267 @@
+# OpenTofu pipeline.
+#
+# Every push is formatted, validated, tested and scanned without a cloud
+# account. Plan and apply sign in with OIDC and run once the repository
+# variables listed in the README exist: a push to main deploys dev, a manual
+# run plans, applies or destroys the environment you choose.
+name: OpenTofu
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Action to perform
+        required: true
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+        default: plan
+      environment:
+        description: Target environment
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+        default: dev
+      confirm_destroy:
+        description: Type DESTROY to confirm (destroy only)
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+{%- raw %}
+
+# One run per environment at a time; a running apply is never cancelled.
+concurrency:
+  group: opentofu-${{ inputs.environment || 'dev' }}
+  cancel-in-progress: false
+
+env:
+  TOFU_VERSION: '1.13.9'
+  TRIVY_VERSION: 'v0.76.2'
+  TF_IN_AUTOMATION: 'true'
+  TF_INPUT: 'false'
+  TARGET_ENVIRONMENT: ${{ inputs.environment || 'dev' }}
+  ACTION: ${{ inputs.action || 'apply' }}
+  # Identifiers of the deployment identity and of the state backend. They are
+  # repository variables, not secrets: OIDC needs no stored credential.{% endraw %}
+{%- if values.cloud == 'aws' %}{% raw %}
+  AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+  AWS_REGION: ${{ vars.AWS_REGION || '{% endraw %}${{ values.region }}{% raw %}' }}
+  TF_VAR_state_bucket: ${{ vars.STATE_BUCKET }}
+  TF_VAR_state_kms_key_id: ${{ vars.STATE_KMS_KEY_ARN }}{% endraw %}
+{%- elif values.cloud == 'azure' %}{% raw %}
+  ARM_USE_OIDC: 'true'
+  ARM_USE_AZUREAD: 'true'
+  ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+  ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+  TF_VAR_state_storage_account: ${{ vars.STATE_STORAGE_ACCOUNT }}
+  TF_VAR_state_key_vault_uri: ${{ vars.STATE_KEY_VAULT_URI }}{% endraw %}
+{%- else %}{% raw %}
+  TF_VAR_project_id: ${{ vars.GCP_PROJECT_ID }}
+  TF_VAR_state_bucket: ${{ vars.STATE_BUCKET }}
+  TF_VAR_state_kms_key: ${{ vars.STATE_KMS_KEY }}{% endraw %}
+{%- endif %}
+{%- raw %}
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v2
+        with:
+          tofu_version: ${{ env.TOFU_VERSION }}
+          tofu_wrapper: false
+
+      - name: Check formatting
+        run: tofu fmt -check -recursive -diff
+
+      - name: Initialise without a backend
+        run: tofu init -backend=false
+
+      - name: Validate
+        run: tofu validate -no-color
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v2
+        with:
+          tofu_version: ${{ env.TOFU_VERSION }}
+          tofu_wrapper: false
+
+      - name: Initialise without a backend
+        run: tofu init -backend=false
+
+      - name: Run tests
+        run: tofu test -no-color
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Trivy
+        uses: aquasecurity/setup-trivy@v0.3.1
+        with:
+          version: ${{ env.TRIVY_VERSION }}
+          cache: true
+
+      - name: Run Trivy
+        run: trivy config --exit-code 1 --severity CRITICAL,HIGH .
+
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    needs: [validate, test, security]{% endraw %}
+{%- if values.cloud == 'aws' %}{% raw %}
+    if: vars.AWS_ROLE_ARN != '' && vars.STATE_BUCKET != '' && vars.STATE_KMS_KEY_ARN != ''{% endraw %}
+{%- elif values.cloud == 'azure' %}{% raw %}
+    if: vars.AZURE_CLIENT_ID != '' && vars.AZURE_TENANT_ID != '' && vars.AZURE_SUBSCRIPTION_ID != '' && vars.STATE_STORAGE_ACCOUNT != '' && vars.STATE_KEY_VAULT_URI != ''{% endraw %}
+{%- else %}{% raw %}
+    if: vars.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && vars.GCP_SERVICE_ACCOUNT != '' && vars.GCP_PROJECT_ID != '' && vars.STATE_BUCKET != '' && vars.STATE_KMS_KEY != ''{% endraw %}
+{%- endif %}
+{%- raw %}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Confirm destroy
+        if: inputs.action == 'destroy' && inputs.confirm_destroy != 'DESTROY'
+        run: |
+          echo "::error::Type DESTROY in the confirmation field to destroy $TARGET_ENVIRONMENT."
+          exit 1
+
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v2
+        with:
+          tofu_version: ${{ env.TOFU_VERSION }}
+          tofu_wrapper: false
+{% endraw %}
+{%- if values.cloud == 'aws' %}{% raw %}
+
+      - name: Sign in to AWS
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}{% endraw %}
+{%- elif values.cloud == 'azure' %}{% raw %}
+
+      # OpenTofu signs in to Azure itself: the ARM_* variables above make the
+      # provider, the backend and the key provider exchange the GitHub OIDC token.{% endraw %}
+{%- else %}{% raw %}
+
+      - name: Sign in to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}{% endraw %}
+{%- endif %}
+{%- raw %}
+
+      - name: Initialise
+        run: tofu init -var-file="environments/$TARGET_ENVIRONMENT.tfvars"
+
+      - name: Plan
+        run: |
+          tofu plan -no-color \
+            -var-file="environments/$TARGET_ENVIRONMENT.tfvars" \
+            ${{ inputs.action == 'destroy' && '-destroy' || '' }} \
+            -out=tfplan
+
+      - name: Add the plan to the run summary
+        run: |
+          {
+            echo "## OpenTofu plan ($TARGET_ENVIRONMENT)"
+            echo '```'
+            tofu show -no-color -var-file="environments/$TARGET_ENVIRONMENT.tfvars" tfplan
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # The plan file is encrypted with the state key, so the artifact is
+      # ciphertext to anyone who cannot use that key.
+      - name: Upload plan
+        uses: actions/upload-artifact@v7
+        with:
+          name: tfplan-${{ env.TARGET_ENVIRONMENT }}
+          path: tfplan
+          retention-days: 5
+
+  apply:
+    name: Apply
+    runs-on: ubuntu-latest
+    needs: plan
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.action != 'plan')
+    # Add required reviewers to the staging and prod environments in the
+    # repository settings to gate their applies.
+    environment: ${{ inputs.environment || 'dev' }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v2
+        with:
+          tofu_version: ${{ env.TOFU_VERSION }}
+          tofu_wrapper: false
+{% endraw %}
+{%- if values.cloud == 'aws' %}{% raw %}
+
+      - name: Sign in to AWS
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}{% endraw %}
+{%- elif values.cloud == 'azure' %}{% raw %}
+
+      # OpenTofu signs in to Azure itself: the ARM_* variables above make the
+      # provider, the backend and the key provider exchange the GitHub OIDC token.{% endraw %}
+{%- else %}{% raw %}
+
+      - name: Sign in to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}{% endraw %}
+{%- endif %}
+{%- raw %}
+
+      - name: Download plan
+        uses: actions/download-artifact@v8
+        with:
+          name: tfplan-${{ env.TARGET_ENVIRONMENT }}
+
+      - name: Initialise
+        run: tofu init -var-file="environments/$TARGET_ENVIRONMENT.tfvars"
+
+      - name: Apply
+        run: tofu apply -no-color -var-file="environments/$TARGET_ENVIRONMENT.tfvars" tfplan
+{% endraw %}

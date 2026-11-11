@@ -1,0 +1,41 @@
+[project]
+name = "${{ values.name }}"
+version = "1.0.0"
+description = ${{ values.description | dump }}
+requires-python = ">=3.14"
+dependencies = [
+    "pulumi>=3.274.1,<4",
+    {% if values.cloud == 'aws' %}"pulumi-aws>=7.54.0,<8"{% elif values.cloud == 'azure' %}"pulumi-azure-native>=3.30.0,<4"{% else %}"pulumi-gcp>=10.2.1,<11"{% endif %},
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=2.4.1",
+    "pytest>=9.2.0",
+    "ruff>=0.17.4",
+]
+
+# A Pulumi program is run, not installed.
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["B", "C4", "E", "F", "I", "N", "PT", "RUF", "S", "SIM", "UP", "W"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+exclude = ["^\\.venv/"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+# Provider SDKs warn about their own deprecated aliases when they are imported.
+filterwarnings = ["ignore::DeprecationWarning:pulumi_.*"]

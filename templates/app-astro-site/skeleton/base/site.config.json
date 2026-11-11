@@ -1,0 +1,6 @@
+{
+  "title": ${{ (values.siteTitle or values.name) | dump }},
+  "description": ${{ values.description | dump }},
+  "url": ${{ values.siteUrl | dump }},
+  "basePath": ${{ values.basePath | dump }}
+}

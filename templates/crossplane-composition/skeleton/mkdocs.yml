@@ -1,0 +1,8 @@
+site_name: ${{ values.name }}
+site_description: ${{ ('Crossplane configuration - ' + values.description) | dump }}
+
+nav:
+  - Home: index.md
+
+plugins:
+  - techdocs-core

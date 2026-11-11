@@ -1,0 +1,17 @@
+{
+	"extends": "$app/tsconfig",
+	"compilerOptions": {
+		"strict": true,
+		"noUncheckedIndexedAccess": true,
+		"resolveJsonModule": true,
+		"types": ["$app/types", "node"]
+	},
+	"include": [
+		"src",
+		"e2e",
+		"vite.config.ts",
+		"playwright.config.ts",
+		"eslint.config.js",
+		"prettier.config.js"
+	]
+}

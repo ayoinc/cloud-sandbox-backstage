@@ -1,0 +1,7 @@
+FAIL aws_db_instance.main: the plan would replace a protected aws_db_instance; add the address to deletion_exemptions if this is intended
+FAIL aws_s3_bucket.logs: missing required tag "environment"
+FAIL aws_s3_bucket_public_access_block.logs: block_public_policy must be true
+FAIL aws_security_group.bastion: port 22 is reachable from the internet
+FAIL provider "aws" has no version constraint in required_providers
+FAIL provider "things" comes from "registry.terraform.io/somebody/things"; allowed namespaces are cloudflare, datadog, hashicorp, integrations, opentofu
+WARN aws_iam_role.legacy: the plan would delete this resource

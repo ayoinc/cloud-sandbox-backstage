@@ -1,0 +1,31 @@
+# The providers whose schemas `crossplane resource validate` checks the rendered
+# resources against, pinned.
+{%- if values.cloud == 'aws' %}
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: crossplane-contrib-provider-aws-s3
+spec:
+  package: xpkg.crossplane.io/crossplane-contrib/provider-aws-s3:v2.9.0
+{%- elif values.cloud == 'azure' %}
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: crossplane-contrib-provider-family-azure
+spec:
+  package: xpkg.crossplane.io/crossplane-contrib/provider-family-azure:v2.8.0
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: crossplane-contrib-provider-azure-storage
+spec:
+  package: xpkg.crossplane.io/crossplane-contrib/provider-azure-storage:v2.8.0
+{%- else %}
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: crossplane-contrib-provider-gcp-storage
+spec:
+  package: xpkg.crossplane.io/crossplane-contrib/provider-gcp-storage:v3.1.0
+{%- endif %}

@@ -1,0 +1,43 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deployment at a time; a newer push waits for the running one.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  # Skipped until the repository variable CLOUDFLARE_ACCOUNT_ID exists. The
+  # secret CLOUDFLARE_API_TOKEN must be a token limited to that account with
+  # the "Edit Cloudflare Workers" permissions. Cloudflare does not accept
+  # GitHub's OIDC tokens.
+  deploy:
+    name: Deploy to Cloudflare
+    runs-on: ubuntu-latest
+    if: vars.CLOUDFLARE_ACCOUNT_ID != ''
+    environment:
+      name: production
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Upload the site
+        run: npx --yes wrangler@4.160.0 deploy

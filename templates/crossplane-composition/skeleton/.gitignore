@@ -1,0 +1,8 @@
+# Built packages
+*.xpkg
+
+# Output of `make render`
+_output/
+
+# TechDocs
+site/

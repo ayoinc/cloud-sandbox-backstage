@@ -1,0 +1,56 @@
+# The API: what a team may ask for. Crossplane turns this definition into a
+# namespaced custom resource, so teams create ObjectStores in their own
+# namespaces and need no access to cloud credentials.
+apiVersion: apiextensions.crossplane.io/v2
+kind: CompositeResourceDefinition
+metadata:
+  name: objectstores.${{ values.apiGroup }}
+spec:
+  scope: Namespaced
+  group: ${{ values.apiGroup }}
+  names:
+    kind: ObjectStore
+    plural: objectstores
+    categories:
+      - platform
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      additionalPrinterColumns:
+        - name: Bucket
+          type: string
+          jsonPath: .status.bucketName
+        - name: Region
+          type: string
+          jsonPath: .spec.parameters.region
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                parameters:
+                  type: object
+                  description: Settings of the object store.
+                  default: {}
+                  properties:
+                    region:
+                      type: string
+                      description: Region the store is created in.
+                      default: ${{ values.region }}
+                    versioning:
+                      type: boolean
+                      description: Keep earlier versions of overwritten and deleted objects.
+                      default: true
+                    providerConfigName:
+                      type: string
+                      description: Name of the ClusterProviderConfig whose credentials create the store.
+                      default: default
+            status:
+              type: object
+              properties:
+                bucketName:
+                  type: string
+                  description: Name of the bucket in the cloud.

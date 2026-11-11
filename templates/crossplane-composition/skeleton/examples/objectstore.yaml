@@ -1,0 +1,12 @@
+# An ObjectStore as a team would create it, in its own namespace. In Crossplane
+# v1 this would have been a claim; in v2 composite resources are namespaced, so
+# the resource and the request are one object.
+apiVersion: ${{ values.apiGroup }}/v1alpha1
+kind: ObjectStore
+metadata:
+  name: team-logs
+  namespace: team-a
+spec:
+  parameters:
+    region: ${{ values.region }}
+    versioning: true

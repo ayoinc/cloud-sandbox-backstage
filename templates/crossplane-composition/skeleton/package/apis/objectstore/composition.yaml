@@ -1,0 +1,290 @@
+# How an ObjectStore is fulfilled. The pipeline runs two functions:
+#   1. patch-and-transform builds the managed resources from the base
+#      manifests below and copies values between them and the ObjectStore;
+#   2. auto-ready marks the ObjectStore ready once every resource is ready.
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: objectstores.${{ values.apiGroup }}
+  labels:
+    provider: ${{ values.cloud }}
+spec:
+  compositeTypeRef:
+    apiVersion: ${{ values.apiGroup }}/v1alpha1
+    kind: ObjectStore
+  mode: Pipeline
+  pipeline:
+    - step: compose-resources
+      functionRef:
+        name: crossplane-contrib-function-patch-and-transform
+      input:
+        apiVersion: pt.fn.crossplane.io/v1beta1
+        kind: Resources
+{%- if values.cloud == 'aws' %}
+        patchSets:
+          - name: common
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.region
+                toFieldPath: spec.forProvider.region
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.providerConfigName
+                toFieldPath: spec.providerConfigRef.name
+        resources:
+          - name: bucket
+            base:
+              apiVersion: s3.aws.m.upbound.io/v1beta1
+              kind: Bucket
+              spec:
+                forProvider:
+                  region: ${{ values.region }}
+                  forceDestroy: false
+                  tags:
+                    managed-by: crossplane
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+            patches:
+              - type: PatchSet
+                patchSetName: common
+              - type: ToCompositeFieldPath
+                fromFieldPath: metadata.annotations[crossplane.io/external-name]
+                toFieldPath: status.bucketName
+
+          - name: ownership
+            base:
+              apiVersion: s3.aws.m.upbound.io/v1beta1
+              kind: BucketOwnershipControls
+              spec:
+                forProvider:
+                  region: ${{ values.region }}
+                  bucketSelector:
+                    matchControllerRef: true
+                  rule:
+                    objectOwnership: BucketOwnerEnforced
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+            patches:
+              - type: PatchSet
+                patchSetName: common
+
+          - name: public-access-block
+            base:
+              apiVersion: s3.aws.m.upbound.io/v1beta1
+              kind: BucketPublicAccessBlock
+              spec:
+                forProvider:
+                  region: ${{ values.region }}
+                  bucketSelector:
+                    matchControllerRef: true
+                  blockPublicAcls: true
+                  blockPublicPolicy: true
+                  ignorePublicAcls: true
+                  restrictPublicBuckets: true
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+            patches:
+              - type: PatchSet
+                patchSetName: common
+
+          - name: encryption
+            base:
+              apiVersion: s3.aws.m.upbound.io/v1beta1
+              kind: BucketServerSideEncryptionConfiguration
+              spec:
+                forProvider:
+                  region: ${{ values.region }}
+                  bucketSelector:
+                    matchControllerRef: true
+                  rule:
+                    - bucketKeyEnabled: true
+                      applyServerSideEncryptionByDefault:
+                        sseAlgorithm: aws:kms
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+            patches:
+              - type: PatchSet
+                patchSetName: common
+
+          - name: versioning
+            base:
+              apiVersion: s3.aws.m.upbound.io/v1beta1
+              kind: BucketVersioning
+              spec:
+                forProvider:
+                  region: ${{ values.region }}
+                  bucketSelector:
+                    matchControllerRef: true
+                  versioningConfiguration:
+                    status: Enabled
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+            patches:
+              - type: PatchSet
+                patchSetName: common
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.versioning
+                toFieldPath: spec.forProvider.versioningConfiguration.status
+                transforms:
+                  - type: convert
+                    convert:
+                      toType: string
+                  - type: map
+                    map:
+                      "true": Enabled
+                      "false": Suspended
+{%- elif values.cloud == 'azure' %}
+        patchSets:
+          - name: common
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.region
+                toFieldPath: spec.forProvider.location
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.providerConfigName
+                toFieldPath: spec.providerConfigRef.name
+        resources:
+          - name: resource-group
+            base:
+              apiVersion: azure.m.upbound.io/v1beta1
+              kind: ResourceGroup
+              spec:
+                forProvider:
+                  location: ${{ values.region }}
+                  tags:
+                    managed-by: crossplane
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+            patches:
+              - type: PatchSet
+                patchSetName: common
+
+          # Storage account names allow 24 lowercase letters and digits and are
+          # unique across Azure, so the name is derived from the UID of the
+          # ObjectStore: "st" and the first 22 characters of its SHA-1 hash.
+          - name: account
+            base:
+              apiVersion: storage.azure.m.upbound.io/v1beta1
+              kind: Account
+              spec:
+                forProvider:
+                  location: ${{ values.region }}
+                  resourceGroupNameSelector:
+                    matchControllerRef: true
+                  accountKind: StorageV2
+                  accountTier: Standard
+                  accountReplicationType: LRS
+                  minTlsVersion: TLS1_2
+                  httpsTrafficOnlyEnabled: true
+                  allowNestedItemsToBePublic: false
+                  sharedAccessKeyEnabled: false
+                  defaultToOauthAuthentication: true
+                  infrastructureEncryptionEnabled: true
+                  blobProperties:
+                    versioningEnabled: true
+                    deleteRetentionPolicy:
+                      days: 30
+                    containerDeleteRetentionPolicy:
+                      days: 30
+                  tags:
+                    managed-by: crossplane
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+            patches:
+              - type: PatchSet
+                patchSetName: common
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.uid
+                toFieldPath: metadata.annotations[crossplane.io/external-name]
+                transforms:
+                  - type: string
+                    string:
+                      type: Convert
+                      convert: ToSha1
+                  - type: string
+                    string:
+                      type: Regexp
+                      regexp:
+                        match: "^[0-9a-f]{22}"
+                  - type: string
+                    string:
+                      type: Format
+                      fmt: "st%s"
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.versioning
+                toFieldPath: spec.forProvider.blobProperties.versioningEnabled
+              - type: ToCompositeFieldPath
+                fromFieldPath: metadata.annotations[crossplane.io/external-name]
+                toFieldPath: status.bucketName
+
+          - name: container
+            base:
+              apiVersion: storage.azure.m.upbound.io/v1beta1
+              kind: Container
+              metadata:
+                annotations:
+                  crossplane.io/external-name: objects
+              spec:
+                forProvider:
+                  storageAccountIdSelector:
+                    matchControllerRef: true
+                  containerAccessType: private
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.providerConfigName
+                toFieldPath: spec.providerConfigRef.name
+{%- else %}
+        patchSets:
+          - name: common
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.region
+                toFieldPath: spec.forProvider.location
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.providerConfigName
+                toFieldPath: spec.providerConfigRef.name
+        resources:
+          - name: bucket
+            base:
+              apiVersion: storage.gcp.m.upbound.io/v1beta1
+              kind: Bucket
+              spec:
+                forProvider:
+                  location: ${{ values.region }}
+                  forceDestroy: false
+                  uniformBucketLevelAccess: true
+                  publicAccessPrevention: enforced
+                  versioning:
+                    enabled: true
+                  lifecycleRule:
+                    - condition:
+                        daysSinceNoncurrentTime: 90
+                      action:
+                        type: Delete
+                  labels:
+                    managed-by: crossplane
+                providerConfigRef:
+                  kind: ClusterProviderConfig
+                  name: default
+            patches:
+              - type: PatchSet
+                patchSetName: common
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.parameters.versioning
+                toFieldPath: spec.forProvider.versioning.enabled
+              - type: ToCompositeFieldPath
+                fromFieldPath: metadata.annotations[crossplane.io/external-name]
+                toFieldPath: status.bucketName
+{%- endif %}
+    - step: mark-ready
+      functionRef:
+        name: crossplane-contrib-function-auto-ready

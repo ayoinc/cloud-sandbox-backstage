@@ -86,12 +86,14 @@ async function locationById(
   return location;
 }
 
+// A template run records its repository's file as a /tree/ link and this
+// page as a /blob/ link. GitHub serves the same file at both, so both count.
 const isRegistered = async (db: D1Database, target: string) =>
   (await db
     .prepare(
-      "SELECT 1 FROM locations WHERE type = 'url' AND target = ? LIMIT 1",
+      "SELECT 1 FROM locations WHERE type = 'url' AND target IN (?, ?) LIMIT 1",
     )
-    .bind(target)
+    .bind(target, target.replace(/\/blob\//, '/tree/'))
     .first()) !== null;
 
 /**
@@ -352,13 +354,14 @@ locationRoutes.post('/locations', async c => {
 
   // The statement of the pipeline's POST /locations (pipeline.ts), which
   // records what software templates register.
-  const { meta } = await c.env.DB.prepare(
-    'INSERT INTO locations (type, target) VALUES (?, ?) ON CONFLICT DO NOTHING',
-  )
-    .bind('url', target)
-    .run();
-  if (!meta.changes && c.req.query('onConflict') !== 'refresh') {
-    throw conflictError(`Location url:${target} already exists`);
+  if (await isRegistered(c.env.DB, target)) {
+    if (c.req.query('onConflict') !== 'refresh') {
+      throw conflictError(`Location url:${target} already exists`);
+    }
+  } else {
+    await c.env.DB.prepare('INSERT INTO locations (type, target) VALUES (?, ?)')
+      .bind('url', target)
+      .run();
   }
   // The registration stands if the sync cannot be started: the next one,
   // scheduled or started by a push, reads it. As on the Backstage backend,

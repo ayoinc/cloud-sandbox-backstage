@@ -1,0 +1,10 @@
+{
+  "values": {
+    "name": "sample-pulumi-ts",
+    "description": "The data team's \"landing zone\" storage: encrypted log buckets per environment",
+    "owner": "group:default/platform-team",
+    "cloud": "aws",
+    "region": "eu-west-1",
+    "repoUrl": "github.com?owner=example-org&repo=sample-pulumi-ts"
+  }
+}

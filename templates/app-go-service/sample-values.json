@@ -1,0 +1,10 @@
+{
+  "values": {
+    "name": "sample-orders-service",
+    "description": "Service for the sample team's orders: the \"v1\" contract",
+    "owner": "group:default/platform-team",
+    "router": "chi",
+    "port": 8080,
+    "repoUrl": "github.com?owner=example-org&repo=sample-orders-service"
+  }
+}

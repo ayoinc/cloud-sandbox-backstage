@@ -1,0 +1,147 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: app-sveltekit
+  title: SvelteKit App
+  description: Create a SvelteKit app with Svelte 5 runes and TypeScript, Vitest and Playwright tests, and the adapter for your host
+  tags:
+    - svelte
+    - sveltekit
+    - typescript
+    - frontend
+    - website
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: group:software-frontend
+  type: website
+
+  parameters:
+    - title: Project Information
+      required:
+        - name
+        - owner
+      properties:
+        name:
+          title: Project Name
+          type: string
+          description: Name of the project, the repository and the catalog entry
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          maxLength: 50
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: What this project is for
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns this resource
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+    - title: App Configuration
+      required:
+        - adapter
+      properties:
+        adapter:
+          title: Adapter
+          type: string
+          description: Where the app runs. Node.js adds a container image; Static prerenders every page; Cloudflare deploys a Worker
+          enum:
+            - node
+            - static
+            - cloudflare
+          enumNames:
+            - Node.js server (container image)
+            - Static site (prerendered)
+            - Cloudflare Workers
+          default: node
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton/base
+        copyWithoutTemplating:
+          - .github/workflows/*
+          - '**/*.svelte'
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'SvelteKit app' }}
+          owner: ${{ parameters.owner }}
+          adapter: ${{ parameters.adapter }}
+          server: ${{ parameters.adapter != 'static' }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: fetch-adapter
+      name: Add Adapter
+      action: fetch:template
+      input:
+        url: ./skeleton/adapter-${{ parameters.adapter }}
+        copyWithoutTemplating:
+          - .github/workflows/*
+          - '**/*.svelte'
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'SvelteKit app' }}
+          owner: ${{ parameters.owner }}
+          adapter: ${{ parameters.adapter }}
+          server: ${{ parameters.adapter != 'static' }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: fetch-server
+      name: Add Server Hooks and Health Endpoint
+      if: ${{ parameters.adapter != 'static' }}
+      action: fetch:template
+      input:
+        url: ./skeleton/server
+        copyWithoutTemplating:
+          - .github/workflows/*
+          - '**/*.svelte'
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'SvelteKit app' }}
+          owner: ${{ parameters.owner }}
+          adapter: ${{ parameters.adapter }}
+          server: ${{ parameters.adapter != 'static' }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: 'SvelteKit app: ${{ parameters.name }}'
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

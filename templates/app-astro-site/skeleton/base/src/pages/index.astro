@@ -1,0 +1,33 @@
+---
+import PostList from '../components/PostList.astro';
+import Base from '../layouts/Base.astro';
+import { href } from '../lib/paths';
+import { getPosts } from '../lib/posts';
+import { SITE } from '../site';
+
+const latest = (await getPosts()).slice(0, 5);
+---
+
+<Base>
+  <section class="bg-brand-50 rounded-xl px-6 py-10">
+    <h1 class="text-3xl font-bold tracking-tight text-slate-900">
+      {SITE.title}
+    </h1>
+    <p class="mt-3 max-w-prose text-lg text-slate-700">{SITE.description}</p>
+  </section>
+
+  <section class="mt-12" aria-labelledby="latest">
+    <div class="flex items-baseline justify-between">
+      <h2 id="latest" class="text-xl font-semibold text-slate-900">
+        Latest posts
+      </h2>
+      <a
+        href={href('posts/')}
+        class="text-brand-700 text-sm font-medium hover:underline"
+      >
+        All posts
+      </a>
+    </div>
+    <PostList posts={latest} />
+  </section>
+</Base>

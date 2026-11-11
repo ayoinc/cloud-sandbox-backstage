@@ -1,0 +1,156 @@
+# Reusable workflow: checks a Terraform or OpenTofu repository against the
+# policies of this repository. Called from the pipeline of that repository:
+#
+#   jobs:
+#     policy:
+#       uses: ${{ values.destination.owner }}/${{ values.destination.repo }}/.github/workflows/terraform-policy.yaml@v1
+#       with:
+#         policy-ref: v1
+#         working-directory: infrastructure
+#         plan-artifact: tfplan-json
+#
+# It has no trigger of its own; it runs only when another workflow calls it.
+name: Terraform Policy
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: Directory of the Terraform configuration in the calling repository
+        type: string
+        default: '.'
+      policy-ref:
+        description: Tag, branch or commit of the policies to apply; use the ref the workflow is called at
+        type: string
+        default: main
+      plan-artifact:
+        description: Name of an artifact, uploaded earlier in the same run, that holds plans as JSON (terraform show -json); leave empty to skip the plan policies
+        type: string
+        default: ''
+      tflint:
+        description: Lint the configuration with the shared TFLint configuration
+        type: boolean
+        default: true
+      checkov:
+        description: Scan the configuration with Checkov and the custom checks
+        type: boolean
+        default: true
+    secrets:
+      policy-token:
+        description: Token that can read this repository; needed only when the calling repository cannot read it with its own token
+        required: false
+
+permissions:
+  contents: read
+
+env:
+  POLICY_REPOSITORY: ${{ values.destination.owner }}/${{ values.destination.repo }}
+{%- raw %}
+  CONFTEST_VERSION: '0.71.1'
+  TFLINT_VERSION: 'v0.66.0'
+  CHECKOV_VERSION: '3.4.3'
+  # The policies are moved out of the workspace so that the scanners do not
+  # scan the fixtures of this repository.
+  POLICY_DIR: ${{ github.workspace }}/../policies
+
+jobs:
+  tflint:
+    name: TFLint
+    if: inputs.tflint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Fetch policies
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ env.POLICY_REPOSITORY }}
+          ref: ${{ inputs.policy-ref }}
+          token: ${{ secrets.policy-token || github.token }}
+          path: .policies
+          persist-credentials: false
+
+      - name: Move policies out of the workspace
+        run: mv .policies "$POLICY_DIR"
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v6
+        with:
+          tflint_version: ${{ env.TFLINT_VERSION }}
+
+      - name: Run TFLint
+        working-directory: ${{ inputs.working-directory }}
+        run: tflint --recursive --config "$POLICY_DIR/tflint/.tflint.hcl" --format compact
+
+  checkov:
+    name: Checkov
+    if: inputs.checkov
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Fetch policies
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ env.POLICY_REPOSITORY }}
+          ref: ${{ inputs.policy-ref }}
+          token: ${{ secrets.policy-token || github.token }}
+          path: .policies
+          persist-credentials: false
+
+      - name: Move policies out of the workspace
+        run: mv .policies "$POLICY_DIR"
+
+      - name: Run Checkov
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          pipx run --spec "checkov==$CHECKOV_VERSION" checkov \
+            --directory . \
+            --config-file "$POLICY_DIR/checkov/config.yaml" \
+            --external-checks-dir "$POLICY_DIR/checkov/policies"
+
+  plan:
+    name: Plan Policies
+    if: inputs.plan-artifact != ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch policies
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ env.POLICY_REPOSITORY }}
+          ref: ${{ inputs.policy-ref }}
+          token: ${{ secrets.policy-token || github.token }}
+          path: .policies
+          persist-credentials: false
+
+      - name: Move policies out of the workspace
+        run: mv .policies "$POLICY_DIR"
+
+      - name: Download plans
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ inputs.plan-artifact }}
+          path: plans
+
+      - name: Install Conftest
+        run: |
+          archive="conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz"
+          base="https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}"
+          curl -fsSLO "$base/$archive"
+          curl -fsSL "$base/checksums.txt" | grep " $archive\$" | sha256sum --check
+          tar -xzf "$archive" conftest
+          sudo install conftest /usr/local/bin/conftest
+          rm "$archive" conftest
+
+      - name: Run Conftest
+        run: |
+          shopt -s globstar nullglob
+          plans=(plans/**/*.json)
+          if [ "${#plans[@]}" -eq 0 ]; then
+            echo "::error::The artifact holds no .json file. Upload the output of 'terraform show -json <plan>'."
+            exit 1
+          fi
+          conftest test "${plans[@]}" --policy "$POLICY_DIR/policy" --all-namespaces --no-color
+{% endraw %}

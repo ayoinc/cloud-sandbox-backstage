@@ -1,0 +1,7 @@
+# Configuration of the staging stack. To take values and short-lived cloud
+# credentials from Pulumi ESC instead, add an `environment:` list here; see
+# "Pulumi ESC" in the README.
+config:
+  {% if values.cloud == 'aws' %}aws:region{% elif values.cloud == 'azure' %}azure-native:location{% else %}gcp:region{% endif %}: ${{ values.region }}
+  ${{ values.name }}:logRetentionDays: 90
+  ${{ values.name }}:forceDestroy: true

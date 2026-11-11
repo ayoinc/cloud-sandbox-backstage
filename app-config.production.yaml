@@ -560,6 +560,62 @@ catalog:
       target: ./templates/terraform-component/template.yaml
       rules:
         - allow: [Template]
+    - type: file
+      target: ./templates/app-astro-site/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/app-bun-api/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/app-dotnet-api/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/app-go-service/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/app-hono-worker/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/app-kotlin-ktor/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/app-rust-axum/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/app-sveltekit/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/crossplane-composition/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/opentofu-stack/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/policy-as-code/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/pulumi-python/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/pulumi-typescript/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/terragrunt-live/template.yaml
+      rules:
+        - allow: [Template]
 
 permission:
   # SECURITY: Permission system is enabled in production

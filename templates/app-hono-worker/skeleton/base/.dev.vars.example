@@ -1,0 +1,3 @@
+# Copy to .dev.vars for values that only apply to `wrangler dev`.
+# Never commit .dev.vars; production secrets are set with `wrangler secret put`.
+APP_ENV=development

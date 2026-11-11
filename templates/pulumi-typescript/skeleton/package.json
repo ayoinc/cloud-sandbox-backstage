@@ -1,0 +1,30 @@
+{
+  "name": "${{ values.name }}",
+  "version": "1.0.0",
+  "description": ${{ values.description | dump }},
+  "private": true,
+  "main": "bin/index.js",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    {% if values.cloud == 'aws' %}"@pulumi/aws": "^7.54.0"{% elif values.cloud == 'azure' %}"@pulumi/azure-native": "^3.30.0"{% else %}"@pulumi/gcp": "^10.2.2"{% endif %},
+    "@pulumi/pulumi": "^3.274.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.0.0",
+    "eslint": "^10.14.0",
+    "prettier": "^3.9.10",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.72.2",
+    "vitest": "^5.1.0"
+  }
+}

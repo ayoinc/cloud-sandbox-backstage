@@ -1,0 +1,9 @@
+node_modules/
+bin/
+coverage/
+
+# Pulumi: local state and credentials never belong in the repository
+.pulumi/
+
+# TechDocs
+site/

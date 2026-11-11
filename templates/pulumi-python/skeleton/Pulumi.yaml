@@ -1,0 +1,19 @@
+name: ${{ values.name }}
+description: ${{ values.description | dump }}
+runtime:
+  name: python
+  options:
+    toolchain: uv
+    virtualenv: .venv
+config:
+  logRetentionDays:
+    type: integer
+    description: Days that log objects are kept before they are deleted; at least 30.
+    default: 90
+  forceDestroy:
+    type: boolean
+    description: Allow the log storage to be destroyed while it holds objects.
+    default: false
+  pulumi:tags:
+    value:
+      owner: ${{ values.owner | replace('group:', '') | replace('user:', '') | replace('default/', '') }}

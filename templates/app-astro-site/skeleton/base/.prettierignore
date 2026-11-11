@@ -1,0 +1,9 @@
+dist
+.astro
+node_modules
+package-lock.json
+catalog-info.yaml
+mkdocs.yml
+docs
+.github
+README.md

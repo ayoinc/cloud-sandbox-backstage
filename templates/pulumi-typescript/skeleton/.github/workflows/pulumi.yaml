@@ -1,0 +1,238 @@
+# Pulumi pipeline.
+#
+# Every push is linted, type-checked and unit-tested without a cloud account.
+# Preview and update sign in to Pulumi Cloud and to the cloud with OIDC and run
+# once the repository variables listed in the README exist: a push to main
+# updates the dev stack, a manual run previews or updates the stack you choose.
+name: Pulumi
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Action to perform
+        required: true
+        type: choice
+        options:
+          - preview
+          - up
+        default: preview
+      stack:
+        description: Target stack
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+        default: dev
+
+permissions:
+  contents: read
+{%- raw %}
+
+# One run per stack at a time; a running update is never cancelled.
+concurrency:
+  group: pulumi-${{ inputs.stack || 'dev' }}
+  cancel-in-progress: false
+
+env:
+  PULUMI_VERSION: '3.274.1'
+  PULUMI_SKIP_UPDATE_CHECK: 'true'
+  PULUMI_STACK: ${{ vars.PULUMI_ORG }}/${{ inputs.stack || 'dev' }}
+  # Identifiers of the deployment identity. They are repository variables, not
+  # secrets: OIDC needs no stored credential.{% endraw %}
+{%- if values.cloud == 'aws' %}{% raw %}
+  AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+  AWS_REGION: ${{ vars.AWS_REGION || '{% endraw %}${{ values.region }}{% raw %}' }}{% endraw %}
+{%- elif values.cloud == 'azure' %}{% raw %}
+  ARM_USE_OIDC: 'true'
+  ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+  ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}{% endraw %}
+{%- else %}{% raw %}
+  GOOGLE_PROJECT: ${{ vars.GCP_PROJECT_ID }}{% endraw %}
+{%- endif %}
+{%- raw %}
+
+jobs:
+  check:
+    name: Lint and Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+
+      # Commit package-lock.json after the first `npm install`; from then on
+      # the pipeline installs exactly what it records.
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  preview:
+    name: Preview
+    runs-on: ubuntu-latest
+    needs: check{% endraw %}
+{%- if values.cloud == 'aws' %}{% raw %}
+    if: vars.PULUMI_ORG != '' && vars.AWS_ROLE_ARN != ''{% endraw %}
+{%- elif values.cloud == 'azure' %}{% raw %}
+    if: vars.PULUMI_ORG != '' && vars.AZURE_CLIENT_ID != '' && vars.AZURE_TENANT_ID != '' && vars.AZURE_SUBSCRIPTION_ID != ''{% endraw %}
+{%- else %}{% raw %}
+    if: vars.PULUMI_ORG != '' && vars.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && vars.GCP_SERVICE_ACCOUNT != '' && vars.GCP_PROJECT_ID != ''{% endraw %}
+{%- endif %}
+{%- raw %}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+
+      # Commit package-lock.json after the first `npm install`; from then on
+      # the pipeline installs exactly what it records.
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Build
+        run: npm run build
+
+      - name: Sign in to Pulumi Cloud
+        uses: pulumi/auth-actions@v2
+        with:
+          organization: ${{ vars.PULUMI_ORG }}
+          requested-token-type: urn:pulumi:token-type:access_token:organization
+{% endraw %}
+{%- if values.cloud == 'aws' %}{% raw %}
+
+      - name: Sign in to AWS
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}{% endraw %}
+{%- elif values.cloud == 'azure' %}{% raw %}
+
+      # The Azure Native provider signs in itself: the ARM_* variables above make
+      # it exchange the GitHub OIDC token.{% endraw %}
+{%- else %}{% raw %}
+
+      - name: Sign in to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}{% endraw %}
+{%- endif %}
+{%- raw %}
+
+      - name: Preview
+        uses: pulumi/actions@v7
+        with:
+          command: preview
+          stack-name: ${{ env.PULUMI_STACK }}
+          pulumi-version: ${{ env.PULUMI_VERSION }}
+          upsert: true
+          diff: true
+          comment-on-summary: true
+
+  update:
+    name: Update
+    runs-on: ubuntu-latest
+    needs: preview
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.action == 'up')
+    # Add required reviewers to the staging and prod environments in the
+    # repository settings to gate their updates.
+    environment: ${{ inputs.stack || 'dev' }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+
+      # Commit package-lock.json after the first `npm install`; from then on
+      # the pipeline installs exactly what it records.
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Build
+        run: npm run build
+
+      - name: Sign in to Pulumi Cloud
+        uses: pulumi/auth-actions@v2
+        with:
+          organization: ${{ vars.PULUMI_ORG }}
+          requested-token-type: urn:pulumi:token-type:access_token:organization
+{% endraw %}
+{%- if values.cloud == 'aws' %}{% raw %}
+
+      - name: Sign in to AWS
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}{% endraw %}
+{%- elif values.cloud == 'azure' %}{% raw %}
+
+      # The Azure Native provider signs in itself: the ARM_* variables above make
+      # it exchange the GitHub OIDC token.{% endraw %}
+{%- else %}{% raw %}
+
+      - name: Sign in to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}{% endraw %}
+{%- endif %}
+{%- raw %}
+
+      - name: Update
+        uses: pulumi/actions@v7
+        with:
+          command: up
+          stack-name: ${{ env.PULUMI_STACK }}
+          pulumi-version: ${{ env.PULUMI_VERSION }}
+          upsert: true
+          comment-on-summary: true
+{% endraw %}

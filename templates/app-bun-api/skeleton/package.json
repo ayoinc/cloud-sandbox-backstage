@@ -1,0 +1,26 @@
+{
+  "name": "${{ values.name }}",
+  "version": "1.0.0",
+  "description": ${{ values.description | dump }},
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "test:coverage": "bun test --coverage",
+    "lint": "biome ci .",
+    "format": "biome check --write ."
+  },
+  "dependencies": {
+    "@hono/zod-validator": "^0.9.1",
+    "hono": "^4.13.17",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.6",
+    "@types/bun": "^1.4.4",
+    "typescript": "^6.0.3"
+  }
+}

@@ -1,0 +1,184 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: crossplane-composition
+  title: Crossplane Composition
+  description: Create a Crossplane v2 configuration with a namespaced composite resource definition, a function-pipeline composition for AWS, Azure or Google Cloud, an example resource and render tests
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - crossplane
+    - kubernetes
+    - infrastructure-as-code
+    - aws
+    - azure
+    - gcp
+spec:
+  owner: platform-team
+  type: infrastructure
+  parameters:
+    - title: Project Information
+      required:
+        - name
+        - description
+        - owner
+      properties:
+        name:
+          title: Configuration Name
+          type: string
+          description: Name of the Crossplane configuration package and of the repository
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          maxLength: 40
+          ui:autofocus: true
+          ui:help: 'Lowercase letters, numbers and hyphens; at most 40 characters'
+        description:
+          title: Description
+          type: string
+          description: What API this configuration offers and who uses it
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns the repository
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: [Group, User]
+    - title: API Configuration
+      required:
+        - cloud
+        - apiGroup
+      properties:
+        cloud:
+          title: Cloud Provider
+          type: string
+          description: Cloud the composition creates resources in; selects the provider and the managed resources
+          default: aws
+          enum:
+            - aws
+            - azure
+            - gcp
+          enumNames:
+            - Amazon Web Services
+            - Microsoft Azure
+            - Google Cloud
+          ui:widget: radio
+        apiGroup:
+          title: API Group
+          type: string
+          description: DNS-style group of the API this repository defines, usually platform.<your-domain>
+          pattern: '^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$'
+          maxLength: 63
+          ui:help: 'Lowercase DNS name with at least one dot'
+      dependencies:
+        cloud:
+          oneOf:
+            - properties:
+                cloud:
+                  const: aws
+                region:
+                  title: AWS Region
+                  type: string
+                  enum:
+                    - us-east-1
+                    - us-east-2
+                    - us-west-2
+                    - eu-west-1
+                    - eu-west-2
+                    - eu-central-1
+                    - ap-southeast-2
+                  default: eu-west-1
+            - properties:
+                cloud:
+                  const: azure
+                region:
+                  title: Azure Region
+                  type: string
+                  enum:
+                    - eastus
+                    - eastus2
+                    - westus2
+                    - northeurope
+                    - westeurope
+                    - uksouth
+                    - australiaeast
+                  default: northeurope
+            - properties:
+                cloud:
+                  const: gcp
+                region:
+                  title: Google Cloud Region
+                  type: string
+                  enum:
+                    - us-central1
+                    - us-east1
+                    - us-west1
+                    - europe-west1
+                    - europe-west2
+                    - europe-west3
+                    - australia-southeast1
+                  default: europe-west1
+    - title: Repository Information
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          cloud: ${{ parameters.cloud }}
+          region: "${{ parameters.region or {'aws': 'eu-west-1', 'azure': 'northeurope', 'gcp': 'europe-west1'}[parameters.cloud] }}"
+          apiGroup: ${{ parameters.apiGroup }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: ${{ parameters.description }}
+        repoVisibility: private
+        defaultBranch: main
+        gitCommitMessage: 'Initial commit: Crossplane configuration ${{ parameters.name }}'
+        topics:
+          - crossplane
+          - kubernetes
+          - infrastructure-as-code
+          - ${{ parameters.cloud }}
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}
+    text:
+      - title: Next Steps
+        content: |
+          ## Your Crossplane configuration has been created
+
+          The pipeline renders the composition, compares the result with the snapshot, validates it against the schemas of the provider and builds the package on every push. It needs no cluster and no cloud account.
+
+          1. Clone the repository, install the Crossplane CLI and run `make test` (Docker is required).
+          2. Change the definition and the composition under `package/apis/`, then run `make snapshot` to accept the new rendering.
+          3. Push a tag such as `v0.1.0` to publish the package to the GitHub container registry, and install it in a control plane as described in the README.

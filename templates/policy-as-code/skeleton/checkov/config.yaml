@@ -1,0 +1,10 @@
+# Checkov settings shared by every repository that calls the reusable workflow.
+# Skip a built-in check for everyone by adding its ID to skip-check, with the
+# reason; a single resource is exempted in its own repository with a
+# `#checkov:skip=<ID>:<reason>` comment.
+framework:
+  - terraform
+quiet: true
+compact: true
+download-external-modules: false
+skip-check: []

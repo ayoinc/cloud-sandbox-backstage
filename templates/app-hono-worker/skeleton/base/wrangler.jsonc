@@ -1,0 +1,28 @@
+// Worker configuration. It holds no account identifier, no resource identifier
+// and no secret: the account comes from the environment at deployment, bound
+// resources are created by Wrangler on the first deployment, and secrets are
+// set with `wrangler secret put`.
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "${{ values.name }}",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "APP_ENV": "production"
+  }{% if values.binding == 'd1' %},
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "${{ values.name }}",
+      "migrations_dir": "migrations"
+    }
+  ]{% elif values.binding == 'kv' %},
+  "kv_namespaces": [
+    {
+      "binding": "KV"
+    }
+  ]{% endif %}
+}

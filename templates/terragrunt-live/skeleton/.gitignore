@@ -1,0 +1,18 @@
+# Terragrunt
+.terragrunt-cache/
+.terragrunt-stack/
+
+# OpenTofu
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+crash.log
+
+# Files Terragrunt generates into each unit
+backend.tf
+provider.tf
+
+# TechDocs
+site/

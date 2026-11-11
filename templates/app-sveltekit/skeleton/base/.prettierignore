@@ -1,0 +1,7 @@
+package-lock.json
+/static/
+/docs/
+catalog-info.yaml
+mkdocs.yml
+README.md
+.github

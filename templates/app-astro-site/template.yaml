@@ -1,0 +1,151 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: app-astro-site
+  title: Astro Content Site
+  description: Create an Astro content site with typed Markdown collections, Tailwind CSS v4 and a deployment workflow for GitHub Pages, Cloudflare or Amazon S3
+  tags:
+    - astro
+    - typescript
+    - tailwind
+    - website
+    - static-site
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: group:software-frontend
+  type: website
+
+  parameters:
+    - title: Project Information
+      required:
+        - name
+        - owner
+      properties:
+        name:
+          title: Project Name
+          type: string
+          description: Name of the project, the repository and the catalog entry
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          maxLength: 50
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: What this project is for
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns this resource
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+    - title: Site Configuration
+      required:
+        - siteTitle
+        - siteUrl
+        - hosting
+      properties:
+        siteTitle:
+          title: Site Title
+          type: string
+          description: Shown in the header, the browser tab and the RSS feed
+          maxLength: 80
+        siteUrl:
+          title: Site URL
+          type: string
+          format: uri
+          pattern: '^https://[^\s/]+$'
+          description: Public origin of the site without a path, for example https://docs.your-organisation.org. Used for canonical links, the sitemap and the feed
+        basePath:
+          title: Base Path
+          type: string
+          pattern: '^/([A-Za-z0-9._-]+/)*$'
+          default: /
+          description: Path the site is served under, with leading and trailing slash. Keep / unless the site lives in a sub-path such as /handbook/ (GitHub Pages project sites use /<repository>/)
+        hosting:
+          title: Hosting
+          type: string
+          description: Where the deployment workflow publishes the built site
+          enum:
+            - github-pages
+            - cloudflare
+            - aws-s3
+          enumNames:
+            - GitHub Pages
+            - Cloudflare Workers static assets
+            - Amazon S3 with CloudFront
+          default: github-pages
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton/base
+        copyWithoutTemplating:
+          - .github/workflows/*
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'Content site built with Astro' }}
+          owner: ${{ parameters.owner }}
+          siteTitle: ${{ parameters.siteTitle }}
+          siteUrl: ${{ parameters.siteUrl }}
+          basePath: ${{ parameters.basePath or '/' }}
+          hosting: ${{ parameters.hosting }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: fetch-deploy
+      name: Add Deployment Workflow
+      action: fetch:template
+      input:
+        url: ./skeleton/deploy-${{ parameters.hosting }}
+        copyWithoutTemplating:
+          - .github/workflows/*
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'Content site built with Astro' }}
+          owner: ${{ parameters.owner }}
+          siteTitle: ${{ parameters.siteTitle }}
+          siteUrl: ${{ parameters.siteUrl }}
+          basePath: ${{ parameters.basePath or '/' }}
+          hosting: ${{ parameters.hosting }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: 'Astro site: ${{ parameters.name }}'
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

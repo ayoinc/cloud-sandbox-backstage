@@ -1,0 +1,175 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: pulumi-python
+  title: Pulumi Project (Python)
+  description: Create a Pulumi Python project managed with uv for AWS, Azure or Google Cloud with a tested component, a stack per environment, Pulumi ESC guidance and an OIDC pipeline
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - pulumi
+    - python
+    - infrastructure-as-code
+    - aws
+    - azure
+    - gcp
+spec:
+  owner: platform-team
+  type: infrastructure
+  parameters:
+    - title: Project Information
+      required:
+        - name
+        - description
+        - owner
+      properties:
+        name:
+          title: Project Name
+          type: string
+          description: Name of the Pulumi project; prefix of every resource name
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          maxLength: 24
+          ui:autofocus: true
+          ui:help: 'Lowercase letters, numbers and hyphens; at most 24 characters'
+        description:
+          title: Description
+          type: string
+          description: What this project provisions and who relies on it
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns the repository
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: [Group, User]
+    - title: Project Configuration
+      required:
+        - cloud
+      properties:
+        cloud:
+          title: Cloud Provider
+          type: string
+          description: Cloud the project deploys to; selects the provider package and the resources
+          default: aws
+          enum:
+            - aws
+            - azure
+            - gcp
+          enumNames:
+            - Amazon Web Services
+            - Microsoft Azure
+            - Google Cloud
+          ui:widget: radio
+      dependencies:
+        cloud:
+          oneOf:
+            - properties:
+                cloud:
+                  const: aws
+                region:
+                  title: AWS Region
+                  type: string
+                  enum:
+                    - us-east-1
+                    - us-east-2
+                    - us-west-2
+                    - eu-west-1
+                    - eu-west-2
+                    - eu-central-1
+                    - ap-southeast-2
+                  default: eu-west-1
+            - properties:
+                cloud:
+                  const: azure
+                region:
+                  title: Azure Region
+                  type: string
+                  enum:
+                    - eastus
+                    - eastus2
+                    - westus2
+                    - northeurope
+                    - westeurope
+                    - uksouth
+                    - australiaeast
+                  default: northeurope
+            - properties:
+                cloud:
+                  const: gcp
+                region:
+                  title: Google Cloud Region
+                  type: string
+                  enum:
+                    - us-central1
+                    - us-east1
+                    - us-west1
+                    - europe-west1
+                    - europe-west2
+                    - europe-west3
+                    - australia-southeast1
+                  default: europe-west1
+    - title: Repository Information
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          cloud: ${{ parameters.cloud }}
+          region: "${{ parameters.region or {'aws': 'eu-west-1', 'azure': 'northeurope', 'gcp': 'europe-west1'}[parameters.cloud] }}"
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: ${{ parameters.description }}
+        repoVisibility: private
+        defaultBranch: main
+        gitCommitMessage: 'Initial commit: Pulumi project ${{ parameters.name }}'
+        topics:
+          - pulumi
+          - python
+          - infrastructure-as-code
+          - ${{ parameters.cloud }}
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}
+    text:
+      - title: Next Steps
+        content: |
+          ## Your Pulumi project has been created
+
+          The pipeline lints, type-checks and unit-tests the program on every push; none of that needs a cloud account.
+
+          1. Clone the repository and run `uv sync && uv run pytest`.
+          2. Add the repository variables listed in the README: your Pulumi organisation and the identity the pipeline signs in as.
+          3. The next push to `main` previews and updates the `dev` stack; run the workflow manually for `staging` and `prod`.

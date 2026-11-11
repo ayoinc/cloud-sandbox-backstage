@@ -1,0 +1,9 @@
+{
+  "values": {
+    "name": "sample-orders-web",
+    "description": "Service for the sample team's orders: the \"v1\" contract",
+    "owner": "group:default/platform-team",
+    "adapter": "node",
+    "repoUrl": "github.com?owner=example-org&repo=sample-orders-web"
+  }
+}

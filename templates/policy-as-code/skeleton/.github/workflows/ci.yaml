@@ -1,0 +1,85 @@
+# Checks the policies themselves: formatting, strict type-checking, unit tests
+# and the expected results against the fixtures. Needs no cloud account.
+name: CI
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+{%- raw %}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  OPA_VERSION: '1.22.3'
+  CONFTEST_VERSION: '0.71.1'
+  TFLINT_VERSION: 'v0.66.0'
+  CHECKOV_VERSION: '3.4.3'
+
+jobs:
+  rego:
+    name: Plan Policies
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup OPA
+        uses: open-policy-agent/setup-opa@v2
+        with:
+          version: ${{ env.OPA_VERSION }}
+
+      - name: Install Conftest
+        run: |
+          archive="conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz"
+          base="https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}"
+          curl -fsSLO "$base/$archive"
+          curl -fsSL "$base/checksums.txt" | grep " $archive\$" | sha256sum --check
+          tar -xzf "$archive" conftest
+          sudo install conftest /usr/local/bin/conftest
+          rm "$archive" conftest
+
+      - name: Check formatting
+        run: make fmt-check
+
+      - name: Type-check
+        run: make check
+
+      - name: Unit tests
+        run: make test
+
+      - name: Fixture plans
+        run: make plans
+
+  checkov:
+    name: Checkov Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install Checkov
+        run: pipx install "checkov==$CHECKOV_VERSION"
+
+      - name: Fixture configurations
+        run: make checkov
+
+  tflint:
+    name: TFLint Configuration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v6
+        with:
+          tflint_version: ${{ env.TFLINT_VERSION }}
+
+      - name: Fixture configurations
+        run: make tflint
+{% endraw %}

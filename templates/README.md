@@ -71,27 +71,41 @@ This directory contains all scaffolder templates for the Cloud Sandbox Backstage
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `oci-compute` | Create an Oracle Cloud Infrastructure compute instance in its own VCN with network security groups, including the Always Free Ampere shape |
 
-### Applications (6 templates)
+### Applications (14 templates)
 
-| Template             | Description                                                                                        |
-| -------------------- | -------------------------------------------------------------------------------------------------- |
-| `app-nextjs`         | Create a Next.js 14 application with TypeScript and App Router                                     |
-| `app-nodejs-api`     | Create a Node.js TypeScript API with Express or Fastify                                            |
-| `app-springboot`     | Create a Spring Boot 3 REST API with Java                                                          |
-| `docker-application` | Create a containerised service with a tested, scanned and published Docker image                   |
-| `python-api`         | Create a tested FastAPI service with a container image and a GitHub Actions pipeline               |
-| `react-frontend`     | Create a React single-page application with Vite, TypeScript, Vitest and a GitHub Actions pipeline |
+| Template             | Description                                                                                                                                       |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app-astro-site`     | Create an Astro content site with typed Markdown collections, Tailwind CSS v4 and a deployment workflow for GitHub Pages, Cloudflare or Amazon S3 |
+| `app-bun-api`        | Create a TypeScript API on Bun with Hono, validated environment variables, bun test and a non-root container image                                |
+| `app-dotnet-api`     | Create a .NET 10 minimal API with OpenAPI, health checks, JSON logs, xUnit integration tests and a chiseled container image                       |
+| `app-go-service`     | Create a Go HTTP service with structured logging, OpenTelemetry tracing and a distroless image                                                    |
+| `app-hono-worker`    | Create a TypeScript Hono API on Cloudflare Workers with an optional D1 or KV binding and tests that run in the Workers runtime                    |
+| `app-kotlin-ktor`    | Create a Ktor 3 service in Kotlin with a Gradle version catalog, kotlinx.serialization, JSON logs, tests and a distroless image                   |
+| `app-nextjs`         | Create a Next.js 14 application with TypeScript and App Router                                                                                    |
+| `app-nodejs-api`     | Create a Node.js TypeScript API with Express or Fastify                                                                                           |
+| `app-rust-axum`      | Create a Rust HTTP service with axum and tokio, structured tracing, optional PostgreSQL through sqlx and a distroless image                       |
+| `app-springboot`     | Create a Spring Boot 3 REST API with Java                                                                                                         |
+| `app-sveltekit`      | Create a SvelteKit app with Svelte 5 runes and TypeScript, Vitest and Playwright tests, and the adapter for your host                             |
+| `docker-application` | Create a containerised service with a tested, scanned and published Docker image                                                                  |
+| `python-api`         | Create a tested FastAPI service with a container image and a GitHub Actions pipeline                                                              |
+| `react-frontend`     | Create a React single-page application with Vite, TypeScript, Vitest and a GitHub Actions pipeline                                                |
 
-### Infrastructure as Code (6 templates)
+### Infrastructure as Code (12 templates)
 
-| Template                   | Description                                                                                                                                                                                    |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `cloud-sandbox`            | Create a cloud development sandbox with VPC, compute, and optional services                                                                                                                    |
-| `packer-image`             | Create machine images for AWS, Azure, GCP, or VMware with Packer                                                                                                                               |
-| `terraform-component`      | Creates a Terraform infrastructure component on AWS, Azure or Google Cloud with naming and tagging conventions, isolated state per environment, tests and a validation and deployment pipeline |
-| `terraform-infrastructure` | Create enterprise-grade cloud infrastructure with Terraform, including security, monitoring, and compliance                                                                                    |
-| `terraform-module`         | Create a production-ready Terraform module with best practices for AWS, Azure, or GCP                                                                                                          |
-| `vagrant-environment`      | Create a local VM development environment with Vagrant                                                                                                                                         |
+| Template                   | Description                                                                                                                                                                                                       |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cloud-sandbox`            | Create a cloud development sandbox with VPC, compute, and optional services                                                                                                                                       |
+| `crossplane-composition`   | Create a Crossplane v2 configuration with a namespaced composite resource definition, a function-pipeline composition for AWS, Azure or Google Cloud, an example resource and render tests                        |
+| `opentofu-stack`           | Create an OpenTofu root stack for AWS, Azure or Google Cloud with client-side state encryption, per-environment variables, mocked tests and an OIDC pipeline                                                      |
+| `packer-image`             | Create machine images for AWS, Azure, GCP, or VMware with Packer                                                                                                                                                  |
+| `policy-as-code`           | Create a policy repository for Terraform and OpenTofu with OPA policies for plans tested with Conftest, custom Checkov checks, a shared TFLint configuration and a reusable workflow that other repositories call |
+| `pulumi-python`            | Create a Pulumi Python project managed with uv for AWS, Azure or Google Cloud with a tested component, a stack per environment, Pulumi ESC guidance and an OIDC pipeline                                          |
+| `pulumi-typescript`        | Create a Pulumi TypeScript project for AWS, Azure or Google Cloud with a tested component, a stack per environment, Pulumi ESC guidance and an OIDC pipeline                                                      |
+| `terraform-component`      | Creates a Terraform infrastructure component on AWS, Azure or Google Cloud with naming and tagging conventions, isolated state per environment, tests and a validation and deployment pipeline                    |
+| `terraform-infrastructure` | Create enterprise-grade cloud infrastructure with Terraform, including security, monitoring, and compliance                                                                                                       |
+| `terraform-module`         | Create a production-ready Terraform module with best practices for AWS, Azure, or GCP                                                                                                                             |
+| `terragrunt-live`          | Create a Terragrunt live repository for AWS, Azure or Google Cloud with a root configuration, an environment and region hierarchy, stacks of reusable units, generated remote state and an OIDC pipeline          |
+| `vagrant-environment`      | Create a local VM development environment with Vagrant                                                                                                                                                            |
 
 ### Ansible Automation (11 templates)
 

@@ -1,0 +1,14 @@
+# Every taggable AWS resource names its owner.
+metadata:
+  id: CKV2_CUSTOM_1
+  name: Ensure taggable AWS resources have an owner tag
+  category: GENERAL_SECURITY
+  severity: MEDIUM
+  guideline: Add an owner tag, on the resource or through default_tags of the provider.
+scope:
+  provider: aws
+definition:
+  cond_type: attribute
+  resource_types: taggable
+  attribute: tags.owner
+  operator: exists

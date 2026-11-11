@@ -1,0 +1,11 @@
+{
+  "values": {
+    "name": "sample-configuration",
+    "description": "The platform team's \"ObjectStore\" API: private buckets for every namespace",
+    "owner": "group:default/platform-team",
+    "cloud": "aws",
+    "region": "eu-west-1",
+    "apiGroup": "platform.sample.internal",
+    "repoUrl": "github.com?owner=example-org&repo=sample-configuration"
+  }
+}

@@ -1,0 +1,21 @@
+name: ${{ values.name }}
+description: ${{ values.description | dump }}
+# The program is compiled with `npm run build`; Pulumi runs bin/index.js, the
+# `main` of package.json.
+runtime:
+  name: nodejs
+  options:
+    packagemanager: npm
+    typescript: false
+config:
+  logRetentionDays:
+    type: integer
+    description: Days that log objects are kept before they are deleted; at least 30.
+    default: 90
+  forceDestroy:
+    type: boolean
+    description: Allow the log storage to be destroyed while it holds objects.
+    default: false
+  pulumi:tags:
+    value:
+      owner: ${{ values.owner | replace('group:', '') | replace('user:', '') | replace('default/', '') }}

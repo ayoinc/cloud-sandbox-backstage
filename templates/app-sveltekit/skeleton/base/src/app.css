@@ -1,0 +1,28 @@
+:root {
+	--brand: #1d4ed8;
+	--text: #1e293b;
+	--muted: #64748b;
+	--border: #e2e8f0;
+	font-family: ui-sans-serif, system-ui, sans-serif;
+	color: var(--text);
+	line-height: 1.5;
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+}
+
+a {
+	color: var(--brand);
+}
+
+:focus-visible {
+	outline: 2px solid var(--brand);
+	outline-offset: 2px;
+}

@@ -1,0 +1,276 @@
+# Terragrunt pipeline.
+#
+# Every push is formatted, validated, tested and scanned without a cloud
+# account. Plan and apply sign in with OIDC using the variables of the GitHub
+# environment they target: a push to main deploys dev, a manual run plans or
+# applies the environment you choose.
+name: Terragrunt
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Action to perform
+        required: true
+        type: choice
+        options:
+          - plan
+          - apply
+        default: plan
+      environment:
+        description: Target environment
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+        default: dev
+
+permissions:
+  contents: read
+{%- raw %}
+
+# One run per environment at a time; a running apply is never cancelled.
+concurrency:
+  group: terragrunt-${{ inputs.environment || 'dev' }}
+  cancel-in-progress: false
+
+env:
+  TRIVY_VERSION: 'v0.76.2'
+  TF_IN_AUTOMATION: 'true'
+  TF_INPUT: 'false'
+  TG_NON_INTERACTIVE: 'true'
+  TG_TF_PATH: tofu
+  TARGET_ENVIRONMENT: ${{ inputs.environment || 'dev' }}
+
+jobs:
+  lint:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # Installs the OpenTofu and Terragrunt versions pinned in mise.toml.
+      - name: Setup tools
+        uses: jdx/mise-action@v5
+
+      - name: Check Terragrunt formatting
+        run: terragrunt hcl fmt --check
+
+      - name: Check OpenTofu formatting
+        run: tofu fmt -check -recursive -diff catalog/modules
+
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup tools
+        uses: jdx/mise-action@v5
+
+      # Generates every stack and validates every unit of every environment.
+      # The offline feature flag skips the backend, so no credentials are used.
+      - name: Validate all units
+        working-directory: live
+        run: terragrunt run --all --feature offline=true -- validate -no-color
+
+  test:
+    name: Module Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup tools
+        uses: jdx/mise-action@v5
+
+      - name: Run tests
+        run: |
+          for module in catalog/modules/*/; do
+            echo "::group::$module"
+            tofu -chdir="$module" init -backend=false -input=false
+            tofu -chdir="$module" test -no-color
+            echo "::endgroup::"
+          done
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Trivy
+        uses: aquasecurity/setup-trivy@v0.3.1
+        with:
+          version: ${{ env.TRIVY_VERSION }}
+          cache: true
+
+      - name: Run Trivy
+        run: trivy config --exit-code 1 --severity CRITICAL,HIGH catalog/modules
+
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    needs: [lint, validate, test, security]
+    # The variables below are read from this GitHub environment, so each
+    # environment can live in its own account with its own state bucket.
+    environment: ${{ inputs.environment || 'dev' }}
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      ready: ${{ steps.configuration.outputs.ready }}
+    env:{% endraw %}
+{%- if values.cloud == 'aws' %}{% raw %}
+      AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+      AWS_REGION: ${{ vars.AWS_REGION || '{% endraw %}${{ values.region }}{% raw %}' }}
+      STATE_BUCKET: ${{ vars.STATE_BUCKET }}
+      REQUIRED: AWS_ROLE_ARN STATE_BUCKET{% endraw %}
+{%- elif values.cloud == 'azure' %}{% raw %}
+      ARM_USE_OIDC: 'true'
+      ARM_USE_AZUREAD: 'true'
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      STATE_STORAGE_ACCOUNT: ${{ vars.STATE_STORAGE_ACCOUNT }}
+      REQUIRED: ARM_CLIENT_ID ARM_TENANT_ID ARM_SUBSCRIPTION_ID STATE_STORAGE_ACCOUNT{% endraw %}
+{%- else %}{% raw %}
+      GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      # The Google provider reads the project from GOOGLE_PROJECT.
+      GOOGLE_PROJECT: ${{ vars.GCP_PROJECT_ID }}
+      STATE_BUCKET: ${{ vars.STATE_BUCKET }}
+      REQUIRED: GCP_WORKLOAD_IDENTITY_PROVIDER GCP_SERVICE_ACCOUNT GCP_PROJECT_ID STATE_BUCKET{% endraw %}
+{%- endif %}
+{%- raw %}
+    steps:
+      - name: Check configuration
+        id: configuration
+        run: |
+          missing=""
+          for name in $REQUIRED; do
+            if [ -z "${!name}" ]; then
+              missing="${missing:+$missing, }$name"
+            fi
+          done
+          if [ -z "$missing" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          elif [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            echo "::error::The $TARGET_ENVIRONMENT environment has no value for: $missing. See the README."
+            exit 1
+          else
+            echo "::notice::Plan and apply are skipped until the $TARGET_ENVIRONMENT environment has values for: $missing."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: steps.configuration.outputs.ready == 'true'
+        uses: actions/checkout@v7
+
+      - name: Setup tools
+        if: steps.configuration.outputs.ready == 'true'
+        uses: jdx/mise-action@v5
+{% endraw %}
+{%- if values.cloud == 'aws' %}{% raw %}
+
+      - name: Sign in to AWS
+        if: steps.configuration.outputs.ready == 'true'
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}{% endraw %}
+{%- elif values.cloud == 'azure' %}{% raw %}
+
+      # OpenTofu signs in to Azure itself: the ARM_* variables of the job make the
+      # provider and the backend exchange the GitHub OIDC token.{% endraw %}
+{%- else %}{% raw %}
+
+      - name: Sign in to Google Cloud
+        if: steps.configuration.outputs.ready == 'true'
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}{% endraw %}
+{%- endif %}
+{%- raw %}
+
+      - name: Plan
+        if: steps.configuration.outputs.ready == 'true'
+        working-directory: live/${{ env.TARGET_ENVIRONMENT }}
+        run: terragrunt run --all -- plan -no-color -lock-timeout=5m
+
+  apply:
+    name: Apply
+    runs-on: ubuntu-latest
+    needs: plan
+    if: needs.plan.outputs.ready == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.action == 'apply')
+    environment: ${{ inputs.environment || 'dev' }}
+    permissions:
+      contents: read
+      id-token: write
+    env:{% endraw %}
+{%- if values.cloud == 'aws' %}{% raw %}
+      AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+      AWS_REGION: ${{ vars.AWS_REGION || '{% endraw %}${{ values.region }}{% raw %}' }}
+      STATE_BUCKET: ${{ vars.STATE_BUCKET }}
+      REQUIRED: AWS_ROLE_ARN STATE_BUCKET{% endraw %}
+{%- elif values.cloud == 'azure' %}{% raw %}
+      ARM_USE_OIDC: 'true'
+      ARM_USE_AZUREAD: 'true'
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      STATE_STORAGE_ACCOUNT: ${{ vars.STATE_STORAGE_ACCOUNT }}
+      REQUIRED: ARM_CLIENT_ID ARM_TENANT_ID ARM_SUBSCRIPTION_ID STATE_STORAGE_ACCOUNT{% endraw %}
+{%- else %}{% raw %}
+      GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      # The Google provider reads the project from GOOGLE_PROJECT.
+      GOOGLE_PROJECT: ${{ vars.GCP_PROJECT_ID }}
+      STATE_BUCKET: ${{ vars.STATE_BUCKET }}
+      REQUIRED: GCP_WORKLOAD_IDENTITY_PROVIDER GCP_SERVICE_ACCOUNT GCP_PROJECT_ID STATE_BUCKET{% endraw %}
+{%- endif %}
+{%- raw %}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup tools
+        uses: jdx/mise-action@v5
+{% endraw %}
+{%- if values.cloud == 'aws' %}{% raw %}
+
+      - name: Sign in to AWS
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}{% endraw %}
+{%- elif values.cloud == 'azure' %}{% raw %}
+
+      # OpenTofu signs in to Azure itself: the ARM_* variables of the job make the
+      # provider and the backend exchange the GitHub OIDC token.{% endraw %}
+{%- else %}{% raw %}
+
+      - name: Sign in to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}{% endraw %}
+{%- endif %}
+{%- raw %}
+
+      # Units are applied in dependency order: foundation, then storage.
+      - name: Apply
+        working-directory: live/${{ env.TARGET_ENVIRONMENT }}
+        run: terragrunt run --all -- apply -no-color -auto-approve -lock-timeout=5m
+{% endraw %}

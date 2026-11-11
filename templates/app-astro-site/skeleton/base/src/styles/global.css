@@ -1,0 +1,17 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/typography';
+
+/* Design tokens: change the brand colours and fonts here. */
+@theme {
+  --font-sans: ui-sans-serif, system-ui, sans-serif;
+  --color-brand-50: oklch(0.97 0.014 254.6);
+  --color-brand-600: oklch(0.546 0.245 262.9);
+  --color-brand-700: oklch(0.488 0.243 264.4);
+}
+
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-brand-600);
+    outline-offset: 2px;
+  }
+}

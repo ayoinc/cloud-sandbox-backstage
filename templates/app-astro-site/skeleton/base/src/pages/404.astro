@@ -1,0 +1,19 @@
+---
+import Base from '../layouts/Base.astro';
+import { href } from '../lib/paths';
+---
+
+<Base title="Page not found">
+  <h1 class="text-3xl font-bold tracking-tight text-slate-900">
+    Page not found
+  </h1>
+  <p class="mt-3 text-slate-600">
+    The page you are looking for does not exist or has moved.
+  </p>
+  <a
+    href={href('')}
+    class="text-brand-700 mt-6 inline-block font-medium hover:underline"
+  >
+    Back to the home page
+  </a>
+</Base>

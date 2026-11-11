@@ -1,0 +1,134 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: app-rust-axum
+  title: Rust Axum Service
+  description: Create a Rust HTTP service with axum and tokio, structured tracing, optional PostgreSQL through sqlx and a distroless image
+  tags:
+    - rust
+    - axum
+    - api
+    - backend
+    - docker
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: group:software-backend
+  type: service
+
+  parameters:
+    - title: Project Information
+      required:
+        - name
+        - owner
+      properties:
+        name:
+          title: Project Name
+          type: string
+          description: Name of the project, the repository and the catalog entry
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          maxLength: 50
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: What this project is for
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns this resource
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+    - title: Service Configuration
+      required:
+        - database
+      properties:
+        database:
+          title: Database
+          type: string
+          description: Where items are stored. PostgreSQL adds sqlx, migrations and a Compose file for local development
+          enum:
+            - none
+            - postgres
+          enumNames:
+            - None (in memory)
+            - PostgreSQL (sqlx)
+          default: none
+
+        port:
+          title: Port
+          type: integer
+          description: Port the service listens on
+          default: 8080
+          minimum: 1024
+          maximum: 65535
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton/base
+        copyWithoutTemplating:
+          - .github/workflows/*
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'Rust service' }}
+          owner: ${{ parameters.owner }}
+          database: ${{ parameters.database }}
+          port: ${{ parameters.port or 8080 }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: fetch-database
+      name: Add Storage
+      action: fetch:template
+      input:
+        url: ./skeleton/db-${{ parameters.database }}
+        copyWithoutTemplating:
+          - .github/workflows/*
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'Rust service' }}
+          owner: ${{ parameters.owner }}
+          database: ${{ parameters.database }}
+          port: ${{ parameters.port or 8080 }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: 'Rust service: ${{ parameters.name }}'
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

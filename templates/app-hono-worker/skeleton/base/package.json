@@ -1,0 +1,38 @@
+{
+  "name": "${{ values.name }}",
+  "version": "1.0.0",
+  "description": ${{ values.description | dump }},
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+{%- if values.binding == 'd1' %}
+    "deploy": "wrangler deploy && wrangler d1 migrations apply DB --remote",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+{%- else %}
+    "deploy": "wrangler deploy",
+{%- endif %}
+    "types": "wrangler types",
+    "typecheck": "wrangler types && tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "biome ci .",
+    "format": "biome check --write ."
+  },
+  "dependencies": {
+    "@hono/zod-validator": "^0.9.1",
+    "hono": "^4.13.17",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.6",
+    "@cloudflare/vitest-plugin": "^1.7.0",
+    "@types/node": "^24.19.2",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.12",
+    "wrangler": "^4.160.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

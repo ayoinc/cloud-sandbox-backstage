@@ -1,0 +1,20 @@
+# OpenTofu
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+crash.log
+override.tf
+override.tofu
+override.tf.json
+*_override.tf
+*_override.tofu
+*_override.tf.json
+
+# Local variable files; the files in environments/ are committed
+terraform.tfvars
+*.auto.tfvars
+
+# TechDocs
+site/

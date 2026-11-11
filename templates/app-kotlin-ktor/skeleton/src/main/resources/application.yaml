@@ -1,0 +1,15 @@
+# Values written as "$NAME:default" are read from the environment variable
+# NAME when it is set.
+ktor:
+  application:
+    modules:
+      - ${{ values.packageName }}.ApplicationKt.module
+  deployment:
+    port: "$PORT:${{ values.port }}"
+    # Time in milliseconds requests in flight get to finish on shutdown.
+    shutdownGracePeriod: 2000
+    shutdownTimeout: 15000
+
+service:
+  name: ${{ values.name }}
+  environment: "$APP_ENV:development"

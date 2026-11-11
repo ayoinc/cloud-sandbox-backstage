@@ -1,0 +1,10 @@
+{
+  "values": {
+    "name": "sample-live",
+    "description": "The platform team's \"live\" infrastructure: one stack per environment and region",
+    "owner": "group:default/platform-team",
+    "cloud": "aws",
+    "region": "eu-west-1",
+    "repoUrl": "github.com?owner=example-org&repo=sample-live"
+  }
+}

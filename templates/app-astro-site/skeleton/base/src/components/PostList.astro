@@ -1,0 +1,35 @@
+---
+import { href } from '../lib/paths';
+import type { Post } from '../lib/posts';
+import { formatDate } from '../lib/published';
+
+interface Props {
+  posts: Post[];
+}
+
+const { posts } = Astro.props;
+---
+
+<ul class="divide-y divide-slate-200">
+  {posts.map((post) => (
+    <li class="py-5">
+      <a href={href(`posts/${post.id}/`)} class="group block">
+        <h3 class="group-hover:text-brand-700 text-lg font-semibold text-slate-900">
+          {post.data.title}
+          {post.data.draft && (
+            <span class="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800">
+              Draft
+            </span>
+          )}
+        </h3>
+        <p class="mt-1 text-slate-600">{post.data.description}</p>
+        <time
+          datetime={post.data.pubDate.toISOString()}
+          class="mt-2 block text-sm text-slate-500"
+        >
+          {formatDate(post.data.pubDate)}
+        </time>
+      </a>
+    </li>
+  ))}
+</ul>

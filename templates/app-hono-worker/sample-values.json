@@ -1,0 +1,9 @@
+{
+  "values": {
+    "name": "sample-orders-worker",
+    "description": "Service for the sample team's orders: the \"v1\" contract",
+    "owner": "group:default/platform-team",
+    "binding": "d1",
+    "repoUrl": "github.com?owner=example-org&repo=sample-orders-worker"
+  }
+}

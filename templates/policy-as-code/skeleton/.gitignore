@@ -1,0 +1,12 @@
+# Plans and state never belong in a policy repository; fixtures are the exception
+*.tfstate
+*.tfstate.*
+*.tfplan
+.terraform/
+
+# Tool caches
+.tflint.d/
+.external_modules/
+
+# TechDocs
+site/
