@@ -65,7 +65,9 @@ jobs:
           expect 404 /api/branding-settings/logo/full
           # The catalog is not.
           expect 401 /api/catalog/entities
-          curl -fsS http://127.0.0.1:7007/ | grep -o '<title>[^<]*</title>'
+          # The backend serves the app itself.
+          curl -fsS http://127.0.0.1:7007/ | grep -q 'Developer Portal'
+          echo "The front page is served"
           sudo test "$(sudo stat -c '%a' /etc/portal/portal.env)" = 640
 
       - name: Upgrade in place
