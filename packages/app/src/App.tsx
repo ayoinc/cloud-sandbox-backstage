@@ -1,7 +1,7 @@
 import { createApp } from '@backstage/frontend-defaults';
 import catalogPlugin from '@backstage/plugin-catalog/alpha';
 import { activityModule } from './modules/activity';
-import { adminModule } from './modules/admin';
+import { adminModule, settingsModule } from './modules/admin';
 import { authModule } from './modules/auth';
 import { brandModule, brandTechDocsModule } from './modules/brand';
 import { catalogModule } from './modules/catalog';
@@ -21,6 +21,7 @@ export default createApp({
     sessionModule,
     activityModule,
     adminModule,
+    settingsModule,
     catalogModule,
     catalogImportModule,
     scaffolderModule,

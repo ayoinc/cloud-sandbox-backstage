@@ -14,6 +14,10 @@ PIPELINE_TOKEN=
 # GitHub token that starts the template workflow and reads Actions runs.
 # Leave empty to work without GitHub: templates then fail with that reason.
 PORTAL_GITHUB_TOKEN=
+# Local use only, ignored by a deployed Worker. With "true" a dry run in the
+# template editor starts no workflow: the Worker prints the command that runs
+# it on this machine and waits for it
+LOCAL_DRY_RUN_WITHOUT_GITHUB=
 # Optional. Portal admins, comma-separated: jane or user:default/jane. While
 # empty and no admin was added in the portal, the first person to sign in
 # (guests excepted) is admin

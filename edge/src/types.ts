@@ -6,6 +6,10 @@ import type { UserIdentity } from './auth';
  */
 export interface AppEnv {
   // These are optional, so the generated Env does not list them.
-  Bindings: Env & { PORTAL_ADMINS?: string; PORTAL_CONTACT_EMAIL?: string };
+  Bindings: Env & {
+    PORTAL_ADMINS?: string;
+    PORTAL_CONTACT_EMAIL?: string;
+    LOCAL_DRY_RUN_WITHOUT_GITHUB?: string;
+  };
   Variables: { user: UserIdentity; tokenExpiresAt: number };
 }

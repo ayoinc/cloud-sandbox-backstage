@@ -4,7 +4,6 @@ import { brandingRoutes, publicBrandingRoutes } from './branding';
 import { catalogRoutes } from './catalog/routes';
 import { handleError, notImplementedError } from './errors';
 import { GITHUB_API_PATH, githubRoutes } from './github';
-import { isRecord } from './json';
 import { configuredProviders, oauthRoutes } from './oauth';
 import { ownershipRoutes } from './ownership';
 import { pipelineRoutes } from './pipeline';
@@ -113,25 +112,10 @@ app.all('*', async c => {
           delete config.data.auth;
           delete config.data.integrations;
         }
-        // A list replaces the built-in one, so carry the built-in entries.
-        const builtInExtensions = configs.flatMap(config => {
-          const { app } = config.data;
-          return isRecord(app) && Array.isArray(app.extensions)
-            ? (app.extensions as unknown[])
-            : [];
-        });
         configs.push({
           context: 'cloudflare-edge',
           data: {
-            app: {
-              baseUrl: origin,
-              // The template editor tries a template out on the backend,
-              // and templates only run in GitHub Actions here.
-              extensions: [
-                ...builtInExtensions,
-                { 'sub-page:scaffolder/editor': false },
-              ],
-            },
+            app: { baseUrl: origin },
             backend: { baseUrl: origin },
             // Pages about the GitHub organisation link to the one this
             // portal is deployed from.

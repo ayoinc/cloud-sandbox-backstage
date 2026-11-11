@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { isPortalAdmin } from './admin';
 import { isUserToken } from './auth';
 import { authenticationError, inputError, notFoundError } from './errors';
 import type { AppEnv } from './types';
@@ -19,21 +20,37 @@ interface PermissionRequest {
 // means creating a scaffolder task and executing its actions.
 const ALLOWED = ['scaffolder.task.create', 'scaffolder.action.execute'];
 
+// What a portal admin may do as well: use the template editor, which tries
+// templates out, and register, refresh and unregister catalog files.
+const ADMIN_ALLOWED = [
+  'scaffolder.template.management',
+  'catalog.entity.create',
+  'catalog.entity.refresh',
+  'catalog.entity.delete',
+  'catalog.location.create',
+  'catalog.location.delete',
+];
+
 // Reads are allowed, and so is running a template, which shows Create and
-// the task pages. Everything else is denied because nothing here does it:
-// registering or deleting catalog entities, cancelling a task, the template
-// editor. That hides those controls in the front end.
+// the task pages. Everything else is denied because nothing here does it,
+// such as cancelling a task. That hides those controls in the front end.
 permissionRoutes.post('/authorize', async c => {
   const body = await c.req.json<{ items?: PermissionRequest[] }>();
   if (!Array.isArray(body.items)) {
     throw inputError('items must be an array');
   }
+  const names = body.items.map(({ permission }) => permission?.name ?? '');
+  // Looked up only when the answer depends on it: every page asks here.
+  const admin =
+    names.some(name => ADMIN_ALLOWED.includes(name)) &&
+    (await isPortalAdmin(c));
   return c.json({
-    items: body.items.map(({ id, permission }) => ({
+    items: body.items.map(({ id, permission }, index) => ({
       id,
       result:
         permission?.attributes?.action === 'read' ||
-        ALLOWED.includes(permission?.name ?? '')
+        ALLOWED.includes(names[index]) ||
+        (admin && ADMIN_ALLOWED.includes(names[index]))
           ? 'ALLOW'
           : 'DENY',
     })),

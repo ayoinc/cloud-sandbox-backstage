@@ -1,0 +1,118 @@
+# =============================================================================
+# Portal Dry Run Workflow
+# =============================================================================
+# Tries a software template out for the template editor of the Cloudflare
+# portal. The portal stores what the editor sent (the template, its files and
+# the form values) in its bucket and starts this workflow with the id of that
+# request, and nothing else: workflow inputs can be read by everyone who can
+# see the run. The run hands the request to the dry run of a real Backstage
+# scaffolder and gives the portal the answer
+# (edge/scripts/pipeline/dry-run.mjs). Nothing is published.
+#
+# Only the portal starts it, acting as the repository owner; a run started by
+# anyone else does nothing.
+#
+# Repository configuration: see portal-sync.yml.
+# =============================================================================
+
+name: Portal dry run
+run-name: Try out a template (${{ inputs.dry_run_id }})
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run_id:
+        description: Id of the portal dry run to answer
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# The same dry run is never done twice at once; different ones run side by side.
+concurrency:
+  group: portal-dry-run-${{ inputs.dry_run_id }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '24'
+
+jobs:
+  run:
+    name: Try out the template
+    if: github.actor == github.repository_owner
+    runs-on: ubuntu-latest
+    # The portal stops waiting after five minutes
+    timeout-minutes: 15
+    steps:
+      - name: Check configuration
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PORTAL_GITHUB_TOKEN: ${{ secrets.PORTAL_GITHUB_TOKEN }}
+          PORTAL_DRY_RUN_ID: ${{ inputs.dry_run_id }}
+        run: |
+          missing=""
+          [ -n "$CLOUDFLARE_API_TOKEN" ] || missing="$missing secrets.CLOUDFLARE_API_TOKEN"
+          [ -n "$CLOUDFLARE_ACCOUNT_ID" ] || missing="$missing secrets.CLOUDFLARE_ACCOUNT_ID"
+          [ -n "$PORTAL_GITHUB_TOKEN" ] || missing="$missing secrets.PORTAL_GITHUB_TOKEN"
+          if [ -n "$missing" ]; then
+            echo "::error::Not configured for this repository:$missing. See 'Cloudflare Workers Deployment' in the README."
+            exit 1
+          fi
+          # The id is put into a URL and, if the run cannot start, into the
+          # name of an object in the bucket
+          if ! printf '%s' "$PORTAL_DRY_RUN_ID" | grep -Eq '^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$'; then
+            echo "::error::dry_run_id is not a dry run id."
+            exit 1
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'yarn'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Try out the template
+        id: dryrun
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PORTAL_GITHUB_TOKEN: ${{ secrets.PORTAL_GITHUB_TOKEN }}
+          PORTAL_DRY_RUN_ID: ${{ inputs.dry_run_id }}
+        run: yarn workspace @internal/edge template:dry-run
+
+      # The script reports its own failures. This covers a run that broke
+      # before the script started, so the editor is not left waiting for the
+      # portal to give up. Nothing is installed at that point, so the result
+      # is written straight to the bucket: the same object, holding the same
+      # { status, body }, that PUT /api/pipeline/dry-runs/<id> in
+      # edge/src/pipeline.ts stores for a run that failed.
+      - name: Tell the portal the run could not start
+        if: ${{ always() && steps.dryrun.outcome != 'success' && steps.dryrun.outcome != 'failure' && steps.dryrun.outcome != 'cancelled' }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PORTAL_DRY_RUN_ID: ${{ inputs.dry_run_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          # Checked again here: this step also runs when the first one failed
+          if ! printf '%s' "$PORTAL_DRY_RUN_ID" | grep -Eq '^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$'; then
+            echo "::error::dry_run_id is not a dry run id."
+            exit 1
+          fi
+          message="The template was not tried out: the GitHub Actions run stopped while it was being set up. See $RUN_URL"
+          printf '{"status":500,"body":{"error":{"name":"Error","message":"%s"},"request":{"method":"POST","url":"/v2/dry-run"},"response":{"statusCode":500}}}' "$message" > "$RUNNER_TEMP/dry-run-result.json"
+          npx --yes wrangler@4 r2 object put "cloud-sandbox-techdocs/dry-runs/$PORTAL_DRY_RUN_ID/result.json" \
+            --remote --content-type application/json --file "$RUNNER_TEMP/dry-run-result.json"

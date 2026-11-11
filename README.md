@@ -315,20 +315,25 @@ to the Worker:
 | TechDocs pages                                                  | `portal-sync` builds them with mkdocs, R2 stores them  |
 | Search over catalog entities and documentation                  | `portal-sync` builds the index, the Worker searches it |
 | Creating from templates                                         | `portal-scaffold` runs the template steps              |
+| Template editor, trying a template out (administrators)         | `portal-dry-run` runs the steps without publishing     |
 | CI/CD tab (GitHub Actions runs of a component)                  | The Worker reads them from GitHub                      |
 | GitHub and Google sign-in, user settings (stars, theme)         | The Worker                                             |
 | Branding (`/admin/branding`) and ownership (`/admin/ownership`) | The Worker; settings, logos and admins are kept in D1  |
 
 The first person to sign in becomes the portal administrator, unless
 `PORTAL_ADMINS` names the administrators. More can be added at
-`/admin/branding`.
-
-Not available yet: live notifications, catalog import and the template
+`/admin/branding`. Administrators are also the ones who get the template
 editor.
+
+Registering an existing component (`/catalog-import`) takes a GitHub link to
+a `catalog-info.yaml`; the portal records it and starts a sync. Both it and
+the template editor are for portal administrators.
+
+Not available yet: live notifications.
 
 ### The pipelines
 
-Both workflows start the **pipeline backend**
+The portal workflows start the **pipeline backend**
 (`packages/backend/src/pipeline.ts`, configured by `app-config.pipeline.yaml`):
 a Backstage backend with only the catalog, the scaffolder and its action
 modules. It reads the catalog rules and locations from `app-config.yaml`, so it
@@ -372,6 +377,18 @@ something from a template. It runs the template in the real scaffolder, sends
 every log line and the result back to the portal as they happen, hands the
 catalog file of the new repository to the portal, and then runs the sync so
 the new component and its documentation appear.
+
+**`portal-dry-run.yml`** is started by the Worker when an administrator tries a
+template out in the template editor. The Worker keeps what the editor sent (the
+template, its files and the form values) in the bucket and gives the workflow
+only an id, because workflow inputs can be read by everyone who can see the
+run. The run hands the request to the dry run of the real scaffolder, which
+executes the steps without publishing anything, and gives the portal the
+answer: the files the steps wrote and their log, or what is wrong with the form
+values. The editor's request stays open meanwhile, usually for a minute and a
+half; after five minutes the Worker stops waiting and says where to look. The
+request and the result are deleted as soon as the editor has its answer; until
+then no page or API of the portal serves them.
 
 **`template-check.yml`** renders every template with its sample values when a
 template or the pipeline changes.
@@ -428,8 +445,8 @@ Five more values are set once with `wrangler secret put <NAME>`:
 `SESSION_SECRET` (signs user tokens and session cookies), `GITHUB_CLIENT_SECRET`,
 `GOOGLE_CLIENT_SECRET`, `PIPELINE_TOKEN` (guards `/api/pipeline` on the public
 address, which nothing needs to call: generate it with `openssl rand -hex 32`
-and keep no copy) and `PORTAL_GITHUB_TOKEN` (starts the `portal-scaffold`
-workflow and reads workflow runs for the CI/CD tab).
+and keep no copy) and `PORTAL_GITHUB_TOKEN` (starts the `portal-scaffold` and
+`portal-dry-run` workflows and reads workflow runs for the CI/CD tab).
 `node scripts/create-github-app.mjs <portal URL>` creates the GitHub App and
 stores its secret; the Google client is created in the Google Cloud console
 with the redirect URI `<portal URL>/api/auth/google/handler/frame`.
@@ -475,6 +492,13 @@ A template run can be tried the same way, with
 `yarn workspace @internal/edge template:run` and the variables listed at the
 top of `edge/scripts/pipeline/run-template.mjs`. To start the pipeline backend
 by hand, see the top of `app-config.pipeline.yaml`.
+
+The template editor's dry run can be answered from your machine as well. Set
+`LOCAL_DRY_RUN_WITHOUT_GITHUB=true` in `edge/.dev.vars`: a local Worker then
+starts no workflow, prints the `template:dry-run` command for that dry run and
+waits for you to run it in another terminal. A deployed Worker ignores the
+variable. The editor is for administrators and a guest is never one, so sign
+in with GitHub or Google to use it locally.
 
 ## Troubleshooting
 

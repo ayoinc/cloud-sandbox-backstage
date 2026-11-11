@@ -1,6 +1,7 @@
 import {
   createFrontendModule,
   PageBlueprint,
+  SubPageBlueprint,
 } from '@backstage/frontend-plugin-api';
 
 // These pages render their own Page/Header, so the framework page header is
@@ -44,4 +45,30 @@ const githubOrgPage = PageBlueprint.make({
 export const adminModule = createFrontendModule({
   pluginId: 'app',
   extensions: [brandingAdminPage, ownershipManagementPage, githubOrgPage],
+});
+
+// Branding is a tab of Settings, beside General and Authentication
+// Providers, which is where people look for it.
+const brandingSettingsTab = SubPageBlueprint.make({
+  name: 'branding',
+  params: {
+    path: 'branding',
+    title: 'Branding',
+    loader: async () => {
+      const [m, { Content }] = await Promise.all([
+        import('../../components/branding'),
+        import('@backstage/core-components'),
+      ]);
+      return (
+        <Content>
+          <m.BrandingControls />
+        </Content>
+      );
+    },
+  },
+});
+
+export const settingsModule = createFrontendModule({
+  pluginId: 'user-settings',
+  extensions: [brandingSettingsTab],
 });

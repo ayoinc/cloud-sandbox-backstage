@@ -6,10 +6,13 @@ import {
   inputError,
   notFoundError,
 } from './errors';
-import { isRecord, readJson } from './json';
+import { isRecord, rawJson, readJson } from './json';
 import {
   appendTaskEvents,
+  DRY_RUN_ID,
+  readDryRunRequest,
   saveActions,
+  saveDryRunResult,
   saveTemplatingExtensions,
   type TaskEvent,
 } from './scaffolder';
@@ -19,7 +22,8 @@ import type { AppEnv } from './types';
  * What the GitHub Actions pipelines call (`/api/pipeline`). The Backstage
  * backend cannot run on Workers, so the pipelines run the real one and push
  * its results here: the processed catalog, built documentation, the
- * scaffolder's actions and the events of template runs.
+ * scaffolder's actions, the events of template runs and the results of the
+ * template editor's dry runs.
  *
  * Callers present the PIPELINE_TOKEN secret, never a user token.
  */
@@ -32,6 +36,9 @@ const MAX_ROWS_BYTES = 400 * 1024;
 const MAX_VALUE_BYTES = 1_900_000;
 const MAX_EVENTS = 1000;
 const MAX_KEYS_BYTES = 1024 * 1024;
+// What a dry run wrote comes back as base64, with the log: allow twice the
+// size of a request.
+const MAX_DRY_RUN_RESULT_BYTES = 10 * 1024 * 1024;
 // R2 deletes at most 1000 objects in one call and lists as many per page.
 const R2_PAGE_SIZE = 1000;
 
@@ -339,6 +346,51 @@ pipelineRoutes.post('/tasks/:taskId/events', async c => {
   const events = body.events.map(requireEvent);
   await appendTaskEvents(c.env.DB, c.req.param('taskId'), events, body.spec);
   return c.json({ received: events.length });
+});
+
+function requireDryRunId(id: string): string {
+  if (!DRY_RUN_ID.test(id)) {
+    throw inputError(`${JSON.stringify(id)} is not a dry run id`);
+  }
+  return id;
+}
+
+// What the template editor asked to be tried out. It can hold the secrets
+// of the template form, so it is handed to the pipeline and to nobody else.
+pipelineRoutes.get('/dry-runs/:id', async c => {
+  const id = requireDryRunId(c.req.param('id'));
+  const request = await readDryRunRequest(c.env.TECHDOCS, id);
+  if (!request) {
+    throw notFoundError(`No dry run with id '${id}' is waiting`);
+  }
+  return rawJson(request.body);
+});
+
+// What the pipeline's scaffolder answered: its HTTP status and JSON body.
+// The editor's request, still open, is answered with exactly that.
+pipelineRoutes.put('/dry-runs/:id', async c => {
+  const id = requireDryRunId(c.req.param('id'));
+  const result = await readJson(c, MAX_DRY_RUN_RESULT_BYTES);
+  // The scaffolder answers 200 or an error. Anything else has no body to
+  // pass on, or is no answer to the editor's request.
+  if (
+    !isRecord(result) ||
+    typeof result.status !== 'number' ||
+    !Number.isInteger(result.status) ||
+    (result.status !== 200 && (result.status < 400 || result.status > 599)) ||
+    !isRecord(result.body)
+  ) {
+    throw inputError(
+      'A dry run result needs a status (200, or an error from 400 to 599) and a body object',
+    );
+  }
+  // Stored as it was sent: Hono keeps the bytes readJson read.
+  if (
+    !(await saveDryRunResult(c.env.TECHDOCS, id, await c.req.arrayBuffer()))
+  ) {
+    throw notFoundError(`No dry run with id '${id}' is waiting`);
+  }
+  return c.json({ received: true });
 });
 
 pipelineRoutes.all('*', c => {

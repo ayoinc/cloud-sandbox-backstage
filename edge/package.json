@@ -13,11 +13,13 @@
     "db:migrate:remote": "wrangler d1 migrations apply cloud-sandbox --remote",
     "catalog:sync": "node scripts/pipeline/sync-catalog.mjs",
     "template:run": "node scripts/pipeline/run-template.mjs",
+    "template:dry-run": "node scripts/pipeline/dry-run.mjs",
     "template:check": "node scripts/pipeline/check-templates.mjs",
     "verify": "node scripts/compare-with-backend.mjs"
   },
   "dependencies": {
-    "hono": "^4.13.0"
+    "hono": "^4.13.0",
+    "yaml": "^2.0.0"
   },
   "devDependencies": {
     "@backstage/config": "backstage:^",
@@ -26,7 +28,6 @@
     "better-sqlite3": "^12.0.0",
     "mime-types": "^3.0.0",
     "typescript": "~5.8.0",
-    "wrangler": "^4.150.0",
-    "yaml": "^2.0.0"
+    "wrangler": "^4.150.0"
   }
 }

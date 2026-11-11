@@ -4,6 +4,7 @@ import { inputError, notFoundError } from '../errors';
 import { rawJson } from '../json';
 import type { AppEnv } from '../types';
 import { parseFilterStrings } from './filter';
+import { locationRoutes } from './locations';
 import {
   entitiesByRefs,
   entityAncestry,
@@ -17,8 +18,10 @@ import {
   type QueryEntitiesRequest,
 } from './queries';
 
-/** Read side of the Backstage catalog REST API (`/api/catalog`). */
+/** The Backstage catalog REST API (`/api/catalog`): entities, and registered locations. */
 export const catalogRoutes = new Hono<AppEnv>();
+
+catalogRoutes.route('/', locationRoutes);
 
 const MAX_LIMIT = 1000;
 const UNPAGED_BATCH_SIZE = 10_000;

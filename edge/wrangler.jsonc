@@ -30,7 +30,10 @@
       "migrations_dir": "migrations"
     }
   ],
-  // Built documentation, one copy of each site under sites/<siteId>/.
+  // Built documentation, one copy of each site under sites/<siteId>/, and
+  // template try-outs in flight under dry-runs/, which expire after a day
+  // (`wrangler r2 bucket lifecycle add <bucket> dry-runs-expire dry-runs/
+  // --expire-days 1`).
   "r2_buckets": [
     { "binding": "TECHDOCS", "bucket_name": "cloud-sandbox-techdocs" }
   ],
@@ -61,8 +64,9 @@
   //   PIPELINE_TOKEN          guards /api/pipeline on the public address. The
   //                           pipelines do not use it: they run this Worker
   //                           themselves (wrangler.pipeline.jsonc)
-  //   PORTAL_GITHUB_TOKEN     GitHub token that starts the template workflow
-  //                           in PORTAL_REPO and reads Actions runs for the CI tab
+  //   PORTAL_GITHUB_TOKEN     GitHub token that starts the template, try-out
+  //                           and sync workflows in PORTAL_REPO and reads
+  //                           Actions runs for the CI tab
   //   PORTAL_CONTACT_EMAIL    optional: who the privacy notice says to contact
   //   PORTAL_ADMINS           optional: users who may change branding and
   //                           ownership, comma-separated (jane, or

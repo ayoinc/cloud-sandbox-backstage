@@ -1,9 +1,11 @@
 import { Hono, type Context } from 'hono';
 import { streamSSE } from 'hono/streaming';
+import type { ContentfulStatusCode } from 'hono/utils/http-status';
+import { requirePortalAdmin } from './admin';
 import { sourceLocation, type Entity } from './catalog/entity';
 import { inJsonArray } from './catalog/filter';
 import { entityByName } from './catalog/queries';
-import { inputError, notFoundError } from './errors';
+import { HttpError, inputError, notFoundError } from './errors';
 import { isRecord, rawJson, readJson } from './json';
 import { runProgress } from './runProgress';
 import type { AppEnv } from './types';
@@ -13,7 +15,8 @@ import type { AppEnv } from './types';
  * cannot run template steps itself. Creating a task stores it and starts a
  * GitHub Actions workflow in the portal repository. The workflow runs the
  * template with the real Backstage scaffolder and reports its events to
- * `/api/pipeline`; the task pages read them here.
+ * `/api/pipeline`; the task pages read them here. The template editor's dry
+ * run goes the same way, through a workflow of its own.
  *
  * A user reads only the tasks they created: a task holds the values typed
  * into the template form.
@@ -23,7 +26,11 @@ export const scaffolderRoutes = new Hono<AppEnv>();
 const ACTIONS_KEY = 'scaffolder-actions';
 const EXTENSIONS_KEY = 'scaffolder-templating-extensions';
 const WORKFLOW_FILE = 'portal-scaffold.yml';
+const DRY_RUN_WORKFLOW_FILE = 'portal-dry-run.yml';
 const MAX_TASK_BYTES = 256 * 1024;
+// A dry run carries the template's files. The Backstage backend takes 10 MB;
+// here the body is parsed within a Worker's memory and processor time.
+const MAX_DRY_RUN_BYTES = 5 * 1024 * 1024;
 
 // The Workers free plan allows 50 subrequests per request, database queries
 // and calls to GitHub together. One long poll and one event stream each stay
@@ -32,6 +39,22 @@ const MAX_TASK_BYTES = 256 * 1024;
 const POLL_INTERVAL_MS = 2000;
 const LONG_POLL_MS = 25_000;
 const MAX_STREAM_POLLS = 25;
+
+// A dry run answers after about a minute and a half, most of it the runner
+// installing dependencies. Looking for the result is a subrequest too: the
+// first look comes when one could be there, and all of them together (33
+// in five minutes) leave room for the rest of the request.
+const DRY_RUN_FIRST_CHECK_MS = 40_000;
+const DRY_RUN_CHECK_EVERY_MS = 8000;
+const DRY_RUN_WAIT_MS = 5 * 60_000;
+// The workflow gives up after 15 minutes: nothing older is still in use.
+const DRY_RUN_STALE_MS = 20 * 60_000;
+const DRY_RUN_PREFIX = 'dry-runs/';
+// Who calls a Worker running under `wrangler dev` on this machine. The
+// request URL cannot tell that Worker from the deployed one, since wrangler
+// gives it the deployed host. On the deployed Worker Cloudflare sets this
+// header itself, and never to a loopback address.
+const LOCAL_CALLERS = ['127.0.0.1', '::1'];
 
 interface TemplateStep {
   id?: string;
@@ -239,14 +262,22 @@ function dispatchProblem(env: Env): string | undefined {
   return undefined;
 }
 
-/** Starts the pipeline run for a task. Returns the reason if it did not start. */
-async function dispatchWorkflow(
+/**
+ * Starts a workflow of the portal repository on PORTAL_REF. Returns the
+ * reason if it did not start.
+ */
+export async function dispatchWorkflow(
   env: Env,
-  inputs: Record<string, string>,
+  workflowFile: string,
+  inputs?: Record<string, string>,
 ): Promise<string | undefined> {
+  const problem = dispatchProblem(env);
+  if (problem) {
+    return problem;
+  }
   try {
     const response = await fetch(
-      `https://api.github.com/repos/${env.PORTAL_REPO}/actions/workflows/${WORKFLOW_FILE}/dispatches`,
+      `https://api.github.com/repos/${env.PORTAL_REPO}/actions/workflows/${workflowFile}/dispatches`,
       {
         method: 'POST',
         headers: {
@@ -267,7 +298,7 @@ async function dispatchWorkflow(
       .catch(() => undefined);
     return `GitHub answered ${response.status}${
       detail?.message ? ` (${detail.message})` : ''
-    } when asked to run ${WORKFLOW_FILE} in ${env.PORTAL_REPO} on ${
+    } when asked to run ${workflowFile} in ${env.PORTAL_REPO} on ${
       env.PORTAL_REF
     }`;
   } catch (error) {
@@ -373,7 +404,7 @@ scaffolderRoutes.post('/v2/tasks', async c => {
   // readable by everyone who can see the workflow run.
   const failure =
     problem ??
-    (await dispatchWorkflow(c.env, {
+    (await dispatchWorkflow(c.env, WORKFLOW_FILE, {
       task_id: taskId,
       template_ref: templateRef,
       values: JSON.stringify(body.values),
@@ -399,6 +430,144 @@ scaffolderRoutes.post('/v2/tasks', async c => {
     ]);
   }
   return c.json({ id: taskId }, 201);
+});
+
+/** The ids dry runs are given here. They become part of object keys. */
+export const DRY_RUN_ID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
+
+// A dry run is two objects in the bucket, next to the documentation sites.
+// Nothing serves them: documentation routes read `sites/` only, so the
+// request reaches the pipeline alone and the result only the admin who waits.
+const dryRunKey = (id: string, part: 'request' | 'result') =>
+  `${DRY_RUN_PREFIX}${id}/${part}.json`;
+
+/** The request of a dry run that is still waited for, or `null`. */
+export const readDryRunRequest = (bucket: R2Bucket, id: string) =>
+  bucket.get(dryRunKey(id, 'request'));
+
+/**
+ * Stores what the pipeline's scaffolder answered, as JSON text of
+ * `{ status, body }`. Returns false when nobody waits for it any more.
+ */
+export async function saveDryRunResult(
+  bucket: R2Bucket,
+  id: string,
+  result: ArrayBuffer,
+): Promise<boolean> {
+  if (!(await bucket.head(dryRunKey(id, 'request')))) {
+    return false;
+  }
+  await bucket.put(dryRunKey(id, 'result'), result, {
+    httpMetadata: { contentType: 'application/json' },
+  });
+  return true;
+}
+
+/**
+ * Removes what earlier dry runs left behind. The route below deletes its
+ * own two objects, but not when the browser went away while it waited, or
+ * when the workflow wrote that it could not start after the route gave up.
+ */
+async function removeStaleDryRuns(bucket: R2Bucket): Promise<void> {
+  const { objects } = await bucket.list({ prefix: DRY_RUN_PREFIX });
+  const before = Date.now() - DRY_RUN_STALE_MS;
+  const stale = objects
+    .filter(object => object.uploaded.getTime() < before)
+    .map(object => object.key);
+  if (stale.length) {
+    await bucket.delete(stale);
+  }
+}
+
+// The template editor trying a template out. The request is handed to the
+// portal-dry-run workflow through the bucket, because it is too large and
+// too private for workflow inputs, which everyone who can see the run can
+// read. The editor's request stays open until the workflow has put the
+// result there, and gets it with the status the real scaffolder answered:
+// 200 with what the steps wrote, or 400 with what is wrong with the values.
+scaffolderRoutes.post('/v2/dry-run', async c => {
+  await requirePortalAdmin(c);
+  const body = await readJson(c, MAX_DRY_RUN_BYTES);
+  if (
+    !isRecord(body) ||
+    !isRecord(body.values) ||
+    (body.secrets !== undefined &&
+      (!isRecord(body.secrets) ||
+        Object.values(body.secrets).some(
+          secret => typeof secret !== 'string',
+        ))) ||
+    !Array.isArray(body.directoryContents) ||
+    body.directoryContents.some(
+      file =>
+        !isRecord(file) ||
+        typeof file.path !== 'string' ||
+        typeof file.base64Content !== 'string',
+    )
+  ) {
+    throw inputError(
+      'Malformed request: values must be an object, secrets an object of strings and directoryContents a list of { path, base64Content }',
+    );
+  }
+  if (!isRecord(body.template)) {
+    throw inputError('Input template is not a template');
+  }
+
+  const bucket = c.env.TECHDOCS;
+  const id = crypto.randomUUID();
+  const requestKey = dryRunKey(id, 'request');
+  const resultKey = dryRunKey(id, 'result');
+  await removeStaleDryRuns(bucket);
+  // Stored as it was sent: Hono keeps the bytes readJson read.
+  await bucket.put(requestKey, await c.req.arrayBuffer(), {
+    httpMetadata: { contentType: 'application/json' },
+  });
+  try {
+    if (
+      c.env.LOCAL_DRY_RUN_WITHOUT_GITHUB === 'true' &&
+      LOCAL_CALLERS.includes(c.req.header('cf-connecting-ip') ?? '')
+    ) {
+      // Local development without GitHub: the developer is the pipeline.
+      console.log(
+        `Dry run ${id} is waiting. Answer it from another terminal: PORTAL_URL=http://localhost:8787 PORTAL_DRY_RUN_ID=${id} yarn workspace @internal/edge template:dry-run (PORTAL_URL is where this Worker listens)`,
+      );
+    } else {
+      const failure = await dispatchWorkflow(c.env, DRY_RUN_WORKFLOW_FILE, {
+        dry_run_id: id,
+      });
+      if (failure) {
+        throw new HttpError(
+          503,
+          'ServiceUnavailableError',
+          `Could not start the dry run: ${failure}`,
+        );
+      }
+    }
+
+    const deadline = Date.now() + DRY_RUN_WAIT_MS;
+    for (
+      let wait = DRY_RUN_FIRST_CHECK_MS;
+      Date.now() + wait <= deadline;
+      wait = DRY_RUN_CHECK_EVERY_MS
+    ) {
+      await scheduler.wait(wait);
+      const stored = await bucket.get(resultKey);
+      if (stored) {
+        const result = await stored.json<{ status: number; body: unknown }>();
+        return c.json(result.body, result.status as ContentfulStatusCode);
+      }
+    }
+    throw new HttpError(
+      504,
+      'GatewayTimeoutError',
+      `The dry run did not report back within ${
+        DRY_RUN_WAIT_MS / 60_000
+      } minutes. It runs in GitHub Actions, see https://github.com/${
+        c.env.PORTAL_REPO
+      }/actions/workflows/${DRY_RUN_WORKFLOW_FILE}`,
+    );
+  } finally {
+    await bucket.delete([requestKey, resultKey]);
+  }
 });
 
 interface TaskRow {
