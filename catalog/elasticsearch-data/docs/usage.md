@@ -46,7 +46,7 @@ pipeline: Ingest Pipeline {
   style.fill: "#f3e5f5"
   style.stroke: "#7b1fa2"
 
-  steps: Processing Steps {
+  stages: Processing Steps {
     style.fill: "#e1bee7"
 
     parse: "1. Parse" {shape: step; style.fill: "#ce93d8"}

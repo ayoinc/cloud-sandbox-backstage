@@ -139,10 +139,17 @@ on:
         description: 'Registry password/token'
         required: false
 
+env:
+  # actions/checkout runs `git init`, which prints a hint about the default
+  # branch name unless one is configured; name it so the hint is not printed.
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
+
 jobs:
   build:
     name: Build & Push
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: write
@@ -156,24 +163,24 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # =======================================================================
       # Setup
       # =======================================================================
       - name: Set up QEMU
         if: contains(inputs.platforms, ',')
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       # =======================================================================
       # Registry Authentication
       # =======================================================================
       - name: Log in to GitHub Container Registry
         if: inputs.registry == 'ghcr.io' && inputs.push
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -181,7 +188,7 @@ jobs:
 
       - name: Log in to Docker Hub
         if: inputs.registry == 'docker.io' && inputs.push
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: docker.io
           username: ${{ secrets.REGISTRY_USERNAME }}
@@ -189,7 +196,7 @@ jobs:
 
       - name: Log in to custom registry
         if: inputs.registry != 'ghcr.io' && inputs.registry != 'docker.io' && inputs.push
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ inputs.registry }}
           username: ${{ secrets.REGISTRY_USERNAME }}
@@ -200,7 +207,7 @@ jobs:
       # =======================================================================
       - name: Extract metadata for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ inputs.registry }}/${{ inputs.image_name || github.repository }}
           tags: |
@@ -218,7 +225,7 @@ jobs:
       # =======================================================================
       - name: Build and push Docker image
         id: build
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: ${{ inputs.context }}
           file: ${{ inputs.dockerfile }}
@@ -238,8 +245,11 @@ jobs:
       # =======================================================================
       - name: Run Trivy vulnerability scanner
         if: inputs.scan_image && inputs.push
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
+          # The Trivy release the action's master branch installed; v0.36.0 of the
+          # action would otherwise default to the older v0.70.0
+          version: 'v0.76.2'
           image-ref: ${{ inputs.registry }}/${{ inputs.image_name || github.repository }}@${{ steps.build.outputs.digest }}
           format: 'sarif'
           output: 'trivy-results.sarif'
@@ -261,7 +271,12 @@ jobs:
       # =======================================================================
       - name: Install Cosign
         if: inputs.sign_image && inputs.push
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@v4.1.3
+        with:
+          # cosign-installer v4 installs Cosign v3 by default, which signs in the
+          # new bundle format; stay on Cosign 2.x so signatures keep the format
+          # verifiers of these images already expect.
+          cosign-release: 'v2.6.5'
 
       - name: Sign the container image
         if: inputs.sign_image && inputs.push
@@ -269,11 +284,11 @@ jobs:
           DIGEST: ${{ steps.build.outputs.digest }}
           TAGS: ${{ steps.meta.outputs.tags }}
         run: |
-          images=""
+          images=()
           for tag in ${TAGS}; do
-            images+="${tag}@${DIGEST} "
+            images+=("${tag}@${DIGEST}")
           done
-          cosign sign --yes ${images}
+          cosign sign --yes "${images[@]}"
 
       # =======================================================================
       # Summary
@@ -281,27 +296,31 @@ jobs:
       - name: Generate build summary
         if: always()
         run: |
-          echo "## Docker Build Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Registry | \`${{ inputs.registry }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Image | \`${{ inputs.image_name || github.repository }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Digest | \`${{ steps.build.outputs.digest }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Platforms | \`${{ inputs.platforms }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Pushed | ${{ inputs.push }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Scanned | ${{ inputs.scan_image }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Signed | ${{ inputs.sign_image }} |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Docker Build Summary"
+            echo ""
+            echo "| Property | Value |"
+            echo "|----------|-------|"
+            echo "| Registry | \`${{ inputs.registry }}\` |"
+            echo "| Image | \`${{ inputs.image_name || github.repository }}\` |"
+            echo "| Digest | \`${{ steps.build.outputs.digest }}\` |"
+            echo "| Platforms | \`${{ inputs.platforms }}\` |"
+            echo "| Pushed | ${{ inputs.push }} |"
+            echo "| Scanned | ${{ inputs.scan_image }} |"
+            echo "| Signed | ${{ inputs.sign_image }} |"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
 
           if [ "${{ inputs.push }}" == "true" ]; then
-            echo "### Tags" >> $GITHUB_STEP_SUMMARY
-            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-            echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
-            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### Pull Command" >> $GITHUB_STEP_SUMMARY
-            echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-            echo "docker pull ${{ inputs.registry }}/${{ inputs.image_name || github.repository }}@${{ steps.build.outputs.digest }}" >> $GITHUB_STEP_SUMMARY
-            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            {
+              echo "### Tags"
+              echo "\`\`\`"
+              echo "${{ steps.meta.outputs.tags }}"
+              echo "\`\`\`"
+              echo ""
+              echo "### Pull Command"
+              echo "\`\`\`bash"
+              echo "docker pull ${{ inputs.registry }}/${{ inputs.image_name || github.repository }}@${{ steps.build.outputs.digest }}"
+              echo "\`\`\`"
+            } >> "$GITHUB_STEP_SUMMARY"
           fi

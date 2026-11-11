@@ -52,6 +52,11 @@ permissions:
 env:
   NODE_VERSION: '24'
   PYTHON_VERSION: '3.13'
+  # actions/checkout runs `git init`, which prints a hint about the default
+  # branch name unless one is configured; name it so the hint is not printed.
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
 
 jobs:
   sync:
@@ -59,7 +64,7 @@ jobs:
     # Pushes count only on the default branch, whatever it is called. A manual
     # run, or one started by the portal, syncs the branch it was started on.
     if: github.actor == github.repository_owner && (github.event_name != 'push' || github.ref_name == github.event.repository.default_branch)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     # One sync at a time, across every workflow that runs this job: two of
     # them interleaving would stage rows into each other's catalog. A waiting
@@ -84,14 +89,14 @@ jobs:
           fi
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # Documentation from other repositories is built here: leave no
           # token behind for it to find.
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'yarn'
@@ -103,14 +108,15 @@ jobs:
         run: yarn install --immutable
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install the TechDocs toolchain
         run: |
           # The versions pinned in the Dockerfile, so both build the same way
-          pip install $(node edge/scripts/pipeline/toolchain.mjs pip)
+          read -ra pip_packages <<< "$(node edge/scripts/pipeline/toolchain.mjs pip)"
+          pip install "${pip_packages[@]}"
           d2_version=$(node edge/scripts/pipeline/toolchain.mjs d2)
           curl --fail --silent --show-error --location \
             --output "$RUNNER_TEMP/d2.tar.gz" \

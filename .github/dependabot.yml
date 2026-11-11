@@ -1,0 +1,67 @@
+# Dependabot reads only the portal's own dependencies. The files under
+# templates/**/skeleton and catalog/**/skeleton are not projects: they are
+# what a template writes out, full of ${{ values.x }} and {% if %}
+# placeholders, so they cannot be read as go.mod, pyproject.toml or
+# package.json until a template has rendered them. Each project created
+# from a template gets its own Dependabot configuration.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    exclude-paths:
+      - templates/**
+      - catalog/**
+      - examples/**
+      - .agents/**
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    exclude-paths:
+      - templates/**
+      - catalog/**
+      - examples/**
+
+  # The portal has no Go or Python project of its own; without these
+  # entries Dependabot looks for them everywhere and fails on the template
+  # skeletons. Listed so that the same exclusions apply.
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    exclude-paths:
+      - templates/**
+      - catalog/**
+      - examples/**
+
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    exclude-paths:
+      - templates/**
+      - catalog/**
+      - examples/**
+
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    exclude-paths:
+      - templates/**
+      - catalog/**
+      - examples/**

@@ -99,10 +99,17 @@ on:
         description: 'Number of high vulnerabilities'
         value: ${{ jobs.scan.outputs.high_count }}
 
+env:
+  # actions/checkout runs `git init`, which prints a hint about the default
+  # branch name unless one is configured; name it so the hint is not printed.
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
+
 jobs:
   scan:
     name: Security Scan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       security-events: write
@@ -114,7 +121,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -123,8 +130,11 @@ jobs:
       # =======================================================================
       - name: Run Trivy vulnerability scanner (dependencies)
         if: inputs.scan_dependencies
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
+          # The Trivy release the action's master branch installed; v0.36.0 of the
+          # action would otherwise default to the older v0.70.0
+          version: 'v0.76.2'
           scan-type: 'fs'
           scan-ref: ${{ inputs.working_directory }}
           format: 'sarif'
@@ -148,7 +158,7 @@ jobs:
         run: |
           if [ -f package-lock.json ] || [ -f yarn.lock ]; then
             npm audit --json > npm-audit-results.json 2>/dev/null || true
-            echo "## NPM Audit Results" >> $GITHUB_STEP_SUMMARY
+            echo "## NPM Audit Results" >> "$GITHUB_STEP_SUMMARY"
             npm audit --omit=dev 2>/dev/null || echo "Vulnerabilities found in dependencies"
           fi
         continue-on-error: true
@@ -169,7 +179,7 @@ jobs:
       # =======================================================================
       - name: Run Gitleaks (secret detection)
         if: inputs.scan_secrets
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_ENABLE_COMMENTS: false
@@ -177,7 +187,7 @@ jobs:
 
       - name: Run TruffleHog (secret detection)
         if: inputs.scan_secrets
-        uses: trufflesecurity/trufflehog@main
+        uses: trufflesecurity/trufflehog@v3.99.8
         with:
           path: ${{ inputs.working_directory }}
           extra_args: --only-verified --json
@@ -201,17 +211,31 @@ jobs:
           category: 'codeql-sast'
         continue-on-error: true
 
+      # semgrep/semgrep-action is deprecated and archived; Semgrep's documented
+      # replacement is its own image running `semgrep ci` (with a Semgrep
+      # AppSec Platform token) or `semgrep scan` (without one). It runs through
+      # `docker run` so semgrep.sarif lands in the workspace for the steps below.
       - name: Run Semgrep SAST
         if: inputs.scan_sast
-        uses: semgrep/semgrep-action@v1
-        with:
-          config: >-
-            p/security-audit
-            p/secrets
-            p/owasp-top-ten
-          generateSarif: true
         env:
           SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+        run: |
+          if [ -n "$SEMGREP_APP_TOKEN" ]; then
+            semgrep_args=(semgrep ci)
+          else
+            semgrep_args=(semgrep scan
+              --config p/security-audit
+              --config p/secrets
+              --config p/owasp-top-ten)
+          fi
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/src" -w /src \
+            -e SEMGREP_APP_TOKEN \
+            -e GIT_CONFIG_COUNT=1 \
+            -e GIT_CONFIG_KEY_0=safe.directory \
+            -e GIT_CONFIG_VALUE_0=/src \
+            semgrep/semgrep:1.185.0 \
+            "${semgrep_args[@]}" --sarif-output=semgrep.sarif
         continue-on-error: true
 
       - name: Upload Semgrep results to GitHub Security
@@ -228,8 +252,11 @@ jobs:
       # =======================================================================
       - name: Run Trivy IaC scanner
         if: inputs.scan_iac
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
+          # The Trivy release the action's master branch installed; v0.36.0 of the
+          # action would otherwise default to the older v0.70.0
+          version: 'v0.76.2'
           scan-type: 'config'
           scan-ref: ${{ inputs.working_directory }}
           format: 'sarif'
@@ -271,8 +298,11 @@ jobs:
       # =======================================================================
       - name: Run Trivy container scanner
         if: inputs.scan_containers && inputs.container_image != ''
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
+          # The Trivy release the action's master branch installed; v0.36.0 of the
+          # action would otherwise default to the older v0.70.0
+          version: 'v0.76.2'
           image-ref: ${{ inputs.container_image }}
           format: 'sarif'
           output: 'trivy-container-results.sarif'
@@ -294,7 +324,7 @@ jobs:
       # =======================================================================
       - name: Upload security scan results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: security-scan-results
           path: |
@@ -311,33 +341,39 @@ jobs:
         id: summary
         if: always()
         run: |
-          echo "## Security Scan Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Scan Type | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Security Scan Summary"
+            echo ""
+            echo "| Scan Type | Status |"
+            echo "|-----------|--------|"
+          } >> "$GITHUB_STEP_SUMMARY"
 
           if [ "${{ inputs.scan_dependencies }}" == "true" ]; then
-            echo "| Dependency Scan | Completed |" >> $GITHUB_STEP_SUMMARY
+            echo "| Dependency Scan | Completed |" >> "$GITHUB_STEP_SUMMARY"
           fi
           if [ "${{ inputs.scan_secrets }}" == "true" ]; then
-            echo "| Secret Detection | Completed |" >> $GITHUB_STEP_SUMMARY
+            echo "| Secret Detection | Completed |" >> "$GITHUB_STEP_SUMMARY"
           fi
           if [ "${{ inputs.scan_sast }}" == "true" ]; then
-            echo "| SAST | Completed |" >> $GITHUB_STEP_SUMMARY
+            echo "| SAST | Completed |" >> "$GITHUB_STEP_SUMMARY"
           fi
           if [ "${{ inputs.scan_iac }}" == "true" ]; then
-            echo "| IaC Scan | Completed |" >> $GITHUB_STEP_SUMMARY
+            echo "| IaC Scan | Completed |" >> "$GITHUB_STEP_SUMMARY"
           fi
           if [ "${{ inputs.scan_containers }}" == "true" ]; then
-            echo "| Container Scan | Completed |" >> $GITHUB_STEP_SUMMARY
+            echo "| Container Scan | Completed |" >> "$GITHUB_STEP_SUMMARY"
           fi
 
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Fail on Severity:** ${{ inputs.fail_on_severity }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "View detailed results in the **Security** tab." >> $GITHUB_STEP_SUMMARY
+          {
+            echo ""
+            echo "**Fail on Severity:** ${{ inputs.fail_on_severity }}"
+            echo ""
+            echo "View detailed results in the **Security** tab."
+          } >> "$GITHUB_STEP_SUMMARY"
 
           # Set outputs (would need actual parsing in production)
-          echo "vulnerabilities_found=false" >> $GITHUB_OUTPUT
-          echo "critical_count=0" >> $GITHUB_OUTPUT
-          echo "high_count=0" >> $GITHUB_OUTPUT
+          {
+            echo "vulnerabilities_found=false"
+            echo "critical_count=0"
+            echo "high_count=0"
+          } >> "$GITHUB_OUTPUT"

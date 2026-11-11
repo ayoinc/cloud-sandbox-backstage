@@ -36,12 +36,17 @@ concurrency:
 
 env:
   NODE_VERSION: '24'
+  # actions/checkout runs `git init`, which prints a hint about the default
+  # branch name unless one is configured; name it so the hint is not printed.
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
 
 jobs:
   run:
     name: Try out the template
     if: github.actor == github.repository_owner
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # The portal stops waiting after five minutes
     timeout-minutes: 15
     steps:
@@ -68,12 +73,12 @@ jobs:
           fi
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'yarn'

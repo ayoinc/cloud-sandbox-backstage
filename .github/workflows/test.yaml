@@ -100,11 +100,6 @@ on:
         default: false
 
       # Reporting
-      upload_coverage:
-        description: 'Upload coverage to Codecov'
-        required: false
-        type: boolean
-        default: true
       artifact_retention_days:
         description: 'Days to retain test artifacts'
         required: false
@@ -122,15 +117,17 @@ on:
         description: 'Total number of tests'
         value: ${{ jobs.test.outputs.test_count }}
 
-    secrets:
-      CODECOV_TOKEN:
-        description: 'Codecov upload token'
-        required: false
+env:
+  # actions/checkout runs `git init`, which prints a hint about the default
+  # branch name unless one is configured; name it so the hint is not printed.
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
 
 jobs:
   test:
     name: Run Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       tests_passed: ${{ steps.test.outcome == 'success' }}
       coverage: ${{ steps.coverage.outputs.percentage }}
@@ -142,14 +139,14 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # =======================================================================
       # Runtime Setup
       # =======================================================================
       - name: Setup Node.js
         if: inputs.language == 'node'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ inputs.node_version }}
           cache: ${{ inputs.package_manager }}
@@ -160,7 +157,7 @@ jobs:
 
       - name: Setup Python
         if: inputs.language == 'python'
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ inputs.python_version }}
           cache: ${{ inputs.package_manager == 'poetry' && 'poetry' || 'pip' }}
@@ -171,14 +168,14 @@ jobs:
 
       - name: Setup Go
         if: inputs.language == 'go'
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: ${{ inputs.go_version }}
           cache: true
 
       - name: Setup Java
         if: inputs.language == 'java'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           java-version: ${{ inputs.java_version }}
           distribution: 'temurin'
@@ -186,7 +183,7 @@ jobs:
 
       - name: Setup .NET
         if: inputs.language == 'dotnet'
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: ${{ inputs.dotnet_version }}
 
@@ -262,8 +259,8 @@ jobs:
             exit_code=$?
           fi
 
-          echo "exit_code=$exit_code" >> $GITHUB_OUTPUT
-          exit $exit_code
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          exit "$exit_code"
 
       # =======================================================================
       # Run Integration Tests
@@ -305,6 +302,8 @@ jobs:
       - name: Process coverage
         id: coverage
         if: inputs.coverage_enabled && always()
+        env:
+          COVERAGE_THRESHOLD: ${{ inputs.coverage_threshold }}
         run: |
           percentage="N/A"
 
@@ -322,33 +321,23 @@ jobs:
             fi
           fi
 
-          echo "percentage=$percentage" >> $GITHUB_OUTPUT
+          echo "percentage=$percentage" >> "$GITHUB_OUTPUT"
 
           # Check threshold
-          if [ "${{ inputs.coverage_threshold }}" -gt 0 ] && [ "$percentage" != "N/A" ]; then
-            threshold=${{ inputs.coverage_threshold }}
+          if [ "$COVERAGE_THRESHOLD" -gt 0 ] && [ "$percentage" != "N/A" ]; then
+            threshold=$COVERAGE_THRESHOLD
             if (( $(echo "$percentage < $threshold" | bc -l) )); then
               echo "::error::Coverage $percentage% is below threshold $threshold%"
               exit 1
             fi
           fi
 
-      - name: Upload coverage to Codecov
-        if: inputs.coverage_enabled && inputs.upload_coverage && always()
-        uses: codecov/codecov-action@v4
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false
-          files: coverage/lcov.info,coverage.xml,coverage.out
-          flags: unittests
-          name: codecov-${{ inputs.language }}
-
       # =======================================================================
       # Upload Artifacts
       # =======================================================================
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results-${{ inputs.language }}
           path: |
@@ -365,12 +354,14 @@ jobs:
       - name: Generate test summary
         if: always()
         run: |
-          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Language | ${{ inputs.language }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Unit Tests | ${{ steps.test.outcome == 'success' && 'Passed' || steps.test.outcome == 'failure' && 'Failed' || 'Skipped' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Coverage | ${{ steps.coverage.outputs.percentage }}% |" >> $GITHUB_STEP_SUMMARY
-          echo "| Coverage Threshold | ${{ inputs.coverage_threshold }}% |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Test Results"
+            echo ""
+            echo "| Metric | Value |"
+            echo "|--------|-------|"
+            echo "| Language | ${{ inputs.language }} |"
+            echo "| Unit Tests | ${{ steps.test.outcome == 'success' && 'Passed' || steps.test.outcome == 'failure' && 'Failed' || 'Skipped' }} |"
+            echo "| Coverage | ${{ steps.coverage.outputs.percentage }}% |"
+            echo "| Coverage Threshold | ${{ inputs.coverage_threshold }}% |"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"

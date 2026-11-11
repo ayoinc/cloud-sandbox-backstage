@@ -9,21 +9,28 @@ on:
   schedule:
     - cron: '0 6 * * 1' # Weekly Monday 6am
 
+env:
+  # actions/checkout runs `git init`, which prints a hint about the default
+  # branch name unless one is configured; name it so the hint is not printed.
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
+
 jobs:
   security:
     name: Security Scan
     if: github.event_name == 'schedule' || github.actor == github.repository_owner
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       security-events: write
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Checkov Scan
-        uses: bridgecrewio/checkov-action@master
+        uses: bridgecrewio/checkov-action@v12
         with:
           directory: catalog/terraform-modules
           framework: terraform
@@ -39,7 +46,7 @@ jobs:
           check_existence: false
 
       - name: TFSec Scan
-        uses: aquasecurity/tfsec-action@v1.0.0
+        uses: aquasecurity/tfsec-action@v1.0.3
         with:
           working_directory: catalog/terraform-modules
           soft_fail: true
@@ -54,8 +61,11 @@ jobs:
           check_existence: false
 
       - name: Trivy IaC Scan
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
+          # The Trivy release the action's master branch installed; v0.36.0 of the
+          # action would otherwise default to the older v0.70.0
+          version: 'v0.76.2'
           scan-type: 'config'
           scan-ref: 'catalog/terraform-modules'
           format: 'sarif'

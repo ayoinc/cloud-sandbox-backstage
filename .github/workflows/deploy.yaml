@@ -204,13 +204,20 @@ on:
         description: 'Teams webhook URL'
         required: false
 
+env:
+  # actions/checkout runs `git init`, which prints a hint about the default
+  # branch name unless one is configured; name it so the hint is not printed.
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
+
 jobs:
   # ===========================================================================
   # Skip Check - Determine if deployment should be skipped
   # ===========================================================================
   check:
     name: Check Deployment Config
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       should_deploy: ${{ steps.check.outputs.should_deploy }}
       target: ${{ steps.check.outputs.target }}
@@ -226,23 +233,27 @@ jobs:
             should_deploy="false"
           fi
 
-          echo "should_deploy=$should_deploy" >> $GITHUB_OUTPUT
-          echo "target=$target" >> $GITHUB_OUTPUT
+          {
+            echo "should_deploy=$should_deploy"
+            echo "target=$target"
+          } >> "$GITHUB_OUTPUT"
 
-          echo "## Deployment Check" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Setting | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|---------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Target | \`$target\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Environment | \`${{ inputs.environment }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Will Deploy | $should_deploy |" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Deployment Check"
+            echo ""
+            echo "| Setting | Value |"
+            echo "|---------|-------|"
+            echo "| Target | \`$target\` |"
+            echo "| Environment | \`${{ inputs.environment }}\` |"
+            echo "| Will Deploy | $should_deploy |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # ===========================================================================
   # Deploy Job
   # ===========================================================================
   deploy:
     name: Deploy to ${{ inputs.environment }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: check
     if: needs.check.outputs.should_deploy == 'true'
     environment:
@@ -254,18 +265,18 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # =======================================================================
       # Kubernetes Deployment
       # =======================================================================
       - name: Setup kubectl
         if: inputs.deploy_target == 'kubernetes'
-        uses: azure/setup-kubectl@v3
+        uses: azure/setup-kubectl@v5
 
       - name: Setup Helm
         if: inputs.deploy_target == 'kubernetes' && inputs.helm_chart_path != ''
-        uses: azure/setup-helm@v3
+        uses: azure/setup-helm@v5
 
       - name: Configure Kubernetes
         if: inputs.deploy_target == 'kubernetes'
@@ -295,7 +306,7 @@ jobs:
               --timeout=${{ inputs.rollout_timeout }}s
           fi
 
-          echo "status=success" >> $GITHUB_OUTPUT
+          echo "status=success" >> "$GITHUB_OUTPUT"
 
       - name: Deploy to Kubernetes (Helm)
         if: inputs.deploy_target == 'kubernetes' && inputs.helm_chart_path != ''
@@ -313,14 +324,14 @@ jobs:
             $values_flag \
             $dry_run_flag
 
-          echo "status=success" >> $GITHUB_OUTPUT
+          echo "status=success" >> "$GITHUB_OUTPUT"
 
       # =======================================================================
       # AWS ECS Deployment
       # =======================================================================
       - name: Configure AWS credentials
         if: inputs.deploy_target == 'ecs'
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ inputs.aws_region }}
@@ -331,7 +342,7 @@ jobs:
         run: |
           if [ "${{ inputs.dry_run }}" == "true" ]; then
             echo "Dry run mode - skipping actual deployment"
-            echo "status=dry-run" >> $GITHUB_OUTPUT
+            echo "status=dry-run" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -340,7 +351,7 @@ jobs:
             --task-definition ${{ inputs.ecs_task_definition }} \
             --query taskDefinition)
 
-          NEW_TASK_DEF=$(echo $TASK_DEF | jq \
+          NEW_TASK_DEF=$(echo "$TASK_DEF" | jq \
             --arg IMAGE "${{ inputs.image }}:${{ inputs.image_tag }}" \
             '.containerDefinitions[0].image = $IMAGE | del(.taskDefinitionArn) | del(.revision) | del(.status) | del(.requiresAttributes) | del(.compatibilities) | del(.registeredAt) | del(.registeredBy)')
 
@@ -354,7 +365,7 @@ jobs:
           aws ecs update-service \
             --cluster ${{ inputs.ecs_cluster }} \
             --service ${{ inputs.ecs_service }} \
-            --task-definition $NEW_TASK_ARN
+            --task-definition "$NEW_TASK_ARN"
 
           if [ "${{ inputs.wait_for_rollout }}" == "true" ]; then
             aws ecs wait services-stable \
@@ -362,14 +373,14 @@ jobs:
               --services ${{ inputs.ecs_service }}
           fi
 
-          echo "status=success" >> $GITHUB_OUTPUT
+          echo "status=success" >> "$GITHUB_OUTPUT"
 
       # =======================================================================
       # Azure Container Apps Deployment
       # =======================================================================
       - name: Azure Login
         if: inputs.deploy_target == 'azure-container-apps'
-        uses: azure/login@v1
+        uses: azure/login@v3
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
@@ -379,7 +390,7 @@ jobs:
         run: |
           if [ "${{ inputs.dry_run }}" == "true" ]; then
             echo "Dry run mode - skipping actual deployment"
-            echo "status=dry-run" >> $GITHUB_OUTPUT
+            echo "status=dry-run" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -395,22 +406,24 @@ jobs:
             --query properties.configuration.ingress.fqdn \
             --output tsv)
 
-          echo "url=https://$url" >> $GITHUB_OUTPUT
-          echo "status=success" >> $GITHUB_OUTPUT
+          {
+            echo "url=https://$url"
+            echo "status=success"
+          } >> "$GITHUB_OUTPUT"
 
       # =======================================================================
       # GCP Cloud Run Deployment
       # =======================================================================
       - name: Authenticate to GCP
         if: inputs.deploy_target == 'cloud-run'
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           credentials_json: ${{ secrets.GCP_CREDENTIALS }}
 
       - name: Deploy to Cloud Run
         if: inputs.deploy_target == 'cloud-run'
         id: cloudrun-deploy
-        uses: google-github-actions/deploy-cloudrun@v2
+        uses: google-github-actions/deploy-cloudrun@v3
         with:
           service: ${{ inputs.cloud_run_service }}
           region: ${{ inputs.gcp_region }}
@@ -423,7 +436,7 @@ jobs:
       - name: Deploy via SSH
         if: inputs.deploy_target == 'ssh'
         id: ssh-deploy
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1
         with:
           host: ${{ inputs.ssh_host }}
           username: ${{ inputs.ssh_user }}
@@ -445,23 +458,27 @@ jobs:
           url="${{ steps.azure-deploy.outputs.url || steps.cloudrun-deploy.outputs.url || '' }}"
           status="${{ steps.k8s-deploy.outputs.status || steps.helm-deploy.outputs.status || steps.ecs-deploy.outputs.status || steps.azure-deploy.outputs.status || steps.cloudrun-deploy.outcome || 'unknown' }}"
 
-          echo "url=$url" >> $GITHUB_OUTPUT
-          echo "status=$status" >> $GITHUB_OUTPUT
+          {
+            echo "url=$url"
+            echo "status=$status"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Generate deployment summary
         if: always()
         run: |
-          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Environment | \`${{ inputs.environment }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Target | \`${{ inputs.deploy_target }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Image | \`${{ inputs.image }}:${{ inputs.image_tag }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Status | ${{ steps.deploy.outputs.status }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Dry Run | ${{ inputs.dry_run }} |" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Deployment Summary"
+            echo ""
+            echo "| Property | Value |"
+            echo "|----------|-------|"
+            echo "| Environment | \`${{ inputs.environment }}\` |"
+            echo "| Target | \`${{ inputs.deploy_target }}\` |"
+            echo "| Image | \`${{ inputs.image }}:${{ inputs.image_tag }}\` |"
+            echo "| Status | ${{ steps.deploy.outputs.status }} |"
+            echo "| Dry Run | ${{ inputs.dry_run }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
           if [ -n "${{ steps.deploy.outputs.url }}" ]; then
-            echo "| URL | ${{ steps.deploy.outputs.url }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| URL | ${{ steps.deploy.outputs.url }} |" >> "$GITHUB_STEP_SUMMARY"
           fi
 
   # ===========================================================================
@@ -469,37 +486,44 @@ jobs:
   # ===========================================================================
   skip:
     name: Deployment Skipped
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: check
     if: needs.check.outputs.should_deploy == 'false'
     steps:
       - name: Skip notification
         run: |
-          echo "## Deployment Skipped" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Deployment was skipped because:" >> $GITHUB_STEP_SUMMARY
-          echo "- Deploy target is set to 'skip' or not configured" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "To enable deployment, set the \`deploy_target\` input to one of:" >> $GITHUB_STEP_SUMMARY
-          echo "- \`kubernetes\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`ecs\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`azure-container-apps\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`cloud-run\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`ssh\`" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Deployment Skipped"
+            echo ""
+            echo "Deployment was skipped because:"
+            echo "- Deploy target is set to 'skip' or not configured"
+            echo ""
+            echo "To enable deployment, set the \`deploy_target\` input to one of:"
+            echo "- \`kubernetes\`"
+            echo "- \`ecs\`"
+            echo "- \`azure-container-apps\`"
+            echo "- \`cloud-run\`"
+            echo "- \`ssh\`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # ===========================================================================
   # Notifications
   # ===========================================================================
   notify:
     name: Send Notifications
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [check, deploy]
     if: always() && needs.check.outputs.should_deploy == 'true' && (inputs.notify_slack || inputs.notify_teams)
     steps:
       - name: Send Slack notification
         if: inputs.notify_slack
-        uses: slackapi/slack-github-action@v1
+        uses: slackapi/slack-github-action@v4
         with:
+          # v1 sent SLACK_WEBHOOK_URL as a workflow trigger with the payload
+          # flattened on "."; v2+ needs both said explicitly to do the same.
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: webhook-trigger
+          payload-delimiter: '.'
           payload: |
             {
               "text": "Deployment to ${{ inputs.environment }}",
@@ -513,8 +537,6 @@ jobs:
                 }
               ]
             }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         continue-on-error: true
 
       - name: Send Teams notification

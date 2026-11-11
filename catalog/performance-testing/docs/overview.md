@@ -27,7 +27,6 @@ orchestration: Orchestration Layer {
   features: {
     shape: text
     style.font-size: 12
-    near: bottom-center
   }
 }
 
@@ -111,7 +110,7 @@ title: k6 Execution Model {
 script: Test Script {
   style.fill: "#E3F2FD"
 
-  code: JavaScript\nimport http from 'k6/http';\nexport default function() { ... } {
+  code: "JavaScript\nimport http from 'k6/http';\nexport default function() { ... }" {
     shape: document
     style.fill: "#2196F3"
     style.font-color: white

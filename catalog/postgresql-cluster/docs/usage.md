@@ -224,7 +224,7 @@ storage: Backup Storage {
   }
 
   base_backup: Base Backup {
-    shape: folder
+    shape: package
     style.fill: "#ffccbc"
     label: "Data Directory\nSnapshot"
   }

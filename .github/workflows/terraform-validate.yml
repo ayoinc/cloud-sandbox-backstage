@@ -7,23 +7,30 @@ on:
     branches: [main, develop]
     paths: ['catalog/terraform-modules/**/*.tf']
 
+env:
+  # actions/checkout runs `git init`, which prints a hint about the default
+  # branch name unless one is configured; name it so the hint is not printed.
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
+
 jobs:
   validate:
     name: Validate & Lint
     if: github.actor == github.repository_owner
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: 1.7.0
 
       - name: Setup TFLint
-        uses: terraform-linters/setup-tflint@v4
+        uses: terraform-linters/setup-tflint@v6
 
       - name: Terraform Format
         run: terraform fmt -check -recursive
@@ -39,7 +46,7 @@ jobs:
 
       - name: Validate All Modules
         run: |
-          find . -name "*.tf" -exec dirname {} \; | sort -u | while read dir; do
+          find . -name "*.tf" -exec dirname {} \; | sort -u | while read -r dir; do
             echo "Validating $dir"
             cd "$dir"
             terraform init -backend=false 2>/dev/null || true

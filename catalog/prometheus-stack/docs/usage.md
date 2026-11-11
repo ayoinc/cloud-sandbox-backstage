@@ -34,7 +34,7 @@ alertmanager: Alertmanager {
 }
 
 notifications: Notifications {
-  slack: "#alerts Slack
+  slack: "#alerts Slack"
   email: ops@company.com
   pagerduty: PagerDuty\n(Critical Only)
 }

@@ -138,26 +138,33 @@ on:
         description: 'Slack webhook URL'
         required: false
 
+env:
+  # actions/checkout runs `git init`, which prints a hint about the default
+  # branch name unless one is configured; name it so the hint is not printed.
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
+
 jobs:
   # ===========================================================================
   # Prepare Release
   # ===========================================================================
   prepare:
     name: Prepare Release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
       changelog: ${{ steps.changelog.outputs.changelog }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
 
@@ -172,7 +179,7 @@ jobs:
             # Get from latest tag
             current=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^${{ inputs.tag_prefix }}//' || echo "0.0.0")
           fi
-          echo "version=$current" >> $GITHUB_OUTPUT
+          echo "version=$current" >> "$GITHUB_OUTPUT"
           echo "Current version: $current"
 
       - name: Determine next version
@@ -189,7 +196,7 @@ jobs:
 
           # Auto-detect release type from commits
           if [ "$release_type" == "auto" ]; then
-            commits=$(git log $(git describe --tags --abbrev=0 2>/dev/null || echo "")..HEAD --pretty=format:"%s" 2>/dev/null || git log --pretty=format:"%s")
+            commits=$(git log "$(git describe --tags --abbrev=0 2>/dev/null || echo "")..HEAD" --pretty=format:"%s" 2>/dev/null || git log --pretty=format:"%s")
             
             if echo "$commits" | grep -qiE "^(BREAKING|!:)"; then
               release_type="major"
@@ -229,9 +236,11 @@ jobs:
 
           tag="${{ inputs.tag_prefix }}${version}"
 
-          echo "version=$version" >> $GITHUB_OUTPUT
-          echo "tag=$tag" >> $GITHUB_OUTPUT
-          echo "release_type=$release_type" >> $GITHUB_OUTPUT
+          {
+            echo "version=$version"
+            echo "tag=$tag"
+            echo "release_type=$release_type"
+          } >> "$GITHUB_OUTPUT"
 
           echo "Next version: $version"
           echo "Tag: $tag"
@@ -244,7 +253,7 @@ jobs:
           last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
 
           if [ -n "$last_tag" ]; then
-            commits=$(git log ${last_tag}..HEAD --pretty=format:"- %s (%h)" --no-merges)
+            commits=$(git log "${last_tag}..HEAD" --pretty=format:"- %s (%h)" --no-merges)
           else
             commits=$(git log --pretty=format:"- %s (%h)" --no-merges -20)
           fi
@@ -274,9 +283,11 @@ jobs:
           changelog+="**Full Changelog**: https://github.com/${{ github.repository }}/compare/${last_tag}...${{ steps.version.outputs.tag }}"
 
           # Save changelog (escape for multiline output)
-          echo "changelog<<EOF" >> $GITHUB_OUTPUT
-          echo -e "$changelog" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          {
+            echo "changelog<<EOF"
+            echo -e "$changelog"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Update version in files
         run: |
@@ -306,17 +317,17 @@ jobs:
   # ===========================================================================
   build:
     name: Build Artifacts
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: prepare
     if: inputs.build_artifacts
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.ref }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: 'yarn'
@@ -331,7 +342,7 @@ jobs:
         run: yarn build
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-artifacts
           path: ${{ inputs.artifact_path }}
@@ -342,7 +353,7 @@ jobs:
   # ===========================================================================
   release:
     name: Create Release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [prepare, build]
     if: always() && needs.prepare.result == 'success' && (needs.build.result == 'success' || needs.build.result == 'skipped')
     outputs:
@@ -354,21 +365,21 @@ jobs:
       contents: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.ref }}
           fetch-depth: 0
 
       - name: Download artifacts
         if: inputs.build_artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: release-artifacts
           path: release-artifacts/
 
       - name: Create GitHub Release
         id: release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.prepare.outputs.tag }}
           name: Release ${{ needs.prepare.outputs.version }}
@@ -383,45 +394,47 @@ jobs:
 
       - name: Generate release summary
         run: |
-          echo "## Release Created" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Version | \`${{ needs.prepare.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Tag | \`${{ needs.prepare.outputs.tag }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Prerelease | ${{ inputs.prerelease }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Draft | ${{ inputs.draft }} |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "[View Release](${{ steps.release.outputs.url }})" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Release Created"
+            echo ""
+            echo "| Property | Value |"
+            echo "|----------|-------|"
+            echo "| Version | \`${{ needs.prepare.outputs.version }}\` |"
+            echo "| Tag | \`${{ needs.prepare.outputs.tag }}\` |"
+            echo "| Prerelease | ${{ inputs.prerelease }} |"
+            echo "| Draft | ${{ inputs.draft }} |"
+            echo ""
+            echo "[View Release](${{ steps.release.outputs.url }})"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # ===========================================================================
   # Publish Docker
   # ===========================================================================
   publish-docker:
     name: Publish Docker Image
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [prepare, release]
     if: inputs.publish_docker && needs.release.result == 'success'
     permissions:
       packages: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.tag }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Log in to registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ inputs.docker_registry }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: true
@@ -436,17 +449,17 @@ jobs:
   # ===========================================================================
   publish-npm:
     name: Publish to npm
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [prepare, release]
     if: inputs.publish_npm && needs.release.result == 'success'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.tag }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
           registry-url: ${{ inputs.npm_registry }}
@@ -470,13 +483,18 @@ jobs:
   # ===========================================================================
   notify:
     name: Send Notifications
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [prepare, release]
     if: always() && inputs.notify_slack && needs.release.result == 'success'
     steps:
       - name: Send Slack notification
-        uses: slackapi/slack-github-action@v1
+        uses: slackapi/slack-github-action@v4
         with:
+          # v1 sent SLACK_WEBHOOK_URL as a workflow trigger with the payload
+          # flattened on "."; v2+ needs both said explicitly to do the same.
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: webhook-trigger
+          payload-delimiter: '.'
           payload: |
             {
               "text": "New Release: ${{ needs.prepare.outputs.version }}",
@@ -507,6 +525,4 @@ jobs:
                 }
               ]
             }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         continue-on-error: true

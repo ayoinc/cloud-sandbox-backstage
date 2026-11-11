@@ -8,20 +8,27 @@ on:
     paths: ['catalog/terraform-modules/**/*.tf']
   workflow_dispatch:
 
+env:
+  # actions/checkout runs `git init`, which prints a hint about the default
+  # branch name unless one is configured; name it so the hint is not printed.
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
+
 jobs:
   docs:
     name: Generate Documentation
     if: github.actor == github.repository_owner
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.head_ref }}
 
       - name: Setup terraform-docs
-        uses: jaxxstorm/action-install-gh-release@v1
+        uses: jaxxstorm/action-install-gh-release@v4.0.0
         with:
           repo: terraform-docs/terraform-docs
           tag: v0.17.0
@@ -29,7 +36,7 @@ jobs:
       - name: Generate Docs
         run: |
           # Generate docs for each module
-          find . -name "main.tf" -exec dirname {} \; | sort -u | while read dir; do
+          find . -name "main.tf" -exec dirname {} \; | sort -u | while read -r dir; do
             if [ -f "$dir/variables.tf" ]; then
               echo "Generating docs for $dir"
               terraform-docs markdown table "$dir" > "$dir/README.md" 2>/dev/null || true
@@ -40,14 +47,14 @@ jobs:
       - name: Format generated docs with Prettier
         run: |
           # Run Prettier on all generated README files
-          find . -name "README.md" -type f | while read file; do
+          find . -name "README.md" -type f | while read -r file; do
             echo "Formatting $file with Prettier"
             npx prettier --write "$file" 2>/dev/null || true
           done
         working-directory: catalog/terraform-modules
 
       - name: Commit Changes
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: 'docs: auto-generate terraform documentation'
           file_pattern: 'catalog/terraform-modules/**/README.md'
