@@ -1,0 +1,161 @@
+# The Cloudflare Workers deployment: what answers a request, and where the
+# work a Worker cannot do is done. Dashed lines are work that happens out of
+# band, in GitHub Actions.
+direction: down
+
+browser: {
+  label: "🧑‍💻 Browser"
+  style: {
+    fill: "#FFFFFF"
+    stroke: "#333333"
+    stroke-width: 4
+    font-size: 16
+    bold: true
+    shadow: true
+    border-radius: 8
+  }
+}
+worker: {
+  label: "⚡ Worker\nFront end and Backstage APIs"
+  style: {
+    fill: "#FFF3E0"
+    stroke: "#F38020"
+    stroke-width: 4
+    font-size: 16
+    bold: true
+    shadow: true
+    border-radius: 8
+  }
+}
+d1: {
+  shape: cylinder
+  label: "🗃️ D1\nCatalog, search, tasks, branding"
+  style: {
+    fill: "#E3F2FD"
+    stroke: "#336791"
+    stroke-width: 4
+    font-size: 16
+    bold: true
+    shadow: true
+  }
+}
+r2: {
+  shape: cylinder
+  label: "📦 R2\nBuilt documentation"
+  style: {
+    fill: "#FCE4EC"
+    stroke: "#C72C48"
+    stroke-width: 4
+    font-size: 16
+    bold: true
+    shadow: true
+  }
+}
+github: {
+  shape: cloud
+  label: "🐙 GitHub\nSign-in, repositories, Actions"
+  style: {
+    fill: "#ECEFF1"
+    stroke: "#333333"
+    stroke-width: 4
+    font-size: 16
+    bold: true
+    shadow: true
+  }
+}
+actions: {
+  label: "🛠️ GitHub Actions\nA real Backstage backend per run"
+  style: {
+    fill: "#E8F5E9"
+    stroke: "#68A063"
+    stroke-width: 4
+    font-size: 16
+    bold: true
+    shadow: true
+    border-radius: 8
+  }
+}
+repos: {
+  label: "📁 New repositories\nCreated from templates"
+  style: {
+    fill: "#F3E5F5"
+    stroke: "#7B1FA2"
+    stroke-width: 4
+    font-size: 16
+    bold: true
+    shadow: true
+    border-radius: 8
+  }
+}
+browser -> worker: "HTTPS" {
+  style: {
+    stroke: "#F38020"
+    stroke-width: 4
+    font-size: 13
+    bold: true
+  }
+}
+worker -> d1: "Reads, writes" {
+  style: {
+    stroke: "#336791"
+    stroke-width: 4
+    font-size: 13
+    bold: true
+  }
+}
+worker -> r2: "Reads" {
+  style: {
+    stroke: "#C72C48"
+    stroke-width: 4
+    font-size: 13
+    bold: true
+  }
+}
+worker -> github: "Sign-in, CI status" {
+  style: {
+    stroke: "#333333"
+    stroke-width: 4
+    font-size: 13
+    bold: true
+  }
+}
+worker -> actions: "Starts a sync, a template run or a try-out" {
+  style: {
+    stroke: "#68A063"
+    stroke-width: 4
+    font-size: 13
+    bold: true
+    stroke-dash: 5
+    animated: true
+  }
+}
+actions -> d1: "Catalog, search index, task events" {
+  style: {
+    stroke: "#336791"
+    stroke-width: 4
+    font-size: 13
+    bold: true
+    stroke-dash: 5
+    animated: true
+  }
+}
+actions -> r2: "Documentation sites" {
+  style: {
+    stroke: "#C72C48"
+    stroke-width: 4
+    font-size: 13
+    bold: true
+    stroke-dash: 5
+    animated: true
+  }
+}
+actions -> repos: "Publishes" {
+  style: {
+    stroke: "#7B1FA2"
+    stroke-width: 4
+    font-size: 13
+    bold: true
+    stroke-dash: 5
+    animated: true
+  }
+}

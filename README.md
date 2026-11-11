@@ -309,6 +309,10 @@ needs about 850 MB of memory against a 128 MB limit), so the work that needs it
 runs in GitHub Actions, on a real Backstage backend, and the results are pushed
 to the Worker:
 
+![Cloudflare Workers deployment](docs/diagrams/workers-architecture.svg)
+
+Dashed lines are the work done out of band, in GitHub Actions.
+
 | In the portal                                                   | Where the work happens                                 |
 | --------------------------------------------------------------- | ------------------------------------------------------ |
 | Catalog browsing, entity pages, relations graph, API explorer   | `portal-sync` processes the catalog, the Worker reads  |
