@@ -49,8 +49,11 @@ async function findTemplates() {
   const found = [];
   for (const root of TEMPLATE_ROOTS) {
     for (const file of await filesUnder(join(repoRoot, root))) {
+      // A skeleton is what a template writes out, not a template of its
+      // own, even when it writes a template.yaml (template-starter does).
       if (
         file.endsWith(`${sep}template.yaml`) &&
+        !file.includes(`${sep}skeleton${sep}`) &&
         /^kind:\s*Template\s*$/m.test(readFileSync(file, 'utf8'))
       ) {
         found.push(dirname(file));

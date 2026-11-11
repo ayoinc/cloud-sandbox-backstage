@@ -289,7 +289,9 @@ describe('AccountStampProcessor', () => {
       ).toEqual({});
       // The documentation builder reads a directory from the source
       // location when the file sets one.
-      const moved = { [SOURCE]: 'url:https://github.com/acme/other/tree/main/' };
+      const moved = {
+        [SOURCE]: 'url:https://github.com/acme/other/tree/main/',
+      };
       expect(await filed({ [DOCS]: 'dir:.', ...moved })).toEqual(moved);
       const local = { [SOURCE]: 'file:/etc/portal/' };
       expect(await filed({ [DOCS]: 'dir:.', ...local })).toEqual(local);
