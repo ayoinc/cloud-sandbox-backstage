@@ -17,3 +17,7 @@ catalog/terraform-modules/templates/**/skeleton/**
 
 # Rewritten by Yarn in its own style
 .yarnrc.yml
+
+# The Anatomy drawing kit, vendored as published, and the figure pages built with it
+docs/figures/kit/
+packages/app/public/figures/

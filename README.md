@@ -384,6 +384,11 @@ the new component and its documentation appear.
 
 ![A template run, step by step](docs/diagrams/template-run-steps.svg)
 
+The portal also serves an interactive figure of the same run at
+`/figures/the-pass.html`: a service lift between a counter (the Worker) and a
+workshop bench (GitHub Actions), moving on the timings of a real run. It is
+built by `node docs/figures/the-pass/build.mjs`.
+
 **`portal-dry-run.yml`** is started by the Worker when an administrator tries a
 template out in the template editor. The Worker keeps what the editor sent (the
 template, its files and the form values) in the bucket and gives the workflow

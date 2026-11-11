@@ -16,6 +16,11 @@ components from approved templates.
 - **Register existing work**: add a repository through
   [catalog import](/catalog-import)
 
+### See how it works
+
+- [A template run, as a machine you can move](/figures/the-pass.html):
+  where the minute and a half goes
+
 ### Get help
 
 - [Portal source and issues](https://github.com/ayoinc/cloud-sandbox-backstage)
