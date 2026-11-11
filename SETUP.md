@@ -315,13 +315,14 @@ cd cloud-sandbox-backstage
 sudo scripts/install-vm.sh --base-url https://portal.example.org
 ```
 
-| Afterwards | How                                                                                                                 |
-| ---------- | ------------------------------------------------------------------------------------------------------------------- |
-| Settings   | `/etc/portal/portal.env`: fill in the GitHub token and OAuth app, then `sudo systemctl restart portal`              |
-| TLS        | Put a reverse proxy in front of port 7007                                                                           |
-| Logs       | `journalctl -u portal`                                                                                              |
-| Upgrade    | `git pull`, then `sudo scripts/install-vm.sh` again. It rebuilds, keeps the settings and the database, and restarts |
-| Roll back  | The previous build is kept in `/opt/portal/app.previous`                                                            |
+| Afterwards | How                                                                                                                                                                     |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sign-in    | `/etc/portal/app-config.yaml` says how to turn on GitHub sign-in. Until then anyone who can reach the portal is let in as a guest, so do it before exposing the machine |
+| Settings   | `/etc/portal/portal.env` (secrets, the address) and `/etc/portal/app-config.yaml`, then `sudo systemctl restart portal`                                                 |
+| TLS        | Put a reverse proxy in front of port 7007                                                                                                                               |
+| Logs       | `journalctl -u portal`                                                                                                                                                  |
+| Upgrade    | `git pull`, then `sudo scripts/install-vm.sh` again. It rebuilds, keeps the settings and the database, and restarts                                                     |
+| Roll back  | The previous build is kept in `/opt/portal/app.previous`                                                                                                                |
 
 The `VM install check` workflow runs this installer on a fresh Ubuntu machine
 whenever it or the backend changes.
@@ -419,8 +420,8 @@ CORS_ORIGIN=http://localhost     # Set to your domain in production
 # =============================================================================
 # Branding Admin (Optional)
 # =============================================================================
-BRANDING_INITIAL_ADMIN=your-github-username
-BRANDING_ADMIN_USERS=user1,user2,user3
+# Empty: the first person to sign in becomes the administrator
+PORTAL_ADMINS=user1,user2
 ```
 
 ---

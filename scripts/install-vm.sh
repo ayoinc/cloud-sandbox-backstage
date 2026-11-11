@@ -151,19 +151,56 @@ POSTGRES_PASSWORD=$password
 AUTH_SESSION_SECRET=$(openssl rand -hex 32)
 PORTAL_DATA_DIR=$DIR/data
 
-# GitHub: a token for reading repositories and creating them from templates,
-# and an OAuth app for sign-in whose callback is
-# \$APP_BASE_URL/api/auth/github/handler/frame
-GITHUB_TOKEN=
-GITHUB_CLIENT_ID=
-GITHUB_CLIENT_SECRET=
-GITHUB_ORG=
+# GitHub. Remove the # from a line to set it: a name left empty stops the
+# service starting. The token reads repositories and creates them from
+# templates; the client secret belongs to the OAuth app described in
+# /etc/portal/app-config.yaml.
+#GITHUB_TOKEN=
+#GITHUB_CLIENT_SECRET=
 
-# Who may change the branding: a GitHub user name.
-BRANDING_INITIAL_ADMIN=
+# Who may change the branding and ownership: user names, comma-separated.
+# Left empty, the first person to sign in becomes the administrator.
+PORTAL_ADMINS=
 ENV
   chown root:portal "$ENV_FILE"
   chmod 640 "$ENV_FILE"
+  cat >/etc/portal/app-config.yaml <<CONFIG
+# Your own settings for the portal, loaded after the ones it ships with.
+# Restart after a change: systemctl restart portal
+#
+# Until sign-in is set up, anyone who can reach the portal is let in as a
+# guest. To sign people in with GitHub, create an OAuth app whose callback is
+#   $BASE_URL/api/auth/github/handler/frame
+# put its secret in /etc/portal/portal.env as GITHUB_CLIENT_SECRET, and
+# replace the last line of this file with:
+#
+# auth:
+#   providers:
+#     guest: null
+#     github:
+#       production:
+#         clientId: <the OAuth app's client id>
+#         clientSecret: \${GITHUB_CLIENT_SECRET}
+#         callbackUrl: $BASE_URL/api/auth/github/handler/frame
+#
+# To bring an organisation's teams and people into the catalog (needs
+# GITHUB_TOKEN in portal.env), add:
+#
+# catalog:
+#   providers:
+#     githubOrg:
+#       - id: production
+#         githubUrl: https://github.com
+#         orgs: [<organisation>]
+#         schedule:
+#           initialDelay: { seconds: 10 }
+#           frequency: { minutes: 5 }
+#           timeout: { minutes: 3 }
+
+{}
+CONFIG
+  chown root:portal /etc/portal/app-config.yaml
+  chmod 640 /etc/portal/app-config.yaml
 fi
 
 say "Switching to the new build"

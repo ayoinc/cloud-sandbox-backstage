@@ -34,13 +34,12 @@ difference is a known gap with an owner rather than a surprise.
 
 ## Known differences
 
-| Difference                                               | Effect                                                                                   | Plan                                                                     |
-| -------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| The first administrator                                  | Workers: the first person to sign in, or `PORTAL_ADMINS`. Node: `BRANDING_INITIAL_ADMIN` | Honour `PORTAL_ADMINS` and the first-sign-in rule on Node                |
-| Google sign-in is Workers only                           | A VM or container deployment cannot offer it                                             | Add the provider to the Node backend                                     |
-| Template runs need GitHub Actions on Workers             | A Workers deployment cannot run templates from a self-hosted runner                      | Make the dispatch pluggable, so a container can run the pipeline scripts |
-| Cancel and retry of a run on Workers                     | The buttons are hidden                                                                   | Cancel through the Actions API                                           |
-| Ownership: a `user:` owner is never an orphan on Workers | Orphan counts can differ                                                                 | Check users against the catalog on both                                  |
+| Difference                                               | Effect                                                              | Plan                                                                     |
+| -------------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Google sign-in is Workers only                           | A VM or container deployment cannot offer it                        | Add the provider to the Node backend                                     |
+| Template runs need GitHub Actions on Workers             | A Workers deployment cannot run templates from a self-hosted runner | Make the dispatch pluggable, so a container can run the pipeline scripts |
+| Cancel and retry of a run on Workers                     | The buttons are hidden                                              | Cancel through the Actions API                                           |
+| Ownership: a `user:` owner is never an orphan on Workers | Orphan counts can differ                                            | Check users against the catalog on both                                  |
 
 ## How it is checked
 

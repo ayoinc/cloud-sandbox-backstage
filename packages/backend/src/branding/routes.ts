@@ -29,6 +29,7 @@ import {
   getCurrentSettings,
   updateSettings,
   checkIsAdmin,
+  claimFirstAdmin,
   getAdmins,
   addAdmin,
   removeAdmin,
@@ -363,7 +364,9 @@ export function createRouter(deps: RouterDeps): Router {
           return;
         }
 
-        const isAdmin = await checkIsAdmin(knex, userEntityRef, logger);
+        const isAdmin =
+          (await checkIsAdmin(knex, userEntityRef, logger)) ||
+          (await claimFirstAdmin(knex, userEntityRef));
         res.json({ isAdmin, userEntityRef });
       } catch {
         res.json({ isAdmin: false });

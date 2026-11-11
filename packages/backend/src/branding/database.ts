@@ -83,27 +83,6 @@ export async function initializeTables(
       table.timestamp('added_at').defaultTo(knex.fn.now());
       table.string('added_by').nullable();
     });
-
-    // Bootstrap initial admin from environment variable
-    const initialAdmin =
-      process.env.BRANDING_INITIAL_ADMIN ||
-      process.env.BRANDING_ADMIN_USERS?.split(',')[0]?.trim();
-    if (initialAdmin) {
-      const entityRef = initialAdmin.includes(':')
-        ? initialAdmin
-        : `user:default/${initialAdmin}`;
-      await knex('branding_admins').insert({
-        entity_ref: entityRef,
-        type: entityRef.startsWith('group:') ? 'group' : 'user',
-        added_at: new Date().toISOString(),
-        added_by: 'system',
-      });
-      logger.info(`Bootstrapped initial branding admin: ${entityRef}`);
-    } else {
-      logger.warn(
-        'No initial branding admin configured. Set BRANDING_INITIAL_ADMIN env var.',
-      );
-    }
   }
 }
 
@@ -140,6 +119,52 @@ export async function updateSettings(
   updates: Partial<BrandingSettingsRow>,
 ): Promise<void> {
   await knex('branding_settings').where('id', 'default').update(updates);
+}
+
+/**
+ * The administrators named in PORTAL_ADMINS, the same setting as on the
+ * Cloudflare deployment. Each item is a full entity ref, or a bare name
+ * meaning user:default/<name>.
+ */
+export function configuredAdmins(): string[] {
+  return (process.env.PORTAL_ADMINS ?? '')
+    .split(',')
+    .map(item => item.trim().toLowerCase())
+    .filter(Boolean)
+    .map(item => (item.includes(':') ? item : `user:default/${item}`));
+}
+
+/**
+ * Makes the first person to sign in the administrator, as the Cloudflare
+ * deployment does: only while no administrator is configured or recorded,
+ * and never a guest. Returns whether this user was made one.
+ */
+export async function claimFirstAdmin(
+  knex: Knex,
+  userEntityRef: string,
+): Promise<boolean> {
+  const ref = userEntityRef.toLowerCase();
+  if (configuredAdmins().length > 0 || /\/guest$/.test(ref)) {
+    return false;
+  }
+  return knex.transaction(async trx => {
+    // One claim at a time: two people signing in together cannot both win.
+    await trx.raw(
+      trx.client.config.client === 'pg'
+        ? 'LOCK TABLE branding_admins IN EXCLUSIVE MODE'
+        : 'SELECT 1',
+    );
+    if (await trx('branding_admins').first()) {
+      return false;
+    }
+    await trx('branding_admins').insert({
+      entity_ref: ref,
+      type: 'user',
+      added_at: new Date().toISOString(),
+      added_by: 'first-sign-in',
+    });
+    return true;
+  });
 }
 
 /**
@@ -185,17 +210,8 @@ export async function checkIsAdmin(
       // This is handled in the permission policy
     }
 
-    // Fallback: Check BRANDING_ADMIN_USERS env var (for backwards compatibility)
-    const adminUsersEnv = process.env.BRANDING_ADMIN_USERS || '';
-    const adminUsernames = adminUsersEnv
-      .split(',')
-      .map(u => u.trim().toLowerCase())
-      .filter(u => u.length > 0);
-
-    if (adminUsernames.includes(username.toLowerCase())) {
-      logger.debug(
-        `User ${username} is admin via BRANDING_ADMIN_USERS env var`,
-      );
+    if (configuredAdmins().includes(userEntityRef.toLowerCase())) {
+      logger.debug(`User ${username} is admin by configuration`);
       return true;
     }
 

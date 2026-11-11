@@ -14,3 +14,15 @@ techdocs:
     type: local
     local:
       publishDirectory: ${PORTAL_DATA_DIR}/techdocs
+
+# GitHub sign-in and the organisation sync need credentials the machine does
+# not have yet, and a half-configured provider stops the backend starting.
+# They are off here and turned on in /etc/portal/app-config.yaml, which is
+# loaded after this file.
+auth:
+  providers:
+    github: null
+
+catalog:
+  providers:
+    githubOrg: null
