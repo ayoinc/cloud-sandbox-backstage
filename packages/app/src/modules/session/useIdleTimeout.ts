@@ -4,6 +4,7 @@ import {
   identityApiRef,
   errorApiRef,
 } from '@backstage/frontend-plugin-api';
+import { organisationPath, organisationSlug } from '@internal/brand';
 
 const IDLE_TIMEOUT_MS = 60 * 60 * 1000; // 1 hour in milliseconds
 const ACTIVITY_EVENTS = [
@@ -31,8 +32,8 @@ export function useIdleTimeout() {
 
     try {
       await identityApi.signOut();
-      // Redirect to sign-in page
-      window.location.href = '/';
+      // To the sign-in page of the address the user was at.
+      window.location.href = organisationPath(organisationSlug());
     } catch {
       errorApi.post(new Error('Failed to sign out due to inactivity'));
       isSigningOutRef.current = false;

@@ -1,6 +1,7 @@
 import {
   coreServices,
   createBackendPlugin,
+  type HttpAuthService,
 } from '@backstage/backend-plugin-api';
 import { CatalogClient } from '@backstage/catalog-client';
 import { Octokit } from '@octokit/rest';
@@ -8,6 +9,7 @@ import { Entity } from '@backstage/catalog-model';
 import * as express from 'express';
 import * as crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
+import { ACCOUNT_ANNOTATION, directory } from './accounts/directory';
 
 /**
  * =============================================================================
@@ -26,7 +28,10 @@ import rateLimit from 'express-rate-limit';
  * - Admin API endpoints for manual cleanup management
  * - Graceful degradation when GitHub API is unavailable
  *
- * API ENDPOINTS:
+ * API ENDPOINTS (portal administrators only, except the webhook, which is
+ * signed by GitHub and refused when no secret is configured; an
+ * administrator sees, counts and removes only shared entities and those of
+ * their own accounts):
  * - GET  /api/catalog-cleanup/health        - Health check
  * - GET  /api/catalog-cleanup/orphans       - List tracked orphaned entities
  * - GET  /api/catalog-cleanup/stats         - Get cleanup statistics
@@ -54,6 +59,8 @@ interface FailedEntity {
   reason: string;
   repoDeleted?: boolean;
   repoSlug?: string;
+  // The account the entity belongs to; none for a shared entity
+  account?: string;
 }
 
 interface CleanupStats {
@@ -67,13 +74,9 @@ interface CleanupStats {
 
 // Module-level state (shared across requests)
 const failedEntities = new Map<string, FailedEntity>();
-let lastStats: CleanupStats = {
-  checked: 0,
-  orphaned: 0,
-  deleted: 0,
-  reposValidated: 0,
-  reposMissing: 0,
-};
+// What the last run counted, per account; shared entities under undefined
+let lastStats = new Map<string | undefined, CleanupStats>();
+let lastRun: Date | undefined;
 
 export default createBackendPlugin({
   pluginId: 'catalog-cleanup',
@@ -86,8 +89,19 @@ export default createBackendPlugin({
         auth: coreServices.auth,
         config: coreServices.rootConfig,
         httpRouter: coreServices.httpRouter,
+        httpAuth: coreServices.httpAuth,
+        userInfo: coreServices.userInfo,
       },
-      async init({ logger, scheduler, discovery, auth, config, httpRouter }) {
+      async init({
+        logger,
+        scheduler,
+        discovery,
+        auth,
+        config,
+        httpRouter,
+        httpAuth,
+        userInfo,
+      }) {
         const catalogClient = new CatalogClient({
           discoveryApi: discovery,
         });
@@ -227,16 +241,58 @@ export default createBackendPlugin({
           return token;
         }
 
+        // Who is told about entities of `accounts` (undefined for a shared
+        // entity): the portal administrators who may see every one of
+        // them, and the person themselves for a personal account.
+        async function recipientsFor(
+          accounts: Array<string | undefined>,
+        ): Promise<string[]> {
+          const owned = [
+            ...new Set(
+              accounts.filter(
+                (account): account is string => account !== undefined,
+              ),
+            ),
+          ];
+          const candidates = new Set(await directory.portalAdmins());
+          if (owned.length === 0) {
+            return [...candidates];
+          }
+          if (owned.length === 1 && owned[0].startsWith('user:')) {
+            candidates.add(owned[0]);
+          }
+          const recipients: string[] = [];
+          for (const candidate of candidates) {
+            // Who is in an administrators' group is not known here
+            if (!candidate.startsWith('user:')) {
+              continue;
+            }
+            const seen = await directory.accountsOf(candidate);
+            if (owned.every(account => seen.includes(account))) {
+              recipients.push(candidate);
+            }
+          }
+          return recipients;
+        }
+
         async function sendNotification(
           title: string,
           message: string,
-          severity: 'info' | 'warning' | 'error' = 'warning',
+          severity: 'info' | 'warning' | 'error',
+          accounts: Array<string | undefined>,
         ): Promise<void> {
           try {
+            const recipients = await recipientsFor(accounts);
+            if (recipients.length === 0) {
+              return;
+            }
             const notificationsUrl = await discovery.getBaseUrl(
               'notifications',
             );
-            const token = await getToken();
+            const { token } = await auth.getPluginRequestToken({
+              onBehalfOf: await auth.getOwnServiceCredentials(),
+              targetPluginId: 'notifications',
+            });
 
             await fetch(`${notificationsUrl}/notifications`, {
               method: 'POST',
@@ -245,7 +301,7 @@ export default createBackendPlugin({
                 Authorization: `Bearer ${token}`,
               },
               body: JSON.stringify({
-                recipients: { type: 'broadcast' },
+                recipients: { type: 'entity', entityRef: recipients },
                 payload: {
                   title,
                   description: message,
@@ -265,6 +321,7 @@ export default createBackendPlugin({
         async function notifyOrphanedEntity(
           entityRef: string,
           reason: string,
+          account: string | undefined,
           repoSlug?: string,
         ): Promise<void> {
           logger.warn(`🚨 ORPHANED ENTITY DETECTED: ${entityRef}`);
@@ -283,6 +340,7 @@ export default createBackendPlugin({
               repoSlug ? `. Repo: ${repoSlug}` : ''
             }`,
             'warning',
+            [account],
           );
         }
 
@@ -335,12 +393,21 @@ export default createBackendPlugin({
         /**
          * Delete all entities associated with a GitHub repository.
          * This performs a cascading delete - finds all entities from the repo and removes them.
+         *
+         * `only` keeps it to the entities of one account (shared ones for
+         * undefined): what one entity sets off never removes another
+         * account's entities, whatever repository they say they are from.
          */
         async function deleteAllEntitiesForRepo(
           owner: string,
           repo: string,
           token: string,
-        ): Promise<{ found: number; deleted: number }> {
+          only?: { account: string | undefined },
+        ): Promise<{
+          found: number;
+          deleted: number;
+          accounts: Array<string | undefined>;
+        }> {
           const repoSlug = `${owner}/${repo}`;
           logger.info(`🧹 Cascading delete for all entities from ${repoSlug}`);
 
@@ -352,6 +419,12 @@ export default createBackendPlugin({
           const entitiesToDelete: Entity[] = [];
 
           for (const entity of allEntities) {
+            if (
+              only &&
+              entity.metadata.annotations?.[ACCOUNT_ANNOTATION] !== only.account
+            ) {
+              continue;
+            }
             // Check if entity belongs to this repo
             const ghRepo = getGitHubRepo(entity);
             if (ghRepo && `${ghRepo.owner}/${ghRepo.repo}` === repoSlug) {
@@ -401,7 +474,13 @@ export default createBackendPlugin({
             `✅ Cascading delete complete: ${deleted}/${entitiesToDelete.length} entities removed for ${repoSlug}`,
           );
 
-          return { found: entitiesToDelete.length, deleted };
+          return {
+            found: entitiesToDelete.length,
+            deleted,
+            accounts: entitiesToDelete.map(
+              entity => entity.metadata.annotations?.[ACCOUNT_ANNOTATION],
+            ),
+          };
         }
 
         // =========================================================================
@@ -411,13 +490,20 @@ export default createBackendPlugin({
         async function runCleanup(): Promise<void> {
           logger.info('🔄 Running smart catalog cleanup...');
 
-          const stats: CleanupStats = {
-            checked: 0,
-            orphaned: 0,
-            deleted: 0,
-            reposValidated: 0,
-            reposMissing: 0,
-            lastRun: new Date(),
+          const perAccount = new Map<string | undefined, CleanupStats>();
+          const statsOf = (account: string | undefined) => {
+            let counted = perAccount.get(account);
+            if (!counted) {
+              counted = {
+                checked: 0,
+                orphaned: 0,
+                deleted: 0,
+                reposValidated: 0,
+                reposMissing: 0,
+              };
+              perAccount.set(account, counted);
+            }
+            return counted;
           };
 
           try {
@@ -439,7 +525,6 @@ export default createBackendPlugin({
               { token },
             );
 
-            stats.checked = entities.length;
             logger.info(`Checking ${entities.length} entities...`);
 
             const now = new Date();
@@ -458,6 +543,9 @@ export default createBackendPlugin({
 
             for (const entity of entities) {
               const entityRef = getEntityRef(entity);
+              const account = entity.metadata.annotations?.[ACCOUNT_ANNOTATION];
+              const stats = statsOf(account);
+              stats.checked++;
               let isOrphaned = false;
               let reason = '';
               let repoDeleted = false;
@@ -484,7 +572,9 @@ export default createBackendPlugin({
                 reason = processingError.error?.message || 'Processing error';
               }
 
-              // Check 2: Orphan annotation
+              // Check 2: Orphan annotation. Only the catalog sets it: the
+              // accounts processor removes it from what a registered file
+              // says (accounts/catalogModule.ts).
               if (
                 entity.metadata.annotations?.['backstage.io/orphan'] === 'true'
               ) {
@@ -551,6 +641,7 @@ export default createBackendPlugin({
                   repoSlug: ghRepo
                     ? `${ghRepo.owner}/${ghRepo.repo}`
                     : undefined,
+                  account,
                 });
 
                 logger.warn(
@@ -561,6 +652,7 @@ export default createBackendPlugin({
                   await notifyOrphanedEntity(
                     entityRef,
                     reason,
+                    account,
                     ghRepo ? `${ghRepo.owner}/${ghRepo.repo}` : undefined,
                   );
                 }
@@ -577,6 +669,7 @@ export default createBackendPlugin({
                       ghRepo.owner,
                       ghRepo.repo,
                       token,
+                      { account },
                     );
                     stats.deleted += result.deleted;
 
@@ -584,6 +677,7 @@ export default createBackendPlugin({
                       'Repository Cleanup Complete',
                       `Repository "${ghRepo.owner}/${ghRepo.repo}" cleanup complete. ${result.deleted} catalog entities have been automatically removed.`,
                       'info',
+                      result.accounts,
                     );
                   } else {
                     // Single entity deletion (no repo identified)
@@ -596,6 +690,7 @@ export default createBackendPlugin({
                         'Entity Removed',
                         `Orphaned entity "${entityRef}" has been automatically removed.`,
                         'info',
+                        [account],
                       );
                     }
                   }
@@ -608,17 +703,23 @@ export default createBackendPlugin({
               }
             }
 
+            const total = (count: (stats: CleanupStats) => number) =>
+              [...perAccount.values()].reduce(
+                (sum, stats) => sum + count(stats),
+                0,
+              );
             logger.info(
               `📊 Cleanup complete: ` +
-                `Checked=${stats.checked}, ` +
-                `Orphaned=${stats.orphaned}, ` +
-                `Deleted=${stats.deleted}, ` +
-                `ReposValidated=${stats.reposValidated}, ` +
-                `ReposMissing=${stats.reposMissing}, ` +
+                `Checked=${total(stats => stats.checked)}, ` +
+                `Orphaned=${total(stats => stats.orphaned)}, ` +
+                `Deleted=${total(stats => stats.deleted)}, ` +
+                `ReposValidated=${total(stats => stats.reposValidated)}, ` +
+                `ReposMissing=${total(stats => stats.reposMissing)}, ` +
                 `Tracking=${failedEntities.size}`,
             );
 
-            lastStats = stats;
+            lastStats = perAccount;
+            lastRun = new Date();
           } catch (error) {
             logger.error('Catalog cleanup failed', error as Error);
           }
@@ -642,7 +743,8 @@ export default createBackendPlugin({
 
           const token = await getToken();
 
-          // Use cascading delete to remove all entities from this repo
+          // GitHub says the repository is gone, so this is for every
+          // account that has entities from it.
           const result = await deleteAllEntitiesForRepo(owner, repo, token);
 
           if (result.found > 0) {
@@ -650,6 +752,7 @@ export default createBackendPlugin({
               'Repository Deleted',
               `Repository ${owner}/${repo} was deleted. ${result.deleted}/${result.found} associated entities have been removed.`,
               'warning',
+              result.accounts,
             );
           }
 
@@ -664,9 +767,10 @@ export default createBackendPlugin({
           payload: string,
           signature: string | undefined,
         ): boolean {
+          // Without a secret nothing shows that GitHub sent it.
           if (!webhookSecret) {
-            logger.warn('Webhook secret not configured, skipping verification');
-            return true; // Allow if no secret configured
+            logger.warn('Webhook secret not configured, refusing the webhook');
+            return false;
           }
 
           if (!signature) {
@@ -674,10 +778,13 @@ export default createBackendPlugin({
           }
 
           const hmac = crypto.createHmac('sha256', webhookSecret);
-          const digest = `sha256=${hmac.update(payload).digest('hex')}`;
-          return crypto.timingSafeEqual(
-            Buffer.from(signature),
-            Buffer.from(digest),
+          const digest = Buffer.from(
+            `sha256=${hmac.update(payload).digest('hex')}`,
+          );
+          const given = Buffer.from(signature);
+          return (
+            given.length === digest.length &&
+            crypto.timingSafeEqual(given, digest)
           );
         }
 
@@ -687,6 +794,60 @@ export default createBackendPlugin({
 
         const router = express.Router();
 
+        // Every route but the webhook, which GitHub signs, is for portal
+        // administrators, within their own accounts.
+        router.use(async (req, res, next) => {
+          if (req.path === '/webhook') {
+            next();
+            return;
+          }
+          let caller;
+          try {
+            // Backstage types its services against Express 4; this is Express 5.
+            const request = req as unknown as Parameters<
+              HttpAuthService['credentials']
+            >[0];
+            const credentials = await httpAuth.credentials(request, {
+              allow: ['user'],
+            });
+            caller = await userInfo.getUserInfo(credentials);
+          } catch {
+            res.status(401).json({ error: 'Authentication required' });
+            return;
+          }
+          try {
+            // No groups: the ones a sign-in names can come from a catalog
+            // file the person registered themselves.
+            const isAdmin = await directory.isPortalAdmin(
+              caller.userEntityRef,
+              [],
+            );
+            if (!isAdmin) {
+              res.status(403).json({
+                error:
+                  'Only a portal administrator can manage catalog clean-up',
+              });
+              return;
+            }
+            res.locals.accounts = await directory.accountsOf(
+              caller.userEntityRef,
+            );
+            next();
+          } catch (error) {
+            logger.error('Failed to check the caller', error as Error);
+            res.status(500).json({ error: 'Failed to check the caller' });
+          }
+        });
+
+        // Whether something of `account` is shared, or of the caller's accounts
+        const isWithin = (res: express.Response, account?: string) =>
+          account === undefined ||
+          (res.locals.accounts as string[]).includes(account);
+
+        // The tracked entities the caller may see
+        const trackedFor = (res: express.Response) =>
+          [...failedEntities].filter(([, data]) => isWithin(res, data.account));
+
         // Health check
         router.get(
           '/health',
@@ -695,7 +856,7 @@ export default createBackendPlugin({
               status: 'ok',
               githubValidation: !!octokit,
               webhookEnabled: !!webhookSecret,
-              trackingEntities: failedEntities.size,
+              trackingEntities: trackedFor(res).length,
             });
           },
         );
@@ -710,7 +871,7 @@ export default createBackendPlugin({
             lastSeen: string;
           }> = [];
 
-          failedEntities.forEach((data, ref) => {
+          trackedFor(res).forEach(([ref, data]) => {
             orphans.push({
               entityRef: ref,
               failureCount: data.count,
@@ -727,13 +888,30 @@ export default createBackendPlugin({
           });
         });
 
+        // What the last run counted of what the caller may see
+        const statsFor = (res: express.Response) => {
+          const stats = {
+            checked: 0,
+            orphaned: 0,
+            deleted: 0,
+            reposValidated: 0,
+            reposMissing: 0,
+          };
+          for (const [account, counted] of lastStats) {
+            if (isWithin(res, account)) {
+              stats.checked += counted.checked;
+              stats.orphaned += counted.orphaned;
+              stats.deleted += counted.deleted;
+              stats.reposValidated += counted.reposValidated;
+              stats.reposMissing += counted.reposMissing;
+            }
+          }
+          return { ...stats, lastRun, tracking: trackedFor(res).length };
+        };
+
         // Get cleanup statistics
         router.get('/stats', (_, res) => {
-          res.json({
-            ...lastStats,
-            tracking: failedEntities.size,
-            cacheSize: repoExistsCache.size,
-          });
+          res.json(statsFor(res));
         });
 
         // Trigger immediate cleanup
@@ -754,10 +932,10 @@ export default createBackendPlugin({
 
         router.post('/trigger', adminLimiter, async (_, res) => {
           try {
-            const stats = await runCleanup();
+            await runCleanup();
             res.json({
               message: 'Cleanup triggered successfully',
-              stats,
+              stats: statsFor(res),
             });
           } catch (error) {
             res.status(500).json({
@@ -781,7 +959,14 @@ export default createBackendPlugin({
                 token,
               });
 
-              if (!entity) {
+              // An entity of another account answers as one that is not there
+              if (
+                !entity ||
+                !isWithin(
+                  res,
+                  entity.metadata.annotations?.[ACCOUNT_ANNOTATION],
+                )
+              ) {
                 res.status(404).json({ error: 'Entity not found' });
                 return;
               }
@@ -845,8 +1030,9 @@ export default createBackendPlugin({
 
         // Clear all tracked orphans (admin action)
         router.post('/clear', adminLimiter, (_, res) => {
-          const count = failedEntities.size;
-          failedEntities.clear();
+          const tracked = trackedFor(res);
+          const count = tracked.length;
+          tracked.forEach(([ref]) => failedEntities.delete(ref));
           res.json({
             message: `Cleared ${count} tracked orphan entries`,
           });

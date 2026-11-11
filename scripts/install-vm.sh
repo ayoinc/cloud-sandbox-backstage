@@ -158,7 +158,7 @@ PORTAL_DATA_DIR=$DIR/data
 #GITHUB_TOKEN=
 #GITHUB_CLIENT_SECRET=
 
-# Who may change the branding and ownership: user names, comma-separated.
+# Who may reassign ownership and edit templates: user names, comma-separated.
 # Left empty, the first person to sign in becomes the administrator.
 PORTAL_ADMINS=
 ENV

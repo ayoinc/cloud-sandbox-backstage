@@ -28,7 +28,7 @@ Cloud Sandbox is a customized Backstage instance designed to serve as a central 
 - Single-page application built with React
 - Material-UI component library
 - Backstage core components
-- Custom branding support
+- Each organisation's name, logo and theme at its own address (`/o/<slug>`)
 
 #### Backend (Node.js)
 
@@ -52,11 +52,11 @@ Cloud Sandbox is a customized Backstage instance designed to serve as a central 
 
 #### Custom Plugins
 
-| Plugin                   | Purpose                                     |
-| ------------------------ | ------------------------------------------- |
-| **Branding Settings**    | Admin-configurable organization branding    |
-| **Ownership Management** | Orphan detection and ownership reassignment |
-| **GitHub Team Sync**     | Bi-directional GitHub team synchronization  |
+| Plugin                   | Purpose                                                                            |
+| ------------------------ | ---------------------------------------------------------------------------------- |
+| **Organisations**        | Each organisation's address, name, look and members ([how](docs/organisations.md)) |
+| **Ownership Management** | Orphan detection and ownership reassignment                                        |
+| **GitHub Team Sync**     | Bi-directional GitHub team synchronization                                         |
 
 ### Data Layer
 
@@ -76,7 +76,6 @@ Cloud Sandbox is a customized Backstage instance designed to serve as a central 
 #### MinIO (S3-Compatible)
 
 - TechDocs static files
-- Branding assets (logos)
 - Template artifacts
 
 ### External Services

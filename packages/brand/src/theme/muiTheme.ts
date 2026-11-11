@@ -270,7 +270,7 @@ function components(
 
 /**
  * Creates the MUI v4 + v5 unified theme for `mode`. `overrides` carries the
- * administrator's preset and primary colour; without it the default preset
+ * organisation's preset and primary colour; without it the default preset
  * is used.
  */
 export function createBrandTheme(

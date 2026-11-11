@@ -7,7 +7,9 @@ app:
   baseUrl: ${APP_BASE_URL:-http://localhost}
 
 organization:
-  name: Platform Team
+  # What the portal is called outside an organisation. At an organisation's
+  # address (/o/<slug>) the app uses the organisation's own name instead.
+  name: Developer Portal
 
 backend:
   baseUrl: ${APP_BASE_URL:-http://localhost}
@@ -77,9 +79,12 @@ techdocs:
 auth:
   environment: production
   providers:
-    # SECURITY: Guest auth is DISABLED by default in production
-    # To enable for demo purposes, set GUEST_AUTH_ENABLED=true in environment
-    # WARNING: Enabling guest auth allows unauthenticated access
+    # Guest sign-in is ON. Installs rely on it until GitHub sign-in is
+    # configured. Everyone who uses it shares one account
+    # (user:development/guest), which can register catalog files and run
+    # templates, and sees what that account registered. To turn it off once
+    # another way to sign in works, replace the two lines below with
+    # `guest: null`, or set dangerouslyAllowOutsideDevelopment to false.
     guest:
       dangerouslyAllowOutsideDevelopment: true
     # GitHub OAuth for real GitHub users
@@ -94,19 +99,6 @@ scaffolder:
     name: ${SCAFFOLDER_AUTHOR_NAME:-Developer Portal}
     email: ${SCAFFOLDER_AUTHOR_EMAIL:-portal@localhost}
   defaultCommitMessage: 'Initial commit from a portal template'
-
-# Proxy configuration for external API access
-proxy:
-  endpoints:
-    '/github-api':
-      target: https://api.github.com
-      headers:
-        Authorization: Bearer ${GITHUB_TOKEN}
-        Accept: application/vnd.github.v3+json
-      changeOrigin: true
-      # Prevent incoming Authorization header from overriding our configured token
-      allowedHeaders:
-        - Content-Type
 
 catalog:
   # Automatically delete orphaned entities when their source is removed

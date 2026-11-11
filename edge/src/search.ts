@@ -1,11 +1,36 @@
 import { Hono } from 'hono';
+import { callerRef, visibleTo } from './accounts';
 import { inputError } from './errors';
 import type { AppEnv } from './types';
 
-/** Portal search (`/api/search/query`) over the D1 full-text index. */
+/**
+ * Portal search (`/api/search/query`) over the D1 full-text index. A
+ * document is found, and counted, only by those who may see the entity it
+ * is about.
+ */
 export const searchRoutes = new Hono<AppEnv>();
 
 const PAGE_SIZE = 25;
+
+const documentField = (name: string) =>
+  `json_extract(search_documents.document, '$.${name}')`;
+
+// The ref of the entity a document is about. Every document is about one:
+// the catalog's (catalog.mjs, catalog/users.ts) name it in the last part of
+// their address, /catalog/<namespace>/<kind>/<name>, and those of
+// documentation pages (techdocs.mjs) in a field. A document that names none
+// has no ref, and is shown to nobody.
+const DOCUMENT_ENTITY_REF = `lower(${documentField(
+  'kind',
+)} || ':' || ${documentField(
+  'namespace',
+)} || '/' || CASE search_documents.type WHEN 'techdocs' THEN ${documentField(
+  'name',
+)} ELSE substr(${documentField(
+  'location',
+)}, length('/catalog/' || ${documentField(
+  'namespace',
+)} || '/' || ${documentField('kind')} || '/') + 1) END)`;
 
 /**
  * Turns free text into an FTS5 query: every word must match, as a prefix.
@@ -57,7 +82,12 @@ searchRoutes.get('/query', async c => {
     );
     params.push(field, JSON.stringify(values));
   }
-  const condition = where.length ? `WHERE ${where.join(' AND ')}` : '';
+  const visible = visibleTo(callerRef(c));
+  where.push(
+    `EXISTS (SELECT 1 FROM final_entities e WHERE e.entity_ref = ${DOCUMENT_ENTITY_REF} AND (${visible.sql}))`,
+  );
+  params.push(...visible.params);
+  const condition = `WHERE ${where.join(' AND ')}`;
 
   // Title matches weigh ten times a match in the description.
   const [rows, total] = await c.env.DB.batch<Record<string, unknown>>([

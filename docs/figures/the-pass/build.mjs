@@ -1,6 +1,7 @@
-// Builds the-pass.html: an interactive figure of a template run on the
-// Cloudflare deployment, drawn as a service lift between a counter and a
-// workshop. The portal serves it at /figures/the-pass.html.
+// Builds the-pass.html: an interactive figure of a template run where the
+// portal is hosted without a server of its own, drawn as a service lift
+// between a counter and a workshop. The portal serves it on every host at
+// /figures/the-pass.html, so its words say which hosting it shows.
 //
 //   node docs/figures/the-pass/build.mjs
 //   node docs/figures/the-pass/build.mjs --out /tmp/pass --theme light
@@ -676,7 +677,7 @@ const svg = k.figureSvg({
   width: WIDTH,
   height: HEIGHT,
   label:
-    'A service lift between a counter and a workshop bench below it. A ticket rides the lift down from the counter, is handed onto the bench, four lamps on the bench light one after another, and a box rides back up to be shelved in a rack on the counter. It shows a template run on the Cloudflare deployment: the Worker hands the work to GitHub Actions and the result comes back.',
+    'A service lift between a counter and a workshop bench below it. A ticket rides the lift down from the counter, is handed onto the bench, four lamps on the bench light one after another, and a box rides back up to be shelved in a rack on the counter. It shows a template run where the portal is hosted without a server of its own: the portal hands the work to GitHub Actions and the result comes back.',
   body: [
     plate(),
     `<g data-part="weight" transform="${k.translateAlong(P, [
@@ -847,11 +848,11 @@ const body = k.plateHtml({
     },
     {
       mark: 'raised',
-      label: 'Counter: the Worker. Bench: GitHub Actions, one lamp a step',
+      label: 'Counter: the portal. Bench: GitHub Actions, one lamp a step',
     },
   ],
   caption:
-    'A template run on the Cloudflare deployment. The Worker cannot run a template itself, so it sends the request down to GitHub Actions and waits. Most of the 1 minute 27 seconds of this real run is the lift going down: the runner being prepared. The four steps take seconds, and the result is back on the shelf as soon as the last one finishes.',
+    'A template run where the portal is hosted without a server of its own. The portal cannot run a template there, so it sends the request down to GitHub Actions and waits. Most of the 1 minute 27 seconds of this real run is the lift going down: the runner being prepared. The four steps take seconds, and the result is back on the shelf as soon as the last one finishes. On a virtual machine or in a container the portal runs the same four steps itself, and there is no lift.',
   body: `<div class="iso-stage" tabindex="0" role="slider" aria-label="A template run: arrow keys move between its stages" aria-valuemin="0" aria-valuemax="${RUN.finishedAt}" aria-valuenow="0">${svg}</div>`,
 });
 
@@ -867,8 +868,28 @@ const OUT =
   flag('--out') ??
   join(HERE, '..', '..', '..', 'packages', 'app', 'public', 'figures');
 const forced = flag('--theme');
-const page = k
-  .pageHtml({ title: 'The pass: a template run', theme: 'dark', body })
+// The kit sets the page in the reader's system font. The portal has its own
+// type, so the page takes it instead: the same Lato and font stacks as the
+// app, from the stylesheet the app's tokens are written to.
+const KIT_FONT =
+  'font:14px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif';
+const kitPage = k.pageHtml({
+  title: 'The pass: a template run',
+  theme: 'dark',
+  body,
+});
+if (!kitPage.includes(KIT_FONT)) {
+  throw new Error('The kit no longer sets the page font where this expects it');
+}
+const page = kitPage
+  .replace(
+    KIT_FONT,
+    'font-size:14px;line-height:1.6;font-family:var(--portal-font)',
+  )
+  .replace(
+    '</head>',
+    '<link rel="stylesheet" href="/fonts/type.css"><style>body.iso{--anatomy-mono:var(--portal-mono)}</style></head>',
+  )
   .replace(
     '<body class="iso" data-theme="dark">',
     '<body class="iso" data-theme="dark"><script src="the-pass.theme.js"></script>',

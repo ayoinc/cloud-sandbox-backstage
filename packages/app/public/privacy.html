@@ -10,155 +10,98 @@
       content="How this developer portal uses the details it receives when you sign in."
     />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <style>
-      :root {
-        --page: #f3f3f8;
-        --text: #1a1c1e;
-        --muted: #43474e;
-        --link: #005399;
-        --header: #004149;
-        --border: #c3c6cf;
-      }
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --page: #111418;
-          --text: #e2e2e9;
-          --muted: #c3c6cf;
-          --link: #a4c9ff;
-          --header: #001f24;
-          --border: #43474e;
-        }
-      }
-      body {
-        margin: 0;
-        background: var(--page);
-        color: var(--text);
-        font-family: Lato, 'Helvetica Neue', Arial, sans-serif;
-        font-size: 1.125rem;
-        line-height: 1.6;
-      }
-      header {
-        background: var(--header);
-        padding: 16px 24px;
-      }
-      header a {
-        color: #fff;
-        font-weight: 700;
-        text-decoration: none;
-      }
-      main {
-        max-width: 44rem;
-        margin: 0 auto;
-        padding: 32px 24px 64px;
-      }
-      h1 {
-        font-size: 2.25rem;
-        line-height: 1.2;
-        margin: 0 0 8px;
-      }
-      h2 {
-        font-size: 1.5rem;
-        line-height: 1.3;
-        margin: 40px 0 8px;
-      }
-      p,
-      ul {
-        margin: 0 0 16px;
-      }
-      .updated {
-        color: var(--muted);
-      }
-      a {
-        color: var(--link);
-      }
-      a:focus-visible {
-        outline: 3px solid #ffdd00;
-        outline-offset: 0;
-        background: #ffdd00;
-        color: #0b0c0c;
-        box-shadow: 0 4px #0b0c0c;
-        text-decoration: none;
-      }
-      table {
-        border-collapse: collapse;
-        width: 100%;
-        margin: 0 0 16px;
-      }
-      th,
-      td {
-        text-align: left;
-        vertical-align: top;
-        padding: 8px 16px 8px 0;
-        border-bottom: 1px solid var(--border);
-      }
-    </style>
+    <link rel="stylesheet" href="/pages.css" />
   </head>
   <body>
     <header><a href="/">Developer portal</a></header>
     <main>
       <h1>Privacy notice</h1>
-      <p class="updated">Last updated: 10 November 2026</p>
+      <p class="updated">Last updated: 11 November 2026</p>
 
       <p>
         This is a developer portal. It lists software, APIs and documentation
         for the teams that use it. This notice explains what the portal learns
         about you when you sign in, and what it does with it.
       </p>
-
-      <h2>Who runs the portal</h2>
       <p>
-        The platform team runs this portal at
-        <span data-portal-host>this address</span>. To ask a question or use any
-        of your rights below, contact
-        <a data-portal-contact>the person who gave you access</a>.
+        The portal is run by the organisation or team that gave you access to
+        it. "We" in this notice means them. To ask a question or use any of your
+        rights below, contact the person who sent you this portal's address.
       </p>
 
       <h2>What we collect</h2>
       <p>
-        You sign in with a GitHub or Google account. We ask that provider who
-        you are and receive only the details below. We never see your password,
-        and we do not ask for access to your repositories, files, contacts or
-        email.
+        You sign in with a GitHub or Google account, whichever this portal
+        offers. To sign you in we ask that provider only who you are, and keep
+        only the details below. We never see your password. On some portals a
+        page that shows a component's builds asks GitHub for access to your
+        repositories the first time you open it; GitHub shows you the request
+        and you can refuse it. If the portal offers a guest account and you
+        choose it, we receive nothing from GitHub or Google: everyone who uses
+        the guest account shares it.
       </p>
       <table>
         <thead>
           <tr>
             <th scope="col">If you sign in with</th>
-            <th scope="col">We receive</th>
+            <th scope="col">We keep</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td>GitHub</td>
-            <td>
+            <th scope="row">GitHub</th>
+            <td data-label="We receive">
               Your username, display name, profile picture address and public
               email address, if you have one
             </td>
           </tr>
           <tr>
-            <td>Google</td>
-            <td>Your email address, name and profile picture address</td>
+            <th scope="row">Google</th>
+            <td data-label="We receive">
+              Your email address, name and profile picture address
+            </td>
           </tr>
         </tbody>
       </table>
       <p>While you use the portal we also keep:</p>
       <ul>
         <li>
-          the preferences you set, such as your theme and the items you star
+          the preferences you save in the portal, such as the items you star.
+          Your theme and a few other settings stay in your browser only; the
+          <a href="/cookies.html">cookies page</a> lists them
+        </li>
+        <li>
+          the pages you open in the portal: the name and address of up to 100,
+          when you last opened each and how often. The Home page uses them to
+          show you the pages you visited recently and most
         </li>
         <li>
           technical request logs: the page or API address requested, the time,
-          the response status and your network address
+          the response status and your network address, and your user name when
+          you sign out or a sign-in is refused
         </li>
       </ul>
+      <p>
+        If you create or join an organisation in the portal, we keep your
+        membership: your user name, your role, who added you and when. If
+        someone invites you to an organisation, we keep the invitation: your
+        user name, the role offered, who invited you and when. The members of
+        that organisation can see both. A person you invite sees your user name,
+        and the people who run the portal can see who owns each organisation. An
+        organisation's name, logo and theme are public: its sign-in page shows
+        them before anyone has signed in.
+      </p>
 
       <h2>How we use it</h2>
       <ul>
         <li>To check that you are allowed to use the portal.</li>
         <li>
-          To show your name and picture in the portal, to you and to the other
-          people signed in to it: for example as the person who created a
-          component or started a template.
+          To show your name, picture and email address in the portal: to you,
+          and to the members of your organisation if you are in one, in the list
+          of users, in search, and as the person who created a component or
+          started a template. On some portals the people who run it list
+          everyone who may sign in, and that list may be shown to everyone
+          signed in.
         </li>
         <li>To remember your preferences between visits.</li>
         <li>To keep the portal secure and to find and fix faults.</li>
@@ -170,42 +113,70 @@
 
       <h2>Cookies</h2>
       <p>
-        The portal sets only the cookies it needs to work. There are no
-        advertising or analytics cookies.
+        The portal sets only the cookies it needs to work: there are no
+        advertising or analytics cookies. The
+        <a href="/cookies.html">cookies page</a> lists each one, the other
+        settings kept in your browser, and how to remove them.
       </p>
-      <ul>
-        <li>
-          A sign-in cookie keeps you signed in for up to 7 days. It holds your
-          username or email address, name and picture address, and is protected
-          so that it cannot be read by scripts or altered.
-        </li>
-        <li>
-          A short-lived cookie, kept for up to 10 minutes, protects the sign-in
-          step itself.
-        </li>
-      </ul>
+
+      <h2>Counting visits</h2>
+      <p data-portal-analytics hidden>
+        This portal counts visits. The counting sets no cookies, keeps nothing
+        in your browser and records nothing that identifies you. The
+        <a href="/cookies.html">cookies page</a> lists what it records.
+      </p>
+      <p data-portal-no-analytics>This portal does not count visits.</p>
 
       <h2>Where it is kept and who else handles it</h2>
       <p>
-        The portal runs on Cloudflare, which stores your preferences and the
-        request logs on our behalf. GitHub and Google handle your sign-in under
-        their own privacy policies. We share your details with nobody else,
-        unless the law requires it.
+        Your details, your preferences and your organisation are stored in the
+        portal's database, and the request logs on the servers the portal runs
+        on, both chosen by whoever runs the portal. The account provider you
+        sign in with, GitHub or Google, handles your sign-in under its own
+        privacy policy.
+      </p>
+      <p>
+        When you run a template, the portal may hand the run to an automation
+        service, such as GitHub Actions, in a repository that belongs to whoever
+        runs the portal. The run fetches what you entered in the form from the
+        portal and uses it to do the work; the run's own record names the
+        template and the steps, not you, and holds the error if the run fails.
+        If whoever runs the portal has turned on full logs, people who can see
+        that repository's runs can also read what the template's steps print. We
+        share your details with nobody else, unless the law requires it.
+      </p>
+      <p data-portal-analytics hidden>
+        The service that counts visits holds those counts on our behalf.
       </p>
 
       <h2>How long we keep it</h2>
       <ul>
-        <li>Your sign-in ends when you sign out, or after 7 days.</li>
+        <li>
+          Your sign-in ends when you sign out, when the portal has been open but
+          unused for one hour, or when it expires.
+        </li>
         <li>
           Your name, picture address and email address are kept as your entry in
-          the portal's list of users until you ask us to delete it.
+          the portal's list of users. It can be written again when you next sign
+          in, so to remove it for good, ask us to delete it and stop using the
+          portal.
         </li>
         <li>
-          Your preferences are kept until you remove them or ask us to delete
-          them.
+          The list of pages you opened is kept until you ask us to delete it;
+          older entries drop off after 100.
         </li>
         <li>
-          Request logs are kept for a short period set by Cloudflare and then
+          Your preferences are kept until you change them back in the portal or
+          ask us to delete them.
+        </li>
+        <li>
+          Request logs are kept for as long as the servers the portal runs on
+          are set to keep them.
+        </li>
+        <li>
+          Your membership of an organisation is kept until you leave, an owner
+          removes you, or the organisation is deleted. An invitation is kept
+          until you answer it, an owner takes it back, or the organisation is
           deleted.
         </li>
       </ul>
@@ -218,11 +189,8 @@
         <a href="https://github.com/settings/applications">GitHub settings</a>
         or your
         <a href="https://myaccount.google.com/connections">Google Account</a>.
-        If you are in the UK and are unhappy with how we handle a request, you
-        can complain to the
-        <a href="https://ico.org.uk/make-a-complaint/"
-          >Information Commissioner's Office</a
-        >.
+        If you are unhappy with how we handle a request, you can complain to the
+        data protection authority where you live.
       </p>
 
       <h2>Changes to this notice</h2>
@@ -231,5 +199,18 @@
         and the date at the top.
       </p>
     </main>
+    <footer>
+      <nav aria-label="Portal information">
+        <ul>
+          <li>
+            <a href="/privacy.html" aria-current="page">Privacy notice</a>
+          </li>
+          <li><a href="/cookies.html">Cookies</a></li>
+          <li><a href="/guides.html">Guides</a></li>
+          <li><a href="/sitemap.html">Sitemap</a></li>
+          <li><a href="/">Open the portal</a></li>
+        </ul>
+      </nav>
+    </footer>
   </body>
 </html>

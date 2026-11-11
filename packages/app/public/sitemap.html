@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Sitemap | Developer portal</title>
+    <meta
+      name="description"
+      content="The main pages of this developer portal and their addresses: the pages open to everyone and the pages you reach after you sign in."
+    />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/pages.css" />
+  </head>
+  <body>
+    <header><a href="/">Developer portal</a></header>
+    <main>
+      <h1>Sitemap</h1>
+      <p class="updated">Last updated: 11 November 2026</p>
+
+      <h2>Open to everyone</h2>
+      <ul class="pages">
+        <li><a href="/">Sign in</a> <code>/</code></li>
+        <li>
+          <a href="/privacy.html">Privacy notice</a>
+          <code>/privacy.html</code>
+        </li>
+        <li><a href="/cookies.html">Cookies</a> <code>/cookies.html</code></li>
+        <li><a href="/guides.html">Guides</a> <code>/guides.html</code></li>
+        <li>
+          <a href="/sitemap.html" aria-current="page">Sitemap</a>
+          <code>/sitemap.html</code>
+        </li>
+        <li>
+          An organisation's sign-in page
+          <code>/o/your-organisation</code>
+        </li>
+      </ul>
+
+      <h2>After you sign in</h2>
+      <p>
+        These are the main pages, grouped as the sidebar groups them. A member
+        of an organisation sees them under the organisation's address: for the
+        organisation at <code>/o/acme</code>, the catalog is at
+        <code>/o/acme/catalog</code>. A page marked "if you are allowed" opens
+        only for the people the portal's administrators have chosen.
+      </p>
+
+      <h3>Search</h3>
+      <ul class="pages">
+        <li><a href="/search">Search</a> <code>/search</code></li>
+      </ul>
+
+      <h3>Menu</h3>
+      <ul class="pages">
+        <li><a href="/home">Home</a> <code>/home</code></li>
+        <li>
+          <a href="/catalog">Catalog</a> <code>/catalog</code>
+          <span class="note">(where you arrive after signing in)</span>
+          <ul>
+            <li>
+              <a href="/catalog?filters%5Bkind%5D=component">Components</a>
+              <code>/catalog?filters[kind]=component</code>
+            </li>
+            <li>
+              <a href="/catalog?filters%5Bkind%5D=api">APIs</a>
+              <code>/catalog?filters[kind]=api</code>
+            </li>
+            <li>
+              <a href="/catalog?filters%5Bkind%5D=resource">Resources</a>
+              <code>/catalog?filters[kind]=resource</code>
+            </li>
+            <li>
+              <a href="/catalog?filters%5Bkind%5D=template">Templates</a>
+              <code>/catalog?filters[kind]=template</code>
+            </li>
+            <li>
+              <a href="/catalog?filters%5Bkind%5D=domain">Domains</a>
+              <code>/catalog?filters[kind]=domain</code>
+            </li>
+            <li>
+              <a href="/catalog?filters%5Bkind%5D=system">Systems</a>
+              <code>/catalog?filters[kind]=system</code>
+            </li>
+            <li>
+              <a href="/catalog?filters%5Bkind%5D=group">Groups</a>
+              <code>/catalog?filters[kind]=group</code>
+            </li>
+            <li>
+              The page of one catalog entry
+              <code>/catalog/&lt;namespace&gt;/&lt;kind&gt;/&lt;name&gt;</code>
+            </li>
+          </ul>
+        </li>
+        <li>
+          <a href="/docs">Docs</a> <code>/docs</code>
+          <ul>
+            <li>
+              The documentation of one catalog entry
+              <code>/docs/&lt;namespace&gt;/&lt;kind&gt;/&lt;name&gt;</code>
+            </li>
+          </ul>
+        </li>
+        <li>
+          <a href="/create">Create...</a> <code>/create</code>
+          <span class="note">(the templates)</span>
+          <ul>
+            <li>
+              <a href="/create/tasks">Tasks</a> <code>/create/tasks</code>
+            </li>
+            <li>
+              <a href="/create/actions">Actions</a>
+              <code>/create/actions</code>
+            </li>
+            <li>
+              <a href="/create/templating-extensions">Templating extensions</a>
+              <code>/create/templating-extensions</code>
+            </li>
+            <li>
+              <a href="/create/edit">Template editor</a>
+              <code>/create/edit</code>
+              <span class="note">(if you are allowed)</span>
+            </li>
+          </ul>
+        </li>
+        <li><a href="/api-docs">API explorer</a> <code>/api-docs</code></li>
+        <li>
+          <a href="/catalog-graph">Catalog Graph</a>
+          <code>/catalog-graph</code>
+        </li>
+        <li>
+          <a href="/catalog-import">Register an existing component</a>
+          <code>/catalog-import</code>
+          <span class="note">(if you are allowed)</span>
+        </li>
+      </ul>
+
+      <h3>Notifications</h3>
+      <ul class="pages">
+        <li>
+          <a href="/notifications">Notifications</a>
+          <code>/notifications</code>
+        </li>
+      </ul>
+
+      <h3>Settings</h3>
+      <ul class="pages">
+        <li>
+          <a href="/settings">Settings</a> <code>/settings</code>
+          <ul>
+            <li>
+              <a href="/settings/general">General</a>
+              <code>/settings/general</code>
+            </li>
+            <li>
+              <a href="/settings/auth-providers">Authentication Providers</a>
+              <code>/settings/auth-providers</code>
+            </li>
+            <li>
+              <a href="/settings/feature-flags">Feature Flags</a>
+              <code>/settings/feature-flags</code>
+            </li>
+            <li>
+              <a href="/settings/organisation">Organisation</a>
+              <code>/settings/organisation</code>
+            </li>
+          </ul>
+        </li>
+        <li>
+          Teams: the catalog pages of the groups you belong to
+          <code>/catalog/&lt;namespace&gt;/group/&lt;name&gt;</code>
+        </li>
+        <li>
+          <a href="/catalog?filters%5Bkind%5D=user">Users</a>
+          <code>/catalog?filters[kind]=user</code>
+        </li>
+        <li><a href="/visualizer">Visualizer</a> <code>/visualizer</code></li>
+      </ul>
+
+      <h3>Pages that are not in the sidebar</h3>
+      <ul class="pages">
+        <li>
+          <a href="/admin/administrators">Portal administrators</a>
+          <code>/admin/administrators</code>
+          <span class="note">(if you are allowed)</span>
+        </li>
+        <li>
+          <a href="/admin/ownership">Ownership management</a>
+          <code>/admin/ownership</code>
+          <span class="note">(changing an owner: if you are allowed)</span>
+        </li>
+        <li>
+          <a href="/github-org">GitHub organisation</a>
+          <code>/github-org</code>
+        </li>
+      </ul>
+    </main>
+    <footer>
+      <nav aria-label="Portal information">
+        <ul>
+          <li><a href="/privacy.html">Privacy notice</a></li>
+          <li><a href="/cookies.html">Cookies</a></li>
+          <li><a href="/guides.html">Guides</a></li>
+          <li><a href="/sitemap.html" aria-current="page">Sitemap</a></li>
+          <li><a href="/">Open the portal</a></li>
+        </ul>
+      </nav>
+    </footer>
+  </body>
+</html>

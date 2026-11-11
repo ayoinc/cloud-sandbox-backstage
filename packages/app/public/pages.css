@@ -1,0 +1,249 @@
+/*
+ * Shared by the public pages: privacy, cookies, guides and sitemap.
+ * Generated from the brand tokens (packages/brand/src/pages/pagesCss.ts):
+ * change it there, then run
+ *   UPDATE_PUBLIC_PAGES=1 yarn workspace app test src/publicPages.test.ts
+ */
+/* Generated from the brand tokens (packages/brand/src/pages/pagesCss.ts). */
+@font-face {
+  font-family: 'Lato';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/lato-latin-400-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Lato';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/lato-latin-400-italic.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Lato';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/lato-latin-700-normal.woff2') format('woff2');
+}
+:root {
+  --portal-font: "Lato", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --portal-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+}
+:root {
+  color-scheme: light dark;
+  --page: #f4f3f7;
+  --text: #1a1c1e;
+  --muted: #43474e;
+  --link: #3f4a5a;
+  --link-hover: #263140;
+  --link-visited: #685879;
+  --header: #1f2933;
+  --on-header: #ffffff;
+  --accent: #a1acbf;
+  --border: #c3c6cf;
+  --code: #eeedf1;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page: #121316;
+    --text: #e3e2e6;
+    --muted: #c3c6cf;
+    --link: #bcc7db;
+    --link-hover: #d8e3f7;
+    --link-visited: #d3bfe5;
+    --header: #121d26;
+    --on-header: #ffffff;
+    --accent: #bcc7db;
+    --border: #43474e;
+    --code: #1e2022;
+  }
+}
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--text);
+  font-family: "Lato", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
+  overflow-wrap: break-word;
+}
+header {
+  background: var(--header);
+  padding: 16px 24px;
+}
+header a {
+  color: var(--on-header);
+  font-size: 1.1875rem;
+  font-weight: 700;
+}
+header a:hover,
+header a:visited {
+  color: var(--on-header);
+}
+main {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 40px 24px 48px;
+}
+h1,
+h2,
+h3 {
+  font-weight: 700;
+  line-height: 1.2;
+}
+h1 {
+  font-size: 2.25rem;
+  margin: 0 0 12px;
+}
+/* The rule under the page's title, as on the sign-in page. */
+h1::after {
+  content: '';
+  display: block;
+  width: 64px;
+  height: 4px;
+  margin-top: 16px;
+  background: var(--accent);
+}
+h2 {
+  font-size: 1.875rem;
+  margin: 40px 0 8px;
+}
+h3 {
+  font-size: 1.5rem;
+  margin: 24px 0 8px;
+}
+p,
+ul,
+ol,
+table {
+  margin: 0 0 16px;
+}
+li {
+  margin: 0 0 4px;
+}
+.lead {
+  font-size: 1.1875rem;
+}
+.updated,
+.note,
+.pages code {
+  color: var(--muted);
+}
+.updated {
+  font-size: 0.875rem;
+}
+code {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 0.875em;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--code);
+  overflow-wrap: anywhere;
+}
+a {
+  color: var(--link);
+  text-decoration: underline;
+  text-decoration-thickness: max(1px, 0.0625rem);
+  text-underline-offset: 0.15em;
+}
+a:visited {
+  color: var(--link-visited);
+}
+a:hover {
+  color: var(--link-hover);
+  text-decoration-thickness: max(3px, 0.1875rem);
+}
+a:focus-visible {
+  outline: 3px solid transparent;
+  color: #0b0c0c;
+  background-color: #ffdd00;
+  box-shadow: 0 -2px #ffdd00, 0 4px #0b0c0c;
+  text-decoration: none;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+th,
+td {
+  text-align: left;
+  vertical-align: top;
+  padding: 8px 16px 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+th {
+  font-weight: 700;
+}
+/* Lists of pages: the name, then its address. */
+.pages {
+  list-style: none;
+  padding: 0;
+}
+.pages li {
+  padding: 8px 0;
+  margin: 0;
+  border-bottom: 1px solid var(--border);
+}
+.pages ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0 0 0 24px;
+}
+.pages ul li:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+footer {
+  border-top: 1px solid var(--border);
+  font-size: 0.875rem;
+}
+footer nav {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 24px 24px 40px;
+}
+footer ul {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin: 0;
+  padding: 0;
+}
+footer li {
+  margin: 0;
+}
+footer a[aria-current='page'] {
+  color: var(--text);
+  font-weight: 700;
+}
+/* On a narrow screen each table row becomes a block, cell under cell. */
+@media (max-width: 40rem) {
+  thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  tr,
+  th,
+  td {
+    display: block;
+  }
+  tr {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  th,
+  td {
+    padding: 2px 0;
+    border-bottom: 0;
+  }
+  td[data-label]::before {
+    content: attr(data-label) ': ';
+    font-weight: 700;
+  }
+}

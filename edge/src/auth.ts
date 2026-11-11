@@ -1,5 +1,5 @@
 import { Hono, type Context, type MiddlewareHandler } from 'hono';
-import { setCookie } from 'hono/cookie';
+import { deleteCookie, setCookie } from 'hono/cookie';
 import { recordSignIn } from './catalog/users';
 import { base64ToBytes, bytesToBase64 } from './encoding';
 import { authenticationError, notFoundError } from './errors';
@@ -279,4 +279,14 @@ guestRoutes.get('/refresh', async c => {
       GUEST_USER,
     ),
   });
+});
+
+// Signing out as a guest ends the guest's session here too.
+guestRoutes.post('/logout', c => {
+  // Browsers cannot set this header across origins without a CORS preflight.
+  if (c.req.header('x-requested-with') !== 'XMLHttpRequest') {
+    throw authenticationError('Invalid X-Requested-With header');
+  }
+  deleteCookie(c, PORTAL_SESSION.name, { path: PORTAL_SESSION.path });
+  return c.body(null, 200);
 });

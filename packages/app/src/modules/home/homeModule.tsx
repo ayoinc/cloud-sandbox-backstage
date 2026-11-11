@@ -13,7 +13,7 @@ components from approved templates.
 - **Find software**: browse the [software catalog](/catalog)
 - **Create something new**: start from a [template](/create)
 - **Read the docs**: open [documentation](/docs) for any service
-- **Register existing work**: add a repository through
+- **Register existing work**: portal administrators add a repository through
   [catalog import](/catalog-import)
 
 ### See how it works
@@ -23,6 +23,7 @@ components from approved templates.
 
 ### Get help
 
+- [Guides](/guides.html): signing in, organisations, finding things, templates
 - [Portal source and issues](https://github.com/ayoinc/cloud-sandbox-backstage)
 - [Backstage documentation](https://backstage.io/docs)
 `;

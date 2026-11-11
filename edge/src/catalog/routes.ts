@@ -1,4 +1,5 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
+import { callerRef } from '../accounts';
 import { decodeJson, encodeJson } from '../encoding';
 import { inputError, notFoundError } from '../errors';
 import { rawJson } from '../json';
@@ -142,12 +143,12 @@ function parseTotalItems(value: unknown): QueryEntitiesRequest['totalItems'] {
 }
 
 async function respondToQuery(
-  db: D1Database,
+  c: Context<AppEnv>,
   request: QueryEntitiesRequest,
   fields: string[],
 ): Promise<Response> {
   const project = projection(fields);
-  const result = await queryEntities(db, request);
+  const result = await queryEntities(c.env.DB, callerRef(c), request);
   const pageInfo = {
     ...(result.prevCursor && { prevCursor: encodeJson(result.prevCursor) }),
     ...(result.nextCursor && { nextCursor: encodeJson(result.nextCursor) }),
@@ -165,7 +166,7 @@ catalogRoutes.get('/entities/by-query', c => {
   const cursor = c.req.query('cursor');
   if (cursor) {
     return respondToQuery(
-      c.env.DB,
+      c,
       {
         cursor: decodeCursor(cursor),
         isInitial: false,
@@ -181,7 +182,7 @@ catalogRoutes.get('/entities/by-query', c => {
   });
   const fullTextFields = splitValues(c.req.queries('fullTextFilterFields'));
   return respondToQuery(
-    c.env.DB,
+    c,
     {
       cursor: {
         filter: parseFilterStrings(c.req.queries('filter') ?? []),
@@ -218,7 +219,7 @@ catalogRoutes.post('/entities/by-query', async c => {
   const limit = parseCount(body.limit, 'limit');
   if (body.cursor) {
     return respondToQuery(
-      c.env.DB,
+      c,
       {
         cursor: decodeCursor(body.cursor),
         isInitial: false,
@@ -229,7 +230,7 @@ catalogRoutes.post('/entities/by-query', async c => {
     );
   }
   return respondToQuery(
-    c.env.DB,
+    c,
     {
       cursor: {
         query: body.query,
@@ -263,7 +264,12 @@ catalogRoutes.post('/entities/by-refs', async c => {
   }
   const filter =
     body.query ?? parseFilterStrings(c.req.queries('filter') ?? []);
-  const items = await entitiesByRefs(c.env.DB, body.entityRefs, filter);
+  const items = await entitiesByRefs(
+    c.env.DB,
+    callerRef(c),
+    body.entityRefs,
+    filter,
+  );
   return rawJson(
     `{"items":${serialise(items, projection(body.fields ?? []))}}`,
   );
@@ -271,7 +277,13 @@ catalogRoutes.post('/entities/by-refs', async c => {
 
 catalogRoutes.get('/entities/by-name/:kind/:namespace/:name', async c => {
   const { kind, namespace, name } = c.req.param();
-  const entity = await entityByName(c.env.DB, kind, namespace, name);
+  const entity = await entityByName(
+    c.env.DB,
+    callerRef(c),
+    kind,
+    namespace,
+    name,
+  );
   if (entity === null) {
     throw notFoundError(
       `No entity named '${name}' found, with kind '${kind}' in namespace '${namespace}'`,
@@ -285,7 +297,7 @@ catalogRoutes.get(
   async c => {
     const { kind, namespace, name } = c.req.param();
     const rootRef = `${kind}:${namespace}/${name}`.toLowerCase();
-    const ancestry = await entityAncestry(c.env.DB, rootRef);
+    const ancestry = await entityAncestry(c.env.DB, callerRef(c), rootRef);
     if (ancestry === null) {
       throw notFoundError(`No such entity ${rootRef}`);
     }
@@ -326,7 +338,7 @@ catalogRoutes.get('/entities', async c => {
       isPrevious: false,
     };
     for (let isInitial = true; cursor; isInitial = false) {
-      const batch = await queryEntities(c.env.DB, {
+      const batch = await queryEntities(c.env.DB, callerRef(c), {
         cursor,
         isInitial,
         limit: UNPAGED_BATCH_SIZE,
@@ -338,7 +350,7 @@ catalogRoutes.get('/entities', async c => {
     return rawJson(serialise(items, project));
   }
 
-  const { items, hasNextPage } = await listEntities(c.env.DB, {
+  const { items, hasNextPage } = await listEntities(c.env.DB, callerRef(c), {
     filter,
     order,
     limit,
@@ -375,6 +387,7 @@ catalogRoutes.get('/entity-facets', async c =>
   c.json({
     facets: await entityFacets(
       c.env.DB,
+      callerRef(c),
       requireFacets(c.req.queries('facet')),
       parseFilterStrings(c.req.queries('filter') ?? []),
     ),
@@ -386,6 +399,7 @@ catalogRoutes.post('/entity-facets', async c => {
   return c.json({
     facets: await entityFacets(
       c.env.DB,
+      callerRef(c),
       requireFacets(body.facets),
       body.query,
     ),

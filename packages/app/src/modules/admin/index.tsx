@@ -1,20 +1,24 @@
 import {
+  AppRootElementBlueprint,
   createFrontendModule,
   PageBlueprint,
   SubPageBlueprint,
 } from '@backstage/frontend-plugin-api';
+import { FirstAdminClaim } from '../../components/admin/FirstAdminClaim';
 
 // These pages render their own Page/Header, so the framework page header is
 // suppressed. They have no nav icon and are reached by direct URL, as before.
 
-const brandingAdminPage = PageBlueprint.make({
-  name: 'branding-admin',
+const portalAdminsPage = PageBlueprint.make({
+  name: 'portal-admins',
   params: {
-    path: '/admin/branding',
-    title: 'Branding Settings',
+    path: '/admin/administrators',
+    title: 'Portal administrators',
     noHeader: true,
     loader: () =>
-      import('../../components/branding').then(m => <m.BrandingAdminPage />),
+      import('../../components/admin/PortalAdminsPage').then(m => (
+        <m.PortalAdminsPage />
+      )),
   },
 });
 
@@ -42,26 +46,36 @@ const githubOrgPage = PageBlueprint.make({
   },
 });
 
-export const adminModule = createFrontendModule({
-  pluginId: 'app',
-  extensions: [brandingAdminPage, ownershipManagementPage, githubOrgPage],
+const firstAdminClaim = AppRootElementBlueprint.make({
+  name: 'first-admin-claim',
+  params: { element: <FirstAdminClaim /> },
 });
 
-// Branding is a tab of Settings, beside General and Authentication
+export const adminModule = createFrontendModule({
+  pluginId: 'app',
+  extensions: [
+    portalAdminsPage,
+    ownershipManagementPage,
+    githubOrgPage,
+    firstAdminClaim,
+  ],
+});
+
+// The organisation is a tab of Settings, beside General and Authentication
 // Providers, which is where people look for it.
-const brandingSettingsTab = SubPageBlueprint.make({
-  name: 'branding',
+const organisationSettingsTab = SubPageBlueprint.make({
+  name: 'organisation',
   params: {
-    path: 'branding',
-    title: 'Branding',
+    path: 'organisation',
+    title: 'Organisation',
     loader: async () => {
       const [m, { Content }] = await Promise.all([
-        import('../../components/branding'),
+        import('../../components/organisation/OrganisationPage'),
         import('@backstage/core-components'),
       ]);
       return (
         <Content>
-          <m.BrandingControls />
+          <m.OrganisationControls />
         </Content>
       );
     },
@@ -70,5 +84,5 @@ const brandingSettingsTab = SubPageBlueprint.make({
 
 export const settingsModule = createFrontendModule({
   pluginId: 'user-settings',
-  extensions: [brandingSettingsTab],
+  extensions: [organisationSettingsTab],
 });

@@ -91,6 +91,7 @@ export const OwnershipManagementPage = () => {
   const [tabValue, setTabValue] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notAllowed, setNotAllowed] = useState(false);
   const [entities, setEntities] = useState<EntityInfo[]>([]);
   const [orphans, setOrphans] = useState<EntityInfo[]>([]);
   const [groups, setGroups] = useState<GroupInfo[]>([]);
@@ -108,6 +109,15 @@ export const OwnershipManagementPage = () => {
         fetchApi.fetch('plugin://ownership-management/orphans'),
         fetchApi.fetch('plugin://ownership-management/groups'),
       ]);
+
+      // The page is for portal administrators. Anyone can open its address,
+      // and is told so instead of being shown three failures.
+      if (
+        [entitiesRes, orphansRes, groupsRes].some(res => res.status === 403)
+      ) {
+        setNotAllowed(true);
+        return;
+      }
 
       const errors: string[] = [];
 
@@ -294,6 +304,25 @@ export const OwnershipManagementPage = () => {
         />
         <Content>
           <Progress />
+        </Content>
+      </Page>
+    );
+  }
+
+  if (notAllowed) {
+    return (
+      <Page themeId="tool">
+        <Header
+          title="Ownership Management"
+          subtitle="Manage entity ownership and orphans"
+        />
+        <Content>
+          <Typography variant="h6">
+            Only portal administrators can manage ownership
+          </Typography>
+          <Typography variant="body1" color="textSecondary">
+            Ask a portal administrator if an entity needs a new owner.
+          </Typography>
         </Content>
       </Page>
     );

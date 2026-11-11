@@ -1,6 +1,7 @@
 import { Hono, type MiddlewareHandler } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { getMimeType } from 'hono/utils/mime';
+import { callerRef, visibleTo } from './accounts';
 import { requireUser, signInFromHeader, signToken, verifyToken } from './auth';
 import {
   parseLocationRef,
@@ -16,7 +17,8 @@ import type { AppEnv } from './types';
 /**
  * The Backstage TechDocs API (`/api/techdocs`). Documentation is built by
  * the pipeline and stored in R2 under `sites/<siteId>/`; the `techdocs_sites`
- * table says which site belongs to an entity.
+ * table says which site belongs to an entity. An entity's documentation is
+ * read by those who may see the entity; for everyone else it is not there.
  *
  * Mounted ahead of the Worker's user check because it does its own: every
  * route needs a signed-in user, and files under `/static` also accept the
@@ -45,19 +47,23 @@ const entityRef = ({ kind, namespace, name }: EntityParams) =>
   `${kind}:${namespace}/${name}`.toLowerCase();
 
 /**
- * A file of the documentation site published for an entity, or `null`. Has
- * no body when the caller's copy (`ifNoneMatch`) is still current.
+ * A file of the documentation site published for an entity, or `null`:
+ * also when `viewer` may not see the entity, whose documentation then does
+ * not exist for them. Has no body when the caller's copy (`ifNoneMatch`) is
+ * still current.
  */
 async function siteFile(
   env: Env,
+  viewer: string,
   ref: string,
   path: string,
   ifNoneMatch?: string,
 ) {
+  const visible = visibleTo(viewer);
   const siteId = await env.DB.prepare(
-    'SELECT site_id FROM techdocs_sites WHERE entity_ref = ?',
+    `SELECT t.site_id AS site_id FROM techdocs_sites t JOIN final_entities e ON e.entity_ref = ? WHERE t.entity_ref = ? AND (${visible.sql})`,
   )
-    .bind(ref)
+    .bind(ref, ref, ...visible.params)
     .first<string>('site_id');
   return siteId
     ? env.TECHDOCS.get(`sites/${siteId}/${path}`, {
@@ -81,10 +87,21 @@ const requireReader: MiddlewareHandler<AppEnv> = async (c, next) => {
       : undefined;
   if (!cookie) {
     await signInFromHeader(c);
-  } else if (
-    !(await verifyToken(c.env.SESSION_SECRET, COOKIE_AUDIENCE, cookie))
-  ) {
-    throw authenticationError('Invalid or expired cookie');
+  } else {
+    const claims = await verifyToken(
+      c.env.SESSION_SECRET,
+      COOKIE_AUDIENCE,
+      cookie,
+    );
+    if (typeof claims?.sub !== 'string') {
+      throw authenticationError('Invalid or expired cookie');
+    }
+    // The cookie names who it was given to: they are the reader, and are
+    // served the documentation of the entities they may see.
+    c.set('user', {
+      userEntityRef: claims.sub,
+      ownershipEntityRefs: [claims.sub],
+    });
   }
   await next();
 };
@@ -140,6 +157,7 @@ techdocsRoutes.get(`${STATIC_ROOT}*`, async c => {
   const path = file.join('/');
   const object = await siteFile(
     c.env,
+    callerRef(c),
     ref,
     path,
     c.req.header('if-none-match'),
@@ -197,7 +215,12 @@ techdocsRoutes.get(COOKIE_ROUTE, async c => {
 
 techdocsRoutes.get('/metadata/techdocs/:namespace/:kind/:name', async c => {
   const ref = entityRef(c.req.param());
-  const metadata = await siteFile(c.env, ref, 'techdocs_metadata.json');
+  const metadata = await siteFile(
+    c.env,
+    callerRef(c),
+    ref,
+    'techdocs_metadata.json',
+  );
   if (!metadata || !('body' in metadata)) {
     throw notFoundError(`Unable to get metadata for '${ref}'`);
   }
@@ -278,7 +301,13 @@ function docsLocation(entity: Entity): LocationRef | undefined {
 
 techdocsRoutes.get('/metadata/entity/:namespace/:kind/:name', async c => {
   const { namespace, kind, name } = c.req.param();
-  const stored = await entityByName(c.env.DB, kind, namespace, name);
+  const stored = await entityByName(
+    c.env.DB,
+    callerRef(c),
+    kind,
+    namespace,
+    name,
+  );
   const entity = stored === null ? undefined : (JSON.parse(stored) as Entity);
   const locationMetadata = entity && docsLocation(entity);
   if (!locationMetadata) {
@@ -294,7 +323,9 @@ techdocsRoutes.get('/metadata/entity/:namespace/:kind/:name', async c => {
 // this event before it shows a page.
 techdocsRoutes.get('/sync/:namespace/:kind/:name', async c => {
   const { namespace, kind, name } = c.req.param();
-  if ((await entityByName(c.env.DB, kind, namespace, name)) === null) {
+  if (
+    (await entityByName(c.env.DB, callerRef(c), kind, namespace, name)) === null
+  ) {
     throw notFoundError('Entity metadata UID missing');
   }
   return new Response('event: finish\ndata: {"updated":false}\n\n', {

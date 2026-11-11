@@ -2912,7 +2912,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/core-app-api@npm:^1.20.6":
+"@backstage/core-app-api@backstage:^::backstage=1.56.4&npm=1.20.6, @backstage/core-app-api@npm:^1.20.6":
   version: 1.20.6
   resolution: "@backstage/core-app-api@npm:1.20.6"
   dependencies:
@@ -6797,6 +6797,7 @@ __metadata:
     "@testing-library/dom": "npm:^10.0.0"
     "@testing-library/jest-dom": "npm:^6.0.0"
     "@testing-library/react": "npm:^16.0.0"
+    "@testing-library/user-event": "npm:^14.0.0"
     lucide-react: "npm:0.468.0"
     react: "npm:^18.0.2"
     react-dom: "npm:^18.0.2"
@@ -13482,7 +13483,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/multer@npm:^1.4.12, @types/multer@npm:^1.4.13":
+"@types/multer@npm:^1.4.13":
   version: 1.4.13
   resolution: "@types/multer@npm:1.4.13"
   dependencies:
@@ -14851,6 +14852,8 @@ __metadata:
     "@backstage-community/plugin-sonarqube": "npm:^1.4.0"
     "@backstage/catalog-model": "backstage:^"
     "@backstage/cli": "backstage:^"
+    "@backstage/config": "backstage:^"
+    "@backstage/core-app-api": "backstage:^"
     "@backstage/core-compat-api": "backstage:^"
     "@backstage/core-components": "backstage:^"
     "@backstage/core-plugin-api": "backstage:^"
@@ -15530,14 +15533,12 @@ __metadata:
     "@types/amqplib": "npm:^0.10.5"
     "@types/express": "npm:^5"
     "@types/jest": "npm:^30.0.0"
-    "@types/multer": "npm:^1.4.12"
     amqplib: "npm:^0.10.5"
     app: "link:../app"
     better-sqlite3: "npm:^12.0.0"
     express: "npm:^5.2.1"
     express-rate-limit: "npm:^8.3.0"
     knex: "npm:^3.1.0"
-    multer: "npm:^2.0.2"
     node-gyp: "npm:^10.0.0"
     pg: "npm:^8.11.3"
   languageName: unknown

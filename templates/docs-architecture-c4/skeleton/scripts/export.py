@@ -39,8 +39,8 @@ BUILD = OUT / ".build"
 C4 = DOCS / "diagrams" / "c4.d2"
 HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
 DEFAULT_COLOUR = "#3f4a5a"
-# The primary colour of each of the portal's theme presets, for a portal
-# whose administrator chose a preset and no colour of their own.
+# The primary colour of each of the portal's theme presets, for an
+# organisation whose owner chose a preset and no colour of their own.
 PRESET_COLOURS = {
     "neutral": "#3f4a5a",
     "harbour": "#005399",
@@ -74,13 +74,21 @@ def fetch(url: str) -> tuple[bytes, str]:
 
 
 def portal_brand(portal_url: str) -> dict:
-    """What the portal's administrator set: name, colour and logo, if any."""
-    settings_url = portal_url.rstrip("/") + "/api/branding-settings"
+    """What the organisation's owner set: name, colour and logo, if any.
+
+    `portal_url` is the organisation's address in the portal, such as
+    https://portal.example.com/o/acme.
+    """
+    address = urllib.parse.urlsplit(portal_url)
+    match = re.match(r"/o/([a-z0-9][a-z0-9-]*)/?$", address.path)
+    if not match:
+        raise ValueError("portal_url must be an organisation's address, ending /o/<name>")
+    settings_url = f"{address.scheme}://{address.netloc}/api/organisations/{match[1]}"
     body, _ = fetch(settings_url)
     settings = json.loads(body)
     brand: dict = {}
-    if settings.get("organizationName"):
-        brand["organisation"] = settings["organizationName"]
+    if settings.get("name"):
+        brand["organisation"] = settings["name"]
     colour = settings.get("primaryColor") or PRESET_COLOURS.get(settings.get("themePreset") or "")
     if colour:
         brand["primary_colour"] = colour

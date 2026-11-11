@@ -43,4 +43,5 @@ report as the `delivery-pack` artifact.
 ## Brand it
 
 `brand.yaml` holds the organisation name, logo and primary colour. Set
-`portal_url` there and they are read from the portal's branding settings.
+`portal_url` there to your organisation's address in the portal
+(`https://portal.example.org/o/acme`) and they are read from it.

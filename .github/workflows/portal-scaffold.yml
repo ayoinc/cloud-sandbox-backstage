@@ -10,14 +10,28 @@
 # Only the portal starts it, acting as the repository owner; a run started by
 # anyone else does nothing.
 #
+# The portal gives a run the id of its task and the name of the template, no
+# more: a run's inputs, its name and its log can be read by everyone who can
+# see this repository. The values of the template form and who filled it in
+# are asked of the portal by the script, with the pipeline's token, and are
+# not printed.
+#
 # Repository configuration: see portal-sync.yml. Here PORTAL_GITHUB_TOKEN must
 # also be allowed to create repositories and push workflow files for the
 # owners the templates publish to.
+#
+# Optional repository variable:
+#   PORTAL_VERBOSE_LOG   'true' to print in the run's log what each step of
+#                        the template logs. Off by default, because this
+#                        repository's logs may be public and a step's
+#                        messages name what the user is creating. Without
+#                        it the log names the steps and how each ended; the
+#                        user reads the messages in the portal either way.
 # =============================================================================
 
 name: Portal scaffold
 # The portal finds a task's run by the task id in this name
-run-name: Create from ${{ inputs.template_ref }} for ${{ inputs.created_by }} (${{ inputs.task_id }})
+run-name: Create from ${{ inputs.template_ref }} (${{ inputs.task_id }})
 
 on:
   workflow_dispatch:
@@ -28,14 +42,6 @@ on:
         type: string
       template_ref:
         description: Template entity ref, e.g. template:default/nodejs-service
-        required: true
-        type: string
-      values:
-        description: The form values, as a JSON object
-        required: true
-        type: string
-      created_by:
-        description: Entity ref of the user who started the run
         required: true
         type: string
 
@@ -102,9 +108,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           PORTAL_GITHUB_TOKEN: ${{ secrets.PORTAL_GITHUB_TOKEN }}
           PORTAL_TASK_ID: ${{ inputs.task_id }}
-          PORTAL_TEMPLATE_REF: ${{ inputs.template_ref }}
-          PORTAL_TASK_VALUES: ${{ inputs.values }}
-          PORTAL_CREATED_BY: ${{ inputs.created_by }}
+          PORTAL_VERBOSE_LOG: ${{ vars.PORTAL_VERBOSE_LOG }}
         run: yarn workspace @internal/edge template:run
 
       # The script reports its own failures. This covers a run that broke

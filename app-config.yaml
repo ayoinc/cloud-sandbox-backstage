@@ -127,7 +127,9 @@ app:
     - page:cost-insights: false
 
 organization:
-  name: Platform Team
+  # What the portal is called outside an organisation. At an organisation's
+  # address (/o/<slug>) the app uses the organisation's own name instead.
+  name: Developer Portal
 
 backend:
   baseUrl: http://localhost
@@ -196,13 +198,13 @@ auth:
   session:
     secret: ${AUTH_SESSION_SECRET}
   providers:
-    # Guest auth provider for development/demo purposes only
-    # SECURITY WARNING: This allows unauthenticated access to Backstage
-    # In production with GITHUB_CLIENT_ID set, consider removing guest auth entirely
-    # and relying solely on GitHub OAuth for authentication
+    # Guest sign-in is ON. Everyone who uses it shares one account
+    # (user:development/guest), which can register catalog files and run
+    # templates, and sees what that account registered. To turn it off once
+    # GitHub sign-in is configured, replace the two lines below with
+    # `guest: null`, or set dangerouslyAllowOutsideDevelopment to false
+    # (it then works only when NODE_ENV is development).
     guest:
-      # DEVELOPMENT ONLY: Set to false in production to disable guest access
-      # When enabled, users can browse without authentication (limited to read-only)
       dangerouslyAllowOutsideDevelopment: true
     # GitHub OAuth for real GitHub users
     github:

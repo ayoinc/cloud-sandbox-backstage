@@ -1,3 +1,4 @@
+import { refShownTo } from '../accounts';
 import { inputError } from '../errors';
 import { isRecord } from '../json';
 
@@ -14,9 +15,29 @@ const isPrimitive = (value: unknown): value is Primitive =>
   typeof value === 'number' ||
   typeof value === 'boolean';
 
-/** `EXISTS` over the search rows of the entity aliased `e`. */
-const searchExists = (condition: string) =>
-  `EXISTS (SELECT 1 FROM search s WHERE s.entity_id = e.entity_id AND ${condition})`;
+/**
+ * `EXISTS` over the search rows the entity aliased `e` has under `key`
+ * that also meet `condition`. A row under `relations.<type>` holds the ref
+ * of another entity: `viewer` is not to learn from a filter that an entity
+ * they may not see exists and points here, so to them such a row is not
+ * there.
+ */
+function searchExists(
+  viewer: string,
+  key: string,
+  condition?: string,
+  params: unknown[] = [],
+): SqlFragment {
+  const shown = key.startsWith('relations.')
+    ? refShownTo(viewer, 's.value')
+    : undefined;
+  return {
+    sql: `EXISTS (SELECT 1 FROM search s WHERE s.entity_id = e.entity_id AND s.key = ?${
+      condition ? ` AND ${condition}` : ''
+    }${shown ? ` AND ${shown.sql}` : ''})`,
+    params: [key, ...params, ...(shown?.params ?? [])],
+  };
+}
 
 /** Membership test against a JSON array bound as one parameter. */
 export const inJsonArray = (column: string) =>
@@ -29,12 +50,13 @@ const join = (parts: SqlFragment[], operator: 'AND' | 'OR'): SqlFragment => ({
 
 /**
  * Translates a Backstage catalog filter predicate into SQL over `search`,
- * for a query whose entity table is aliased `e`.
+ * for a query whose entity table is aliased `e` and that `viewer`, a
+ * lower-case user ref, makes.
  *
  * Port of `applyPredicateEntityFilterToQuery` in
  * `@backstage/plugin-catalog-backend`; keep the two in step when upgrading.
  */
-export function predicateToSql(filter: unknown): SqlFragment {
+export function predicateToSql(filter: unknown, viewer: string): SqlFragment {
   if (!isRecord(filter)) {
     throw inputError(
       `Invalid filter predicate: top-level primitive values are not supported. Wrap the value in a field expression, e.g. { "kind": ${JSON.stringify(
@@ -42,20 +64,21 @@ export function predicateToSql(filter: unknown): SqlFragment {
       )} }`,
     );
   }
+  const translate = (part: unknown) => predicateToSql(part, viewer);
   if ('$not' in filter) {
-    const inner = predicateToSql(filter.$not);
+    const inner = translate(filter.$not);
     return { sql: `NOT (${inner.sql})`, params: inner.params };
   }
   if ('$all' in filter) {
     const parts = asArray(filter.$all, '$all');
     return parts.length
-      ? join(parts.map(predicateToSql), 'AND')
+      ? join(parts.map(translate), 'AND')
       : { sql: '1 = 1', params: [] };
   }
   if ('$any' in filter) {
     const parts = asArray(filter.$any, '$any');
     return parts.length
-      ? join(parts.map(predicateToSql), 'OR')
+      ? join(parts.map(translate), 'OR')
       : { sql: '1 = 0', params: [] };
   }
   const fields = Object.entries(filter);
@@ -63,7 +86,9 @@ export function predicateToSql(filter: unknown): SqlFragment {
     return { sql: '1 = 1', params: [] };
   }
   return join(
-    fields.map(([key, value]) => fieldCondition(key.toLowerCase(), value)),
+    fields.map(([key, value]) =>
+      fieldCondition(key.toLowerCase(), value, viewer),
+    ),
     'AND',
   );
 }
@@ -75,46 +100,49 @@ function asArray(value: unknown, operator: string): unknown[] {
   return value;
 }
 
-function fieldCondition(key: string, value: unknown): SqlFragment {
+function fieldCondition(
+  key: string,
+  value: unknown,
+  viewer: string,
+): SqlFragment {
   if (isPrimitive(value)) {
-    return {
-      sql: searchExists('s.key = ? AND s.value = ?'),
-      params: [key, String(value).toLowerCase()],
-    };
+    return searchExists(viewer, key, 's.value = ?', [
+      String(value).toLowerCase(),
+    ]);
   }
   if (isRecord(value)) {
     if ('$exists' in value) {
-      const exists = searchExists('s.key = ?');
-      return { sql: value.$exists ? exists : `NOT ${exists}`, params: [key] };
+      const exists = searchExists(viewer, key);
+      return value.$exists
+        ? exists
+        : { sql: `NOT ${exists.sql}`, params: exists.params };
     }
     if ('$in' in value) {
       const values = asArray(value.$in, '$in').map(v =>
         String(v).toLowerCase(),
       );
-      return {
-        sql: searchExists(`s.key = ? AND ${inJsonArray('s.value')}`),
-        params: [key, JSON.stringify(values)],
-      };
+      return searchExists(viewer, key, inJsonArray('s.value'), [
+        JSON.stringify(values),
+      ]);
     }
     if ('$hasPrefix' in value) {
       const prefix = String(value.$hasPrefix).toLowerCase();
       // substr() rather than LIKE: D1 caps LIKE patterns at 50 bytes.
-      return {
-        sql: searchExists('s.key = ? AND substr(s.value, 1, length(?)) = ?'),
-        params: [key, prefix, prefix],
-      };
+      return searchExists(viewer, key, 'substr(s.value, 1, length(?)) = ?', [
+        prefix,
+        prefix,
+      ]);
     }
     if ('$contains' in value) {
       const target = value.$contains;
       if (isPrimitive(target)) {
-        return {
-          sql: searchExists('s.key = ? AND s.value = ?'),
-          params: [key, String(target).toLowerCase()],
-        };
+        return searchExists(viewer, key, 's.value = ?', [
+          String(target).toLowerCase(),
+        ]);
       }
       if (isRecord(target)) {
         if (key === 'relations') {
-          return relationCondition(target);
+          return relationCondition(target, viewer);
         }
         throw inputError(
           `Object form of $contains is not supported for field "${key}"`,
@@ -134,7 +162,10 @@ function fieldCondition(key: string, value: unknown): SqlFragment {
   );
 }
 
-function relationCondition(target: Record<string, unknown>): SqlFragment {
+function relationCondition(
+  target: Record<string, unknown>,
+  viewer: string,
+): SqlFragment {
   let type: string | undefined;
   let targetRefs: string[] | undefined;
   for (const [rawKey, value] of Object.entries(target)) {
@@ -165,11 +196,10 @@ function relationCondition(target: Record<string, unknown>): SqlFragment {
   }
   const key = `relations.${type.toLowerCase()}`;
   return targetRefs
-    ? {
-        sql: searchExists(`s.key = ? AND ${inJsonArray('s.value')}`),
-        params: [key, JSON.stringify(targetRefs)],
-      }
-    : { sql: searchExists('s.key = ?'), params: [key] };
+    ? searchExists(viewer, key, inJsonArray('s.value'), [
+        JSON.stringify(targetRefs),
+      ])
+    : searchExists(viewer, key);
 }
 
 function relationTargets(value: unknown): string[] {

@@ -1,0 +1,3619 @@
+[
+  {
+    "name": "an organisation is created, anyone can read it and its owner sees it",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "  Acme {run} ",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/acme-{run}",
+        "headers": {
+          "cache-control": "no-store"
+        },
+        "status": 200,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "GET",
+        "path": "/",
+        "status": 200,
+        "body": {
+          "organisation": {
+            "slug": "acme-{run}",
+            "name": "Acme {run}",
+            "logoFullUrl": null,
+            "logoIconUrl": null,
+            "primaryColor": null,
+            "themePreset": null
+          },
+          "role": "owner",
+          "userEntityRef": "{jane}",
+          "canCreate": false,
+          "invitations": []
+        }
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/nobody-{run}",
+        "status": 404,
+        "body": {
+          "error": "No such organisation"
+        }
+      }
+    ]
+  },
+  {
+    "name": "without credentials the caller is not told anything",
+    "steps": [
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/",
+        "status": 401
+      }
+    ]
+  },
+  {
+    "name": "an address that is taken is refused and nothing is left behind",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "kim",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Other {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 409,
+        "body": {
+          "error": "That address is taken"
+        }
+      },
+      {
+        "as": "kim",
+        "method": "GET",
+        "path": "/",
+        "status": 200,
+        "body": {
+          "organisation": null,
+          "role": null,
+          "userEntityRef": "{kim}",
+          "canCreate": true,
+          "invitations": []
+        }
+      }
+    ]
+  },
+  {
+    "name": "a second organisation for the same user is refused",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Two {run}",
+          "slug": "two-{run}"
+        },
+        "status": 409,
+        "body": {
+          "error": "You already belong to an organisation. Leave it before you create or join another"
+        }
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/two-{run}",
+        "status": 404,
+        "body": {
+          "error": "No such organisation"
+        }
+      }
+    ]
+  },
+  {
+    "name": "an invalid address, name or body is refused",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "Acme-{run}"
+        },
+        "status": 400,
+        "body": {
+          "error": "The address must be 3 to 40 lower-case letters, digits and dashes, starting and ending with a letter or digit"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "-{run}"
+        },
+        "status": 400,
+        "body": {
+          "error": "The address must be 3 to 40 lower-case letters, digits and dashes, starting and ending with a letter or digit"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}"
+        },
+        "status": 400,
+        "body": {
+          "error": "The address must be 3 to 40 lower-case letters, digits and dashes, starting and ending with a letter or digit"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "   ",
+          "slug": "acme-{run}"
+        },
+        "status": 400,
+        "body": {
+          "error": "The organisation name must be 1 to 80 characters on one line, with a letter or digit in it"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "slug": "acme-{run}"
+        },
+        "status": 400,
+        "body": {
+          "error": "The organisation name must be 1 to 80 characters on one line, with a letter or digit in it"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": ["{run}"],
+        "status": 400,
+        "body": {
+          "error": "The request body must be a JSON object"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "file": "text",
+        "contentType": "application/json",
+        "status": 400,
+        "body": {
+          "error": "The request body must be a JSON object"
+        }
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/acme-{run}",
+        "status": 404,
+        "body": {
+          "error": "No such organisation"
+        }
+      }
+    ]
+  },
+  {
+    "name": "the guest account cannot create an organisation",
+    "steps": [
+      {
+        "as": "guest",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Guests {run}",
+          "slug": "guests-{run}"
+        },
+        "status": 403,
+        "body": {
+          "error": "The guest account cannot create an organisation. Sign in with your own account"
+        }
+      },
+      {
+        "as": "guest",
+        "method": "GET",
+        "path": "/",
+        "status": 200,
+        "body": {
+          "organisation": null,
+          "role": null,
+          "userEntityRef": "user:development/guest",
+          "canCreate": false,
+          "invitations": []
+        }
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/guests-{run}",
+        "status": 404,
+        "body": {
+          "error": "No such organisation"
+        }
+      }
+    ]
+  },
+  {
+    "name": "an unknown organisation is 404 before anything else on a signed-in route",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "PATCH",
+        "path": "/nobody-{run}",
+        "json": {
+          "primaryColor": "not a colour"
+        },
+        "status": 404,
+        "body": {
+          "error": "No such organisation"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "DELETE",
+        "path": "/nobody-{run}",
+        "status": 404,
+        "body": {
+          "error": "No such organisation"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "GET",
+        "path": "/nobody-{run}/members",
+        "status": 404,
+        "body": {
+          "error": "No such organisation"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/nobody-{run}/members",
+        "json": {
+          "entityRef": "kim-{run}"
+        },
+        "status": 404,
+        "body": {
+          "error": "No such organisation"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/nobody-{run}/join",
+        "status": 404,
+        "body": {
+          "error": "No such organisation"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "DELETE",
+        "path": "/nobody-{run}/members/kim-{run}",
+        "status": 404,
+        "body": {
+          "error": "No such organisation"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "PUT",
+        "path": "/nobody-{run}/logo/full",
+        "file": "png",
+        "contentType": "image/png",
+        "status": 404,
+        "body": {
+          "error": "No such organisation"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "DELETE",
+        "path": "/nobody-{run}/logo/full",
+        "status": 404,
+        "body": {
+          "error": "No such organisation"
+        }
+      }
+    ]
+  },
+  {
+    "name": "only an owner can change the organisation",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "kim",
+        "method": "PATCH",
+        "path": "/acme-{run}",
+        "json": {
+          "name": "Mine now"
+        },
+        "status": 403,
+        "body": {
+          "error": "You are not a member of this organisation"
+        }
+      },
+      {
+        "as": "kim",
+        "method": "GET",
+        "path": "/acme-{run}/members",
+        "status": 403,
+        "body": {
+          "error": "You are not a member of this organisation"
+        }
+      },
+      {
+        "as": "kim",
+        "method": "DELETE",
+        "path": "/acme-{run}",
+        "status": 403,
+        "body": {
+          "error": "You are not a member of this organisation"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "kim-{run}"
+        },
+        "status": 200
+      },
+      {
+        "as": "kim",
+        "method": "POST",
+        "path": "/acme-{run}/join",
+        "status": 200,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "kim",
+        "method": "PATCH",
+        "path": "/acme-{run}",
+        "json": {
+          "name": "Mine now"
+        },
+        "status": 403,
+        "body": {
+          "error": "Only an owner can change this organisation"
+        }
+      },
+      {
+        "as": "kim",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "sam-{run}"
+        },
+        "status": 403,
+        "body": {
+          "error": "Only an owner can change this organisation"
+        }
+      },
+      {
+        "as": "kim",
+        "method": "DELETE",
+        "path": "/acme-{run}",
+        "status": 403,
+        "body": {
+          "error": "Only an owner can change this organisation"
+        }
+      },
+      {
+        "as": "kim",
+        "method": "PATCH",
+        "path": "/acme-{run}",
+        "json": {
+          "primaryColor": "not a colour"
+        },
+        "status": 403,
+        "body": {
+          "error": "Only an owner can change this organisation"
+        }
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/acme-{run}",
+        "status": 200,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      }
+    ]
+  },
+  {
+    "name": "changes are trimmed, and an empty value clears",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "PATCH",
+        "path": "/acme-{run}",
+        "json": {
+          "name": "  New {run} ",
+          "primaryColor": " #1A2B3C ",
+          "themePreset": " forest "
+        },
+        "status": 200,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "New {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": "#1A2B3C",
+          "themePreset": "forest"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "PATCH",
+        "path": "/acme-{run}",
+        "json": {
+          "primaryColor": ""
+        },
+        "status": 200,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "New {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": "forest"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "PATCH",
+        "path": "/acme-{run}",
+        "json": {
+          "themePreset": null
+        },
+        "status": 200,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "New {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "PATCH",
+        "path": "/acme-{run}",
+        "json": {
+          "primaryColor": "blue"
+        },
+        "status": 400,
+        "body": {
+          "error": "The colour must be # and six hex digits, such as #1a2b3c"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "PATCH",
+        "path": "/acme-{run}",
+        "json": {
+          "themePreset": "Forest"
+        },
+        "status": 400,
+        "body": {
+          "error": "The theme must be the name of a built-in theme, such as forest"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "PATCH",
+        "path": "/acme-{run}",
+        "json": {
+          "name": ""
+        },
+        "status": 400,
+        "body": {
+          "error": "The organisation name must be 1 to 80 characters on one line, with a letter or digit in it"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "PATCH",
+        "path": "/acme-{run}",
+        "json": {},
+        "status": 200,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "New {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/acme-{run}",
+        "status": 200,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "New {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      }
+    ]
+  },
+  {
+    "name": "an invitation is seen by the person invited, who joins with its role",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "kim-{run}",
+          "role": "owner"
+        },
+        "status": 200,
+        "body": {
+          "members": [
+            {
+              "userEntityRef": "{jane}",
+              "role": "owner",
+              "addedAt": "<any>",
+              "addedBy": "{jane}"
+            }
+          ],
+          "invitations": [
+            {
+              "userEntityRef": "{kim}",
+              "role": "owner",
+              "invitedAt": "<any>",
+              "invitedBy": "{jane}"
+            }
+          ]
+        }
+      },
+      {
+        "as": "kim",
+        "method": "GET",
+        "path": "/",
+        "status": 200,
+        "body": {
+          "organisation": null,
+          "role": null,
+          "userEntityRef": "{kim}",
+          "canCreate": true,
+          "invitations": [
+            {
+              "slug": "acme-{run}",
+              "name": "Acme {run}",
+              "role": "owner",
+              "invitedBy": "{jane}"
+            }
+          ]
+        }
+      },
+      {
+        "as": "kim",
+        "method": "GET",
+        "path": "/acme-{run}/members",
+        "status": 403,
+        "body": {
+          "error": "You are not a member of this organisation"
+        }
+      },
+      {
+        "as": "kim",
+        "method": "POST",
+        "path": "/acme-{run}/join",
+        "status": 200,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "kim",
+        "method": "GET",
+        "path": "/",
+        "status": 200,
+        "body": {
+          "organisation": {
+            "slug": "acme-{run}",
+            "name": "Acme {run}",
+            "logoFullUrl": null,
+            "logoIconUrl": null,
+            "primaryColor": null,
+            "themePreset": null
+          },
+          "role": "owner",
+          "userEntityRef": "{kim}",
+          "canCreate": false,
+          "invitations": []
+        }
+      },
+      {
+        "as": "kim",
+        "method": "GET",
+        "path": "/acme-{run}/members",
+        "status": 200,
+        "body": {
+          "members": [
+            {
+              "userEntityRef": "{jane}",
+              "role": "owner",
+              "addedAt": "<any>",
+              "addedBy": "{jane}"
+            },
+            {
+              "userEntityRef": "{kim}",
+              "role": "owner",
+              "addedAt": "<any>",
+              "addedBy": "{jane}"
+            }
+          ],
+          "invitations": []
+        }
+      }
+    ]
+  },
+  {
+    "name": "a person is invited once, and a member is not invited",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "USER:default/Kim-{run}"
+        },
+        "status": 200,
+        "body": {
+          "members": [
+            {
+              "userEntityRef": "{jane}",
+              "role": "owner",
+              "addedAt": "<any>",
+              "addedBy": "{jane}"
+            }
+          ],
+          "invitations": [
+            {
+              "userEntityRef": "{kim}",
+              "role": "member",
+              "invitedAt": "<any>",
+              "invitedBy": "{jane}"
+            }
+          ]
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "kim-{run}"
+        },
+        "status": 409,
+        "body": {
+          "error": "That person has already been invited"
+        }
+      },
+      {
+        "as": "kim",
+        "method": "POST",
+        "path": "/acme-{run}/join",
+        "status": 200,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "kim-{run}"
+        },
+        "status": 409,
+        "body": {
+          "error": "That person is already a member of this organisation"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "{jane}"
+        },
+        "status": 409,
+        "body": {
+          "error": "That person is already a member of this organisation"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "GET",
+        "path": "/acme-{run}/members",
+        "status": 200,
+        "body": {
+          "members": [
+            {
+              "userEntityRef": "{jane}",
+              "role": "owner",
+              "addedAt": "<any>",
+              "addedBy": "{jane}"
+            },
+            {
+              "userEntityRef": "{kim}",
+              "role": "member",
+              "addedAt": "<any>",
+              "addedBy": "{jane}"
+            }
+          ],
+          "invitations": []
+        }
+      }
+    ]
+  },
+  {
+    "name": "the guest, a group or an unknown role cannot be invited",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "user:development/guest"
+        },
+        "status": 400,
+        "body": {
+          "error": "Enter a person's user name, such as jane, or their full email address. Groups and the guest account cannot be invited"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "group:default/team-{run}"
+        },
+        "status": 400,
+        "body": {
+          "error": "Enter a person's user name, such as jane, or their full email address. Groups and the guest account cannot be invited"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {},
+        "status": 400,
+        "body": {
+          "error": "Enter a person's user name, such as jane, or their full email address. Groups and the guest account cannot be invited"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "kim-{run}",
+          "role": "admin"
+        },
+        "status": 400,
+        "body": {
+          "error": "The role must be member or owner"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "GET",
+        "path": "/acme-{run}/members",
+        "status": 200,
+        "body": {
+          "members": [
+            {
+              "userEntityRef": "{jane}",
+              "role": "owner",
+              "addedAt": "<any>",
+              "addedBy": "{jane}"
+            }
+          ],
+          "invitations": []
+        }
+      }
+    ]
+  },
+  {
+    "name": "nobody joins without an invitation",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "kim",
+        "method": "POST",
+        "path": "/acme-{run}/join",
+        "status": 404,
+        "body": {
+          "error": "You have not been invited to this organisation"
+        }
+      },
+      {
+        "as": "kim",
+        "method": "GET",
+        "path": "/",
+        "status": 200,
+        "body": {
+          "organisation": null,
+          "role": null,
+          "userEntityRef": "{kim}",
+          "canCreate": true,
+          "invitations": []
+        }
+      }
+    ]
+  },
+  {
+    "name": "a person in an organisation cannot join another",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "kim",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Other {run}",
+          "slug": "other-{run}"
+        },
+        "status": 201
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "kim-{run}"
+        },
+        "status": 200
+      },
+      {
+        "as": "kim",
+        "method": "POST",
+        "path": "/acme-{run}/join",
+        "status": 409,
+        "body": {
+          "error": "You already belong to an organisation. Leave it before you create or join another"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "GET",
+        "path": "/acme-{run}/members",
+        "status": 200,
+        "body": {
+          "members": [
+            {
+              "userEntityRef": "{jane}",
+              "role": "owner",
+              "addedAt": "<any>",
+              "addedBy": "{jane}"
+            }
+          ],
+          "invitations": [
+            {
+              "userEntityRef": "{kim}",
+              "role": "member",
+              "invitedAt": "<any>",
+              "invitedBy": "{jane}"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "a person invited declines",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "kim-{run}"
+        },
+        "status": 200
+      },
+      {
+        "as": "kim",
+        "method": "DELETE",
+        "path": "/acme-{run}/members/user%3Adefault%2Fkim-{run}",
+        "status": 204
+      },
+      {
+        "as": "kim",
+        "method": "GET",
+        "path": "/",
+        "status": 200,
+        "body": {
+          "organisation": null,
+          "role": null,
+          "userEntityRef": "{kim}",
+          "canCreate": true,
+          "invitations": []
+        }
+      },
+      {
+        "as": "kim",
+        "method": "POST",
+        "path": "/acme-{run}/join",
+        "status": 404,
+        "body": {
+          "error": "You have not been invited to this organisation"
+        }
+      },
+      {
+        "as": "kim",
+        "method": "DELETE",
+        "path": "/acme-{run}/members/user%3Adefault%2Fkim-{run}",
+        "status": 404,
+        "body": {
+          "error": "No such member"
+        }
+      }
+    ]
+  },
+  {
+    "name": "an owner takes back an invitation",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "kim-{run}"
+        },
+        "status": 200
+      },
+      {
+        "as": "jane",
+        "method": "DELETE",
+        "path": "/acme-{run}/members/user%3Adefault%2Fkim-{run}",
+        "status": 204
+      },
+      {
+        "as": "jane",
+        "method": "GET",
+        "path": "/acme-{run}/members",
+        "status": 200,
+        "body": {
+          "members": [
+            {
+              "userEntityRef": "{jane}",
+              "role": "owner",
+              "addedAt": "<any>",
+              "addedBy": "{jane}"
+            }
+          ],
+          "invitations": []
+        }
+      },
+      {
+        "as": "kim",
+        "method": "GET",
+        "path": "/",
+        "status": 200,
+        "body": {
+          "organisation": null,
+          "role": null,
+          "userEntityRef": "{kim}",
+          "canCreate": true,
+          "invitations": []
+        }
+      },
+      {
+        "as": "jane",
+        "method": "DELETE",
+        "path": "/acme-{run}/members/user%3Adefault%2Fkim-{run}",
+        "status": 404,
+        "body": {
+          "error": "No such member"
+        }
+      }
+    ]
+  },
+  {
+    "name": "a member leaves",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "kim-{run}"
+        },
+        "status": 200
+      },
+      {
+        "as": "kim",
+        "method": "POST",
+        "path": "/acme-{run}/join",
+        "status": 200,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "kim",
+        "method": "DELETE",
+        "path": "/acme-{run}/members/user%3Adefault%2Fkim-{run}",
+        "status": 204
+      },
+      {
+        "as": "kim",
+        "method": "GET",
+        "path": "/",
+        "status": 200,
+        "body": {
+          "organisation": null,
+          "role": null,
+          "userEntityRef": "{kim}",
+          "canCreate": true,
+          "invitations": []
+        }
+      },
+      {
+        "as": "jane",
+        "method": "GET",
+        "path": "/acme-{run}/members",
+        "status": 200,
+        "body": {
+          "members": [
+            {
+              "userEntityRef": "{jane}",
+              "role": "owner",
+              "addedAt": "<any>",
+              "addedBy": "{jane}"
+            }
+          ],
+          "invitations": []
+        }
+      }
+    ]
+  },
+  {
+    "name": "only an owner removes someone else",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "kim-{run}"
+        },
+        "status": 200
+      },
+      {
+        "as": "kim",
+        "method": "POST",
+        "path": "/acme-{run}/join",
+        "status": 200,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "sam-{run}"
+        },
+        "status": 200
+      },
+      {
+        "as": "sam",
+        "method": "DELETE",
+        "path": "/acme-{run}/members/user%3Adefault%2Fkim-{run}",
+        "status": 403,
+        "body": {
+          "error": "You are not a member of this organisation"
+        }
+      },
+      {
+        "as": "sam",
+        "method": "POST",
+        "path": "/acme-{run}/join",
+        "status": 200,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "kim",
+        "method": "DELETE",
+        "path": "/acme-{run}/members/user%3Adefault%2Fsam-{run}",
+        "status": 403,
+        "body": {
+          "error": "Only an owner can change this organisation"
+        }
+      },
+      {
+        "as": "kim",
+        "method": "DELETE",
+        "path": "/acme-{run}/members/user%3Adefault%2Fjane-{run}",
+        "status": 403,
+        "body": {
+          "error": "Only an owner can change this organisation"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "DELETE",
+        "path": "/acme-{run}/members/group%3Adefault%2Fteam",
+        "status": 400,
+        "body": {
+          "error": "Enter a person's user name, such as jane, or their full email address. Groups and the guest account cannot be invited"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "GET",
+        "path": "/acme-{run}/members",
+        "status": 200,
+        "body": {
+          "members": [
+            {
+              "userEntityRef": "{jane}",
+              "role": "owner",
+              "addedAt": "<any>",
+              "addedBy": "{jane}"
+            },
+            {
+              "userEntityRef": "{kim}",
+              "role": "member",
+              "addedAt": "<any>",
+              "addedBy": "{jane}"
+            },
+            {
+              "userEntityRef": "{sam}",
+              "role": "member",
+              "addedAt": "<any>",
+              "addedBy": "{jane}"
+            }
+          ],
+          "invitations": []
+        }
+      }
+    ]
+  },
+  {
+    "name": "the last owner cannot be removed",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "DELETE",
+        "path": "/acme-{run}/members/user%3Adefault%2Fjane-{run}",
+        "status": 409,
+        "body": {
+          "error": "You are the only owner. Invite another owner and wait until they have joined, or delete the organisation"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "kim-{run}"
+        },
+        "status": 200
+      },
+      {
+        "as": "kim",
+        "method": "POST",
+        "path": "/acme-{run}/join",
+        "status": 200,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "DELETE",
+        "path": "/acme-{run}/members/user%3Adefault%2Fjane-{run}",
+        "status": 409,
+        "body": {
+          "error": "You are the only owner. Invite another owner and wait until they have joined, or delete the organisation"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "sam-{run}",
+          "role": "owner"
+        },
+        "status": 200
+      },
+      {
+        "as": "sam",
+        "method": "POST",
+        "path": "/acme-{run}/join",
+        "status": 200,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "DELETE",
+        "path": "/acme-{run}/members/user%3Adefault%2Fjane-{run}",
+        "status": 204
+      },
+      {
+        "as": "sam",
+        "method": "DELETE",
+        "path": "/acme-{run}/members/user%3Adefault%2Fsam-{run}",
+        "status": 409,
+        "body": {
+          "error": "You are the only owner. Invite another owner and wait until they have joined, or delete the organisation"
+        }
+      },
+      {
+        "as": "sam",
+        "method": "GET",
+        "path": "/acme-{run}/members",
+        "status": 200,
+        "body": {
+          "members": [
+            {
+              "userEntityRef": "{kim}",
+              "role": "member",
+              "addedAt": "<any>",
+              "addedBy": "{jane}"
+            },
+            {
+              "userEntityRef": "{sam}",
+              "role": "owner",
+              "addedAt": "<any>",
+              "addedBy": "{jane}"
+            }
+          ],
+          "invitations": []
+        }
+      }
+    ]
+  },
+  {
+    "name": "a bare name in the address removes that person",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "kim-{run}"
+        },
+        "status": 200
+      },
+      {
+        "as": "kim",
+        "method": "POST",
+        "path": "/acme-{run}/join",
+        "status": 200,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "sam-{run}"
+        },
+        "status": 200
+      },
+      {
+        "as": "jane",
+        "method": "DELETE",
+        "path": "/acme-{run}/members/kim-{run}",
+        "status": 204
+      },
+      {
+        "as": "jane",
+        "method": "DELETE",
+        "path": "/acme-{run}/members/sam-{run}",
+        "status": 204
+      },
+      {
+        "as": "jane",
+        "method": "GET",
+        "path": "/acme-{run}/members",
+        "status": 200,
+        "body": {
+          "members": [
+            {
+              "userEntityRef": "{jane}",
+              "role": "owner",
+              "addedAt": "<any>",
+              "addedBy": "{jane}"
+            }
+          ],
+          "invitations": []
+        }
+      }
+    ]
+  },
+  {
+    "name": "a logo is uploaded and served, kept for a year only at its versioned address",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "PUT",
+        "path": "/acme-{run}/logo/full",
+        "file": "png",
+        "contentType": "image/png",
+        "status": 200,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": "<any>",
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/acme-{run}/logo/full",
+        "query": "v={v}",
+        "headers": {
+          "cache-control": "public, max-age=31536000, immutable",
+          "content-type": "image/png",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/acme-{run}/logo/full",
+        "headers": {
+          "cache-control": "no-cache",
+          "content-type": "image/png"
+        },
+        "status": 200
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/acme-{run}/logo/full",
+        "query": "v=1",
+        "headers": {
+          "cache-control": "no-cache"
+        },
+        "status": 200
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/acme-{run}/logo/full",
+        "query": "v={v}&v=1",
+        "headers": {
+          "cache-control": "no-cache"
+        },
+        "status": 200
+      },
+      {
+        "as": "jane",
+        "method": "PUT",
+        "path": "/acme-{run}/logo/icon",
+        "file": "svg",
+        "contentType": "image/svg+xml; charset=utf-8",
+        "status": 200,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": "<any>",
+          "logoIconUrl": "<any>",
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/acme-{run}/logo/icon",
+        "headers": {
+          "cache-control": "no-cache",
+          "content-type": "image/svg+xml"
+        },
+        "status": 200
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/acme-{run}",
+        "status": 200,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": "<any>",
+          "logoIconUrl": "<any>",
+          "primaryColor": null,
+          "themePreset": null
+        }
+      }
+    ]
+  },
+  {
+    "name": "a logo must be the image it says it is, from an owner",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "PUT",
+        "path": "/acme-{run}/logo/full",
+        "file": "text",
+        "contentType": "image/png",
+        "status": 400,
+        "body": {
+          "error": "A logo must be a PNG, JPEG, SVG, WebP or GIF file"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "PUT",
+        "path": "/acme-{run}/logo/full",
+        "file": "text",
+        "contentType": "text/plain",
+        "status": 400,
+        "body": {
+          "error": "A logo must be a PNG, JPEG, SVG, WebP or GIF file"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "PUT",
+        "path": "/acme-{run}/logo/full",
+        "file": "svg",
+        "contentType": "image/png",
+        "status": 400,
+        "body": {
+          "error": "A logo must be a PNG, JPEG, SVG, WebP or GIF file"
+        }
+      },
+      {
+        "as": "kim",
+        "method": "PUT",
+        "path": "/acme-{run}/logo/full",
+        "file": "png",
+        "contentType": "image/png",
+        "status": 403,
+        "body": {
+          "error": "You are not a member of this organisation"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "kim-{run}"
+        },
+        "status": 200
+      },
+      {
+        "as": "kim",
+        "method": "POST",
+        "path": "/acme-{run}/join",
+        "status": 200,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "kim",
+        "method": "PUT",
+        "path": "/acme-{run}/logo/full",
+        "file": "png",
+        "contentType": "image/png",
+        "status": 403,
+        "body": {
+          "error": "Only an owner can change this organisation"
+        }
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/acme-{run}",
+        "status": 200,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      }
+    ]
+  },
+  {
+    "name": "there is no logo of an unknown kind",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "PUT",
+        "path": "/acme-{run}/logo/banner",
+        "file": "png",
+        "contentType": "image/png",
+        "status": 404,
+        "body": {
+          "error": "No such logo"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "DELETE",
+        "path": "/acme-{run}/logo/banner",
+        "status": 404,
+        "body": {
+          "error": "No such logo"
+        }
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/acme-{run}/logo/banner",
+        "status": 404,
+        "body": {
+          "error": "No such logo"
+        }
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/acme-{run}/logo/icon",
+        "status": 404,
+        "body": {
+          "error": "No such logo"
+        }
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/nobody-{run}/logo/full",
+        "status": 404,
+        "body": {
+          "error": "No such logo"
+        }
+      }
+    ]
+  },
+  {
+    "name": "a removed logo is gone from the organisation",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "PUT",
+        "path": "/acme-{run}/logo/full",
+        "file": "png",
+        "contentType": "image/png",
+        "status": 200,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": "<any>",
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "DELETE",
+        "path": "/acme-{run}/logo/full",
+        "status": 200,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/acme-{run}",
+        "status": 200,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/acme-{run}/logo/full",
+        "status": 404,
+        "body": {
+          "error": "No such logo"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "DELETE",
+        "path": "/acme-{run}/logo/full",
+        "status": 200,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      }
+    ]
+  },
+  {
+    "name": "a deleted organisation takes its members, invitations and logos with it",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "kim-{run}"
+        },
+        "status": 200
+      },
+      {
+        "as": "kim",
+        "method": "POST",
+        "path": "/acme-{run}/join",
+        "status": 200,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "sam-{run}"
+        },
+        "status": 200
+      },
+      {
+        "as": "jane",
+        "method": "PUT",
+        "path": "/acme-{run}/logo/full",
+        "file": "png",
+        "contentType": "image/png",
+        "status": 200
+      },
+      {
+        "as": "jane",
+        "method": "DELETE",
+        "path": "/acme-{run}",
+        "status": 204
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/acme-{run}",
+        "status": 404,
+        "body": {
+          "error": "No such organisation"
+        }
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/acme-{run}/logo/full",
+        "status": 404,
+        "body": {
+          "error": "No such logo"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "GET",
+        "path": "/",
+        "status": 200,
+        "body": {
+          "organisation": null,
+          "role": null,
+          "userEntityRef": "{jane}",
+          "canCreate": true,
+          "invitations": []
+        }
+      },
+      {
+        "as": "kim",
+        "method": "GET",
+        "path": "/",
+        "status": 200,
+        "body": {
+          "organisation": null,
+          "role": null,
+          "userEntityRef": "{kim}",
+          "canCreate": true,
+          "invitations": []
+        }
+      },
+      {
+        "as": "sam",
+        "method": "GET",
+        "path": "/",
+        "status": 200,
+        "body": {
+          "organisation": null,
+          "role": null,
+          "userEntityRef": "{sam}",
+          "canCreate": true,
+          "invitations": []
+        }
+      },
+      {
+        "as": "sam",
+        "method": "POST",
+        "path": "/acme-{run}/join",
+        "status": 404,
+        "body": {
+          "error": "No such organisation"
+        }
+      }
+    ]
+  },
+  {
+    "name": "a logo's type is read whatever its letter case",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "PUT",
+        "path": "/acme-{run}/logo/full",
+        "file": "png",
+        "contentType": "IMAGE/PNG",
+        "status": 200
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/acme-{run}/logo/full",
+        "status": 200,
+        "headers": {
+          "content-type": "image/png"
+        }
+      }
+    ]
+  },
+  {
+    "name": "an empty body is not a JSON object",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "PATCH",
+        "path": "/acme-{run}",
+        "status": 400,
+        "body": {
+          "error": "The request body must be a JSON object"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "status": 400,
+        "body": {
+          "error": "The request body must be a JSON object"
+        }
+      },
+      {
+        "as": "kim",
+        "method": "POST",
+        "path": "/",
+        "status": 400,
+        "body": {
+          "error": "The request body must be a JSON object"
+        }
+      }
+    ]
+  },
+  {
+    "name": "a slash at the end of an address makes no difference",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/acme-{run}/",
+        "status": 200,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "GET",
+        "path": "/acme-{run}/members/",
+        "status": 200
+      }
+    ]
+  },
+  {
+    "name": "there is nothing else under an organisation's address",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "GET",
+        "path": "/acme-{run}/nothing",
+        "status": 404
+      },
+      {
+        "as": "jane",
+        "method": "PUT",
+        "path": "/acme-{run}",
+        "json": {},
+        "status": 404
+      }
+    ]
+  },
+  {
+    "name": "a caller who may not remove someone is told so whatever they sent",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "kim-{run}"
+        },
+        "status": 200
+      },
+      {
+        "as": "sam",
+        "method": "DELETE",
+        "path": "/acme-{run}/members/group%3Adefault%2Fteam",
+        "status": 403,
+        "body": {
+          "error": "You are not a member of this organisation"
+        }
+      },
+      {
+        "as": "kim",
+        "method": "POST",
+        "path": "/acme-{run}/join",
+        "status": 200,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "kim",
+        "method": "DELETE",
+        "path": "/acme-{run}/members/group%3Adefault%2Fteam",
+        "status": 403,
+        "body": {
+          "error": "Only an owner can change this organisation"
+        }
+      }
+    ]
+  },
+  {
+    "name": "a name another organisation has is refused, whatever its case and spacing",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "kim",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "  ACME   {run} ",
+          "slug": "other-{run}"
+        },
+        "status": 409,
+        "body": {
+          "error": "Another organisation on this portal already has that name. Choose a different one"
+        }
+      },
+      {
+        "as": "kim",
+        "method": "GET",
+        "path": "/",
+        "status": 200,
+        "body": {
+          "organisation": null,
+          "role": null,
+          "userEntityRef": "{kim}",
+          "canCreate": true,
+          "invitations": []
+        }
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/other-{run}",
+        "status": 404,
+        "body": {
+          "error": "No such organisation"
+        }
+      },
+      {
+        "as": "kim",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run} Two",
+          "slug": "other-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "other-{run}",
+          "name": "Acme {run} Two",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      }
+    ]
+  },
+  {
+    "name": "an organisation is not renamed to a name that is taken, and keeps its own in other case",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "kim",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Other {run}",
+          "slug": "other-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "other-{run}",
+          "name": "Other {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "kim",
+        "method": "PATCH",
+        "path": "/other-{run}",
+        "json": {
+          "name": "acme  {run}"
+        },
+        "status": 409,
+        "body": {
+          "error": "Another organisation on this portal already has that name. Choose a different one"
+        }
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/other-{run}",
+        "status": 200,
+        "body": {
+          "slug": "other-{run}",
+          "name": "Other {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "kim",
+        "method": "PATCH",
+        "path": "/other-{run}",
+        "json": {
+          "name": "OTHER {run}"
+        },
+        "status": 200,
+        "body": {
+          "slug": "other-{run}",
+          "name": "OTHER {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "DELETE",
+        "path": "/acme-{run}",
+        "status": 204
+      },
+      {
+        "as": "kim",
+        "method": "PATCH",
+        "path": "/other-{run}",
+        "json": {
+          "name": "acme {run}"
+        },
+        "status": 200,
+        "body": {
+          "slug": "other-{run}",
+          "name": "acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      }
+    ]
+  },
+  {
+    "name": "an owner changes the address, and members, invitations and logos move with it",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "kim-{run}"
+        },
+        "status": 200
+      },
+      {
+        "as": "kim",
+        "method": "POST",
+        "path": "/acme-{run}/join",
+        "status": 200
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "sam-{run}"
+        },
+        "status": 200
+      },
+      {
+        "as": "jane",
+        "method": "PUT",
+        "path": "/acme-{run}/logo/full",
+        "file": "png",
+        "contentType": "image/png",
+        "status": 200
+      },
+      {
+        "as": "jane",
+        "method": "PATCH",
+        "path": "/acme-{run}",
+        "json": {
+          "slug": "moved-{run}"
+        },
+        "status": 200,
+        "body": {
+          "slug": "moved-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": "<any>",
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/acme-{run}",
+        "status": 404,
+        "body": {
+          "error": "No such organisation"
+        }
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/moved-{run}",
+        "status": 200,
+        "body": {
+          "slug": "moved-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": "<any>",
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/moved-{run}/logo/full",
+        "query": "v={v}",
+        "headers": {
+          "cache-control": "public, max-age=31536000, immutable",
+          "content-type": "image/png"
+        },
+        "status": 200
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/acme-{run}/logo/full",
+        "status": 404,
+        "body": {
+          "error": "No such logo"
+        }
+      },
+      {
+        "as": "kim",
+        "method": "GET",
+        "path": "/",
+        "status": 200,
+        "body": {
+          "organisation": {
+            "slug": "moved-{run}",
+            "name": "Acme {run}",
+            "logoFullUrl": "<any>",
+            "logoIconUrl": null,
+            "primaryColor": null,
+            "themePreset": null
+          },
+          "role": "member",
+          "userEntityRef": "{kim}",
+          "canCreate": false,
+          "invitations": []
+        }
+      },
+      {
+        "as": "kim",
+        "method": "GET",
+        "path": "/moved-{run}/members",
+        "status": 200,
+        "body": {
+          "members": [
+            {
+              "userEntityRef": "{jane}",
+              "role": "owner",
+              "addedAt": "<any>",
+              "addedBy": "{jane}"
+            },
+            {
+              "userEntityRef": "{kim}",
+              "role": "member",
+              "addedAt": "<any>",
+              "addedBy": "{jane}"
+            }
+          ],
+          "invitations": [
+            {
+              "userEntityRef": "{sam}",
+              "role": "member",
+              "invitedAt": "<any>",
+              "invitedBy": "{jane}"
+            }
+          ]
+        }
+      },
+      {
+        "as": "sam",
+        "method": "GET",
+        "path": "/",
+        "status": 200,
+        "body": {
+          "organisation": null,
+          "role": null,
+          "userEntityRef": "{sam}",
+          "canCreate": true,
+          "invitations": [
+            {
+              "slug": "moved-{run}",
+              "name": "Acme {run}",
+              "role": "member",
+              "invitedBy": "{jane}"
+            }
+          ]
+        }
+      },
+      {
+        "as": "sam",
+        "method": "POST",
+        "path": "/acme-{run}/join",
+        "status": 404,
+        "body": {
+          "error": "No such organisation"
+        }
+      },
+      {
+        "as": "sam",
+        "method": "POST",
+        "path": "/moved-{run}/join",
+        "status": 200,
+        "body": {
+          "slug": "moved-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": "<any>",
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "PATCH",
+        "path": "/acme-{run}",
+        "json": {
+          "name": "Gone {run}"
+        },
+        "status": 404,
+        "body": {
+          "error": "No such organisation"
+        }
+      },
+      {
+        "as": "kim",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Next {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 409,
+        "body": {
+          "error": "You already belong to an organisation. Leave it before you create or join another"
+        }
+      }
+    ]
+  },
+  {
+    "name": "an address that is taken or not valid is refused, and only an owner changes it",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "kim",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Other {run}",
+          "slug": "other-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "other-{run}",
+          "name": "Other {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "sam-{run}"
+        },
+        "status": 200
+      },
+      {
+        "as": "sam",
+        "method": "POST",
+        "path": "/acme-{run}/join",
+        "status": 200
+      },
+      {
+        "as": "jane",
+        "method": "PATCH",
+        "path": "/acme-{run}",
+        "json": {
+          "slug": "other-{run}"
+        },
+        "status": 409,
+        "body": {
+          "error": "That address is taken"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "PATCH",
+        "path": "/acme-{run}",
+        "json": {
+          "slug": "No"
+        },
+        "status": 400,
+        "body": {
+          "error": "The address must be 3 to 40 lower-case letters, digits and dashes, starting and ending with a letter or digit"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "PATCH",
+        "path": "/acme-{run}",
+        "json": {
+          "slug": null
+        },
+        "status": 400,
+        "body": {
+          "error": "The address must be 3 to 40 lower-case letters, digits and dashes, starting and ending with a letter or digit"
+        }
+      },
+      {
+        "as": "sam",
+        "method": "PATCH",
+        "path": "/acme-{run}",
+        "json": {
+          "slug": "mine-{run}"
+        },
+        "status": 403,
+        "body": {
+          "error": "Only an owner can change this organisation"
+        }
+      },
+      {
+        "as": "kim",
+        "method": "PATCH",
+        "path": "/acme-{run}",
+        "json": {
+          "slug": "mine-{run}"
+        },
+        "status": 403,
+        "body": {
+          "error": "You are not a member of this organisation"
+        }
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/acme-{run}",
+        "status": 200,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/other-{run}",
+        "status": 200,
+        "body": {
+          "slug": "other-{run}",
+          "name": "Other {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "GET",
+        "path": "/acme-{run}/members",
+        "status": 200,
+        "body": {
+          "members": [
+            {
+              "userEntityRef": "{jane}",
+              "role": "owner",
+              "addedAt": "<any>",
+              "addedBy": "{jane}"
+            },
+            {
+              "userEntityRef": "{sam}",
+              "role": "member",
+              "addedAt": "<any>",
+              "addedBy": "{jane}"
+            }
+          ],
+          "invitations": []
+        }
+      },
+      {
+        "as": "jane",
+        "method": "PATCH",
+        "path": "/acme-{run}",
+        "json": {
+          "slug": "acme-{run}"
+        },
+        "status": 200,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "PATCH",
+        "path": "/acme-{run}",
+        "json": {
+          "slug": "new-{run}",
+          "name": "New {run}",
+          "primaryColor": "#1a2b3c"
+        },
+        "status": 200,
+        "body": {
+          "slug": "new-{run}",
+          "name": "New {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": "#1a2b3c",
+          "themePreset": null
+        }
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/acme-{run}",
+        "status": 404,
+        "body": {
+          "error": "No such organisation"
+        }
+      },
+      {
+        "as": "kim",
+        "method": "PATCH",
+        "path": "/other-{run}",
+        "json": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}"
+        },
+        "status": 200,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      }
+    ]
+  },
+  {
+    "name": "a portal administrator lists every organisation, and nobody else does",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "kim-{run}",
+          "role": "owner"
+        },
+        "status": 200
+      },
+      {
+        "as": "kim",
+        "method": "POST",
+        "path": "/acme-{run}/join",
+        "status": 200
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "sam-{run}"
+        },
+        "status": 200
+      },
+      {
+        "as": "sam",
+        "method": "POST",
+        "path": "/acme-{run}/join",
+        "status": 200
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "someone-{run}"
+        },
+        "status": 200
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/",
+        "query": "scope=portal",
+        "status": 401
+      },
+      {
+        "as": "jane",
+        "method": "GET",
+        "path": "/",
+        "query": "scope=portal",
+        "status": 403,
+        "body": {
+          "error": "Only a portal administrator can list organisations"
+        }
+      },
+      {
+        "as": "guest",
+        "method": "GET",
+        "path": "/",
+        "query": "scope=portal",
+        "status": 403,
+        "body": {
+          "error": "Only a portal administrator can list organisations"
+        }
+      },
+      {
+        "as": "admin",
+        "method": "GET",
+        "path": "/",
+        "query": "scope=portal",
+        "has": {
+          "organisations": [
+            {
+              "slug": "acme-{run}",
+              "name": "Acme {run}",
+              "members": 3,
+              "owners": ["{jane}", "{kim}"]
+            }
+          ]
+        },
+        "status": 200
+      },
+      {
+        "as": "admin",
+        "method": "GET",
+        "path": "/",
+        "status": 200,
+        "body": {
+          "organisation": null,
+          "role": null,
+          "userEntityRef": "{admin}",
+          "canCreate": true,
+          "invitations": []
+        }
+      }
+    ]
+  },
+  {
+    "name": "a portal administrator removes an organisation, and changes nothing else in it",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "kim-{run}"
+        },
+        "status": 200
+      },
+      {
+        "as": "kim",
+        "method": "POST",
+        "path": "/acme-{run}/join",
+        "status": 200
+      },
+      {
+        "as": "admin",
+        "method": "PATCH",
+        "path": "/acme-{run}",
+        "json": {
+          "name": "Taken over {run}"
+        },
+        "status": 403,
+        "body": {
+          "error": "You are not a member of this organisation"
+        }
+      },
+      {
+        "as": "admin",
+        "method": "GET",
+        "path": "/acme-{run}/members",
+        "status": 403,
+        "body": {
+          "error": "You are not a member of this organisation"
+        }
+      },
+      {
+        "as": "admin",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "sam-{run}"
+        },
+        "status": 403,
+        "body": {
+          "error": "You are not a member of this organisation"
+        }
+      },
+      {
+        "as": "kim",
+        "method": "DELETE",
+        "path": "/acme-{run}",
+        "status": 403,
+        "body": {
+          "error": "Only an owner can change this organisation"
+        }
+      },
+      {
+        "as": "sam",
+        "method": "DELETE",
+        "path": "/acme-{run}",
+        "status": 403,
+        "body": {
+          "error": "You are not a member of this organisation"
+        }
+      },
+      {
+        "as": "admin",
+        "method": "DELETE",
+        "path": "/acme-{run}",
+        "status": 204
+      },
+      {
+        "as": null,
+        "method": "GET",
+        "path": "/acme-{run}",
+        "status": 404,
+        "body": {
+          "error": "No such organisation"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "GET",
+        "path": "/",
+        "status": 200,
+        "body": {
+          "organisation": null,
+          "role": null,
+          "userEntityRef": "{jane}",
+          "canCreate": true,
+          "invitations": []
+        }
+      },
+      {
+        "as": "kim",
+        "method": "GET",
+        "path": "/",
+        "status": 200,
+        "body": {
+          "organisation": null,
+          "role": null,
+          "userEntityRef": "{kim}",
+          "canCreate": true,
+          "invitations": []
+        }
+      },
+      {
+        "as": "admin",
+        "method": "DELETE",
+        "path": "/acme-{run}",
+        "status": 404,
+        "body": {
+          "error": "No such organisation"
+        }
+      }
+    ]
+  },
+  {
+    "name": "a person is invited by their email address",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": " Kim.{run}@Example.com ",
+          "role": "owner"
+        },
+        "status": 200,
+        "body": {
+          "members": [
+            {
+              "userEntityRef": "{jane}",
+              "role": "owner",
+              "addedAt": "<any>",
+              "addedBy": "{jane}"
+            }
+          ],
+          "invitations": [
+            {
+              "userEntityRef": "user:default/kim.{run}_example.com",
+              "role": "owner",
+              "invitedAt": "<any>",
+              "invitedBy": "{jane}"
+            }
+          ]
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "kim+{run}@example.com"
+        },
+        "status": 200,
+        "body": {
+          "members": [
+            {
+              "userEntityRef": "{jane}",
+              "role": "owner",
+              "addedAt": "<any>",
+              "addedBy": "{jane}"
+            }
+          ],
+          "invitations": [
+            {
+              "userEntityRef": "user:default/kim.{run}_example.com",
+              "role": "owner",
+              "invitedAt": "<any>",
+              "invitedBy": "{jane}"
+            },
+            {
+              "userEntityRef": "user:default/kim_2b_{run}_example.com",
+              "role": "member",
+              "invitedAt": "<any>",
+              "invitedBy": "{jane}"
+            }
+          ]
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "KIM.{run}@example.com"
+        },
+        "status": 409,
+        "body": {
+          "error": "That person has already been invited"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "@example.com"
+        },
+        "status": 400,
+        "body": {
+          "error": "Enter a person's user name, such as jane, or their full email address. Groups and the guest account cannot be invited"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "kim-{run}@"
+        },
+        "status": 400,
+        "body": {
+          "error": "Enter a person's user name, such as jane, or their full email address. Groups and the guest account cannot be invited"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "_kim-{run}@example.com"
+        },
+        "status": 400,
+        "body": {
+          "error": "Enter a person's user name, such as jane, or their full email address. Groups and the guest account cannot be invited"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "DELETE",
+        "path": "/acme-{run}/members/kim%2B{run}%40example.com",
+        "status": 204
+      },
+      {
+        "as": "jane",
+        "method": "GET",
+        "path": "/acme-{run}/members",
+        "status": 200,
+        "body": {
+          "members": [
+            {
+              "userEntityRef": "{jane}",
+              "role": "owner",
+              "addedAt": "<any>",
+              "addedBy": "{jane}"
+            }
+          ],
+          "invitations": [
+            {
+              "userEntityRef": "user:default/kim.{run}_example.com",
+              "role": "owner",
+              "invitedAt": "<any>",
+              "invitedBy": "{jane}"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "an email address at a domain without a dot invites nobody",
+    "steps": [
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/",
+        "json": {
+          "name": "Acme {run}",
+          "slug": "acme-{run}"
+        },
+        "status": 201,
+        "body": {
+          "slug": "acme-{run}",
+          "name": "Acme {run}",
+          "logoFullUrl": null,
+          "logoIconUrl": null,
+          "primaryColor": null,
+          "themePreset": null
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "jane@acme"
+        },
+        "status": 400,
+        "body": {
+          "error": "Enter a person's user name, such as jane, or their full email address. Groups and the guest account cannot be invited"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "POST",
+        "path": "/acme-{run}/members",
+        "json": {
+          "entityRef": "kim-{run}@example."
+        },
+        "status": 400,
+        "body": {
+          "error": "Enter a person's user name, such as jane, or their full email address. Groups and the guest account cannot be invited"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "DELETE",
+        "path": "/acme-{run}/members/jane%40acme",
+        "status": 400,
+        "body": {
+          "error": "Enter a person's user name, such as jane, or their full email address. Groups and the guest account cannot be invited"
+        }
+      },
+      {
+        "as": "jane",
+        "method": "GET",
+        "path": "/acme-{run}/members",
+        "status": 200,
+        "body": {
+          "members": [
+            {
+              "userEntityRef": "{jane}",
+              "role": "owner",
+              "addedAt": "<any>",
+              "addedBy": "{jane}"
+            }
+          ],
+          "invitations": []
+        }
+      }
+    ]
+  }
+]

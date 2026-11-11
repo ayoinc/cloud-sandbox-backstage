@@ -67,7 +67,7 @@ export const handleError: ErrorHandler = (error, c) => {
 };
 
 /**
- * Responds `{ error: "<message>" }`, as the portal's own plugins (branding,
+ * Responds `{ error: "<message>" }`, as the portal's own plugins (organisations,
  * ownership) do on the Node backend. Their pages show `error` as text, so
  * the Backstage format would read "[object Object]" there.
  */

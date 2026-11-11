@@ -11,6 +11,12 @@
 //
 //   yarn workspace @internal/edge catalog:sync
 //
+// The log of this script can be read by everyone who can see the repository
+// it runs in. What went wrong with the operator's own files is printed in
+// full. Of files registered through the portal, which belong to accounts,
+// only how many had a problem: their addresses and the names of their
+// entities are printed when PORTAL_VERBOSE_LOG is 'true'.
+//
 // Settings come from the environment: see settings.mjs.
 import { appendFile } from 'node:fs/promises';
 import {
@@ -119,20 +125,31 @@ async function pushCatalog(portal, tables) {
   }
 }
 
-/** Entity refs that two files claim; the catalog keeps the first it read. */
+/**
+ * Entity refs that two files claim; the catalog keeps the first it read.
+ * `text` says which, and `locations` are the two files.
+ */
 function entityConflicts(backendLog) {
-  return [
-    ...new Set(
-      [
-        ...backendLog.matchAll(
-          /Detected conflicting entityRef (\S+) already referenced by (\S+) and now also (\S+)/g,
-        ),
-      ].map(
-        ([, entityRef, kept, ignored]) =>
-          `${entityRef} is defined in ${kept} and again in ${ignored}`,
-      ),
-    ),
-  ];
+  const conflicts = new Map();
+  for (const [, entityRef, kept, ignored] of backendLog.matchAll(
+    /Detected conflicting entityRef (\S+) already referenced by (\S+) and now also (\S+)/g,
+  )) {
+    const text = `${entityRef} is defined in ${kept} and again in ${ignored}`;
+    conflicts.set(text, { text, entityRef, locations: [kept, ignored] });
+  }
+  return [...conflicts.values()];
+}
+
+const verbose = process.env.PORTAL_VERBOSE_LOG === 'true';
+
+/**
+ * Splits `items` into those to print in full and those to count only: the
+ * ones that `isRegistered` says come from a file registered through the
+ * portal, unless everything is to be printed.
+ */
+function forTheLog(items, isRegistered) {
+  const counted = verbose ? [] : items.filter(isRegistered);
+  return { printed: items.filter(item => !counted.includes(item)), counted };
 }
 
 const listErrors = failures =>
@@ -222,14 +239,53 @@ async function sync(portal, { github, githubToken }, dataDir) {
     } entities, ${catalog.search.length} search rows`,
   );
 
-  for (const conflict of entityConflicts(readBackendLog(dataDir))) {
-    warn(`Conflicting entity: ${conflict}. Only the first is in the catalog.`);
+  // What comes from a file registered through the portal: the entities
+  // that descend from one, and any address in the repository of one.
+  const registeredOrigins = new Set(
+    registered.map(({ type, target }) => `${type}:${target}`.toLowerCase()),
+  );
+  const registeredRepositories = [...registeredOrigins].map(origin =>
+    origin.replace(/^(url:https:\/\/github\.com\/[^/]+\/[^/]+\/).*$/, '$1'),
+  );
+  const registeredRefs = new Set(
+    catalog.finalEntities
+      .map(([, entityRef]) => entityRef)
+      .filter((_, index) =>
+        registeredOrigins.has(
+          catalog.entities[index].metadata?.annotations?.[
+            'backstage.io/managed-by-origin-location'
+          ]?.toLowerCase(),
+        ),
+      ),
+  );
+  const isRegisteredRef = entityRef =>
+    registeredRefs.has(entityRef.toLowerCase());
+
+  const conflicts = forTheLog(
+    entityConflicts(readBackendLog(dataDir)),
+    ({ entityRef, locations }) =>
+      isRegisteredRef(entityRef) ||
+      locations.some(location =>
+        registeredRepositories.some(repository =>
+          location.toLowerCase().startsWith(repository),
+        ),
+      ),
+  );
+  for (const { text } of conflicts.printed) {
+    warn(`Conflicting entity: ${text}. Only the first is in the catalog.`);
+  }
+  if (conflicts.counted.length > 0) {
+    warn(
+      `${conflicts.counted.length} entities of registered locations are defined in two files. Only the first of each is in the catalog.`,
+    );
   }
   if (errors.registered.length > 0) {
     warn(
       `${errors.registered.length} entities of registered locations failed and are left out`,
     );
-    console.warn(listErrors(errors.registered));
+    if (verbose) {
+      console.warn(listErrors(errors.registered));
+    }
   }
   if (errors.configured.length > 0) {
     throw new Error(
@@ -262,14 +318,30 @@ async function sync(portal, { github, githubToken }, dataDir) {
     warn(
       `${docs.unresolved.length} entities have a documentation reference that cannot be followed`,
     );
-    for (const { entityRef, error } of docs.unresolved) {
+    const unresolved = forTheLog(docs.unresolved, ({ entityRef }) =>
+      isRegisteredRef(entityRef),
+    );
+    for (const { entityRef, error } of unresolved.printed) {
       console.warn(`  ${entityRef}: ${error}`);
     }
+    if (unresolved.counted.length > 0) {
+      console.warn(
+        `  ${unresolved.counted.length} of them in registered locations`,
+      );
+    }
   }
+  const failed = forTheLog(failedSites, site =>
+    site.entities.some(({ entityRef }) => isRegisteredRef(entityRef)),
+  );
   if (failedSites.length > 0) {
     warn(`${failedSites.length} documentation sites did not build`);
-    for (const site of failedSites) {
+    for (const site of failed.printed) {
       console.warn(`  ${site.source}: ${site.error}`);
+    }
+    if (failed.counted.length > 0) {
+      console.warn(
+        `  ${failed.counted.length} of them of registered locations`,
+      );
     }
   }
 
@@ -369,9 +441,12 @@ async function sync(portal, { github, githubToken }, dataDir) {
               '',
               '### Documentation that did not build',
               '',
-              ...failedSites.map(
+              ...failed.printed.map(
                 site => `- \`${site.source}\`: ${site.error.split('\n')[0]}`,
               ),
+              ...(failed.counted.length > 0
+                ? [`- ${failed.counted.length} of registered locations`]
+                : []),
             ]
           : []),
         '',

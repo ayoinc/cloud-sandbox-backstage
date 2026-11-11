@@ -167,8 +167,8 @@ plugins: {
       bold: true
     }
 
-    branding: {
-      label: "🎨 Branding\nSettings"
+    organisations: {
+      label: "🏢 Organisations\nName, address, look, members\n(logos kept in its database)"
       style: {
         fill: "#FFECB3"
         stroke: "#EF6C00"
@@ -354,7 +354,7 @@ app.backend -> plugins.search {
   style.stroke: "#FF6F00"
   style.stroke-width: 2
 }
-app.backend -> plugins.custom.branding {
+app.backend -> plugins.custom.organisations {
   style.stroke: "#EF6C00"
   style.stroke-width: 2
 }
@@ -379,12 +379,8 @@ plugins.search -> data.postgres {
   style.stroke: "#336791"
   style.stroke-width: 2
 }
-plugins.custom.branding -> data.postgres {
+plugins.custom.organisations -> data.postgres {
   style.stroke: "#336791"
-  style.stroke-width: 2
-}
-plugins.custom.branding -> data.minio {
-  style.stroke: "#C72C48"
   style.stroke-width: 2
 }
 plugins.custom.ownership -> data.postgres {

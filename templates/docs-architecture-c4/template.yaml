@@ -66,10 +66,10 @@ spec:
             - Confidential
           default: Internal
         portalUrl:
-          title: Portal address
+          title: Organisation address
           type: string
-          description: Optional. Exports take the organisation name, logo and colour from this portal's branding settings, for example https://portal.example.org. Leave empty to set them in brand.yaml
-          pattern: '^(https://[A-Za-z0-9.-]+(:[0-9]+)?)?$'
+          description: Optional. Your organisation's address in the portal, for example https://portal.example.org/o/acme. Exports take its name, logo and colour from there. Leave empty to set them in brand.yaml
+          pattern: '^(https?://[A-Za-z0-9.-]+(:[0-9]+)?/o/[a-z0-9][a-z0-9-]*)?$'
           default: ''
 
     - title: Repository Configuration

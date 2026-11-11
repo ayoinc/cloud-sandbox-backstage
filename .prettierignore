@@ -21,3 +21,6 @@ catalog/terraform-modules/templates/**/skeleton/**
 # The Anatomy drawing kit, vendored as published, and the figure pages built with it
 docs/figures/kit/
 packages/app/public/figures/
+
+# Written from the brand tokens (packages/brand/src/pages/pagesCss.ts)
+packages/app/public/pages.css

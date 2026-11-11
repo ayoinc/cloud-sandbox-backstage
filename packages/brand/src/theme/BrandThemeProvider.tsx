@@ -18,7 +18,8 @@ export interface BrandThemeProviderProps {
 /**
  * Applies the portal's theme to MUI v4, MUI v5 and Backstage UI (`--bui-*`
  * variables, toasts and focus styles) for the given mode. The preset and
- * primary colour are the administrator's, and change as soon as they do.
+ * primary colour are those the owner of the organisation being shown set,
+ * and change as soon as they do.
  */
 export function BrandThemeProvider(props: BrandThemeProviderProps) {
   const { mode, children } = props;

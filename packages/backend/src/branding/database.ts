@@ -1,77 +1,26 @@
 /**
  * =============================================================================
- * Branding Settings Database Operations
+ * Portal Admins Database Operations
  * =============================================================================
  *
- * Database access layer for branding settings and admin management.
+ * Database access layer for portal admin management. The plugin once held
+ * the portal-wide branding too; that now belongs to organisations, and the
+ * old branding tables are left as they are, unused.
  *
  * =============================================================================
  */
 
 import type { Knex } from 'knex';
 import type { LoggerService } from '@backstage/backend-plugin-api';
-import {
-  BrandingSettings,
-  BrandingSettingsRow,
-  DEFAULT_SETTINGS,
-} from './types';
+import { GUEST_USER } from '../organisations/rules';
 
 /**
- * Initialize database tables for branding settings
+ * Initialize the portal admins table
  */
 export async function initializeTables(
   knex: Knex,
   logger: LoggerService,
 ): Promise<void> {
-  // Create branding_settings table if not exists
-  const hasSettingsTable = await knex.schema.hasTable('branding_settings');
-  if (!hasSettingsTable) {
-    logger.info('Creating branding_settings table');
-    await knex.schema.createTable('branding_settings', table => {
-      table.string('id').primary().defaultTo('default');
-      table.string('organization_name').nullable();
-      table.text('logo_full_url').nullable();
-      table.text('logo_icon_url').nullable();
-      table.string('primary_color').nullable();
-      table.string('theme_preset').nullable();
-      table.timestamp('updated_at').defaultTo(knex.fn.now());
-      table.string('updated_by').nullable();
-    });
-    // Insert default row
-    await knex('branding_settings').insert({
-      id: 'default',
-      organization_name: null,
-      logo_full_url: null,
-      logo_icon_url: null,
-      primary_color: null,
-      theme_preset: null,
-      updated_at: new Date().toISOString(),
-      updated_by: null,
-    });
-  }
-
-  // Tables created before theme presets existed lack the column
-  if (
-    hasSettingsTable &&
-    !(await knex.schema.hasColumn('branding_settings', 'theme_preset'))
-  ) {
-    logger.info('Adding theme_preset column to branding_settings');
-    await knex.schema.alterTable('branding_settings', table => {
-      table.string('theme_preset').nullable();
-    });
-  }
-
-  // Logo files, one row per kind.
-  if (!(await knex.schema.hasTable('branding_logos'))) {
-    logger.info('Creating branding_logos table');
-    await knex.schema.createTable('branding_logos', table => {
-      table.string('kind').primary();
-      table.string('content_type').notNullable();
-      table.binary('bytes').notNullable();
-      table.string('updated_at').notNullable();
-    });
-  }
-
   // Create branding_admins table if not exists
   const hasAdminsTable = await knex.schema.hasTable('branding_admins');
   if (!hasAdminsTable) {
@@ -84,41 +33,6 @@ export async function initializeTables(
       table.string('added_by').nullable();
     });
   }
-}
-
-/**
- * Get current branding settings from database
- */
-export async function getCurrentSettings(
-  knex: Knex,
-): Promise<BrandingSettings> {
-  const row = (await knex('branding_settings')
-    .where('id', 'default')
-    .first()) as BrandingSettingsRow | undefined;
-
-  if (!row) {
-    return DEFAULT_SETTINGS;
-  }
-
-  return {
-    organizationName: row.organization_name,
-    logoFullUrl: row.logo_full_url,
-    logoIconUrl: row.logo_icon_url,
-    primaryColor: row.primary_color,
-    themePreset: row.theme_preset,
-    updatedAt: row.updated_at,
-    updatedBy: row.updated_by,
-  };
-}
-
-/**
- * Update branding settings in database
- */
-export async function updateSettings(
-  knex: Knex,
-  updates: Partial<BrandingSettingsRow>,
-): Promise<void> {
-  await knex('branding_settings').where('id', 'default').update(updates);
 }
 
 /**
@@ -168,12 +82,19 @@ export async function claimFirstAdmin(
 }
 
 /**
- * Check if a user is an admin for branding settings
+ * Check if a user is a portal admin: listed themselves, in the admin table
+ * or in PORTAL_ADMINS, or through a group their sign-in names
+ * (`ownershipRefs`) that is listed there. The guest account, which
+ * everyone using guest sign-in shares, never is one.
+ *
+ * Callers pass only `ownershipRefs` they know the operator stands behind:
+ * a person can register a catalog file that puts them in any group.
  */
 export async function checkIsAdmin(
   knex: Knex,
   userEntityRef: string,
   logger: LoggerService,
+  ownershipRefs: string[] = [],
 ): Promise<boolean> {
   try {
     // Parse user entity ref (format: user:default/username)
@@ -182,35 +103,30 @@ export async function checkIsAdmin(
       logger.debug(`Invalid user entity ref format: ${userEntityRef}`);
       return false;
     }
+    if (userEntityRef.toLowerCase() === GUEST_USER) {
+      return false;
+    }
 
     const [, , username] = match;
+    const refs = [
+      userEntityRef.toLowerCase(),
+      ...ownershipRefs
+        .map(ref => ref.toLowerCase())
+        .filter(ref => ref.startsWith('group:')),
+    ];
 
-    // Check branding_admins table for direct user match
-    const directMatch = await knex('branding_admins')
-      .where('entity_ref', userEntityRef.toLowerCase())
+    // Check branding_admins table for the user or one of their groups
+    const listed = await knex('branding_admins')
+      .whereIn('entity_ref', refs)
       .first();
 
-    if (directMatch) {
+    if (listed) {
       logger.debug(`User ${username} is admin via branding_admins table`);
       return true;
     }
 
-    // Check for group-based admin (would need catalog integration for full support)
-    const groupAdmins = await knex('branding_admins')
-      .where('type', 'group')
-      .select('entity_ref');
-
-    if (groupAdmins.length > 0) {
-      logger.debug(
-        `Group-based admins configured: ${groupAdmins
-          .map((g: { entity_ref: string }) => g.entity_ref)
-          .join(', ')}`,
-      );
-      // Note: Full group membership checking requires catalog API integration
-      // This is handled in the permission policy
-    }
-
-    if (configuredAdmins().includes(userEntityRef.toLowerCase())) {
+    const configured = configuredAdmins();
+    if (refs.some(ref => configured.includes(ref))) {
       logger.debug(`User ${username} is admin by configuration`);
       return true;
     }
@@ -221,6 +137,24 @@ export async function checkIsAdmin(
     logger.error('Error checking admin status', error as Error);
     return false;
   }
+}
+
+/**
+ * Every portal admin, from the admin table and PORTAL_ADMINS: user and
+ * group refs, in lower case. The order is fixed: those in the table in the
+ * order they were added, oldest first, then those in PORTAL_ADMINS in the
+ * order written.
+ */
+export async function listPortalAdmins(knex: Knex): Promise<string[]> {
+  const rows: Array<{ entity_ref: string }> = await knex('branding_admins')
+    .orderBy('id')
+    .select('entity_ref');
+  return [
+    ...new Set([
+      ...rows.map(row => row.entity_ref.toLowerCase()),
+      ...configuredAdmins(),
+    ]),
+  ];
 }
 
 /**

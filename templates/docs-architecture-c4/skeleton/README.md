@@ -37,8 +37,9 @@ push to `main` builds the same files in GitHub Actions and keeps them as the
 ## Brand it
 
 `brand.yaml` holds the organisation name, logo and primary colour used by the
-exports. Set `portal_url` there and they are read from the portal's branding
-settings, so the documents follow the portal.
+exports. Set `portal_url` there to your organisation's address in the portal
+(`https://portal.example.org/o/acme`) and they are read from it, so the
+documents follow the organisation.
 
 ```bash
 uv run scripts/export.py --sync-brand

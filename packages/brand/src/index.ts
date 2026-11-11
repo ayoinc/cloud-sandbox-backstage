@@ -1,6 +1,7 @@
 /**
  * The portal's brand system. It carries no organisation's identity: the
- * name, logo, theme preset and primary colour are an administrator's choice,
+ * name, logo, theme preset and primary colour are set by each organisation's
+ * owner and shown at that organisation's address (`/o/<slug>`). They are
  * held in {@link useBrandIdentity} and applied everywhere from there.
  *
  * GOV.UK Design System interaction and accessibility rules, Material Design 3
@@ -37,9 +38,12 @@ export type { BrandPreset, ShapeScale } from './tokens/presets';
 export {
   brandOverrides,
   getBrandIdentity,
+  loadBrandIdentity,
+  logoSrc,
+  organisationPath,
+  organisationSlug,
   setBrandIdentity,
   useBrandIdentity,
-  useLoadBrandIdentity,
 } from './identity/brandIdentity';
 export type { BrandIdentity } from './identity/brandIdentity';
 export { contrastRatio } from './tokens/contrast';
@@ -58,24 +62,23 @@ export type { BrandThemeProviderProps } from './theme/BrandThemeProvider';
 export { createBrandTheme } from './theme/muiTheme';
 export { buiThemeCss, buiVariables, toastVariables } from './theme/buiCss';
 
-export {
-  BrandedSignInPage,
-  brandSignInProviders,
-} from './signin/BrandedSignInPage';
+export { BrandedSignInPage } from './signin/BrandedSignInPage';
 export type { BrandedSignInPageProps } from './signin/BrandedSignInPage';
+export { brandSignInProviders } from './signin/SignInChoices';
+export type { SignInChoice } from './signin/SignInChoices';
 
 export { LogoFull, LogoIcon } from './logo/Logo';
 export type { LogoProps } from './logo/Logo';
 export { BrandSidebarLogo } from './logo/BrandSidebarLogo';
 export type { BrandSidebarLogoProps } from './logo/BrandSidebarLogo';
 
+export { pagesCss, pagesFontFiles, typeCss } from './pages/pagesCss';
+
 export { techdocsBrandCss } from './techdocs/techdocsBrandCss';
 export {
   TechDocsBrandStyles,
   techDocsBrandAddon,
 } from './techdocs/TechDocsBrandStyles';
-
-export { brandTranslations } from './translations';
 
 export { RunActivityCard } from './activity/RunActivityCard';
 export type {

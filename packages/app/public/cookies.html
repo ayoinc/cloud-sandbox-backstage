@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Cookies | Developer portal</title>
+    <meta
+      name="description"
+      content="The cookies and other items this developer portal keeps in your browser, what each is for and how to remove them."
+    />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/pages.css" />
+  </head>
+  <body>
+    <header><a href="/">Developer portal</a></header>
+    <main>
+      <h1>Cookies</h1>
+      <p class="updated">Last updated: 11 November 2026</p>
+
+      <p>
+        A cookie is a small file that a website saves in your browser. This page
+        lists what the portal keeps in your browser: cookies, and a few settings
+        that are not cookies. Each is either needed for the portal to work or
+        remembers a setting, so the portal does not ask for your consent before
+        it sets them. There are no advertising cookies and no analytics cookies.
+      </p>
+
+      <h2>Cookies the portal sets</h2>
+      <p>
+        The portal sets cookies for three purposes. Their exact names and how
+        long they last depend on how the portal you are using has been set up;
+        your browser's settings list the ones it holds for this address.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Cookie</th>
+            <th scope="col">What it is for</th>
+            <th scope="col">How long it lasts</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">
+              Sign-in protection, such as <code>github-nonce</code> or
+              <code>google-nonce</code>
+            </th>
+            <td data-label="What it is for">
+              Protects the sign-in step. It holds a random value that the portal
+              checks when GitHub or Google sends you back, so that a sign-in can
+              be finished only in the browser that started it.
+            </td>
+            <td data-label="How long it lasts">A few minutes</td>
+          </tr>
+          <tr>
+            <th scope="row">Sign-in</th>
+            <td data-label="What it is for">
+              Keeps you signed in, so that you are not asked again on every
+              page.
+            </td>
+            <td data-label="How long it lasts">
+              Until you sign out, or until it expires
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">Documentation, <code>backstage-auth</code></th>
+            <td data-label="What it is for">
+              Lets documentation pages load their images and files while you are
+              signed in.
+            </td>
+            <td data-label="How long it lasts">
+              About an hour. It is renewed while you read documentation.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p>Scripts in the page cannot read these cookies.</p>
+
+      <h2>Things kept in your browser that are not cookies</h2>
+      <p>
+        The portal also keeps a few settings in your browser's local storage.
+        They stay in your browser and are not sent to the portal with your
+        requests.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Name</th>
+            <th scope="col">What it is for</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">
+              <code>@backstage/core:SignInPage:provider</code>
+            </th>
+            <td data-label="What it is for">
+              The sign-in method you chose, so that the portal can sign you in
+              the same way on your next visit.
+            </td>
+          </tr>
+          <tr>
+            <th scope="row"><code>organisation-shown</code></th>
+            <td data-label="What it is for">
+              Your user name, and which prompts about organisations this browser
+              has already shown you: the form that creates one, and each
+              invitation. The portal uses it to show each of them once.
+            </td>
+          </tr>
+          <tr>
+            <th scope="row"><code>sidebarPinState</code></th>
+            <td data-label="What it is for">
+              Whether you have pinned the sidebar open.
+            </td>
+          </tr>
+          <tr>
+            <th scope="row"><code>theme</code></th>
+            <td data-label="What it is for">
+              The theme you chose in Settings, if you chose one.
+            </td>
+          </tr>
+          <tr>
+            <th scope="row"><code>featureFlags</code></th>
+            <td data-label="What it is for">
+              The feature flags you switched on in Settings, if any.
+            </td>
+          </tr>
+          <tr>
+            <th scope="row"><code>language</code></th>
+            <td data-label="What it is for">
+              The language the portal is shown in. It is set on your first
+              visit.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Counting visits</h2>
+      <div data-portal-analytics hidden>
+        <p>
+          This portal counts visits. The counting sets no cookies and keeps
+          nothing in your browser.
+        </p>
+        <p>For each page you open it records:</p>
+        <ul>
+          <li>
+            the page address, including anything after a <code>?</code>, such as
+            the words you searched for
+          </li>
+          <li>the page that linked to it</li>
+          <li>the kind of browser and device</li>
+          <li>the country, worked out from your network address</li>
+          <li>how fast the page loaded</li>
+        </ul>
+        <p>
+          It does not record who you are and does not follow you to other sites.
+        </p>
+      </div>
+      <p data-portal-no-analytics>This portal does not count visits.</p>
+
+      <h2>How to remove cookies and settings</h2>
+      <ul>
+        <li>
+          Sign out, from Settings in the sidebar. This removes the cookie that
+          keeps you signed in. The documentation cookie stays until it expires,
+          within the hour.
+        </li>
+        <li>
+          Clear the site data for this address in your browser's settings. This
+          removes every cookie and setting listed on this page, and signs you
+          out.
+        </li>
+      </ul>
+
+      <h2>If you block cookies</h2>
+      <p>
+        Sign-in does not work without these cookies, so you cannot use the
+        portal if your browser blocks them for this address. This page, the
+        <a href="/privacy.html">privacy notice</a>, the
+        <a href="/guides.html">guides</a> and the
+        <a href="/sitemap.html">sitemap</a> can still be read.
+      </p>
+
+      <h2>Questions</h2>
+      <p>
+        To ask about anything on this page, contact the person who gave you
+        access to the portal.
+      </p>
+    </main>
+    <footer>
+      <nav aria-label="Portal information">
+        <ul>
+          <li><a href="/privacy.html">Privacy notice</a></li>
+          <li><a href="/cookies.html" aria-current="page">Cookies</a></li>
+          <li><a href="/guides.html">Guides</a></li>
+          <li><a href="/sitemap.html">Sitemap</a></li>
+          <li><a href="/">Open the portal</a></li>
+        </ul>
+      </nav>
+    </footer>
+  </body>
+</html>

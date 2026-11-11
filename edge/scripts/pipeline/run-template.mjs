@@ -1,15 +1,20 @@
 // Runs one software template for the portal.
 //
 // The portal stores the task a user created and starts the portal-scaffold
-// workflow, which runs this script. It starts the pipeline backend, creates
-// the same task in its real Backstage scaffolder, and passes every event the
-// scaffolder emits on to the portal as it happens, so the user watches the
-// run live. Whatever goes wrong, the portal's task is brought to an end.
+// workflow, which runs this script. It asks the portal which template the
+// task is for and what was filled into its form, starts the pipeline
+// backend, creates the same task in its real Backstage scaffolder, and
+// passes every event the scaffolder emits on to the portal as it happens,
+// so the user watches the run live. Whatever goes wrong, the portal's task
+// is brought to an end.
+//
+// The log of this script can be read by everyone who can see the
+// repository it runs in. It names the task, the template and the steps as
+// they go by; not who started the run, nor what the form held. What the
+// steps log goes to the portal, and is printed here only when asked for.
 //
 //   PORTAL_TASK_ID       id of the portal's task
-//   PORTAL_TEMPLATE_REF  the template, e.g. template:default/nodejs-service
-//   PORTAL_TASK_VALUES   the form values, as JSON
-//   PORTAL_CREATED_BY    entity ref of the user who started it
+//   PORTAL_VERBOSE_LOG   'true' to print the message of every event too
 //
 // The other settings are described in settings.mjs.
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -34,8 +39,9 @@ const dataDir = dataDirFor('pipeline-scaffold');
 // Set once the portal can be called: see connectPortal.
 let portal;
 const taskId = process.env.PORTAL_TASK_ID;
-const templateRef = process.env.PORTAL_TEMPLATE_REF;
-const createdBy = process.env.PORTAL_CREATED_BY;
+const verbose = process.env.PORTAL_VERBOSE_LOG === 'true';
+// The template the task is for, once the portal has said.
+let templateRef;
 
 // Values that must never leave this machine, even if a template step or an
 // error message happens to contain one.
@@ -87,8 +93,8 @@ async function report(events, spec) {
     for (const { type, body } of batch) {
       console.log(
         redact(
-          `[${type}]${body.stepId ? ` ${body.stepId}:` : ''} ${
-            body.message ?? JSON.stringify(body)
+          `[${type}]${body.stepId ? ` ${body.stepId}` : ''}${
+            verbose ? `: ${body.message ?? JSON.stringify(body)}` : ''
           }`,
         ),
       );
@@ -177,34 +183,41 @@ const locationTargets = async backend =>
     .filter(location => location.type === 'url')
     .map(location => location.target);
 
-/** The form values the user filled in. */
-function taskValues() {
+/**
+ * The portal's task: its template and the values of its form. A task is
+ * handed out while it waits to be run. One that is not, was run before or
+ * never existed, and is not this run's to bring to an end.
+ */
+async function readTask() {
   try {
-    const values = JSON.parse(process.env.PORTAL_TASK_VALUES || '{}');
-    if (values && typeof values === 'object' && !Array.isArray(values)) {
-      return values;
+    return await portalRequest(
+      portal,
+      'GET',
+      `/api/pipeline/tasks/${encodeURIComponent(taskId)}`,
+      { retry: true },
+    );
+  } catch (error) {
+    if (error.status !== 404) {
+      throw error;
     }
-  } catch {
-    // Reported below, without echoing what was sent.
+    console.error(`\nPortal task ${taskId} is not waiting to be run.`);
+    return leave(1);
   }
-  throw new Error('PORTAL_TASK_VALUES is not a JSON object.');
 }
 
 /** Runs the template and returns the status the scaffolder ended with. */
 async function run() {
-  if (!taskId || !templateRef) {
-    throw new Error('PORTAL_TASK_ID and PORTAL_TEMPLATE_REF must be set.');
+  if (!taskId) {
+    throw new Error('PORTAL_TASK_ID must be set.');
   }
   // Before anything that can fail: only then can the task be told why.
   portal = await connectPortal(settings, dataDir);
   secrets.push(portal.token);
-  const values = taskValues();
+  const task = await readTask();
+  const { values } = task;
+  templateRef = task.templateRef;
 
-  console.log(
-    `Running ${templateRef} for ${
-      createdBy || 'an unknown user'
-    } (portal task ${taskId})`,
-  );
+  console.log(`Running ${templateRef} (portal task ${taskId})`);
   await report([
     logEvent(
       `Preparing to run ${templateRef}${
@@ -276,8 +289,10 @@ async function run() {
       const { status } = await backendRequest(backend, taskPath);
       for (const target of await locationTargets(backend)) {
         if (!knownTargets.has(target)) {
+          // The task says whose run this is: the portal files what it
+          // registered under that person's account.
           await portalRequest(portal, 'POST', '/api/pipeline/locations', {
-            json: { type: 'url', target },
+            json: { type: 'url', target, taskId },
             retry: true,
           });
           await report([

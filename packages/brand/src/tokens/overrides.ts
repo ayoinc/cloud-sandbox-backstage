@@ -3,8 +3,8 @@ import type { BrandMode, BrandModeColors } from './brandTokens';
 import { contrastRatio } from './contrast';
 
 /**
- * Runtime overrides an administrator can apply on top of the brand defaults
- * (for example from the branding-settings backend). `null` or missing values
+ * Runtime overrides an organisation's owner can apply on top of the brand
+ * defaults (they come from the organisations API). `null` or missing values
  * keep the default.
  */
 export interface BrandColorOverrides {

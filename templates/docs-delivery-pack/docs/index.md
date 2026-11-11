@@ -18,8 +18,9 @@ One command checks the data and builds everything from it:
 | `out/status-report.docx` and `.pdf` | Sending to a steering group                                                             |
 
 The exports carry the organisation's name, logo and primary colour from
-`brand.yaml`, or from the portal's branding settings when the template is
-given the portal's address.
+`brand.yaml`, or from the organisation itself when the template's
+**Organisation address** field is given its address in the portal
+(`https://portal.example.org/o/acme`).
 
 Because the documents are data, a change is a reviewed commit, the history
 shows who moved a date and why, and nothing has to be kept in step by hand:

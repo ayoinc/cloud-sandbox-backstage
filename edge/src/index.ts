@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { guestRoutes, requireUser } from './auth';
-import { brandingRoutes, publicBrandingRoutes } from './branding';
+import { organisationRoutes, publicOrganisationRoutes } from './organisations';
+import { portalAdminRoutes } from './portalAdmins';
 import { catalogRoutes } from './catalog/routes';
 import { handleError, notImplementedError } from './errors';
 import { GITHUB_API_PATH, githubRoutes } from './github';
@@ -27,14 +28,16 @@ import type { AppEnv } from './types';
  * build TechDocs and execute software templates, and push the results to
  * `/api/pipeline`.
  */
-const app = new Hono<AppEnv>();
+// A slash at the end of an address makes no difference, as on the Node
+// backend.
+const app = new Hono<AppEnv>({ strict: false });
 
 app.onError(handleError);
 
 // Public: needed before sign-in.
 app.route('/api/auth/guest', guestRoutes);
 app.route('/api/auth', oauthRoutes);
-app.route('/api/branding-settings', publicBrandingRoutes);
+app.route('/api/organisations', publicOrganisationRoutes);
 
 // These check their callers themselves: the pipeline has its own token,
 // the GitHub client sends the user token under another scheme, and docs
@@ -50,7 +53,8 @@ app.use('/api/*', requireUser);
 app.route('/api/catalog', catalogRoutes);
 app.route('/api/permission', permissionRoutes);
 app.route('/api/user-settings', userSettingsRoutes);
-app.route('/api/branding-settings', brandingRoutes);
+app.route('/api/branding-settings', portalAdminRoutes);
+app.route('/api/organisations', organisationRoutes);
 app.route('/api/ownership-management', ownershipRoutes);
 app.route('/api/notifications', notificationRoutes);
 app.route('/api/search', searchRoutes);
@@ -71,7 +75,15 @@ interface AppConfig {
 // it would run, so each page gets a config layer naming this origin as app
 // and backend, and the sign-in methods this Worker has configured.
 app.all('*', async c => {
-  const response = await c.env.ASSETS.fetch(c.req.raw);
+  // A page is rewritten below, from settings the stored file knows nothing
+  // of. Asking the store whether its copy has changed would answer for the
+  // file, not for the page, so pages are always fetched whole.
+  const request = new Request(c.req.raw);
+  if (c.req.header('accept')?.includes('text/html')) {
+    request.headers.delete('if-none-match');
+    request.headers.delete('if-modified-since');
+  }
+  const response = await c.env.ASSETS.fetch(request);
   if (!response.headers.get('content-type')?.includes('text/html')) {
     return response;
   }
@@ -81,20 +93,36 @@ app.all('*', async c => {
     ...(c.env.GUEST_AUTH_ENABLED === 'true' ? ['guest'] : []),
   ];
   let json = '';
-  const contact = c.env.PORTAL_CONTACT_EMAIL?.trim();
+  // The site token of Cloudflare Web Analytics, which counts visits without
+  // cookies. Anything that is not one is ignored: it goes into the page.
+  const analytics = /^[0-9a-f]{32}$/.exec(
+    c.env.WEB_ANALYTICS_TOKEN?.trim() ?? '',
+  )?.[0];
   const page = new HTMLRewriter()
-    // The privacy notice names who runs the portal, which the built page
-    // cannot know. Text set here is escaped by the rewriter.
-    .on('[data-portal-host]', {
+    // The public pages say whether visits are counted, in two variants:
+    // show the one that is true here.
+    .on('[data-portal-analytics]', {
       element(element) {
-        element.setInnerContent(new URL(c.req.url).host);
+        if (analytics) {
+          element.removeAttribute('hidden');
+        }
       },
     })
-    .on('[data-portal-contact]', {
+    .on('[data-portal-no-analytics]', {
       element(element) {
-        if (contact) {
-          element.setInnerContent(contact);
-          element.setAttribute('href', `mailto:${contact}`);
+        if (analytics) {
+          element.setAttribute('hidden', '');
+        }
+      },
+    })
+    .on('body', {
+      element(element) {
+        if (analytics) {
+          element.append(
+            // As the dashboard writes it (Web Analytics > Manage site).
+            `<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "${analytics}"}'></script>`,
+            { html: true },
+          );
         }
       },
     })
@@ -146,9 +174,12 @@ app.all('*', async c => {
       },
     })
     .transform(response);
-  // An internal portal: keep its pages out of search engines.
+  // An internal portal: keep its pages out of search engines. And the
+  // file's validators are not the page's: see above.
   const headers = new Headers(page.headers);
   headers.set('x-robots-tag', 'noindex');
+  headers.delete('etag');
+  headers.delete('last-modified');
   return new Response(page.body, { status: page.status, headers });
 });
 

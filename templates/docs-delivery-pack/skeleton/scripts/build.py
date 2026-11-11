@@ -80,11 +80,20 @@ def fetch(url: str) -> tuple[bytes, str]:
 
 
 def portal_brand(portal_url: str) -> dict:
-    settings_url = portal_url.rstrip("/") + "/api/branding-settings"
+    """What the organisation's owner set: name, colour and logo, if any.
+
+    `portal_url` is the organisation's address in the portal, such as
+    https://portal.example.com/o/acme.
+    """
+    address = urllib.parse.urlsplit(portal_url)
+    match = re.match(r"/o/([a-z0-9][a-z0-9-]*)/?$", address.path)
+    if not match:
+        raise ValueError("portal_url must be an organisation's address, ending /o/<name>")
+    settings_url = f"{address.scheme}://{address.netloc}/api/organisations/{match[1]}"
     settings = json.loads(fetch(settings_url)[0])
     brand: dict = {}
-    if settings.get("organizationName"):
-        brand["organisation"] = settings["organizationName"]
+    if settings.get("name"):
+        brand["organisation"] = settings["name"]
     colour = settings.get("primaryColor") or PRESET_COLOURS.get(settings.get("themePreset") or "")
     if colour:
         brand["primary_colour"] = colour

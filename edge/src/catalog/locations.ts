@@ -1,12 +1,21 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { parseAllDocuments } from 'yaml';
-import { requirePortalAdmin } from '../admin';
+import {
+  callerRef,
+  filedUnder,
+  originOf,
+  registerAgain,
+  registeredBy,
+  UNREGISTER,
+} from '../accounts';
+import { isPortalAdmin, requirePortalAdmin } from '../admin';
 import { base64ToBytes } from '../encoding';
 import { conflictError, HttpError, inputError, notFoundError } from '../errors';
 import { isRecord, readJson } from '../json';
 import { dispatchWorkflow } from '../scaffolder';
 import type { AppEnv } from '../types';
 import type { Entity, LocationRef } from './entity';
+import { inJsonArray } from './filter';
 
 /**
  * Registered catalog locations (`/api/catalog/locations` and friends): what
@@ -16,6 +25,22 @@ import type { Entity, LocationRef } from './entity';
  * location checks the file enough to show what it holds, records it in the
  * `locations` table next to those registered by software templates, and
  * starts a catalog sync. The entities appear when that sync has finished.
+ *
+ * A registered file belongs to the account of whoever registered it
+ * (accounts.ts). Callers are shown, and can remove, the files of their own
+ * accounts; to them the others are not there. Portal administrators are
+ * also shown the files nobody has claimed, so that they can find them:
+ * registering one again takes it, and until then its entities are shown to
+ * no one, administrators included.
+ *
+ * A file that was unregistered keeps its row until a catalog sync has run
+ * without its entities (accounts.ts). Here that row does not exist, except
+ * when the file is registered again: the account that had it gets it back,
+ * and every other account is told to wait until the row is gone, or it
+ * would be shown what the catalog still holds of the account before.
+ *
+ * A file the operator configured is in the catalog without a row. It is
+ * everyone's and cannot be registered: that would make it one account's.
  *
  * Only catalog files on github.com are read, with the Worker's own token.
  */
@@ -65,9 +90,21 @@ async function describeLocation(
   return { id, type, target, entityRef: `location:default/generated-${id}` };
 }
 
-async function listLocations(db: D1Database): Promise<RegisteredLocation[]> {
-  const { results } = await db
-    .prepare('SELECT type, target FROM locations ORDER BY created_at, target')
+/**
+ * The files registered under the accounts the caller sees and, for a
+ * portal administrator, those nobody has claimed.
+ */
+async function listLocations(
+  c: Context<AppEnv>,
+): Promise<RegisteredLocation[]> {
+  const mine = registeredBy(callerRef(c));
+  const unclaimed = (await isPortalAdmin(c))
+    ? ' OR (l.removed_at IS NULL AND l.account IS NULL)'
+    : '';
+  const { results } = await c.env.DB.prepare(
+    `SELECT l.type AS type, l.target AS target FROM locations l WHERE ${mine.sql}${unclaimed} ORDER BY l.created_at, l.target`,
+  )
+    .bind(...mine.params)
     .all<LocationRef>();
   return Promise.all(
     results.map(({ type, target }) => describeLocation(type, target)),
@@ -76,25 +113,100 @@ async function listLocations(db: D1Database): Promise<RegisteredLocation[]> {
 
 /** An id cannot be turned back into a target, so every row is looked at. */
 async function locationById(
-  db: D1Database,
+  c: Context<AppEnv>,
   id: string,
 ): Promise<RegisteredLocation> {
-  const location = (await listLocations(db)).find(item => item.id === id);
+  const location = (await listLocations(c)).find(item => item.id === id);
   if (!location) {
     throw notFoundError(`Found no location with ID ${id}`);
   }
   return location;
 }
 
-// A template run records its repository's file as a /tree/ link and this
-// page as a /blob/ link. GitHub serves the same file at both, so both count.
-const isRegistered = async (db: D1Database, target: string) =>
-  (await db
-    .prepare(
-      "SELECT 1 FROM locations WHERE type = 'url' AND target IN (?, ?) LIMIT 1",
+/**
+ * Whose a file is: not registered (`no`), registered under one of the
+ * caller's accounts (`own`), registered but claimed by nobody yet
+ * (`unclaimed`), or another account's (`other`). One that was unregistered
+ * and still has its row can be registered again by the account that had it
+ * (`returning`); for anyone else it is on its way out (`leaving`). And a
+ * file that is in the catalog without ever having been registered is one
+ * the operator configured (`configured`).
+ */
+type Registered =
+  | 'no'
+  | 'own'
+  | 'unclaimed'
+  | 'other'
+  | 'returning'
+  | 'leaving'
+  | 'configured';
+
+/** A row of `locations` that is the file asked about. */
+interface FiledRow {
+  /** As the row spells it. */
+  target: string;
+  account: string | null;
+  removed: number;
+  /** Registered, under one of the caller's accounts. */
+  own: number;
+  /** Under the account the caller's registrations are filed under. */
+  held: number;
+}
+
+/**
+ * Whose a file is, and the rows of `locations` that are that file.
+ *
+ * A file is one file whatever its address is spelled like: a template run
+ * records it as a /tree/ link and this page as a /blob/ link, letters can
+ * be written as percent codes, and who sees an entity is decided from its
+ * file's address in lower case. So the rows and the catalog's origins of
+ * the file's repository are read, and compared here by `fileAddress`.
+ */
+async function registered(
+  db: D1Database,
+  caller: string,
+  file: FileAddress,
+): Promise<{ state: Registered; rows: FiledRow[] }> {
+  const mine = registeredBy(caller);
+  const repository = `https://github.com/${file.repository}/`.toLowerCase();
+  const origin = originOf('e');
+  const [filed, inCatalog] = await db.batch<Record<string, unknown>>([
+    db
+      .prepare(
+        `SELECT l.target AS target, l.account AS account, l.removed_at IS NOT NULL AS removed, coalesce(${
+          mine.sql
+        }, 0) AS own, coalesce(l.account = ${filedUnder(
+          '?',
+        )}, 0) AS held FROM locations l WHERE l.type = 'url' AND substr(lower(l.target), 1, length(?)) = ?`,
+      )
+      .bind(...mine.params, caller, caller, repository, repository),
+    db
+      .prepare(
+        `SELECT DISTINCT ${origin} AS origin FROM final_entities e WHERE substr(${origin}, 1, length(?)) = ?`,
+      )
+      .bind(`url:${repository}`, `url:${repository}`),
+  ]);
+  const rows = (filed.results as unknown as FiledRow[]).filter(
+    row => fileAddress(row.target)?.key === file.key,
+  );
+  const live = rows.filter(row => !row.removed);
+  let state: Registered;
+  if (live.some(row => row.account !== null && !row.own)) {
+    state = 'other';
+  } else if (live.length) {
+    state = live.some(row => row.own) ? 'own' : 'unclaimed';
+  } else if (rows.length) {
+    state = rows.every(row => row.held) ? 'returning' : 'leaving';
+  } else {
+    state = inCatalog.results.some(
+      row =>
+        fileAddress(String(row.origin).slice('url:'.length))?.key === file.key,
     )
-    .bind(target, target.replace(/\/blob\//, '/tree/'))
-    .first()) !== null;
+      ? 'configured'
+      : 'no';
+  }
+  return { state, rows };
+}
 
 /**
  * Starts a catalog sync, which is what makes a change to the registered
@@ -179,16 +291,30 @@ async function readGithubFile(
   };
 }
 
-interface FileTarget {
-  /** The target in the form it is stored and compared in. */
+/** A YAML file on github.com, by its address. */
+export interface FileAddress {
+  /** The address spelled the one way it is stored in. */
   target: string;
   /** `<owner>/<repo>` */
   repository: string;
-  /** What follows `/blob/`: the branch, then the path, still URL-encoded. */
+  /** How it is shown: this page registers `blob`, template runs `tree`. */
+  view: string;
+  /** What follows the view: the branch, then the path, each URL-encoded. */
   parts: string[];
+  /**
+   * The same for every address of the file: either view, in any letter
+   * case. Two addresses with the same key are one file.
+   */
+  key: string;
 }
 
-function parseFileTarget(target: unknown): FileTarget {
+/**
+ * Reads the address of a YAML file on github.com, or returns `undefined`
+ * for anything else. Percent codes are decoded and written again one way,
+ * so that an address has one spelling: `catalog%2Dinfo.yaml` is
+ * `catalog-info.yaml`.
+ */
+export function fileAddress(target: unknown): FileAddress | undefined {
   const url =
     typeof target === 'string' && URL.canParse(target)
       ? new URL(target)
@@ -199,23 +325,54 @@ function parseFileTarget(target: unknown): FileTarget {
     !url.password &&
     !url.search &&
     !url.hash
-      ? /^\/([\w.-]+\/[\w.-]+)\/blob\/(.+\.ya?ml)$/.exec(url.pathname)
+      ? /^\/([\w.-]+\/[\w.-]+)\/(blob|tree)\/(.+)$/i.exec(url.pathname)
       : null;
-  const parts = match?.[2].split('/') ?? [];
-  // A branch and a file at least. Wildcard targets, which the Backstage
-  // backend expands into many files, are not read here.
-  if (
-    !url ||
-    !match ||
-    parts.length < 2 ||
-    parts.some(part => part === '' || part.includes('*'))
-  ) {
-    throw inputError(SUPPORTED_FILE);
+  if (!match) {
+    return undefined;
   }
-  return { target: url.href, repository: match[1], parts };
+  const [, repository, shown, path] = match;
+  const view = shown.toLowerCase();
+  let parts: string[];
+  try {
+    parts = path.split('/').map(part =>
+      // Within a part a slash, and what would end the path, stay codes.
+      encodeURI(decodeURIComponent(part)).replace(/[/?#]/g, character =>
+        encodeURIComponent(character),
+      ),
+    );
+  } catch {
+    // Not the percent code of any text.
+    return undefined;
+  }
+  // A branch and a YAML file at least. Wildcard targets, which the
+  // Backstage backend expands into many files, are not read here.
+  if (
+    parts.length < 2 ||
+    !/\.ya?ml$/i.test(parts[parts.length - 1]) ||
+    parts.some(part => ['', '.', '..'].includes(part) || part.includes('*'))
+  ) {
+    return undefined;
+  }
+  const file = `${repository}/${parts.join('/')}`;
+  return {
+    target: `https://github.com/${repository}/${view}/${parts.join('/')}`,
+    repository,
+    view,
+    parts,
+    key: file.toLowerCase(),
+  };
 }
 
-async function readFileTarget(env: Env, file: FileTarget): Promise<string> {
+/** The file this page is asked to register: its /blob/ address. */
+function parseFileTarget(target: unknown): FileAddress {
+  const file = fileAddress(target);
+  if (file?.view !== 'blob') {
+    throw inputError(SUPPORTED_FILE);
+  }
+  return file;
+}
+
+async function readFileTarget(env: Env, file: FileAddress): Promise<string> {
   const tries = Math.min(file.parts.length - 1, MAX_REF_PARTS);
   for (let count = 1; count <= tries; count++) {
     const found = await readGithubFile(
@@ -343,41 +500,100 @@ locationRoutes.post('/locations', async c => {
   const file = parseFileTarget(body.target);
   const { target } = file;
   const entities = parseEntities(await readFileTarget(c.env, file), target);
-  const location = await describeLocation('url', target);
 
+  const caller = callerRef(c);
+  const { state, rows } = await registered(c.env.DB, caller, file);
   if (['true', '1', 'yes', 'y', 'on'].includes(c.req.query('dryRun') ?? '')) {
+    // Another account's registration is not this caller's to know about. A
+    // file the operator configured is everyone's.
     return c.json(
-      { location, entities, exists: await isRegistered(c.env.DB, target) },
+      {
+        location: await describeLocation('url', target),
+        entities,
+        exists: state === 'own' || state === 'configured',
+      },
       201,
     );
   }
 
-  // The statement of the pipeline's POST /locations (pipeline.ts), which
-  // records what software templates register.
-  if (await isRegistered(c.env.DB, target)) {
-    if (c.req.query('onConflict') !== 'refresh') {
-      throw conflictError(`Location url:${target} already exists`);
+  // Another account's file stays theirs, whatever is asked: entity names
+  // are portal-wide, so the same file cannot be in the catalog twice. A
+  // file the operator configured stays everyone's: registered, it would
+  // become one account's, and unregistered after that nobody's.
+  if (
+    state === 'other' ||
+    state === 'configured' ||
+    (state === 'own' && c.req.query('onConflict') !== 'refresh')
+  ) {
+    throw conflictError(`Location url:${target} already exists`);
+  }
+  // Unregistered by another account, its entities are in the catalog until
+  // a sync has run without them. Registered now, they would be shown to
+  // this caller's account.
+  const leaving = conflictError(
+    `Location url:${target} is being removed. Register it again in a few hours`,
+  );
+  if (state === 'leaving') {
+    throw leaving;
+  }
+  const live = rows.filter(row => !row.removed).map(row => row.target);
+  // The row that stands for the file when this is done.
+  let stored = live.at(0) ?? target;
+  if (state === 'no') {
+    await c.env.DB.prepare(
+      `INSERT INTO locations (type, target, account) SELECT 'url', ?1, ${filedUnder(
+        '?2',
+      )} WHERE NOT EXISTS (SELECT 1 FROM locations WHERE type = 'url' AND lower(target) = lower(?1))`,
+    )
+      .bind(target, caller)
+      .run();
+  } else if (state === 'returning') {
+    // Its own account registers it again: the row becomes a registration
+    // once more, as of now. The one spelled as asked, if there are two.
+    stored =
+      rows.find(row => row.target.toLowerCase() === target.toLowerCase())
+        ?.target ?? rows[0].target;
+    const account = filedUnder('?2');
+    const { meta } = await c.env.DB.prepare(
+      `UPDATE locations SET ${registerAgain(
+        account,
+      )} WHERE type = 'url' AND target = ?1 AND removed_at IS NOT NULL AND account = ${account}`,
+    )
+      .bind(stored, caller)
+      .run();
+    if (!meta.changes) {
+      throw leaving;
     }
-  } else {
-    await c.env.DB.prepare('INSERT INTO locations (type, target) VALUES (?, ?)')
-      .bind('url', target)
+  } else if (state === 'unclaimed') {
+    // Nobody's until now: registering it again is how it is taken.
+    await c.env.DB.prepare(
+      `UPDATE locations SET account = ${filedUnder(
+        '?1',
+      )} WHERE type = 'url' AND account IS NULL AND removed_at IS NULL AND ${inJsonArray(
+        'target',
+      )}`,
+    )
+      .bind(caller, JSON.stringify(live))
       .run();
   }
   // The registration stands if the sync cannot be started: the next one,
   // scheduled or started by a push, reads it. As on the Backstage backend,
   // no entities are returned: there are none before the catalog has synced.
   await startSync(c.env);
-  return c.json({ location, entities: [] }, 201);
+  return c.json(
+    { location: await describeLocation('url', stored), entities: [] },
+    201,
+  );
 });
 
 locationRoutes.get('/locations', async c =>
-  c.json((await listLocations(c.env.DB)).map(data => ({ data }))),
+  c.json((await listLocations(c)).map(data => ({ data }))),
 );
 
 locationRoutes.get('/locations/by-entity/:kind/:namespace/:name', async c => {
   const { kind, namespace, name } = c.req.param();
   const entityRef = `${kind}:${namespace}/${name}`.toLowerCase();
-  const location = (await listLocations(c.env.DB)).find(
+  const location = (await listLocations(c)).find(
     item => item.entityRef === entityRef,
   );
   if (!location) {
@@ -387,16 +603,19 @@ locationRoutes.get('/locations/by-entity/:kind/:namespace/:name', async c => {
 });
 
 locationRoutes.get('/locations/:id', async c =>
-  c.json(await locationById(c.env.DB, c.req.param('id'))),
+  c.json(await locationById(c, c.req.param('id'))),
 );
 
 locationRoutes.delete('/locations/:id', async c => {
   await requirePortalAdmin(c);
-  const { type, target } = await locationById(c.env.DB, c.req.param('id'));
-  await c.env.DB.prepare('DELETE FROM locations WHERE type = ? AND target = ?')
+  const { type, target } = await locationById(c, c.req.param('id'));
+  // The entities stay in the catalog until a sync has run without them,
+  // and so does the row: without it they would be everyone's meanwhile.
+  await c.env.DB.prepare(
+    `UPDATE locations SET ${UNREGISTER} WHERE type = ? AND target = ? AND removed_at IS NULL`,
+  )
     .bind(type, target)
     .run();
-  // The entities stay in the catalog until a sync has run without them.
   await startSync(c.env);
   return c.body(null, 204);
 });
@@ -457,10 +676,10 @@ locationRoutes.post('/analyze-location', async c => {
   // The address GitHub gives names the default branch, so it is the target
   // POST /locations is then asked to register.
   const found = parseFileTarget(file.url);
-  const registered = await isRegistered(c.env.DB, found.target);
+  const { state } = await registered(c.env.DB, callerRef(c), found);
   return c.json({
     existingEntityFiles: parseEntities(file.text, found.target).map(entity => ({
-      isRegistered: registered,
+      isRegistered: state === 'own' || state === 'configured',
       location: { type: 'url', target: found.target },
       entity,
     })),

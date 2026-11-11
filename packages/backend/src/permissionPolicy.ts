@@ -2,9 +2,11 @@ import {
   createBackendModule,
   coreServices,
 } from '@backstage/backend-plugin-api';
+import type { Entity } from '@backstage/catalog-model';
 import {
   PolicyDecision,
   AuthorizeResult,
+  isResourcePermission,
 } from '@backstage/plugin-permission-common';
 import {
   PermissionPolicy,
@@ -13,35 +15,93 @@ import {
 } from '@backstage/plugin-permission-node';
 import { policyExtensionPoint } from '@backstage/plugin-permission-node/alpha';
 import {
+  catalogConditions,
+  createCatalogConditionalDecision,
+} from '@backstage/plugin-catalog-backend/alpha';
+import {
+  createScaffolderActionConditionalDecision,
+  createScaffolderTaskConditionalDecision,
+  scaffolderActionConditions,
+  scaffolderTaskConditions,
+} from '@backstage/plugin-scaffolder-backend/alpha';
+import {
   catalogServiceRef,
   type CatalogService,
 } from '@backstage/plugin-catalog-node';
 import type { AuthService, LoggerService } from '@backstage/backend-plugin-api';
+import {
+  ACCOUNT_ANNOTATION,
+  UNCLAIMED_ACCOUNT,
+  directory,
+} from './accounts/directory';
+import { ADMIN_ONLY_ACTIONS } from './pipeline/adminActions';
 
 /**
  * =============================================================================
- * GitHub Organization-Based Permission Policy
+ * Portal Permission Policy
  * =============================================================================
  *
- * This permission policy grants access based on the user's group membership
- * in the Backstage catalog. Groups are synced from GitHub organization teams.
+ * Decides two things for every request: what the caller's role lets them
+ * do, and which accounts' things they may do it to.
  *
- * Configuration:
- * 1. Set up GitHub OAuth (GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET)
- * 2. Configure GitHub org integration in app-config.yaml
- * 3. Map GitHub teams to Backstage groups in catalog/users.yaml
+ * Roles:
+ * - admin: a portal administrator (the list kept by ./branding, and
+ *   PORTAL_ADMINS), or a member of an admin group. Every permission.
+ * - editor: a member of an editor group. Everything but deleting entities,
+ *   unregistering files, the template editor and its dry run, and the
+ *   template actions that change the operator's GitHub organisation.
+ * - viewer: any other signed-in user. As an editor.
+ * - guest: a caller with no user. Reading the catalog and TechDocs only.
  *
- * Role Hierarchy:
- * - admins: Full access to all features
- * - editors: Can create/modify entities and use scaffolder
- * - viewers: Read-only access (default for authenticated users)
+ * A portal administrator is told by their own user ref only. The groups a
+ * sign-in names are not asked: they can come from a catalog file the
+ * person registered themselves.
  *
- * Users without group membership get viewer-level access by default.
+ * Group roles are taken only from groups and user entries the operator
+ * provides (files named in the configuration, the GitHub organisation
+ * sync). Anyone can register a catalog file that defines a group called
+ * `admins`, so entities that come from registered files, which carry the
+ * `portal/account` annotation, grant nothing.
+ *
+ * Accounts (see ./accounts/directory.ts):
+ * - A catalog entity that carries the `portal/account` annotation is
+ *   private to that account. Every permission on a catalog entity that the
+ *   role allows is answered with a condition: the entity has no such
+ *   annotation, or it names one of the caller's accounts. That holds for
+ *   every role, administrators included, and a caller with no user gets
+ *   only the entities without the annotation. The catalog applies the
+ *   condition, and search and TechDocs follow the catalog.
+ * - A template run is private to the user who started it: reading and
+ *   cancelling a run is answered with the condition that the caller
+ *   created it, and denied to a caller with no user.
+ *
+ * Templates run with the portal's own GitHub token:
+ * - The actions in ./pipeline/adminActions.ts change the operator's GitHub
+ *   organisation (teams, members, invitations). Running an action is
+ *   answered, for anyone but an admin, with the condition that it is none
+ *   of those, so a template that uses one stops there.
+ * - The template editor's dry run returns what it read, which can be any
+ *   repository that token reads, so it and the editor are for admins.
  * =============================================================================
  */
 
+// The resource types of the catalog's and the scaffolder's permissions, as
+// their common packages define them.
+const CATALOG_ENTITY = 'catalog-entity';
+const SCAFFOLDER_TASK = 'scaffolder-task';
+const SCAFFOLDER_ACTION = 'scaffolder-action';
+
+// Whether an entity comes from a registered file, and so belongs to an account
+const isPrivate = (entity: Entity) =>
+  entity.metadata.annotations?.[ACCOUNT_ANNOTATION] !== undefined;
+
 // Permissions that require admin role
-const ADMIN_PERMISSIONS = ['catalog.entity.delete', 'catalog.location.delete'];
+const ADMIN_PERMISSIONS = [
+  'catalog.entity.delete',
+  'catalog.location.delete',
+  'scaffolder.template.management',
+  'scaffolder.template.dry-run',
+];
 
 // Permissions that editors and viewers can use (for scaffolder workflows)
 const SCAFFOLDER_CATALOG_PERMISSIONS = [
@@ -55,7 +115,7 @@ const ADMIN_GROUPS = ['admins', 'platform-admins', 'backstage-admins'];
 // Editor group names (case-insensitive matching)
 const EDITOR_GROUPS = ['editors', 'developers', 'platform-editors'];
 
-class GitHubOrgPermissionPolicy implements PermissionPolicy {
+export class GitHubOrgPermissionPolicy implements PermissionPolicy {
   private logger: LoggerService;
   private catalog: CatalogService;
   private auth: AuthService;
@@ -107,8 +167,11 @@ class GitHubOrgPermissionPolicy implements PermissionPolicy {
         return [];
       }
 
-      // Get memberOf from the user's spec
-      const memberOf = (userEntity.spec as any)?.memberOf || [];
+      // Get memberOf from the user's spec, unless the user entry itself
+      // comes from a registered file
+      const memberOf = isPrivate(userEntity)
+        ? []
+        : (userEntity.spec as any)?.memberOf || [];
       const groups: string[] = [];
 
       for (const groupRef of memberOf) {
@@ -137,6 +200,10 @@ class GitHubOrgPermissionPolicy implements PermissionPolicy {
         );
 
         for (const group of groupEntities.items) {
+          // A group from a registered file grants no role
+          if (isPrivate(group)) {
+            continue;
+          }
           const members = (group.spec as any)?.members || [];
           const groupName = group.metadata.name.toLowerCase();
 
@@ -205,13 +272,18 @@ class GitHubOrgPermissionPolicy implements PermissionPolicy {
   }
 
   /**
-   * Determine user's role based on their group membership
+   * Determine user's role: a portal administrator, or by group membership
    */
   private async getUserRole(
     userEntityRef: string | undefined,
   ): Promise<'admin' | 'editor' | 'viewer' | 'guest'> {
     if (!userEntityRef) {
       return 'guest';
+    }
+
+    if (await directory.isPortalAdmin(userEntityRef, [])) {
+      this.logger.debug(`User ${userEntityRef} is a portal administrator`);
+      return 'admin';
     }
 
     // Check for admin group membership
@@ -243,13 +315,78 @@ class GitHubOrgPermissionPolicy implements PermissionPolicy {
       user && this.auth.isPrincipal(user.credentials, 'user')
         ? user.credentials.principal.userEntityRef
         : undefined;
-    const permissionName = request.permission.name;
+    const { permission } = request;
     const role = await this.getUserRole(userEntityRef);
 
     this.logger.debug(
-      `Permission check: user=${userEntityRef}, permission=${permissionName}, role=${role}`,
+      `Permission check: user=${userEntityRef}, permission=${permission.name}, role=${role}`,
     );
 
+    // What the role allows comes first: a permission it is denied stays denied
+    const decision = this.decideForRole(role, permission.name);
+    if (decision.result !== AuthorizeResult.ALLOW) {
+      return decision;
+    }
+
+    // Catalog entities: only those that are shared, or of the caller's accounts
+    if (isResourcePermission(permission, CATALOG_ENTITY)) {
+      const accounts = userEntityRef
+        ? await directory.accountsOf(userEntityRef)
+        : [];
+      return createCatalogConditionalDecision(permission, {
+        anyOf: [
+          {
+            not: catalogConditions.hasAnnotation({
+              annotation: ACCOUNT_ANNOTATION,
+            }),
+          },
+          ...accounts
+            .filter(account => account !== UNCLAIMED_ACCOUNT)
+            .map(account =>
+              catalogConditions.hasAnnotation({
+                annotation: ACCOUNT_ANNOTATION,
+                value: account,
+              }),
+            ),
+        ],
+      });
+    }
+
+    // Template runs: only the caller's own
+    if (isResourcePermission(permission, SCAFFOLDER_TASK)) {
+      if (!userEntityRef) {
+        return { result: AuthorizeResult.DENY };
+      }
+      return createScaffolderTaskConditionalDecision(permission, {
+        anyOf: [
+          scaffolderTaskConditions.isTaskOwner({ createdBy: [userEntityRef] }),
+        ],
+      });
+    }
+
+    // Template actions: those that change the operator's GitHub
+    // organisation are for admins
+    if (
+      role !== 'admin' &&
+      isResourcePermission(permission, SCAFFOLDER_ACTION)
+    ) {
+      const [first, ...others] = ADMIN_ONLY_ACTIONS.map(actionId =>
+        scaffolderActionConditions.hasActionId({ actionId }),
+      );
+      if (first) {
+        return createScaffolderActionConditionalDecision(permission, {
+          not: { anyOf: [first, ...others] },
+        });
+      }
+    }
+
+    return decision;
+  }
+
+  private decideForRole(
+    role: 'admin' | 'editor' | 'viewer' | 'guest',
+    permissionName: string,
+  ): { result: AuthorizeResult.ALLOW | AuthorizeResult.DENY } {
     // Guests (unauthenticated) - allow read-only access to TechDocs and Catalog
     if (role === 'guest') {
       // Allow TechDocs read access for public documentation
@@ -320,20 +457,20 @@ export default createBackendModule({
         catalog: catalogServiceRef,
       },
       async init({ policy, logger, auth, catalog }) {
-        logger.info('Initializing GitHub organization-based permission policy');
+        logger.info('Initializing the portal permission policy');
         logger.info(
-          'Users are granted access based on their GitHub org team membership:',
-        );
-        logger.info(
-          `  - Admin groups (${ADMIN_GROUPS.join(', ')}): Full access`,
+          '  - Portal administrators and admin groups ' +
+            `(${ADMIN_GROUPS.join(', ')}): Full access`,
         );
         logger.info(
           `  - Editor groups (${EDITOR_GROUPS.join(
             ', ',
           )}): Create/modify access`,
         );
-        logger.info('  - All authenticated users: Read-only access (viewer)');
-        logger.info('Group membership is now resolved via catalog lookup');
+        logger.info('  - All authenticated users: viewer access');
+        logger.info(
+          'Entities from registered files are shown to their own account only',
+        );
         policy.setPolicy(new GitHubOrgPermissionPolicy(logger, catalog, auth));
       },
     });

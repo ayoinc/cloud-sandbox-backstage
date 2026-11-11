@@ -5,7 +5,8 @@ import { notAllowedError } from './errors';
 import type { AppEnv } from './types';
 
 /**
- * Portal admins: who may change branding and reassign ownership.
+ * Portal admins: who may reassign ownership, register catalog files and use
+ * the template editor.
  *
  * An admin is a signed-in user named in the optional PORTAL_ADMINS variable,
  * or a row in `branding_admins`. While both are empty the portal has nobody

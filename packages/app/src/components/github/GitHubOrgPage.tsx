@@ -22,7 +22,7 @@ import PersonAddIcon from '@material-ui/icons/PersonAdd';
 import GroupIcon from '@material-ui/icons/Group';
 import SyncIcon from '@material-ui/icons/Sync';
 import GitHubIcon from '@material-ui/icons/GitHub';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 
 const useStyles = makeStyles(theme => ({
   card: {
@@ -196,7 +196,8 @@ export const GitHubOrgPage = () => {
                     <Button
                       variant="outlined"
                       fullWidth
-                      href="/catalog?filters[kind]=user"
+                      component={RouterLink}
+                      to="/catalog?filters[kind]=user"
                       startIcon={<PersonAddIcon />}
                     >
                       View All Users
@@ -206,7 +207,8 @@ export const GitHubOrgPage = () => {
                     <Button
                       variant="outlined"
                       fullWidth
-                      href="/catalog?filters[kind]=group"
+                      component={RouterLink}
+                      to="/catalog?filters[kind]=group"
                       startIcon={<GroupIcon />}
                     >
                       View All Teams

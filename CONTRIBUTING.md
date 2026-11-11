@@ -319,12 +319,12 @@ For new API endpoints:
 
 ```typescript
 /**
- * Get current branding settings
+ * Get an organisation's name and look
  *
- * @route GET /api/branding-settings
- * @returns {BrandingSettings} Current branding configuration
+ * @route GET /api/organisations/:slug
+ * @returns {Organisation} The organisation, or 404
  */
-router.get('/', async (_req, res) => {
+router.get('/:slug', async (req, res) => {
   // ...
 });
 ```

@@ -13,7 +13,8 @@ A fully-featured [Backstage](https://backstage.io) developer portal configured f
 
 ### Custom Plugins
 
-- **Branding Settings** - The portal ships with no organisation's name, logo or colours. An administrator sets the name, uploads a logo and picks a theme preset or primary colour at `/admin/branding`; the sidebar, sign-in page and documentation follow at once
+- **Organisations** - The portal has no name, logo or colours of its own. Anyone who signs in, except with the shared guest account, can create an organisation under **Settings > Organisation**: a name, an address (`/o/<slug>`), two logos, a theme and a primary colour, all of which its owner can change. Its owner invites people, who join from the same tab. Members land at that address every time they sign in, and the organisation's name and look show there only: on its sign-in page, in the sidebar and in the pages' colours. The portal's own address stays plain. A person belongs to one organisation. See [Organisations](docs/organisations.md)
+- **Private by default** - What a person or an organisation registers in the catalog, and the search results, documentation and builds that come from it, is shown to that account only, whether or not they have created an organisation. Template runs are shown to whoever started them. Only what the operator provides is shared. See [Accounts](docs/accounts.md)
 - **Ownership Management** - Orphan detection and ownership reassignment for catalog entities
 - **GitHub Team Sync** - Bi-directional synchronization between Backstage groups and GitHub teams
 
@@ -253,7 +254,8 @@ backstage/
 │   │       └── hooks/       # Custom React hooks
 │   └── backend/             # Backend application
 │       └── src/
-│           ├── branding/    # Branding settings plugin
+│           ├── branding/    # Portal administrators
+│           ├── organisations/ # Organisations: address, look, members
 │           ├── index.ts     # Backend entry point
 │           ├── permissionPolicy.ts
 │           ├── ownershipManagementPlugin.ts
@@ -313,25 +315,43 @@ to the Worker:
 
 Dashed lines are the work done out of band, in GitHub Actions.
 
-| In the portal                                                   | Where the work happens                                 |
-| --------------------------------------------------------------- | ------------------------------------------------------ |
-| Catalog browsing, entity pages, relations graph, API explorer   | `portal-sync` processes the catalog, the Worker reads  |
-| TechDocs pages                                                  | `portal-sync` builds them with mkdocs, R2 stores them  |
-| Search over catalog entities and documentation                  | `portal-sync` builds the index, the Worker searches it |
-| Creating from templates                                         | `portal-scaffold` runs the template steps              |
-| Template editor, trying a template out (administrators)         | `portal-dry-run` runs the steps without publishing     |
-| CI/CD tab (GitHub Actions runs of a component)                  | The Worker reads them from GitHub                      |
-| GitHub and Google sign-in, user settings (stars, theme)         | The Worker                                             |
-| Branding (`/admin/branding`) and ownership (`/admin/ownership`) | The Worker; settings, logos and admins are kept in D1  |
+| In the portal                                                  | Where the work happens                                 |
+| -------------------------------------------------------------- | ------------------------------------------------------ |
+| Catalog browsing, entity pages, relations graph, API explorer  | `portal-sync` processes the catalog, the Worker reads  |
+| TechDocs pages                                                 | `portal-sync` builds them with mkdocs, R2 stores them  |
+| Search over catalog entities and documentation                 | `portal-sync` builds the index, the Worker searches it |
+| Creating from templates                                        | `portal-scaffold` runs the template steps              |
+| Template editor, trying a template out (administrators)        | `portal-dry-run` runs the steps without publishing     |
+| CI/CD tab (GitHub Actions runs of a component)                 | The Worker reads them from GitHub                      |
+| GitHub and Google sign-in, user settings (stars, theme)        | The Worker                                             |
+| Organisations (`/o/<slug>`) and ownership (`/admin/ownership`) | The Worker; looks, logos and admins are kept in D1     |
 
 The first person to sign in becomes the portal administrator, unless
 `PORTAL_ADMINS` names the administrators. More can be added at
-`/admin/branding`. Administrators are also the ones who get the template
+`/admin/administrators`. Administrators are also the ones who get the template
 editor.
 
 Registering an existing component (`/catalog-import`) takes a GitHub link to
 a `catalog-info.yaml`; the portal records it and starts a sync. Both it and
 the template editor are for portal administrators.
+
+Four pages are open to everyone, signed in or not, and linked from the foot
+of the sign-in page: the privacy notice (`/privacy.html`), cookies
+(`/cookies.html`), guides (`/guides.html`) and a sitemap (`/sitemap.html`).
+They are static files in `packages/app/public/`, written to hold wherever
+the portal is hosted and whoever runs it: they name no host, no operator and
+no contact address. Their stylesheet and fonts are written from the brand
+tokens (`packages/brand/src/pages/pagesCss.ts`), and a test fails when they
+differ.
+
+Visits are counted only when `WEB_ANALYTICS_TOKEN` holds the site token of
+[Cloudflare Web Analytics](https://www.cloudflare.com/web-analytics/)
+(dashboard: Analytics & Logs > Web Analytics > add the portal's host name >
+Manage site). It sets no cookies and keeps nothing in the browser, so the
+portal asks nobody for consent. The Worker then adds the counting script to
+every page and shows the pages' "this portal counts visits" wording; without
+the token nothing is loaded and the pages say that visits are not measured.
+On other hosts the pages always say that.
 
 Not available yet: live notifications.
 
@@ -377,10 +397,15 @@ repository does not process. A documentation site that does not build is
 reported and skipped, and keeps serving its last good build.
 
 **`portal-scaffold.yml`** is started by the Worker when a user creates
-something from a template. It runs the template in the real scaffolder, sends
-every log line and the result back to the portal as they happen, hands the
-catalog file of the new repository to the portal, and then runs the sync so
-the new component and its documentation appear.
+something from a template. The Worker gives the workflow only the task's id
+and the template's name, because workflow inputs and logs can be read by
+everyone who can see the run; the run fetches the form values from the
+portal. It runs the template in the real scaffolder, sends every log line and
+the result back to the portal as they happen, hands the catalog file of the
+new repository to the portal, filed under the account of whoever started the
+run, and then runs the sync so the new component and its documentation
+appear. The run's own log names the steps only, and the error when a run
+fails, unless `PORTAL_VERBOSE_LOG` is `true`.
 
 ![A template run, step by step](docs/diagrams/template-run-steps.svg)
 
@@ -444,11 +469,14 @@ Guest sign-in is off in the deployment and on for local development
 Everything else is stored in Cloudflare and never committed. `edge/.prod.vars`
 (ignored by Git) lists the GitHub and Google client IDs and who may sign in
 (`GITHUB_CLIENT_ID`, `GITHUB_ALLOWED_USERS`, `GOOGLE_CLIENT_ID`,
-`GOOGLE_ALLOWED_EMAILS`, `GOOGLE_ALLOWED_DOMAINS`); the deploy uploads them.
+`GOOGLE_ALLOWED_EMAILS`, `GOOGLE_ALLOWED_DOMAINS`) and the optional
+`PORTAL_ADMINS` and `WEB_ANALYTICS_TOKEN`; the deploy
+uploads them.
 Nobody outside those lists can sign in. Everyone who does sign in becomes a
-User in the catalog (name, picture and email from the provider), kept in the
+User in the catalog (name, picture and email from the provider), shown to
+them and to the members of their organisation, and kept in the
 `signed_in_users` table so that a catalog sync does not remove them; a user
-the catalog files also define keeps the files' definition. Run
+the operator's catalog files also define keeps the files' definition. Run
 `db:migrate:remote` before pushing a change that adds a migration: the
 pipelines run the Worker from the checkout against the deployed database.
 
@@ -456,8 +484,9 @@ Five more values are set once with `wrangler secret put <NAME>`:
 `SESSION_SECRET` (signs user tokens and session cookies), `GITHUB_CLIENT_SECRET`,
 `GOOGLE_CLIENT_SECRET`, `PIPELINE_TOKEN` (guards `/api/pipeline` on the public
 address, which nothing needs to call: generate it with `openssl rand -hex 32`
-and keep no copy) and `PORTAL_GITHUB_TOKEN` (starts the `portal-scaffold` and
-`portal-dry-run` workflows and reads workflow runs for the CI/CD tab).
+and keep no copy) and `PORTAL_GITHUB_TOKEN` (starts the `portal-scaffold`,
+`portal-dry-run` and `portal-sync` workflows, reads the catalog files people
+register and reads workflow runs for the CI/CD tab).
 `node scripts/create-github-app.mjs <portal URL>` creates the GitHub App and
 stores its secret; the Google client is created in the Google Cloud console
 with the redirect URI `<portal URL>/api/auth/google/handler/frame`.
@@ -613,6 +642,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
 - [Complete Setup Guide](SETUP.md) - Detailed installation and configuration
 - [Architecture Overview](ARCHITECTURE.md) - System design and components
 - [Hosting Parity](docs/hosting-parity.md) - What works on a VM, in containers and on Cloudflare Workers
+- [Organisations](docs/organisations.md) - Addresses, looks, members and the API
+- [Accounts](docs/accounts.md) - What each person and organisation can see, and what is shared
 - [Contributing Guidelines](CONTRIBUTING.md) - How to contribute
 - [Backstage Documentation](https://backstage.io/docs) - Official Backstage docs
 - [Template Development Guide](templates/README.md) - Creating custom templates

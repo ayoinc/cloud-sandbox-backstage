@@ -12,7 +12,8 @@ import {
   type Profile,
   type Session,
 } from './auth';
-import { recordSignIn } from './catalog/users';
+import { googleUserName } from '../../packages/backend/src/organisations/rules';
+import { carryOver, recordSignIn } from './catalog/users';
 import { bytesToBase64, decodeJson, encodeJson } from './encoding';
 import {
   authenticationError,
@@ -60,6 +61,16 @@ interface Provider {
    * token. The GitHub Actions tab does, whichever way the user signed in.
    */
   issuesAccessToken: boolean;
+  /**
+   * Only for a provider that once named its users another way: the user ref
+   * of the account `id` as it is `now` (undefined when none can be made
+   * from it) and as it was `before`. `before` is undefined when what is
+   * filed under the old ref cannot be known to be this account's.
+   */
+  refs?(
+    env: Env,
+    id: string,
+  ): { now: string | undefined; before: string | undefined };
 }
 
 // Each provider keeps its own session cookie (`github-session`,
@@ -188,9 +199,15 @@ const google: Provider = {
       throw authenticationError('Google did not return a verified email');
     }
     const email = claims.email.toLowerCase();
+    const userEntityRef = googleRefs(env, email).now;
+    if (!userEntityRef) {
+      throw notAllowedError(
+        `${email} cannot be used to sign in to this portal: the address is too long, does not start with a letter or digit, or its domain has no dot in it. Sign in with another account`,
+      );
+    }
     return {
       id: email,
-      userEntityRef: `user:default/${entityName(email.split('@')[0])}`,
+      userEntityRef,
       profile: {
         email,
         displayName: claims.name ?? email,
@@ -202,7 +219,32 @@ const google: Provider = {
     list(env.GOOGLE_ALLOWED_EMAILS).includes(id) ||
     list(env.GOOGLE_ALLOWED_DOMAINS).includes(id.split('@')[1] ?? ''),
   issuesAccessToken: false,
+  refs: googleRefs,
 };
+
+/**
+ * Who an email address is when it signs in with Google. `now`, the whole
+ * address goes into the name (`jane_example.com`), which no GitHub login
+ * and no other address can be. `before`, only the part in front of the @
+ * did (`jane`), so a GitHub user or someone at another domain could be
+ * given the same account.
+ *
+ * Where a GitHub account that may sign in has that old name, the two shared
+ * it, and whose the things under it are cannot be known: the administrator
+ * role least of all. There is no `before` then. The GitHub account keeps
+ * the name with all that is under it, and the Google account starts afresh.
+ */
+function googleRefs(env: Env, email: string) {
+  const name = googleUserName(email);
+  const before = entityName(email.split('@')[0]);
+  const shared = list(env.GITHUB_ALLOWED_USERS).some(
+    login => entityName(login) === before,
+  );
+  return {
+    now: name && `user:default/${name}`,
+    before: shared ? undefined : `user:default/${before}`,
+  };
+}
 
 const providers: Record<string, Provider> = { github, google };
 
@@ -281,9 +323,34 @@ function whyNotAllowed(env: Env, session: Session): string | undefined {
   if (!clientId || !clientSecret) {
     return `sign-in with ${session.provider} is not configured`;
   }
-  return provider.isAllowed(env, session.id)
-    ? undefined
-    : `${session.id} is not on the ${session.provider} allow-list`;
+  if (!provider.isAllowed(env, session.id)) {
+    return `${session.id} is not on the ${session.provider} allow-list`;
+  }
+  return provider.refs && !provider.refs(env, session.id).now
+    ? `no user name can be made from ${session.id}`
+    : undefined;
+}
+
+/**
+ * The session under the user ref its account has now. A session from
+ * before its provider changed how it names users is given the new ref, and
+ * what the person had under the old one is carried over to it: once, as it
+ * is found only where it was, and not at all when the old ref was not
+ * theirs alone. For a session `whyNotAllowed` accepts.
+ */
+async function upToDate<T extends Session>(env: Env, session: T): Promise<T> {
+  const refs = providers[session.provider]?.refs?.(env, session.id);
+  if (!refs?.now) {
+    return session;
+  }
+  if (refs.before) {
+    await carryOver(env.DB, {
+      email: session.id,
+      from: refs.before,
+      to: refs.now,
+    });
+  }
+  return session.sub === refs.now ? session : { ...session, sub: refs.now };
 }
 
 /**
@@ -425,12 +492,12 @@ oauthRoutes.get('/:provider/handler/frame', async c => {
         `${account.id} is not allowed to sign in to this portal`,
       );
     }
-    const session: Session = {
+    const session = await upToDate<Session>(c.env, {
       provider: id,
       id: account.id,
       sub: account.userEntityRef,
       profile: account.profile,
-    };
+    });
     await recordSignIn(c.env.DB, session);
     const sessionToken = await signToken(
       c.env.SESSION_SECRET,
@@ -500,17 +567,33 @@ oauthRoutes.get('/:provider/refresh', async c => {
         ? whyNotAllowed(c.env, own.session)
         : `the ${id}-session cookie holds a ${own.session.provider} session`;
     if (!problem) {
-      await recordSignIn(c.env.DB, own.session);
-      if (!provider.issuesAccessToken) {
-        sharePortalSession(
-          c,
-          own.token,
-          own.session.exp - Math.floor(Date.now() / 1000),
+      const session = await upToDate(c.env, own.session);
+      await recordSignIn(c.env.DB, session);
+      const remaining = session.exp - Math.floor(Date.now() / 1000);
+      let { token } = own;
+      if (session !== own.session) {
+        // The cookie names the user by the ref they had before: it is
+        // signed again under the one they have now, until the same time.
+        const { secure, base } = resolve(c);
+        // signToken sets the expiry itself.
+        token = await signToken(
+          c.env.SESSION_SECRET,
+          SESSION_AUDIENCE,
+          remaining,
+          { ...session },
         );
+        setCookie(c, `${id}-session`, token, {
+          httpOnly: true,
+          secure,
+          sameSite: 'Lax',
+          path: base,
+          maxAge: remaining,
+        });
       }
-      return c.json(
-        await sessionResponse(c, provider, own.session, scope, true),
-      );
+      if (!provider.issuesAccessToken) {
+        sharePortalSession(c, token, remaining);
+      }
+      return c.json(await sessionResponse(c, provider, session, scope, true));
     }
     refused.push(problem);
     turnedDown = true;
@@ -533,7 +616,13 @@ oauthRoutes.get('/:provider/refresh', async c => {
           : whyNotAllowed(c.env, other.session);
       if (!problem) {
         return c.json(
-          await sessionResponse(c, provider, other.session, scope, false),
+          await sessionResponse(
+            c,
+            provider,
+            await upToDate(c.env, other.session),
+            scope,
+            false,
+          ),
         );
       }
       refused.push(problem);

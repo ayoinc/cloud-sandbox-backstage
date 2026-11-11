@@ -1,7 +1,8 @@
 # What the exported PDF and Word documents look like. `uv run scripts/export.py`
-# reads this file. When `portal_url` is set, the organisation name, logo and
-# primary colour come from that portal's branding settings instead, and the
-# values below are used only for whatever the portal has not set.
+# reads this file. When `portal_url` is set to your organisation's address in
+# the portal (https://portal.example.org/o/acme), its name, logo and primary
+# colour are used instead, and the values below only for whatever the
+# organisation has not set.
 
 organisation: ''
 # A PNG, JPEG or SVG in this repository, for example docs/assets/logo.svg

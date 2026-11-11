@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Guides | Developer portal</title>
+    <meta
+      name="description"
+      content="How to sign in to this developer portal, set up an organisation, find software and documentation, and create or register a component."
+    />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/pages.css" />
+  </head>
+  <body>
+    <header><a href="/">Developer portal</a></header>
+    <main>
+      <h1>Guides</h1>
+      <p class="updated">Last updated: 11 November 2026</p>
+
+      <p>
+        Short instructions for the things people do most often in the portal.
+        The links to pages inside the portal need you to be signed in. If you
+        belong to an organisation, the portal moves you to the same page under
+        your organisation's address.
+      </p>
+
+      <h2>Sign in</h2>
+      <ol>
+        <li>
+          Open <a href="/">the sign-in page</a>. If your organisation has an
+          address of its own, such as <code>/o/acme</code>, you can sign in
+          there instead: it is the same portal.
+        </li>
+        <li>
+          Choose GitHub or Google, whichever the page offers. Some portals also
+          offer a guest account, which is one account shared by everyone who
+          uses it.
+        </li>
+        <li>
+          A window opens at GitHub or Google. Sign in there. The portal asks
+          only who you are.
+        </li>
+        <li>
+          The window closes and the portal opens at the catalog, or at your
+          organisation's address if you belong to one. The first time, if you
+          have no organisation, it opens Settings at the Organisation tab.
+        </li>
+      </ol>
+      <p>
+        The portal signs you out after one hour without activity. To sign out
+        yourself, open Settings at the bottom of the sidebar and choose Sign
+        Out. The <a href="/privacy.html">privacy notice</a> says what the portal
+        receives when you sign in, and the
+        <a href="/cookies.html">cookies page</a> says what it keeps in your
+        browser.
+      </p>
+
+      <h2>Create an organisation or join one</h2>
+      <p>
+        An organisation gives the portal a name, logos and a theme at an address
+        of its own. You can belong to one organisation at a time. The guest
+        account cannot create or join one.
+      </p>
+      <h3>Create one</h3>
+      <ol>
+        <li>
+          Open
+          <a href="/settings/organisation">Settings, then Organisation</a>.
+        </li>
+        <li>
+          Enter a name of up to 80 characters, and an address: 3 to 40
+          lower-case letters, digits and dashes, starting and ending with a
+          letter or digit. It becomes <code>/o/your-address</code> and cannot be
+          changed later.
+        </li>
+        <li>
+          Create the organisation. You are its first owner, and the portal moves
+          you to its address.
+        </li>
+        <li>
+          On the same tab, add the logos and choose the theme, then invite
+          people by their user name in the portal. Each of them chooses whether
+          to join.
+        </li>
+      </ol>
+      <h3>Join one</h3>
+      <ol>
+        <li>Ask an owner of the organisation to invite you.</li>
+        <li>
+          Open
+          <a href="/settings/organisation">Settings, then Organisation</a>. The
+          invitation is shown there.
+        </li>
+        <li>
+          Join, or decline. If you already belong to another organisation, leave
+          it first: until then you can only decline.
+        </li>
+      </ol>
+
+      <h2>Find a component, API or document</h2>
+      <ol>
+        <li>
+          To browse, open the <a href="/catalog">catalog</a>. The sidebar has a
+          shortcut for each kind of entry, such as
+          <a href="/catalog?filters%5Bkind%5D=component">Components</a> and
+          <a href="/catalog?filters%5Bkind%5D=api">APIs</a>. Open an entry to
+          see its owner, its relations and its documentation.
+        </li>
+        <li>
+          To look for a word, choose Search at the top of the sidebar, or open
+          the <a href="/search">search page</a>. Search covers catalog entries
+          and documentation.
+        </li>
+        <li>
+          To read documentation, open <a href="/docs">Docs</a> and choose a
+          component, or open the Docs tab on a component's own page.
+        </li>
+        <li>
+          To read an API's definition, open the
+          <a href="/api-docs">API explorer</a> and choose the API.
+        </li>
+      </ol>
+
+      <h2>Create something from a template</h2>
+      <ol>
+        <li>
+          Choose Create... in the sidebar, or open the
+          <a href="/create">list of templates</a>.
+        </li>
+        <li>Choose a template.</li>
+        <li>
+          Fill in the form. Each template asks for what it needs, such as a
+          name, an owner and where the new repository goes.
+        </li>
+        <li>Check the summary and create.</li>
+        <li>
+          The portal shows each step of the run as it happens. When the run has
+          finished, follow its links to what it made. Your earlier runs are
+          listed under <a href="/create/tasks">Tasks</a>.
+        </li>
+      </ol>
+      <p>
+        If Create... is missing from your sidebar, your account is not allowed
+        to run templates.
+      </p>
+
+      <h2>Register a component that already exists</h2>
+      <p>
+        Registering adds a repository you already have to the catalog. Not
+        everyone may do it: the people who run the portal decide who. If
+        Register Existing Component is missing from your sidebar, or the page
+        refuses you, ask them.
+      </p>
+      <ol>
+        <li>
+          Add a <code>catalog-info.yaml</code> file that describes the component
+          to its repository on GitHub.
+        </li>
+        <li>
+          Open
+          <a href="/catalog-import">Register an existing component</a>.
+        </li>
+        <li>Paste the GitHub link to the file and follow the steps.</li>
+        <li>
+          Find the component in the <a href="/catalog">catalog</a>. It can take
+          a few minutes to appear.
+        </li>
+      </ol>
+
+      <h2>Get help</h2>
+      <p>
+        To ask a question, report a fault or ask for access, contact the person
+        who sent you this portal's address. The
+        <a href="/sitemap.html">sitemap</a> lists the portal's main pages.
+      </p>
+    </main>
+    <footer>
+      <nav aria-label="Portal information">
+        <ul>
+          <li><a href="/privacy.html">Privacy notice</a></li>
+          <li><a href="/cookies.html">Cookies</a></li>
+          <li><a href="/guides.html" aria-current="page">Guides</a></li>
+          <li><a href="/sitemap.html">Sitemap</a></li>
+          <li><a href="/">Open the portal</a></li>
+        </ul>
+      </nav>
+    </footer>
+  </body>
+</html>

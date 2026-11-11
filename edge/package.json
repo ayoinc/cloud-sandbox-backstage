@@ -15,7 +15,9 @@
     "template:run": "node scripts/pipeline/run-template.mjs",
     "template:dry-run": "node scripts/pipeline/dry-run.mjs",
     "template:check": "node scripts/pipeline/check-templates.mjs",
-    "verify": "node scripts/compare-with-backend.mjs"
+    "verify": "node scripts/compare-with-backend.mjs",
+    "verify:organisations": "node scripts/check-organisations.mjs",
+    "verify:privacy": "node scripts/check-privacy.mjs"
   },
   "dependencies": {
     "hono": "^4.13.0",

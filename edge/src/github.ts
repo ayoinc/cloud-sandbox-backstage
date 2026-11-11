@@ -1,4 +1,6 @@
 import { Hono } from 'hono';
+import { callerRef, fromRegisteredFile, originOf, visibleTo } from './accounts';
+import { isPortalAdmin } from './admin';
 import { signInFromHeader } from './auth';
 import { HttpError, notAllowedError, notFoundError } from './errors';
 import type { AppEnv } from './types';
@@ -9,7 +11,16 @@ import type { AppEnv } from './types';
  * The front end's GitHub client is pointed here instead of api.github.com
  * and sends the user's portal token, the only credential the browser has.
  * Requests for the workflow runs of a repository in the catalog are passed
- * on to GitHub with the Worker's own token. Nothing else is.
+ * on to GitHub with the Worker's own token, for callers who may see an
+ * entity of that repository. Nothing else is.
+ *
+ * An entity names its repository itself, in an annotation. For one that
+ * comes from a file registered through the portal that is taken only when
+ * it names the repository the file is in: anyone can register a file, and
+ * would otherwise read the runs of any repository the token reads by naming
+ * it. The repository the portal itself runs in, which the pipeline writes
+ * on every component and template the operator keeps there, holds the logs
+ * of everyone's template runs: it is read by portal administrators only.
  */
 export const githubRoutes = new Hono<AppEnv>();
 
@@ -50,14 +61,28 @@ githubRoutes.all('*', async c => {
       'Only the GitHub Actions runs of a repository can be read through the portal',
     );
   }
-  // Catalog search values are stored in lower case.
+  const slug = `${owner}/${repo}`.toLowerCase();
+  const missing = notFoundError(
+    `No entity in the catalog belongs to ${owner}/${repo}`,
+  );
+  if (slug === c.env.PORTAL_REPO.toLowerCase() && !(await isPortalAdmin(c))) {
+    throw missing;
+  }
+  // Catalog search values are stored in lower case. A repository whose
+  // entities the caller may not see is, to them, not in the catalog.
+  const visible = visibleTo(callerRef(c));
+  const ownFile = `url:https://github.com/${slug}/`;
   const inCatalog = await c.env.DB.prepare(
-    "SELECT 1 FROM search WHERE key = 'metadata.annotations.github.com/project-slug' AND value = ? LIMIT 1",
+    `SELECT 1 FROM search s JOIN final_entities e ON e.entity_id = s.entity_id WHERE s.key = 'metadata.annotations.github.com/project-slug' AND s.value = ? AND (${
+      visible.sql
+    }) AND (substr(${originOf(
+      'e',
+    )}, 1, length(?)) = ? OR NOT ${fromRegisteredFile('e')}) LIMIT 1`,
   )
-    .bind(`${owner}/${repo}`.toLowerCase())
+    .bind(slug, ...visible.params, ownFile, ownFile)
     .first();
   if (!inCatalog) {
-    throw notFoundError(`No entity in the catalog belongs to ${owner}/${repo}`);
+    throw missing;
   }
   if (!c.env.PORTAL_GITHUB_TOKEN) {
     throw new HttpError(

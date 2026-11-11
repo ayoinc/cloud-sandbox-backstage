@@ -1,11 +1,18 @@
 import { Hono, type Context } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
-import { requirePortalAdmin } from './admin';
+import { ADMIN_ONLY_ACTIONS } from '../../packages/backend/src/pipeline/adminActions';
+import { callerRef } from './accounts';
+import { isPortalAdmin, requirePortalAdmin } from './admin';
 import { sourceLocation, type Entity } from './catalog/entity';
 import { inJsonArray } from './catalog/filter';
-import { entityByName } from './catalog/queries';
-import { HttpError, inputError, notFoundError } from './errors';
+import { entityByName, entityByRef } from './catalog/queries';
+import {
+  HttpError,
+  inputError,
+  notAllowedError,
+  notFoundError,
+} from './errors';
 import { isRecord, rawJson, readJson } from './json';
 import { runProgress } from './runProgress';
 import type { AppEnv } from './types';
@@ -19,7 +26,9 @@ import type { AppEnv } from './types';
  * run goes the same way, through a workflow of its own.
  *
  * A user reads only the tasks they created: a task holds the values typed
- * into the template form.
+ * into the template form. A template is run by those who may see it; to
+ * everyone else there is no such template. One whose steps change the
+ * operator's GitHub organisation is run by portal administrators only.
  */
 export const scaffolderRoutes = new Hono<AppEnv>();
 
@@ -88,13 +97,19 @@ interface EntityName {
 }
 
 async function findTemplate(
-  db: D1Database,
+  c: Context<AppEnv>,
   { kind, namespace, name }: EntityName,
 ): Promise<TemplateEntity> {
   if (kind.toLowerCase() !== 'template') {
     throw inputError("Invalid kind, only 'Template' kind is supported");
   }
-  const entity = await entityByName(db, kind, namespace, name);
+  const entity = await entityByName(
+    c.env.DB,
+    callerRef(c),
+    kind,
+    namespace,
+    name,
+  );
   if (entity === null) {
     throw notFoundError(
       `Template ${`${kind}:${namespace}/${name}`.toLowerCase()} not found`,
@@ -149,7 +164,7 @@ scaffolderRoutes.get('/v2/templating-extensions', async c =>
 scaffolderRoutes.get(
   '/v2/templates/:namespace/:kind/:name/parameter-schema',
   async c => {
-    const { metadata, spec } = await findTemplate(c.env.DB, c.req.param());
+    const { metadata, spec } = await findTemplate(c, c.req.param());
     return c.json({
       title: metadata.title ?? metadata.name,
       ...(spec.presentation ? { presentation: spec.presentation } : {}),
@@ -341,14 +356,22 @@ scaffolderRoutes.post('/v2/tasks', async c => {
     throw inputError('templateRef and values are required');
   }
   const ref = parseTemplateRef(body.templateRef);
-  const template = await findTemplate(c.env.DB, ref);
+  const template = await findTemplate(c, ref);
   const templateRef = `${ref.kind}:${ref.namespace}/${ref.name}`.toLowerCase();
+  // Such steps act with the portal's own token: inviting people to the
+  // organisation, making teams and putting people in them.
+  if (
+    template.spec.steps.some(step =>
+      ADMIN_ONLY_ACTIONS.includes(step.action),
+    ) &&
+    !(await isPortalAdmin(c))
+  ) {
+    throw notAllowedError('Only a portal administrator can run this template');
+  }
   const createdBy = c.get('user').userEntityRef;
-  const userEntity = await c.env.DB.prepare(
-    'SELECT final_entity FROM final_entities WHERE entity_ref = ?',
-  )
-    .bind(createdBy.toLowerCase())
-    .first<string>('final_entity');
+  // As the user is served it: they are in the catalog only for those who
+  // may see them, and the task keeps what is read here.
+  const userEntity = await entityByRef(c.env.DB, callerRef(c), callerRef(c));
 
   // Built the way the scaffolder backend builds it, so the task page shows
   // the steps at once. The pipeline replaces it with the spec of the run.
@@ -400,15 +423,16 @@ scaffolderRoutes.post('/v2/tasks', async c => {
         ]),
   ]);
 
-  // Form secrets are deliberately not passed on: workflow inputs are
-  // readable by everyone who can see the workflow run.
+  // The workflow is given the task's id and the template's name, and asks
+  // for the rest with the pipeline's token (GET /api/pipeline/tasks/<id>):
+  // the inputs and the name of a run are readable by everyone who can see
+  // the portal's repository, which the form values and who filled them in
+  // are not for. Form secrets are not passed on at all.
   const failure =
     problem ??
     (await dispatchWorkflow(c.env, WORKFLOW_FILE, {
       task_id: taskId,
       template_ref: templateRef,
-      values: JSON.stringify(body.values),
-      created_by: createdBy,
     }));
   if (failure) {
     const message = `Could not start the pipeline: ${failure}`;

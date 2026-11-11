@@ -72,9 +72,9 @@ function PlainMark(props: LogoProps & { label: string }) {
  * followed by the organisation's name when it has been set.
  */
 export function LogoFull(props: LogoProps) {
-  const { organizationName, logoFullUrl } = useBrandIdentity();
+  const { name, logoFullUrl } = useBrandIdentity();
   const { height = 36, className, style } = props;
-  const label = props.title ?? organizationName ?? FALLBACK_NAME;
+  const label = props.title ?? name ?? FALLBACK_NAME;
   if (logoFullUrl) {
     return (
       <Uploaded {...props} height={height} src={logoFullUrl} alt={label} />
@@ -95,7 +95,7 @@ export function LogoFull(props: LogoProps) {
       }}
     >
       <PlainMark title="" label="" height={height} />
-      {organizationName ? (
+      {name ? (
         <span
           aria-hidden="true"
           style={{
@@ -107,7 +107,7 @@ export function LogoFull(props: LogoProps) {
             whiteSpace: 'nowrap',
           }}
         >
-          {organizationName}
+          {name}
         </span>
       ) : null}
     </span>
@@ -116,9 +116,9 @@ export function LogoFull(props: LogoProps) {
 
 /** The organisation's icon, for the collapsed sidebar and small spaces. */
 export function LogoIcon(props: LogoProps) {
-  const { organizationName, logoIconUrl } = useBrandIdentity();
+  const { name, logoIconUrl } = useBrandIdentity();
   const { height = 32 } = props;
-  const label = props.title ?? organizationName ?? FALLBACK_NAME;
+  const label = props.title ?? name ?? FALLBACK_NAME;
   if (logoIconUrl) {
     return (
       <Uploaded {...props} height={height} src={logoIconUrl} alt={label} />

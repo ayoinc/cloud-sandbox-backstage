@@ -20,6 +20,8 @@
     "@backstage-community/plugin-sonarqube": "^1.4.0",
     "@backstage/catalog-model": "backstage:^",
     "@backstage/cli": "backstage:^",
+    "@backstage/config": "backstage:^",
+    "@backstage/core-app-api": "backstage:^",
     "@backstage/core-compat-api": "backstage:^",
     "@backstage/core-components": "backstage:^",
     "@backstage/core-plugin-api": "backstage:^",

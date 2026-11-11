@@ -1,22 +1,18 @@
 /**
  * =============================================================================
- * Branding Settings Backend Plugin
+ * Portal Admins Backend Plugin (plugin id `branding-settings`)
  * =============================================================================
  *
- * Provides a REST API for storing and retrieving custom branding settings:
- * - Organization/Team name
- * - Custom logo (full and icon versions)
- *
- * Settings and logo files are stored in the plugin's database.
+ * Holds the list of portal admins and its own management, and answers the
+ * rest of the backend who is one (../accounts/directory.ts): the permission
+ * policy and the ownership and clean-up plugins ask. The plugin id and
+ * paths are the ones the front end uses for the list on every backend.
  *
  * Endpoints:
- * - GET    /api/branding-settings              - Get current branding settings
- * - POST   /api/branding-settings              - Update branding settings (admin only)
- * - POST   /api/branding-settings/logo/upload  - Upload logo files (admin only)
- * - GET    /api/branding-settings/logo/:kind   - The full or icon logo (public)
- * - DELETE /api/branding-settings/logo         - Reset logo to default (admin only)
- * - DELETE /api/branding-settings              - Reset all branding to default (admin only)
  * - GET    /api/branding-settings/admin-check  - Check if current user is admin
+ * - GET    /api/branding-settings/admins       - List portal admins (admin only)
+ * - POST   /api/branding-settings/admins       - Add a portal admin (admin only)
+ * - DELETE /api/branding-settings/admins/:id   - Remove a portal admin (admin only)
  *
  * =============================================================================
  */
@@ -25,12 +21,9 @@ import {
   createBackendPlugin,
   coreServices,
 } from '@backstage/backend-plugin-api';
-import { initializeTables } from './database';
+import { provide } from '../accounts/directory';
+import { checkIsAdmin, initializeTables, listPortalAdmins } from './database';
 import { createRouter } from './routes';
-
-export type { BrandingSettings } from './types';
-export { DEFAULT_SETTINGS } from './types';
-export { checkIsAdmin } from './database';
 
 export const brandingSettingsPlugin = createBackendPlugin({
   pluginId: 'branding-settings',
@@ -46,11 +39,17 @@ export const brandingSettingsPlugin = createBackendPlugin({
       async init({ httpRouter, logger, database, httpAuth, userInfo }) {
         logger.info('Initializing branding-settings plugin');
 
-        // Get database client for branding settings storage
+        // Get database client for the admin table
         const knex = await database.getClient();
 
         // Initialize database tables
         await initializeTables(knex, logger);
+
+        provide({
+          isPortalAdmin: (userRef, ownershipRefs) =>
+            checkIsAdmin(knex, userRef, logger, ownershipRefs),
+          portalAdmins: () => listPortalAdmins(knex),
+        });
 
         // Create and register the router
         const router = createRouter({
@@ -62,15 +61,10 @@ export const brandingSettingsPlugin = createBackendPlugin({
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         httpRouter.use(router as any);
-        // The sign-in page shows the name and logo before anyone has signed
-        // in. Routes that change anything check for an administrator
-        // themselves.
+        // Every route checks for a signed-in user or an administrator
+        // itself, and answers in its own format when there is none.
         httpRouter.addAuthPolicy({
           path: '/',
-          allow: 'unauthenticated',
-        });
-        httpRouter.addAuthPolicy({
-          path: '/logo',
           allow: 'unauthenticated',
         });
       },

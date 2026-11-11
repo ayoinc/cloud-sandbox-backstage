@@ -1,29 +1,23 @@
-import { createFrontendModule } from '@backstage/frontend-plugin-api';
-import { AppRootWrapperBlueprint } from '@backstage/plugin-app-react';
 import {
-  brandThemes,
-  brandTranslations,
-  techDocsBrandAddon,
-} from '@internal/brand';
-import { BrandingProvider } from '../../components/branding';
+  AppRootElementBlueprint,
+  createFrontendModule,
+} from '@backstage/frontend-plugin-api';
+import { brandThemes, techDocsBrandAddon } from '@internal/brand';
+import { OrganisationGate } from '../../components/organisation/OrganisationGate';
 
 /**
- * Loads the branding settings once for the whole app. What it loads goes to
- * the brand identity store, which themes the app and supplies the name and
- * logo wherever they appear.
+ * Once someone has signed in, puts them at their organisation's address.
+ * Its name, logo and theme are loaded before the app starts (App.tsx), and
+ * go to the brand identity store, which themes the app.
  */
-const brandingRootWrapper = AppRootWrapperBlueprint.make({
-  name: 'branding',
-  params: {
-    component: ({ children }) => (
-      <BrandingProvider>{children}</BrandingProvider>
-    ),
-  },
+const organisationGate = AppRootElementBlueprint.make({
+  name: 'organisation',
+  params: { element: <OrganisationGate /> },
 });
 
 export const brandModule = createFrontendModule({
   pluginId: 'app',
-  extensions: [...brandThemes, brandTranslations, brandingRootWrapper],
+  extensions: [...brandThemes, organisationGate],
 });
 
 export const brandTechDocsModule = createFrontendModule({

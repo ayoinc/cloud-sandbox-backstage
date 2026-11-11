@@ -2,7 +2,9 @@ import {
   createBackendPlugin,
   coreServices,
 } from '@backstage/backend-plugin-api';
+import { CATALOG_FILTER_EXISTS } from '@backstage/catalog-client';
 import { catalogServiceRef } from '@backstage/plugin-catalog-node';
+import { ACCOUNT_ANNOTATION } from './accounts/directory';
 import { Octokit } from '@octokit/rest';
 import { Knex } from 'knex';
 
@@ -180,14 +182,41 @@ export const githubTeamSyncPlugin = createBackendPlugin({
         > {
           const groups = new Map<string, BackstageGroup>();
           try {
+            // Only what the operator provides drives the sync. A catalog
+            // file anybody registered through the portal (its entities carry
+            // the account annotation) can define a group, or a user who
+            // says they are in one; neither may create, delete or fill a
+            // real GitHub team.
+            const credentials = await auth.getOwnServiceCredentials();
             const entities = await catalog.getEntities(
               { filter: { kind: 'Group' } },
-              { credentials: await auth.getOwnServiceCredentials() },
+              { credentials },
+            );
+            const registeredUsers = await catalog.getEntities(
+              {
+                filter: {
+                  kind: 'User',
+                  [`metadata.annotations.${ACCOUNT_ANNOTATION}`]:
+                    CATALOG_FILTER_EXISTS,
+                },
+                fields: ['kind', 'metadata.name', 'metadata.namespace'],
+              },
+              { credentials },
+            );
+            const registeredUserRefs = new Set(
+              registeredUsers.items.map(user =>
+                `user:${user.metadata.namespace ?? 'default'}/${
+                  user.metadata.name
+                }`.toLowerCase(),
+              ),
             );
 
             for (const entity of entities.items) {
               const name = entity.metadata.name;
               const annotations = entity.metadata.annotations || {};
+              if (annotations[ACCOUNT_ANNOTATION] !== undefined) {
+                continue;
+              }
 
               // Check if this group came from GitHub (has github.com/team-slug)
               const isFromGitHub = !!annotations['github.com/team-slug'];
@@ -212,7 +241,8 @@ export const githubTeamSyncPlugin = createBackendPlugin({
                 for (const relation of entity.relations) {
                   if (
                     relation.type === 'hasMember' &&
-                    relation.targetRef.startsWith('user:')
+                    relation.targetRef.startsWith('user:') &&
+                    !registeredUserRefs.has(relation.targetRef.toLowerCase())
                   ) {
                     const username = relation.targetRef.split('/').pop();
                     if (username) {

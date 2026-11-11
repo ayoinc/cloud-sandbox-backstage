@@ -8,14 +8,10 @@ export const signInPage = SignInPageBlueprint.make({
     loader: async () => props => {
       const enabled =
         useApi(configApiRef).getOptionalConfig('auth.providers')?.keys() ?? [];
-      const providers = brandSignInProviders.filter(provider =>
-        enabled.includes(
-          typeof provider === 'string'
-            ? provider
-            : provider.id.replace('-auth-provider', ''),
-        ),
+      const providers = brandSignInProviders.filter(choice =>
+        enabled.includes(choice.provider),
       );
-      return <BrandedSignInPage {...props} auto providers={providers} />;
+      return <BrandedSignInPage {...props} providers={providers} />;
     },
   },
 });

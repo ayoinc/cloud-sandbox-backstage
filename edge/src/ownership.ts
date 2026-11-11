@@ -1,5 +1,7 @@
 import { Hono } from 'hono';
+import { callerRef, visibleTo } from './accounts';
 import { requirePortalAdmin } from './admin';
+import type { SqlFragment } from './catalog/filter';
 import { handlePlainError, inputError, notFoundError } from './errors';
 import { isRecord, readJson } from './json';
 import type { AppEnv } from './types';
@@ -9,6 +11,9 @@ import type { AppEnv } from './types';
  * and the owners admins assigned to them instead. Same API as the Node
  * backend's ownership-management plugin, without its periodic orphan log:
  * nothing runs on a schedule here, and the page lists orphans on demand.
+ *
+ * For portal administrators only, and about the entities the administrator
+ * may see: being one opens no other account's catalog.
  */
 
 const MAX_BODY_BYTES = 16 * 1024;
@@ -16,7 +21,7 @@ const MAX_BODY_BYTES = 16 * 1024;
 // The kinds that have an owner, and the groups that can be one. Only the
 // fields the page shows are taken out of each entity, by SQLite, so the
 // Worker never parses whole entities.
-const SELECT_CATALOG = `SELECT
+const selectCatalog = (visible: SqlFragment) => `SELECT
   json_extract(e.final_entity, '$.kind') AS kind,
   json_extract(e.final_entity, '$.metadata.name') AS name,
   coalesce(json_extract(e.final_entity, '$.metadata.namespace'), 'default') AS namespace,
@@ -28,11 +33,18 @@ FROM final_entities e
 WHERE e.entity_id IN (
   SELECT s.entity_id FROM search s
   WHERE s.key = 'kind' AND s.value IN ('component', 'api', 'resource', 'system', 'domain', 'group')
-)
+) AND (${visible.sql})
 ORDER BY e.entity_ref`;
 
-const SELECT_OVERRIDES =
-  'SELECT entity_ref, new_owner, previous_owner, overridden_at, overridden_by FROM ownership_overrides ORDER BY overridden_at DESC';
+// An override is about an entity, and is listed and removed by those who
+// may see that entity.
+const ofVisibleEntity = (visible: SqlFragment) =>
+  `EXISTS (SELECT 1 FROM final_entities e WHERE e.entity_ref = ownership_overrides.entity_ref AND (${visible.sql}))`;
+
+const selectOverrides = (visible: SqlFragment) =>
+  `SELECT entity_ref, new_owner, previous_owner, overridden_at, overridden_by FROM ownership_overrides WHERE ${ofVisibleEntity(
+    visible,
+  )} ORDER BY overridden_at DESC`;
 
 interface CatalogRow {
   kind: string;
@@ -90,13 +102,15 @@ function normalizeOwnerRef(owner: string): string {
 }
 
 /**
- * Every ownable entity with its owner in effect, and every group by
- * lower-case ref. One round trip to D1, whatever the size of the catalog.
+ * Every ownable entity `viewer` may see with its owner in effect, and every
+ * group they may see by lower-case ref. One round trip to D1, whatever the
+ * size of the catalog.
  */
-async function loadOwnership(db: D1Database) {
+async function loadOwnership(db: D1Database, viewer: string) {
+  const visible = visibleTo(viewer);
   const [catalog, stored] = (await db.batch([
-    db.prepare(SELECT_CATALOG),
-    db.prepare(SELECT_OVERRIDES),
+    db.prepare(selectCatalog(visible)).bind(...visible.params),
+    db.prepare(selectOverrides(visible)).bind(...visible.params),
   ])) as [D1Result<CatalogRow>, D1Result<OverrideRow>];
   const overrides = new Map(
     stored.results.map(row => [row.entity_ref, row.new_owner]),
@@ -136,14 +150,19 @@ export const ownershipRoutes = new Hono<AppEnv>();
 
 ownershipRoutes.onError(handlePlainError);
 
+ownershipRoutes.use('*', async (c, next) => {
+  await requirePortalAdmin(c);
+  await next();
+});
+
 ownershipRoutes.get('/orphans', async c => {
-  const { entities, ownerExists } = await loadOwnership(c.env.DB);
+  const { entities, ownerExists } = await loadOwnership(c.env.DB, callerRef(c));
   const orphans = entities.filter(entity => !ownerExists(entity));
   return c.json({ count: orphans.length, orphans });
 });
 
 ownershipRoutes.get('/groups', async c => {
-  const { groups } = await loadOwnership(c.env.DB);
+  const { groups } = await loadOwnership(c.env.DB, callerRef(c));
   const sorted = [...groups.values()].sort((a, b) =>
     a.displayName.localeCompare(b.displayName),
   );
@@ -151,7 +170,7 @@ ownershipRoutes.get('/groups', async c => {
 });
 
 ownershipRoutes.get('/entities', async c => {
-  const { entities, ownerExists } = await loadOwnership(c.env.DB);
+  const { entities, ownerExists } = await loadOwnership(c.env.DB, callerRef(c));
   return c.json({
     count: entities.length,
     entities: entities.map(entity => ({
@@ -162,14 +181,15 @@ ownershipRoutes.get('/entities', async c => {
 });
 
 ownershipRoutes.get('/overrides', async c => {
-  const { results } = await c.env.DB.prepare(
-    SELECT_OVERRIDES,
-  ).all<OverrideRow>();
+  const visible = visibleTo(callerRef(c));
+  const { results } = await c.env.DB.prepare(selectOverrides(visible))
+    .bind(...visible.params)
+    .all<OverrideRow>();
   return c.json({ count: results.length, overrides: results.map(toOverride) });
 });
 
 ownershipRoutes.post('/reassign', async c => {
-  const admin = await requirePortalAdmin(c);
+  const admin = c.get('user').userEntityRef;
   const body = await readJson(c, MAX_BODY_BYTES);
   const { entityRef, newOwner } = isRecord(body) ? body : {};
   if (
@@ -182,15 +202,18 @@ ownershipRoutes.post('/reassign', async c => {
   }
   const ref = entityRef.toLowerCase();
   const owner = normalizeOwnerRef(newOwner);
+  // A group or an entity the administrator may not see is not found, as one
+  // that does not exist.
+  const visible = visibleTo(callerRef(c));
   const [group, entity, override] = await c.env.DB.batch<
     Record<string, unknown>
   >([
     c.env.DB.prepare(
-      "SELECT 1 AS found FROM final_entities WHERE entity_ref = ? AND entity_ref LIKE 'group:%'",
-    ).bind(owner),
+      `SELECT 1 AS found FROM final_entities e WHERE e.entity_ref = ? AND e.entity_ref LIKE 'group:%' AND (${visible.sql})`,
+    ).bind(owner, ...visible.params),
     c.env.DB.prepare(
-      "SELECT json_extract(final_entity, '$.spec.owner') AS owner FROM final_entities WHERE entity_ref = ?",
-    ).bind(ref),
+      `SELECT json_extract(e.final_entity, '$.spec.owner') AS owner FROM final_entities e WHERE e.entity_ref = ? AND (${visible.sql})`,
+    ).bind(ref, ...visible.params),
     c.env.DB.prepare(
       'SELECT new_owner FROM ownership_overrides WHERE entity_ref = ?',
     ).bind(ref),
@@ -223,15 +246,17 @@ ownershipRoutes.post('/reassign', async c => {
 
 // The entity ref has a slash in it, so it is a query parameter, not a path.
 ownershipRoutes.delete('/overrides', async c => {
-  await requirePortalAdmin(c);
   const entityRef = c.req.query('entityRef');
   if (!entityRef) {
     throw inputError('entityRef query parameter is required');
   }
+  const visible = visibleTo(callerRef(c));
   const removed = await c.env.DB.prepare(
-    'DELETE FROM ownership_overrides WHERE entity_ref = ? RETURNING entity_ref, new_owner, previous_owner, overridden_at, overridden_by',
+    `DELETE FROM ownership_overrides WHERE entity_ref = ? AND ${ofVisibleEntity(
+      visible,
+    )} RETURNING entity_ref, new_owner, previous_owner, overridden_at, overridden_by`,
   )
-    .bind(entityRef.toLowerCase())
+    .bind(entityRef.toLowerCase(), ...visible.params)
     .first<OverrideRow>();
   if (!removed) {
     throw notFoundError('Override not found');

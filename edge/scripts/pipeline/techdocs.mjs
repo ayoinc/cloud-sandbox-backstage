@@ -44,6 +44,7 @@ import { portalRequest } from './portal.mjs';
 import { repoRoot } from './settings.mjs';
 
 const TECHDOCS_ANNOTATION = 'backstage.io/techdocs-ref';
+const ORIGIN_ANNOTATION = 'backstage.io/managed-by-origin-location';
 const BUILD_CONCURRENCY = Math.min(availableParallelism(), 8);
 const UPLOAD_CONCURRENCY = 8;
 const DELETE_BATCH = 500;
@@ -140,11 +141,50 @@ function parseRepositoryUrl(target) {
 }
 
 /**
+ * The repository the catalog file of an entity is in, when that is not the
+ * portal's own: such a file was registered by somebody, not configured by
+ * the operator. Undefined for the operator's files.
+ */
+function foreignRepository(entity, github) {
+  const origin = entity.metadata.annotations?.[ORIGIN_ANNOTATION] ?? '';
+  if (!origin.startsWith('url:')) {
+    return undefined;
+  }
+  const { origin: server, repository } = parseRepositoryUrl(origin.slice(4));
+  const isOwn =
+    github &&
+    server === new URL(github.serverUrl).origin &&
+    repository.toLowerCase() === github.repository.toLowerCase();
+  return isOwn ? undefined : `${server}/${repository}`.toLowerCase();
+}
+
+/**
  * Where an entity's documentation sources are: a directory on this machine
  * (`dir`), or a path in another repository that has to be cloned (`remote`).
  * `key` names the source the same way wherever the pipeline runs.
+ *
+ * Sources are read with the pipeline's token, which reaches more than the
+ * person who registered a file may see. So the documentation of an entity
+ * from a registered file has to be in the repository that file is in: a
+ * file cannot have another repository's pages published under its name.
  */
 function docsSource(entity, integrations, github) {
+  const source = locateDocs(entity, integrations, github);
+  const foreign = foreignRepository(entity, github);
+  if (
+    foreign &&
+    (!source.remote ||
+      `${source.remote.origin}/${source.remote.repository}`.toLowerCase() !==
+        foreign)
+  ) {
+    throw new Error(
+      'the documentation must be in the repository its catalog file is in',
+    );
+  }
+  return source;
+}
+
+function locateDocs(entity, integrations, github) {
   const location = getLocationForEntity(entity, integrations);
   if (location.type === 'dir') {
     const inRepo = relative(repoRoot, location.target);

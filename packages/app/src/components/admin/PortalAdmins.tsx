@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Card,
   CardContent,
-  CardHeader,
   Typography,
   TextField,
   Button,
@@ -64,7 +63,12 @@ interface Admin {
   added_by: string | null;
 }
 
-export const BrandingAdminManagement: React.FC = () => {
+/**
+ * The list of portal administrators. What the role allows depends on the
+ * host: the Cloudflare Worker asks this list; the Node backend's permission
+ * policy asks the catalog's admin groups.
+ */
+export const PortalAdmins: React.FC = () => {
   const classes = useStyles();
   const fetchApi = useApi(fetchApiRef);
   const [admins, setAdmins] = useState<Admin[]>([]);
@@ -82,15 +86,21 @@ export const BrandingAdminManagement: React.FC = () => {
       );
       if (!response.ok) {
         if (response.status === 403) {
-          setError('You do not have permission to manage admins');
+          setError(
+            'You do not have permission to manage portal administrators',
+          );
           return;
         }
-        throw new Error('Failed to fetch admins');
+        throw new Error('Failed to load the administrators');
       }
       const data = await response.json();
       setAdmins(data.admins || []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch admins');
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to load the administrators',
+      );
     } finally {
       setIsLoading(false);
     }
@@ -118,14 +128,16 @@ export const BrandingAdminManagement: React.FC = () => {
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Failed to add admin');
+        throw new Error(data.error || 'Failed to add the administrator');
       }
 
       const data = await response.json();
       setAdmins(data.admins || []);
       setNewAdmin('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add admin');
+      setError(
+        err instanceof Error ? err.message : 'Failed to add the administrator',
+      );
     } finally {
       setAdding(false);
     }
@@ -145,13 +157,17 @@ export const BrandingAdminManagement: React.FC = () => {
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Failed to remove admin');
+        throw new Error(data.error || 'Failed to remove the administrator');
       }
 
       const data = await response.json();
       setAdmins(data.admins || []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to remove admin');
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to remove the administrator',
+      );
     } finally {
       setRemoving(null);
     }
@@ -177,10 +193,6 @@ export const BrandingAdminManagement: React.FC = () => {
 
   return (
     <Card className={classes.root}>
-      <CardHeader
-        title="Branding Administrators"
-        subheader="Manage who can modify branding settings"
-      />
       <CardContent>
         {error && (
           <Alert severity="error" style={{ marginBottom: 16 }}>
@@ -192,11 +204,11 @@ export const BrandingAdminManagement: React.FC = () => {
         <Box className={classes.addForm}>
           <TextField
             className={classes.textField}
-            label="Add User or Group"
+            label="Add a person or group"
             value={newAdmin}
             onChange={e => setNewAdmin(e.target.value)}
-            placeholder="username or group:default/team-name"
-            helperText="Enter a username or full entity ref (e.g., user:default/john or group:default/admins)"
+            placeholder="jane or group:default/team-name"
+            helperText="A person's user name, or a group written as group:default/team-name"
             variant="outlined"
             size="small"
             disabled={adding}
@@ -220,11 +232,9 @@ export const BrandingAdminManagement: React.FC = () => {
         {/* Admins List */}
         {admins.length === 0 ? (
           <Box className={classes.emptyState}>
-            <Typography variant="body1">
-              No administrators configured yet.
-            </Typography>
+            <Typography variant="body1">No administrators yet.</Typography>
             <Typography variant="body2">
-              Add a user or group above to get started.
+              Add a person or group above.
             </Typography>
           </Box>
         ) : (
@@ -233,7 +243,7 @@ export const BrandingAdminManagement: React.FC = () => {
               <ListItem key={admin.id} className={classes.listItem}>
                 <Chip
                   icon={admin.type === 'group' ? <GroupIcon /> : <PersonIcon />}
-                  label={admin.type}
+                  label={admin.type === 'group' ? 'Group' : 'Person'}
                   size="small"
                   className={classes.chip}
                   color={admin.type === 'group' ? 'primary' : 'default'}
@@ -242,15 +252,17 @@ export const BrandingAdminManagement: React.FC = () => {
                   primary={formatEntityRef(admin.entity_ref)}
                   secondary={
                     <span className={classes.metadata}>
-                      {admin.entity_ref}
-                      {admin.added_by && ` - Added by ${admin.added_by}`}
+                      {admin.added_by === 'first-sign-in'
+                        ? 'The first person to sign in'
+                        : admin.added_by &&
+                          `Added by ${formatEntityRef(admin.added_by)}`}
                     </span>
                   }
                 />
                 <ListItemSecondaryAction>
                   <IconButton
                     edge="end"
-                    aria-label="delete"
+                    aria-label={`Remove ${formatEntityRef(admin.entity_ref)}`}
                     onClick={() => handleRemoveAdmin(admin.id)}
                     disabled={removing === admin.id}
                   >
@@ -268,14 +280,16 @@ export const BrandingAdminManagement: React.FC = () => {
 
         <Box mt={2}>
           <Typography variant="caption" color="textSecondary">
-            Users listed here can upload logos, change the organization name,
-            and manage other admins. Groups allow all members to have admin
-            access (requires catalog integration).
+            People listed here manage this list. On an edge deployment they can
+            also change the owner of catalog entries, register catalog files and
+            edit templates, and a group gives the role to all its members. On a
+            VM or in containers the catalog groups admins, platform-admins and
+            backstage-admins decide that instead, and only people listed here by
+            name manage this list. Portal administrators can remove an
+            organisation, in the list below, and cannot change one.
           </Typography>
         </Box>
       </CardContent>
     </Card>
   );
 };
-
-export default BrandingAdminManagement;

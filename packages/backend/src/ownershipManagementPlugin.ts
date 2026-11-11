@@ -1,8 +1,11 @@
 import {
   createBackendPlugin,
   coreServices,
+  type HttpAuthService,
 } from '@backstage/backend-plugin-api';
+import type { Entity } from '@backstage/catalog-model';
 import { catalogServiceRef } from '@backstage/plugin-catalog-node';
+import { ACCOUNT_ANNOTATION, directory } from './accounts/directory';
 import { Router } from 'express';
 import * as express from 'express';
 
@@ -22,7 +25,8 @@ import * as express from 'express';
  *   the GithubOrgEntityProvider removes the group, and this plugin
  *   detects any entities that were owned by that group
  *
- * API ENDPOINTS:
+ * API ENDPOINTS (portal administrators only; each lists and changes only
+ * shared entities and those of the caller's own accounts):
  * - GET /api/ownership-management/orphans - List all orphaned entities
  * - GET /api/ownership-management/groups - List all groups for reassignment dropdown
  * - GET /api/ownership-management/entities - List all ownable entities
@@ -175,8 +179,22 @@ export const ownershipManagementPlugin = createBackendPlugin({
             ]);
         }
 
+        // Helper: whether an entity is shared, or belongs to one of
+        // `accounts`. Without `accounts` (the scheduled check) every entity
+        // counts.
+        function isWithin(entity: Entity, accounts?: string[]): boolean {
+          const account = entity.metadata.annotations?.[ACCOUNT_ANNOTATION];
+          return (
+            accounts === undefined ||
+            account === undefined ||
+            accounts.includes(account)
+          );
+        }
+
         // Helper: Get all groups
-        async function getAllGroups(): Promise<Map<string, GroupInfo>> {
+        async function getAllGroups(
+          accounts?: string[],
+        ): Promise<Map<string, GroupInfo>> {
           const groups = new Map<string, GroupInfo>();
           try {
             const entities = await catalog.getEntities(
@@ -185,6 +203,9 @@ export const ownershipManagementPlugin = createBackendPlugin({
             );
 
             for (const entity of entities.items) {
+              if (!isWithin(entity, accounts)) {
+                continue;
+              }
               const name = entity.metadata.name;
               const namespace = entity.metadata.namespace || 'default';
               const entityRef = `group:${namespace}/${name}`;
@@ -222,7 +243,9 @@ export const ownershipManagementPlugin = createBackendPlugin({
         }
 
         // Helper: Get all ownable entities - optimized to avoid N+1 queries
-        async function getOwnableEntities(): Promise<OrphanedEntity[]> {
+        async function getOwnableEntities(
+          accounts?: string[],
+        ): Promise<OrphanedEntity[]> {
           const ownableKinds = [
             'Component',
             'API',
@@ -252,7 +275,7 @@ export const ownershipManagementPlugin = createBackendPlugin({
             for (const { kind, items } of kindResults) {
               for (const entity of items) {
                 const catalogOwner = (entity.spec as any)?.owner;
-                if (catalogOwner) {
+                if (catalogOwner && isWithin(entity, accounts)) {
                   const entityRef = `${kind.toLowerCase()}:${
                     entity.metadata.namespace || 'default'
                   }/${entity.metadata.name}`;
@@ -296,11 +319,13 @@ export const ownershipManagementPlugin = createBackendPlugin({
         }
 
         // Helper: Find orphaned entities
-        async function findOrphanedEntities(): Promise<OrphanedEntity[]> {
+        async function findOrphanedEntities(
+          accounts?: string[],
+        ): Promise<OrphanedEntity[]> {
           // Fetch groups and entities in parallel
           const [groups, entities] = await Promise.all([
-            getAllGroups(),
-            getOwnableEntities(),
+            getAllGroups(accounts),
+            getOwnableEntities(accounts),
           ]);
           const orphans: OrphanedEntity[] = [];
 
@@ -368,23 +393,51 @@ export const ownershipManagementPlugin = createBackendPlugin({
         const router = Router();
         router.use(express.json());
 
-        // Helper to get current user
-        async function getCurrentUser(req: any): Promise<string | null> {
+        // Every route is for portal administrators, and works within the
+        // caller's accounts.
+        router.use(async (req, res, next) => {
+          let caller;
           try {
-            const credentials = await httpAuth.credentials(req, {
+            // Backstage types its services against Express 4; this is Express 5.
+            const request = req as unknown as Parameters<
+              HttpAuthService['credentials']
+            >[0];
+            const credentials = await httpAuth.credentials(request, {
               allow: ['user'],
             });
-            const user = await userInfo.getUserInfo(credentials);
-            return user.userEntityRef || null;
+            caller = await userInfo.getUserInfo(credentials);
           } catch {
-            return null;
+            res.status(401).json({ error: 'Authentication required' });
+            return;
           }
-        }
+          try {
+            // No groups: the ones a sign-in names can come from a catalog
+            // file the person registered themselves.
+            const isAdmin = await directory.isPortalAdmin(
+              caller.userEntityRef,
+              [],
+            );
+            if (!isAdmin) {
+              res.status(403).json({
+                error: 'Only a portal administrator can manage ownership',
+              });
+              return;
+            }
+            res.locals.user = caller.userEntityRef;
+            res.locals.accounts = await directory.accountsOf(
+              caller.userEntityRef,
+            );
+            next();
+          } catch (error) {
+            logger.error('Failed to check the caller', error as Error);
+            res.status(500).json({ error: 'Failed to check the caller' });
+          }
+        });
 
         // GET /api/ownership/orphans - List orphaned entities
         router.get('/orphans', async (_req, res) => {
           try {
-            const orphans = await findOrphanedEntities();
+            const orphans = await findOrphanedEntities(res.locals.accounts);
             res.json({
               count: orphans.length,
               orphans,
@@ -398,7 +451,7 @@ export const ownershipManagementPlugin = createBackendPlugin({
         // GET /api/ownership/groups - List all groups
         router.get('/groups', async (_req, res) => {
           try {
-            const groups = await getAllGroups();
+            const groups = await getAllGroups(res.locals.accounts);
             const groupList = Array.from(groups.values()).sort((a, b) =>
               a.displayName.localeCompare(b.displayName),
             );
@@ -417,8 +470,8 @@ export const ownershipManagementPlugin = createBackendPlugin({
           try {
             // Fetch entities and groups in parallel
             const [entities, groups] = await Promise.all([
-              getOwnableEntities(),
-              getAllGroups(),
+              getOwnableEntities(res.locals.accounts),
+              getAllGroups(res.locals.accounts),
             ]);
 
             // Enrich with owner validity
@@ -444,7 +497,15 @@ export const ownershipManagementPlugin = createBackendPlugin({
         // GET /api/ownership/overrides - Get all ownership overrides
         router.get('/overrides', async (_req, res) => {
           try {
-            const overrides = await getAllOverrides();
+            // Only the overrides of entities the caller may see
+            const within = new Set(
+              (await getOwnableEntities(res.locals.accounts)).map(entity =>
+                entity.entityRef.toLowerCase(),
+              ),
+            );
+            const overrides = (await getAllOverrides()).filter(override =>
+              within.has(override.entityRef.toLowerCase()),
+            );
             res.json({
               count: overrides.length,
               overrides,
@@ -469,15 +530,12 @@ export const ownershipManagementPlugin = createBackendPlugin({
               return;
             }
 
-            // Get current user for audit
-            const currentUser = await getCurrentUser(req);
-            if (!currentUser) {
-              res.status(401).json({ error: 'Authentication required' });
-              return;
-            }
+            // The caller, for audit
+            const currentUser: string = res.locals.user;
+            const accounts: string[] = res.locals.accounts;
 
             // Verify the new owner exists
-            const groups = await getAllGroups();
+            const groups = await getAllGroups(accounts);
             const normalizedNewOwner = normalizeOwnerRef(newOwner);
 
             if (!groups.has(normalizedNewOwner)) {
@@ -493,7 +551,7 @@ export const ownershipManagementPlugin = createBackendPlugin({
               const entity = await catalog.getEntityByRef(entityRef, {
                 credentials,
               });
-              if (!entity) {
+              if (!entity || !isWithin(entity, accounts)) {
                 res
                   .status(404)
                   .json({ error: `Entity '${entityRef}' not found` });
@@ -563,14 +621,21 @@ export const ownershipManagementPlugin = createBackendPlugin({
               return;
             }
 
-            const currentUser = await getCurrentUser(req);
-            if (!currentUser) {
-              res.status(401).json({ error: 'Authentication required' });
-              return;
-            }
+            const currentUser: string = res.locals.user;
 
+            // An override of an entity outside the caller's accounts
+            // answers as one that is not there.
             const existing = await getOwnershipOverride(entityRef);
-            if (!existing) {
+            const entity = existing
+              ? await catalog.getEntityByRef(entityRef, {
+                  credentials: await auth.getOwnServiceCredentials(),
+                })
+              : undefined;
+            if (
+              !existing ||
+              !entity ||
+              !isWithin(entity, res.locals.accounts)
+            ) {
               res.status(404).json({ error: 'Override not found' });
               return;
             }

@@ -10,6 +10,10 @@ import { createBackend } from '@backstage/backend-defaults';
 
 const backend = createBackend();
 
+// Root HTTP router with the registration recorder in front of the catalog's
+// locations API: files each registered catalog file under its account
+backend.add(import('./accounts/recordRegistrations'));
+
 backend.add(import('@backstage/plugin-app-backend'));
 backend.add(import('@backstage/plugin-proxy-backend'));
 
@@ -39,6 +43,8 @@ backend.add(import('@backstage/plugin-catalog-backend'));
 backend.add(
   import('@backstage/plugin-catalog-backend-module-scaffolder-entity-model'),
 );
+// Accounts - stamps each entity with the account of the file it comes from
+backend.add(import('./accounts/catalogModule'));
 
 // GitHub org entity provider - syncs teams and members from GitHub org
 backend.add(import('@backstage/plugin-catalog-backend-module-github-org'));
@@ -48,11 +54,15 @@ backend.add(import('@backstage/plugin-catalog-backend-module-logs'));
 
 // permission plugin
 backend.add(import('@backstage/plugin-permission-backend'));
-// Custom permission policy that restricts guest users
+// Custom permission policy: roles, and each account's entities and template
+// runs kept to itself
 backend.add(import('./permissionPolicy'));
 
-// Branding settings plugin - admin-only logo and org name customization
+// Portal admins plugin (plugin id branding-settings) - who may administer the portal
 backend.add(import('./branding'));
+
+// Organisations plugin - per-organisation address, name, logos, theme and members
+backend.add(import('./organisations'));
 
 // GitHub Team Sync plugin - bi-directional sync between Backstage groups and GitHub teams
 backend.add(import('./githubTeamSyncPlugin'));

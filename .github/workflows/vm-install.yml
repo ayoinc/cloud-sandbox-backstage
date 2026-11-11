@@ -4,7 +4,7 @@
 # Installs the portal on a fresh Ubuntu machine exactly as an operator would
 # (scripts/install-vm.sh: Node.js, the documentation toolchain, PostgreSQL, a
 # systemd service), then asks the running service for its health, its
-# branding settings and its front page. The installer is then run a second
+# organisations API and its front page. The installer is then run a second
 # time, which is how an upgrade is done.
 #
 # The repository is public: nothing a pull request, issue or fork does starts
@@ -52,17 +52,17 @@ jobs:
           systemctl is-active portal
           curl -fsS http://127.0.0.1:7007/.backstage/health/v1/readiness
           echo
-          settings="$(curl -fsS http://127.0.0.1:7007/api/branding-settings)"
-          echo "$settings"
-          echo "$settings" | jq -e '.organizationName == null and .logoFullUrl == null and .themePreset == null' >/dev/null
           # Each check says what it found, so a failure names itself.
           expect() {
             found="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:7007$2")"
             echo "$2 answered $found (expected $1)"
             [ "$found" = "$1" ]
           }
-          # No logo has been uploaded; the address itself is public.
-          expect 404 /api/branding-settings/logo/full
+          # A new portal has no organisations; asking for one needs no sign-in.
+          expect 404 /api/organisations/acme
+          expect 404 /api/organisations/acme/logo/full
+          # Whose organisation it is does.
+          expect 401 /api/organisations
           # The catalog is not.
           expect 401 /api/catalog/entities
           # The backend serves the app itself.

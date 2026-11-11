@@ -1,4 +1,7 @@
 import { Hono, type MiddlewareHandler } from 'hono';
+import { filedUnder, LEFT_THE_CATALOG, registerAgain } from './accounts';
+import { inJsonArray } from './catalog/filter';
+import { fileAddress } from './catalog/locations';
 import { copySignedInUsers } from './catalog/users';
 import {
   authenticationError,
@@ -198,6 +201,17 @@ pipelineRoutes.post('/catalog/commit', async c => {
       sql: IS_CURRENT_SYNC,
       params: [syncId],
     }),
+    // Files that were unregistered, when the new catalog holds nothing of
+    // theirs any more. Until then their rows hide what it does hold.
+    c.env.DB.prepare(
+      `DELETE FROM locations WHERE ${LEFT_THE_CATALOG} AND ${IS_CURRENT_SYNC}`,
+    ).bind(syncId),
+    // An owner assigned in the portal belongs to the entity it was given
+    // to. When that entity is gone, so is the override: an entity of the
+    // same name that comes later, of whatever account, is another one.
+    c.env.DB.prepare(
+      `DELETE FROM ownership_overrides WHERE entity_ref NOT IN (SELECT entity_ref FROM final_entities) AND ${IS_CURRENT_SYNC}`,
+    ).bind(syncId),
     c.env.DB.prepare(
       'DELETE FROM portal_state WHERE key = ? AND value = ?',
     ).bind(SYNC_KEY, syncId),
@@ -228,13 +242,18 @@ pipelineRoutes.put('/scaffolder/templating-extensions', async c => {
   return c.json({ received: true });
 });
 
+// The files to read. One that was unregistered is not read any more.
 pipelineRoutes.get('/locations', async c => {
   const { results } = await c.env.DB.prepare(
-    'SELECT type, target FROM locations ORDER BY created_at, target',
+    'SELECT type, target FROM locations WHERE removed_at IS NULL ORDER BY created_at, target',
   ).all();
   return c.json({ items: results });
 });
 
+// What a template run registered. It is filed under the account of whoever
+// started the run, as that account stands now; `taskId` is the portal's
+// task. A file reported without a task the portal knows is nobody's, and
+// shown to no one until a portal administrator registers it again.
 pipelineRoutes.post('/locations', async c => {
   const body = await readJson(c, MAX_ROWS_BYTES);
   if (
@@ -242,16 +261,63 @@ pipelineRoutes.post('/locations', async c => {
     body.type !== 'url' ||
     typeof body.target !== 'string' ||
     !URL.canParse(body.target) ||
-    new URL(body.target).protocol !== 'https:'
+    new URL(body.target).protocol !== 'https:' ||
+    (body.taskId !== undefined && typeof body.taskId !== 'string')
   ) {
-    throw inputError('A location needs type "url" and an https target');
+    throw inputError(
+      'A location needs type "url" and an https target; taskId, when given, is the id of the task that registered it',
+    );
   }
-  await c.env.DB.prepare(
-    'INSERT INTO locations (type, target) VALUES (?, ?) ON CONFLICT DO NOTHING',
+  // One spelling for a file on GitHub, so that it is one row.
+  const file = fileAddress(body.target);
+  const target = file?.target ?? body.target;
+  // The rows that are this file already: at either of its addresses, in
+  // any letter case (catalog/locations.ts).
+  const repository = file
+    ? `https://github.com/${file.repository}/`.toLowerCase()
+    : target.toLowerCase();
+  const { results } = await c.env.DB.prepare(
+    'SELECT target, removed_at IS NOT NULL AS removed FROM locations WHERE type = ?1 AND substr(lower(target), 1, length(?2)) = ?2',
   )
-    .bind(body.type, body.target)
-    .run();
-  return c.json({ type: body.type, target: body.target });
+    .bind(body.type, repository)
+    .all<{ target: string; removed: number }>();
+  const rows = results.filter(row =>
+    file
+      ? fileAddress(row.target)?.key === file.key
+      : row.target.toLowerCase() === repository,
+  );
+  const account = `(SELECT ${filedUnder(
+    'lower(t.created_by)',
+  )} FROM tasks t WHERE t.id = ?3)`;
+  const spellings = JSON.stringify(rows.map(row => row.target));
+  if (rows.every(row => row.removed) && rows.length) {
+    // Unregistered, and its entities in the catalog until a sync has run
+    // without them. For the account that had it, it is registered again,
+    // as of now. For any other it stays as it is: registered now, the
+    // entities of the account before would be shown to this one.
+    await c.env.DB.prepare(
+      `UPDATE locations SET ${registerAgain(
+        account,
+      )} WHERE removed_at IS NOT NULL AND type = ?1 AND target = ?2 AND account = ${account}`,
+    )
+      .bind(
+        body.type,
+        rows.find(row => row.target.toLowerCase() === target.toLowerCase())
+          ?.target ?? rows[0].target,
+        body.taskId ?? null,
+      )
+      .run();
+  } else {
+    // A file already registered stays whose it is.
+    await c.env.DB.prepare(
+      `INSERT INTO locations (type, target, account) SELECT ?1, ?2, ${account} WHERE NOT EXISTS (SELECT 1 FROM locations WHERE type = ?1 AND (lower(target) = lower(?2) OR ${inJsonArray(
+        'target',
+      )})) ON CONFLICT DO NOTHING`,
+    )
+      .bind(body.type, target, body.taskId ?? null, spellings)
+      .run();
+  }
+  return c.json({ type: body.type, target });
 });
 
 /** Documentation lives under `sites/<siteId>/`; nothing else is writable. */
@@ -346,6 +412,24 @@ pipelineRoutes.post('/tasks/:taskId/events', async c => {
   const events = body.events.map(requireEvent);
   await appendTaskEvents(c.env.DB, c.req.param('taskId'), events, body.spec);
   return c.json({ received: events.length });
+});
+
+// The task a template run is for: which template, the values of its form,
+// and who started it. The workflow is started with the task's id and the
+// template's name only, because everyone who can see the pipeline's
+// repository can read a run's inputs and its name. Answered only while the
+// task waits to be run: a task is run once.
+pipelineRoutes.get('/tasks/:taskId', async c => {
+  const taskId = c.req.param('taskId');
+  const task = await c.env.DB.prepare(
+    "SELECT json_object('templateRef', json_extract(spec, '$.templateInfo.entityRef'), 'values', json(coalesce(json_extract(spec, '$.parameters'), '{}')), 'createdBy', created_by) AS task FROM tasks WHERE id = ? AND status = 'open'",
+  )
+    .bind(taskId)
+    .first<string>('task');
+  if (!task) {
+    throw notFoundError(`No task with id '${taskId}' is waiting to be run`);
+  }
+  return rawJson(task);
 });
 
 function requireDryRunId(id: string): string {
