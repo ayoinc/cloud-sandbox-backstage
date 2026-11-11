@@ -1,0 +1,12 @@
+# Which key encrypts which file. sops picks the first rule whose path matches,
+# so a secret is readable only by the cluster it is for.
+#
+# Only data and stringData are encrypted: metadata stays readable, so reviews
+# and kustomize keep working.
+creation_rules:
+  - path_regex: (^|/)staging/.*\.sops\.ya?ml$
+    encrypted_regex: ^(data|stringData)$
+    age: ${{ values.age_public_key_staging }}
+  - path_regex: (^|/)production/.*\.sops\.ya?ml$
+    encrypted_regex: ^(data|stringData)$
+    age: ${{ values.age_public_key_production }}

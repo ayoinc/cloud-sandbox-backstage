@@ -1,0 +1,21 @@
+{{ .Chart.Name }} {{ .Chart.Version }} (application {{ .Chart.AppVersion }}) is installed as "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+
+{{- if .Values.ingress.enabled }}
+
+It is reachable at:
+{{- range .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
+{{- end }}
+{{- else }}
+
+It is not exposed outside the cluster. To reach it from your machine:
+
+  kubectl --namespace {{ .Release.Namespace }} port-forward service/{{ include "${{ values.name }}.fullname" . }} 8080:{{ .Values.service.port }}
+
+and open http://127.0.0.1:8080
+{{- end }}
+
+Check the rollout with:
+
+  kubectl --namespace {{ .Release.Namespace }} rollout status deployment/{{ include "${{ values.name }}.fullname" . }}
+  helm test {{ .Release.Name }} --namespace {{ .Release.Namespace }}

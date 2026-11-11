@@ -1,0 +1,12 @@
+{
+  "values": {
+    "name": "sample-workload-operator",
+    "description": "The platform team's \"workload\" operator: runs an image as a Deployment",
+    "owner": "group:default/platform-team",
+    "repoUrl": "github.com?owner=example-org&repo=sample-workload-operator",
+    "domain": "platform.internal",
+    "group": "apps",
+    "version": "v1alpha1",
+    "kind": "Workload"
+  }
+}

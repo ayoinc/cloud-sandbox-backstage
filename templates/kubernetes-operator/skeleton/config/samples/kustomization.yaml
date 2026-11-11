@@ -1,0 +1,4 @@
+## Append samples of your project ##
+resources:
+- ${{ values.group }}_${{ values.version }}_${{ values.kind_lower }}.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples

@@ -1,0 +1,105 @@
+# Reusable workflow: install, lint, type check and test a Python project
+# managed with uv.
+#
+#   jobs:
+#     ci:
+#       uses: ${{ values.destination.owner }}/${{ values.destination.repo }}/.github/workflows/python-ci.yaml@<commit>
+#       permissions:
+#         contents: read
+name: Python CI
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: Python version. Empty uses the .python-version file of the project, or ${{ values.python_version }} if there is none.
+        type: string
+        required: false
+        default: ''
+      working-directory:
+        description: Directory of the project, relative to the repository root
+        type: string
+        required: false
+        default: .
+      run-ruff:
+        description: Run "ruff check" and "ruff format --check" (ruff must be a development dependency)
+        type: boolean
+        required: false
+        default: true
+      run-mypy:
+        description: Run mypy (it must be a development dependency)
+        type: boolean
+        required: false
+        default: false
+      test-command:
+        description: Command that runs the tests, executed with "uv run"
+        type: string
+        required: false
+        default: pytest
+
+permissions: {}
+
+env:
+  DEFAULT_PYTHON_VERSION: '${{ values.python_version }}'
+  UV_VERSION: '0.13.7'
+{% raw %}
+jobs:
+  ci:
+    name: Lint and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Choose the Python version
+        id: python
+        env:
+          REQUESTED: ${{ inputs.python-version }}
+        run: |
+          if [ -n "$REQUESTED" ]; then
+            echo "version=$REQUESTED" >> "$GITHUB_OUTPUT"
+          elif [ -f .python-version ]; then
+            echo "version=$(tr -d '[:space:]' < .python-version)" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=$DEFAULT_PYTHON_VERSION" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: ${{ steps.python.outputs.version }}
+          enable-cache: true
+          cache-dependency-glob: ${{ inputs.working-directory }}/uv.lock
+
+      # --locked fails when uv.lock does not match pyproject.toml.
+      - name: Install the project and its development dependencies
+        run: uv sync --locked
+
+      - name: Ruff lint
+        if: inputs.run-ruff
+        run: uv run ruff check .
+
+      - name: Ruff format
+        if: inputs.run-ruff
+        run: uv run ruff format --check .
+
+      - name: Mypy
+        if: inputs.run-mypy
+        run: uv run mypy .
+
+      # The command is word-split on purpose, so that it can carry arguments.
+      # It comes from the calling workflow, which already controls what runs.
+      - name: Test
+        env:
+          TEST_COMMAND: ${{ inputs.test-command }}
+        run: |
+          # shellcheck disable=SC2086
+          uv run $TEST_COMMAND
+{% endraw %}

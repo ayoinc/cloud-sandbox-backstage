@@ -1,0 +1,43 @@
+suite: service and service account
+release:
+  name: release
+tests:
+  - it: exposes the named container port inside the cluster
+    template: service.yaml
+    asserts:
+      - equal:
+          path: spec.type
+          value: ClusterIP
+      - equal:
+          path: spec.ports[0].port
+          value: 80
+      - equal:
+          path: spec.ports[0].targetPort
+          value: http
+      - equal:
+          path: spec.selector
+          value:
+            app.kubernetes.io/name: ${{ values.name }}
+            app.kubernetes.io/instance: release
+
+  - it: creates a service account that does not mount its token
+    template: serviceaccount.yaml
+    asserts:
+      - isKind:
+          of: ServiceAccount
+      - equal:
+          path: automountServiceAccountToken
+          value: false
+
+  - it: can use an existing service account
+    set:
+      serviceAccount.create: false
+      serviceAccount.name: existing
+    asserts:
+      - hasDocuments:
+          count: 0
+        template: serviceaccount.yaml
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: existing
+        template: deployment.yaml

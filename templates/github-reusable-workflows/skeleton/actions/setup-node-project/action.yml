@@ -1,0 +1,48 @@
+name: Set up a Node.js project
+description: Installs Node.js with a dependency cache and runs "npm ci" without install scripts
+
+inputs:
+  node-version:
+    description: Node.js version. Empty uses the .node-version file of the project, or ${{ values.node_version }}.
+    required: false
+    default: ''
+  working-directory:
+    description: Directory of the project, relative to the repository root
+    required: false
+    default: .
+{% raw %}
+outputs:
+  node-version:
+    description: The Node.js version that was installed
+    value: ${{ steps.setup.outputs.node-version }}
+
+runs:
+  using: composite
+  steps:
+    - name: Choose the Node.js version
+      id: version
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        REQUESTED: ${{ inputs.node-version }}
+      run: |
+        if [ -n "$REQUESTED" ]; then
+          echo "version=$REQUESTED" >> "$GITHUB_OUTPUT"
+        elif [ -f .node-version ]; then
+          echo "version=$(tr -d '[:space:]' < .node-version)" >> "$GITHUB_OUTPUT"
+        else
+{% endraw %}          echo "version=${{ values.node_version }}"{% raw %} >> "$GITHUB_OUTPUT"
+        fi
+
+    - id: setup
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version: ${{ steps.version.outputs.version }}
+        cache: npm
+        cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+
+    - name: Install dependencies
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: npm ci --ignore-scripts
+{% endraw %}

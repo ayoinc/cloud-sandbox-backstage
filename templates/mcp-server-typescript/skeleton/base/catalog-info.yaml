@@ -1,0 +1,20 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.name }}
+  description: ${{ values.description | dump }}
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
+  tags:
+    - mcp
+    - ai
+    - typescript
+  links:
+    - url: https://modelcontextprotocol.io/
+      title: Model Context Protocol
+      icon: docs
+spec:
+  type: service
+  lifecycle: experimental
+  owner: ${{ values.owner }}

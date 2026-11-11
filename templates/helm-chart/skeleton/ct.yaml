@@ -1,0 +1,11 @@
+# Configuration of chart-testing (ct), used by CI and usable locally:
+#   ct lint --config ct.yaml --all
+#   ct install --config ct.yaml --all
+chart-dirs:
+  - charts
+target-branch: main
+remote: origin
+validate-maintainers: false
+# A chart that changes on a branch must get a new version.
+check-version-increment: true
+helm-extra-args: --timeout 300s

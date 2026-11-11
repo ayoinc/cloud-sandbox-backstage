@@ -1,0 +1,16 @@
+{
+  "values": {
+    "name": "sample-otel-gateway",
+    "description": "The platform team's \"front door\" for telemetry: receives OTLP, forwards to the backend",
+    "owner": "group:default/platform-team",
+    "repoUrl": "github.com?owner=example-org&repo=sample-otel-gateway",
+    "deployment": "kubernetes-helm",
+    "namespace": "observability",
+    "receive_prometheus": true,
+    "receive_legacy_tracing": false,
+    "scrub_sensitive_attributes": true,
+    "tail_sampling": false,
+    "exporter_protocol": "otlp_http",
+    "metrics_exporter": "otlp"
+  }
+}

@@ -1,0 +1,94 @@
+suite: optional resources
+release:
+  name: release
+tests:
+  - it: is not exposed outside the cluster by default
+    template: ingress.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders an ingress for each host
+    template: ingress.yaml
+    set:
+      ingress.enabled: true
+      ingress.className: internal
+      ingress.hosts:
+        - host: app.internal
+          paths:
+            - path: /
+              pathType: Prefix
+      ingress.tls:
+        - secretName: app-tls
+          hosts: [app.internal]
+    asserts:
+      - equal:
+          path: spec.ingressClassName
+          value: internal
+      - equal:
+          path: spec.rules[0].host
+          value: app.internal
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.name
+          value: release-${{ values.name }}
+      - equal:
+          path: spec.tls[0].secretName
+          value: app-tls
+
+  - it: restricts ingress traffic to the container port by default
+    template: networkpolicy.yaml
+    asserts:
+      - isKind:
+          of: NetworkPolicy
+      - equal:
+          path: spec.ingress[0].ports[0].port
+          value: http
+      - notExists:
+          path: spec.ingress[0].from
+
+  - it: limits the allowed peers when given
+    template: networkpolicy.yaml
+    set:
+      networkPolicy.ingressFrom:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress
+    asserts:
+      - equal:
+          path: spec.ingress[0].from[0].namespaceSelector.matchLabels
+          value:
+            kubernetes.io/metadata.name: ingress
+
+  - it: renders no autoscaler or disruption budget by default
+    templates:
+      - hpa.yaml
+      - pdb.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders an autoscaler with CPU and memory targets
+    template: hpa.yaml
+    set:
+      autoscaling.enabled: true
+      autoscaling.maxReplicas: 6
+      autoscaling.targetMemoryUtilizationPercentage: 80
+    asserts:
+      - equal:
+          path: spec.maxReplicas
+          value: 6
+      - lengthEqual:
+          path: spec.metrics
+          count: 2
+      - equal:
+          path: spec.scaleTargetRef.name
+          value: release-${{ values.name }}
+
+  - it: renders a disruption budget when enabled
+    template: pdb.yaml
+    set:
+      podDisruptionBudget.enabled: true
+    asserts:
+      - equal:
+          path: spec.maxUnavailable
+          value: 1

@@ -1,0 +1,128 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: mcp-server-typescript
+  title: MCP Server (TypeScript)
+  description: Create a Model Context Protocol server in TypeScript with tools, resources, Streamable HTTP and stdio transports, tests and a container image
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - recommended
+    - ai
+    - mcp
+    - typescript
+    - nodejs
+spec:
+  owner: platform-team
+  type: service
+  parameters:
+    - title: Server Information
+      required:
+        - name
+        - description
+        - owner
+      properties:
+        name:
+          title: Server Name
+          type: string
+          description: Name of the server, its repository, its package and its catalog entry
+          pattern: '^[a-z]([a-z0-9-]*[a-z0-9])?$'
+          maxLength: 63
+          ui:autofocus: true
+          ui:help: 'Lowercase letters, numbers and hyphens, starting with a letter'
+        description:
+          title: Description
+          type: string
+          description: Brief description of what the server offers to AI clients
+        owner:
+          title: Owner
+          type: string
+          description: Owner of the server
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: [Group, User]
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+    - title: Runtime
+      properties:
+        node_version:
+          title: Node.js Version
+          type: string
+          description: Version used by the pipeline and the container image
+          default: '26'
+          enum:
+            - '24'
+            - '26'
+          enumNames:
+            - Node.js 24 (maintenance LTS)
+            - Node.js 26 (active LTS)
+        port:
+          title: HTTP Port
+          type: integer
+          description: Port the Streamable HTTP transport listens on unless PORT is set
+          default: 3000
+          minimum: 1024
+          maximum: 65535
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton/base
+        copyWithoutTemplating:
+          - .github/workflows/*
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'Model Context Protocol server' }}
+          owner: ${{ parameters.owner }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+          node_version: ${{ parameters.node_version }}
+          port: ${{ parameters.port }}
+
+    # The lock file pins the type definitions of the chosen Node.js version.
+    - id: fetch-lock
+      name: Add Dependency Lock File
+      action: fetch:template
+      input:
+        url: ./skeleton/node-${{ parameters.node_version }}
+        values:
+          name: ${{ parameters.name }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: ${{ parameters.description }}
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}
+      - title: CI runs
+        url: ${{ steps['publish'].output.remoteUrl + '/actions' }}

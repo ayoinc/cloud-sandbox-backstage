@@ -1,0 +1,14 @@
+# Not part of the packaged chart
+.DS_Store
+.git/
+.gitignore
+*.swp
+*.bak
+*.tmp
+*.orig
+*~
+.idea/
+.vscode/
+# Unit tests and CI values, at the root of the chart only
+/tests/
+/ci/

@@ -1,0 +1,16 @@
+version: 2
+updates:
+  # Keeps the commit pins of third-party actions current. Every update is a
+  # pull request that the CI of this repository tests against the fixtures.
+  - package-ecosystem: github-actions
+    directories:
+      - /
+      - /actions/*
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns:
+          - '*'

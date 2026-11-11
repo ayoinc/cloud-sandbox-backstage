@@ -1,0 +1,20 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.name }}
+  description: ${{ values.description | dump }}
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
+  tags:
+    - github-actions
+    - ci-cd
+    - supply-chain
+  links:
+    - url: https://docs.github.com/en/actions/sharing-automations/reusing-workflows
+      title: Reusing workflows
+      icon: docs
+spec:
+  type: library
+  lifecycle: production
+  owner: ${{ values.owner }}

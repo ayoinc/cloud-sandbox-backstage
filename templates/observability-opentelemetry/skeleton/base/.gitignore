@@ -1,0 +1,12 @@
+# Endpoints and credentials of the backend live here, never in Git.
+.env
+.env.*
+!.env.example
+
+# Output of the smoke test
+test/output/
+
+# TechDocs output
+site/
+
+.DS_Store

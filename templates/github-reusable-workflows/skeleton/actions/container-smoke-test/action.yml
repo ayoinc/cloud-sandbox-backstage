@@ -1,0 +1,60 @@
+name: Container smoke test
+description: Starts a container image and waits until an HTTP path answers successfully
+{% raw %}
+inputs:
+  image:
+    description: Image to run, as known to the local Docker daemon or a registry
+    required: true
+  port:
+    description: Port the container listens on
+    required: true
+  path:
+    description: HTTP path that must answer with a success status
+    required: false
+    default: /
+  env-file:
+    description: Optional file with environment variables for the container
+    required: false
+    default: ''
+  timeout-seconds:
+    description: How long to wait for the path to answer
+    required: false
+    default: '60'
+
+runs:
+  using: composite
+  steps:
+    - name: Run the container and call it
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+        PORT: ${{ inputs.port }}
+        HTTP_PATH: ${{ inputs.path }}
+        ENV_FILE: ${{ inputs.env-file }}
+        TIMEOUT: ${{ inputs.timeout-seconds }}
+      run: |
+        args=(--detach --publish "127.0.0.1::$PORT")
+        if [ -n "$ENV_FILE" ]; then
+          args+=(--env-file "$ENV_FILE")
+        fi
+        container="$(docker run "${args[@]}" "$IMAGE")"
+        trap 'docker rm --force "$container" >/dev/null' EXIT
+
+        address="$(docker port "$container" "$PORT/tcp" | head -n 1)"
+        deadline=$((SECONDS + TIMEOUT))
+        while [ "$SECONDS" -lt "$deadline" ]; do
+          if curl --fail --silent --show-error --output /dev/null "http://$address$HTTP_PATH" 2>/dev/null; then
+            echo "http://$address$HTTP_PATH answered successfully"
+            exit 0
+          fi
+          if [ "$(docker inspect --format '{{.State.Running}}' "$container")" != true ]; then
+            echo "::error::The container exited before it answered"
+            docker logs "$container"
+            exit 1
+          fi
+          sleep 1
+        done
+        echo "::error::http://$address$HTTP_PATH did not answer within $TIMEOUT seconds"
+        docker logs "$container"
+        exit 1
+{% endraw %}

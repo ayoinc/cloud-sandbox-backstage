@@ -1,0 +1,123 @@
+suite: deployment
+templates:
+  - deployment.yaml
+release:
+  name: release
+  namespace: testing
+tests:
+  - it: renders one hardened container by default
+    asserts:
+      - isKind:
+          of: Deployment
+      - equal:
+          path: metadata.name
+          value: release-${{ values.name }}
+      - equal:
+          path: spec.replicas
+          value: 1
+      - lengthEqual:
+          path: spec.template.spec.containers
+          count: 1
+      - equal:
+          path: spec.template.spec.containers[0].ports[0].containerPort
+          value: ${{ values.container_port }}
+      - equal:
+          path: spec.template.spec.automountServiceAccountToken
+          value: false
+      - equal:
+          path: spec.template.spec.securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation
+          value: false
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
+      - contains:
+          path: spec.template.spec.containers[0].securityContext.capabilities.drop
+          content: ALL
+
+  - it: uses the appVersion as the image tag
+    chart:
+      appVersion: 9.9.9
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: ${{ values.image_repository }}:9.9.9
+
+  - it: prefers an explicit tag, and a digest over a tag
+    set:
+      image.repository: registry.internal/app
+      image.tag: 2.0.0
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: registry.internal/app:2.0.0
+
+  - it: deploys by digest when one is given
+    set:
+      image.repository: registry.internal/app
+      image.tag: 2.0.0
+      image.digest: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: registry.internal/app@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+
+  - it: leaves the replica count to the autoscaler
+    set:
+      autoscaling.enabled: true
+    asserts:
+      - notExists:
+          path: spec.replicas
+
+  - it: selects pods by labels that do not include the version
+    asserts:
+      - equal:
+          path: spec.selector.matchLabels
+          value:
+            app.kubernetes.io/name: ${{ values.name }}
+            app.kubernetes.io/instance: release
+      - isSubset:
+          path: spec.template.metadata.labels
+          content:
+            app.kubernetes.io/name: ${{ values.name }}
+            app.kubernetes.io/instance: release
+
+  - it: passes environment, volumes and scheduling settings through
+    set:
+      env:
+        - name: LOG_LEVEL
+          value: debug
+      extraVolumes:
+        - name: tmp
+          emptyDir: {}
+      extraVolumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      nodeSelector:
+        kubernetes.io/arch: arm64
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LOG_LEVEL
+            value: debug
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts[0].mountPath
+          value: /tmp
+      - equal:
+          path: spec.template.spec.volumes[0].name
+          value: tmp
+      - equal:
+          path: spec.template.spec.nodeSelector
+          value:
+            kubernetes.io/arch: arm64
+
+  - it: does not repeat the chart name in the resource name
+    release:
+      name: my-${{ values.name }}
+    asserts:
+      - equal:
+          path: metadata.name
+          value: my-${{ values.name }}

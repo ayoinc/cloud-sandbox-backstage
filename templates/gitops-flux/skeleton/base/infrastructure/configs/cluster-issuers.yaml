@@ -1,0 +1,9 @@
+# An issuer that works on any cluster without external accounts. Workloads
+# request certificates from it for traffic inside the cluster. Add an ACME or
+# private CA issuer here for certificates that clients outside must trust.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned
+spec:
+  selfSigned: {}

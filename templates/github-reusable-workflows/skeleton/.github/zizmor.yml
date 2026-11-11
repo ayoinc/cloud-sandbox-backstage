@@ -1,0 +1,13 @@
+# Configuration of zizmor, the static analyser for GitHub Actions.
+# https://docs.zizmor.sh/configuration/
+rules:
+  unpinned-uses:
+    config:
+      policies:
+        # Every action is pinned to a full commit hash, first-party ones too.
+        '*': hash-pin
+  # ci.yaml refers to the workflows and actions of this repository as "./...".
+  # zizmor prefers the newer "$/..." form, which actionlint 1.7.12 rejects.
+  # Remove this once actionlint accepts it, and switch ci.yaml over.
+  self-repository:
+    disable: true

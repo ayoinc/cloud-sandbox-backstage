@@ -1,0 +1,93 @@
+# Values of the official chart open-telemetry/opentelemetry-collector.
+# The collector's configuration is not here: scripts/deploy.sh passes
+# collector/config.yaml to the chart as "alternateConfig", so the file CI
+# validates is the file that is deployed.
+
+# A gateway: a Deployment that applications and node agents send to.
+mode: deployment
+{%- if values.tail_sampling %}
+# One replica, because tail sampling needs all spans of a trace in one
+# instance. To scale out, put a tier with the load-balancing exporter
+# (routing by trace id) in front of this one.
+replicaCount: 1
+{%- else %}
+replicaCount: 2
+{%- endif %}
+
+image:
+  repository: otel/opentelemetry-collector-contrib
+  tag: 0.165.0
+
+command:
+  name: otelcol-contrib
+
+# Backend endpoint and credentials come from a Secret that is created outside
+# Git: by scripts/create-secret.sh, or by your secrets operator.
+extraEnvsFrom:
+  - secretRef:
+      name: ${{ values.name }}-backend
+
+# The memory limiter of the configuration works from this limit, and
+# GOMEMLIMIT is derived from it.
+useGOMEMLIMIT: true
+resources:
+  requests:
+    cpu: 200m
+    memory: 512Mi
+  limits:
+    memory: 1Gi
+
+presets:
+  # Adds the pod, namespace, workload and node of the sender to its telemetry,
+  # and the RBAC to look them up.
+  kubernetesAttributes:
+    enabled: true
+
+ports:
+  otlp:
+    enabled: true
+  otlp-http:
+    enabled: true
+  jaeger-compact:
+    enabled: false
+  jaeger-thrift:
+    enabled: ${{ 'true' if values.receive_legacy_tracing else 'false' }}
+  jaeger-grpc:
+    enabled: ${{ 'true' if values.receive_legacy_tracing else 'false' }}
+  zipkin:
+    enabled: ${{ 'true' if values.receive_legacy_tracing else 'false' }}
+  metrics:
+    enabled: true
+
+service:
+  type: ClusterIP
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+podDisruptionBudget:
+  enabled: ${{ 'false' if values.tail_sampling else 'true' }}
+  maxUnavailable: 1
+
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/instance: ${{ values.name }}
+
+# Only OTLP and the collector's own ports are reachable, from inside the cluster.
+networkPolicy:
+  enabled: true

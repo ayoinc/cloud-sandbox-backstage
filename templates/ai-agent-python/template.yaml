@@ -1,0 +1,187 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: ai-agent-python
+  title: AI Agent Service (Python)
+  description: Create an LLM agent service with tool calling, structured outputs, a streaming FastAPI endpoint, evals and OpenTelemetry, on Anthropic, OpenAI or Amazon Bedrock
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - recommended
+    - ai
+    - agent
+    - llm
+    - python
+    - fastapi
+spec:
+  owner: platform-team
+  type: service
+  parameters:
+    - title: Service Information
+      required:
+        - name
+        - description
+        - owner
+      properties:
+        name:
+          title: Service Name
+          type: string
+          description: Name of the service, its repository and its catalog entry
+          pattern: '^[a-z]([a-z0-9-]*[a-z0-9])?$'
+          maxLength: 63
+          ui:autofocus: true
+          ui:help: 'Lowercase letters, numbers and hyphens, starting with a letter'
+        description:
+          title: Description
+          type: string
+          description: Brief description of what the agent does
+        owner:
+          title: Owner
+          type: string
+          description: Owner of the service
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: [Group, User]
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+    - title: Model Provider
+      required:
+        - provider
+      properties:
+        provider:
+          title: Provider
+          type: string
+          description: Service the agent calls for model inference. Credentials are read from the environment at run time and are never asked for here.
+          default: anthropic
+          enum:
+            - anthropic
+            - openai
+            - bedrock
+          enumNames:
+            - Anthropic API (ANTHROPIC_API_KEY)
+            - OpenAI API (OPENAI_API_KEY)
+            - Amazon Bedrock (AWS credentials of the workload)
+      dependencies:
+        provider:
+          oneOf:
+            - properties:
+                provider:
+                  enum:
+                    - anthropic
+                model:
+                  title: Model
+                  type: string
+                  description: Default model id. AGENT_MODEL overrides it at run time.
+                  default: claude-sonnet-5-5
+                  pattern: '^[A-Za-z0-9][A-Za-z0-9._:/-]*$'
+                  maxLength: 120
+            - properties:
+                provider:
+                  enum:
+                    - openai
+                model:
+                  title: Model
+                  type: string
+                  description: Default model id. AGENT_MODEL overrides it at run time.
+                  default: gpt-6.1-terra
+                  pattern: '^[A-Za-z0-9][A-Za-z0-9._:/-]*$'
+                  maxLength: 120
+            - required:
+                - model
+              properties:
+                provider:
+                  enum:
+                    - bedrock
+                model:
+                  title: Model
+                  type: string
+                  description: Bedrock model id or inference profile id that is enabled in your account and supports tool use. AGENT_MODEL overrides it at run time.
+                  pattern: '^[A-Za-z0-9][A-Za-z0-9._:/-]*$'
+                  maxLength: 200
+                  ui:help: 'Find it in the Bedrock console under Model catalog or Inference profiles'
+                aws_region:
+                  title: AWS Region
+                  type: string
+                  description: Region of the Bedrock runtime endpoint. AWS_REGION overrides it at run time.
+                  default: us-east-1
+                  pattern: '^[a-z]{2}(-[a-z]+)+-[0-9]$'
+
+    - title: Runtime
+      properties:
+        python_version:
+          title: Python Version
+          type: string
+          description: Version used by the pipeline, the container image and the linters
+          default: '3.13'
+          enum:
+            - '3.12'
+            - '3.13'
+            - '3.14'
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton/base
+        copyWithoutTemplating:
+          - .github/workflows/*
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'AI agent service' }}
+          owner: ${{ parameters.owner }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+          provider: ${{ parameters.provider }}
+          model: ${{ parameters.model }}
+          aws_region: ${{ parameters.aws_region or 'us-east-1' }}
+          python_version: ${{ parameters.python_version }}
+
+    - id: fetch-provider
+      name: Add Model Provider
+      action: fetch:template
+      input:
+        url: ./skeleton/provider-${{ parameters.provider }}
+        copyWithoutTemplating:
+          - .github/workflows/*
+        values:
+          name: ${{ parameters.name }}
+          model: ${{ parameters.model }}
+          aws_region: ${{ parameters.aws_region or 'us-east-1' }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: ${{ parameters.description }}
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}
+      - title: CI runs
+        url: ${{ steps['publish'].output.remoteUrl + '/actions' }}

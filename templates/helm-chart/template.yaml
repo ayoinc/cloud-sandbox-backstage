@@ -1,0 +1,124 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: helm-chart
+  title: Helm Chart
+  description: Create a Helm chart with a values schema, helm-unittest and chart-testing suites, and a workflow that publishes it to an OCI registry signed with cosign
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - helm
+    - kubernetes
+    - chart
+    - oci
+    - platform
+spec:
+  owner: platform-team
+  type: library
+  parameters:
+    - title: Chart Information
+      required:
+        - name
+        - description
+        - owner
+      properties:
+        name:
+          title: Chart Name
+          type: string
+          description: Name of the chart, its repository and its catalog entry
+          pattern: '^[a-z]([a-z0-9-]*[a-z0-9])?$'
+          maxLength: 50
+          ui:autofocus: true
+          ui:help: 'Lowercase letters, numbers and hyphens, starting with a letter. Release names are prefixed to it, so keep it short.'
+        description:
+          title: Description
+          type: string
+          description: Brief description of what the chart deploys
+        owner:
+          title: Owner
+          type: string
+          description: Owner of the chart
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: [Group, User]
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+    - title: Workload
+      required:
+        - image_repository
+      properties:
+        image_repository:
+          title: Container Image Repository
+          type: string
+          description: Image the chart deploys by default, without a tag
+          pattern: '^[a-z0-9]([a-z0-9._-]*[a-z0-9])?(:[0-9]+)?(/[a-z0-9]([a-z0-9._-]*[a-z0-9])?)+$'
+          maxLength: 200
+          ui:help: 'For example ghcr.io/your-org/your-service'
+        app_version:
+          title: Application Version
+          type: string
+          description: Version of the application the first chart release deploys. It is the default image tag.
+          default: 1.0.0
+          pattern: '^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$'
+        container_port:
+          title: Container Port
+          type: integer
+          description: Port the application listens on
+          default: 8080
+          minimum: 1
+          maximum: 65535
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        copyWithoutTemplating:
+          - .github/workflows/*
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'Helm chart' }}
+          owner: ${{ parameters.owner }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+          image_repository: ${{ parameters.image_repository }}
+          app_version: ${{ parameters.app_version }}
+          container_port: ${{ parameters.container_port }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: ${{ parameters.description }}
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}
+      - title: CI runs
+        url: ${{ steps['publish'].output.remoteUrl + '/actions' }}

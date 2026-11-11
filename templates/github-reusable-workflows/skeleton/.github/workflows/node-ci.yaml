@@ -1,0 +1,98 @@
+# Reusable workflow: install, lint, test and build a Node.js project.
+#
+#   jobs:
+#     ci:
+#       uses: ${{ values.destination.owner }}/${{ values.destination.repo }}/.github/workflows/node-ci.yaml@<commit>
+#       permissions:
+#         contents: read
+name: Node.js CI
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: Node.js version. Empty uses the .node-version file of the project, or ${{ values.node_version }} if there is none.
+        type: string
+        required: false
+        default: ''
+      working-directory:
+        description: Directory of the project, relative to the repository root
+        type: string
+        required: false
+        default: .
+      run-lint:
+        description: Run "npm run lint" if the script exists
+        type: boolean
+        required: false
+        default: true
+      run-build:
+        description: Run "npm run build" if the script exists
+        type: boolean
+        required: false
+        default: true
+      audit-level:
+        description: Fail on production dependency advisories of this severity or higher (low, moderate, high, critical), or "none" to skip
+        type: string
+        required: false
+        default: high
+
+permissions: {}
+
+env:
+  DEFAULT_NODE_VERSION: '${{ values.node_version }}'
+{% raw %}
+jobs:
+  ci:
+    name: Lint, test and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Choose the Node.js version
+        id: node
+        env:
+          REQUESTED: ${{ inputs.node-version }}
+        run: |
+          if [ -n "$REQUESTED" ]; then
+            echo "version=$REQUESTED" >> "$GITHUB_OUTPUT"
+          elif [ -f .node-version ]; then
+            echo "version=$(tr -d '[:space:]' < .node-version)" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=$DEFAULT_NODE_VERSION" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ steps.node.outputs.version }}
+          cache: npm
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+
+      # --ignore-scripts: install scripts of dependencies do not run in CI.
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Audit production dependencies
+        if: inputs.audit-level != 'none'
+        env:
+          AUDIT_LEVEL: ${{ inputs.audit-level }}
+        run: npm audit --omit=dev --audit-level="$AUDIT_LEVEL"
+
+      - name: Lint
+        if: inputs.run-lint
+        run: npm run lint --if-present
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        if: inputs.run-build
+        run: npm run build --if-present
+{% endraw %}

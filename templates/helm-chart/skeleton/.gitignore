@@ -1,0 +1,13 @@
+# Packaged charts and downloaded dependencies
+*.tgz
+charts/*/charts/
+charts/*/Chart.lock.tmp
+dist/
+
+# helm-unittest snapshots are committed; its temporary output is not
+**/__snapshot__/*.tmp
+
+# TechDocs output
+site/
+
+.DS_Store

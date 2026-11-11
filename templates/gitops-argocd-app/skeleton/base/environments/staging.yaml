@@ -1,0 +1,11 @@
+# Read by the ApplicationSet in argocd/apps.yaml for every apps/*/overlays/staging.
+environment: staging
+
+# API server of the cluster this environment runs on, as registered in Argo CD
+# (argocd cluster list). The default is the cluster Argo CD itself runs in.
+cluster: https://kubernetes.default.svc
+
+# true: Argo CD applies changes as soon as they are merged, prunes what was
+# removed and reverts manual changes. false: it shows the difference and waits
+# for a manual sync.
+autoSync: true

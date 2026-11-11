@@ -1,0 +1,68 @@
+name: Evals
+
+# Runs the eval dataset against the real model. It costs tokens, so it is
+# started by hand: Actions > Evals > Run workflow.
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: Model id to evaluate. Empty uses the default of the service.
+        required: false
+        type: string
+      min-pass-rate:
+        description: Fail below this share of passing cases
+        required: false
+        default: '0.8'
+        type: string
+
+permissions: {}
+
+jobs:
+  evals:
+    name: Run evals
+    runs-on: ubuntu-latest
+    # No stored keys: the job exchanges its OIDC token for short-lived
+    # credentials of the role in the AWS_ROLE_ARN variable of the 'evals'
+    # environment. The role's trust policy should name this repository and
+    # environment, and its policy should allow bedrock:InvokeModelWithResponseStream
+    # on the evaluated models only.
+    environment: evals
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: '0.13.7'
+          enable-cache: true
+
+      - name: Install the project
+        run: uv sync --locked
+
+      - name: Assume the AWS role with OIDC
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Run the eval dataset
+        env:
+          MODEL: ${{ inputs.model }}
+          MIN_PASS_RATE: ${{ inputs.min-pass-rate }}
+        run: |
+          if [ -n "$MODEL" ]; then
+            export AGENT_MODEL="$MODEL"
+          fi
+          uv run python -m evals.run --min-pass-rate "$MIN_PASS_RATE" --report evals/reports/latest.json
+
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: eval-report
+          path: evals/reports/latest.json
+          if-no-files-found: ignore

@@ -1,0 +1,155 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: gitops-flux
+  title: GitOps Repository (Flux)
+  description: Create a Flux v2 GitOps repository with clusters, infrastructure and apps layers, staging and production overlays, and SOPS or External Secrets
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - gitops
+    - flux
+    - kubernetes
+    - kustomize
+    - platform
+spec:
+  owner: platform-team
+  type: infrastructure
+  parameters:
+    - title: Repository Information
+      required:
+        - name
+        - description
+        - owner
+      properties:
+        name:
+          title: Name
+          type: string
+          description: Name of the GitOps repository and its catalog entry
+          pattern: '^[a-z]([a-z0-9-]*[a-z0-9])?$'
+          maxLength: 63
+          ui:autofocus: true
+          ui:help: 'Lowercase letters, numbers and hyphens, starting with a letter'
+        description:
+          title: Description
+          type: string
+          description: Brief description of what this repository deploys
+        owner:
+          title: Owner
+          type: string
+          description: Owner of the repository
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: [Group, User]
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+    - title: Secrets
+      properties:
+        secrets_backend:
+          title: Secrets Management
+          type: string
+          description: How secrets reach the clusters without being committed in plain text
+          default: sops
+          enum:
+            - sops
+            - external-secrets
+          enumNames:
+            - SOPS with age (encrypted secrets committed to this repository)
+            - External Secrets Operator (secrets stay in your secret manager)
+      dependencies:
+        secrets_backend:
+          oneOf:
+            - required:
+                - age_public_key_staging
+                - age_public_key_production
+              properties:
+                secrets_backend:
+                  enum:
+                    - sops
+                age_public_key_staging:
+                  title: age Public Key (staging)
+                  type: string
+                  description: Public key that secrets of the staging cluster are encrypted for. Create the pair with age-keygen; only the public key is entered here.
+                  pattern: '^age1[0-9a-z]{58}$'
+                  ui:help: 'Starts with age1. The private key goes into the cluster, never into Git.'
+                age_public_key_production:
+                  title: age Public Key (production)
+                  type: string
+                  description: Public key that secrets of the production cluster are encrypted for. Use a different key pair than for staging.
+                  pattern: '^age1[0-9a-z]{58}$'
+            - properties:
+                secrets_backend:
+                  enum:
+                    - external-secrets
+                secret_store:
+                  title: ClusterSecretStore Name
+                  type: string
+                  description: Name of the ClusterSecretStore that connects External Secrets to your secret manager. ExternalSecrets in this repository refer to it.
+                  default: default
+                  pattern: '^[a-z]([a-z0-9-]*[a-z0-9])?$'
+                  maxLength: 63
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton/base
+        copyWithoutTemplating:
+          - .github/workflows/*
+          - scripts/*
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'Flux GitOps repository' }}
+          owner: ${{ parameters.owner }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+          secrets_backend: ${{ parameters.secrets_backend }}
+          secret_store: ${{ parameters.secret_store or 'default' }}
+
+    - id: fetch-secrets
+      name: Add Secrets Management
+      action: fetch:template
+      input:
+        url: ./skeleton/secrets-${{ parameters.secrets_backend }}
+        values:
+          secret_store: ${{ parameters.secret_store or 'default' }}
+          age_public_key_staging: ${{ parameters.age_public_key_staging }}
+          age_public_key_production: ${{ parameters.age_public_key_production }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: ${{ parameters.description }}
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}
+      - title: CI runs
+        url: ${{ steps['publish'].output.remoteUrl + '/actions' }}

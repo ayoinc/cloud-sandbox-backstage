@@ -1,0 +1,160 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: gitops-argocd-app
+  title: GitOps Repository (Argo CD)
+  description: Create an Argo CD GitOps repository with an app-of-apps root, an ApplicationSet, Kustomize overlays per environment, sync waves and secrets wiring
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - gitops
+    - argocd
+    - kubernetes
+    - kustomize
+    - platform
+spec:
+  owner: platform-team
+  type: infrastructure
+  parameters:
+    - title: Repository Information
+      required:
+        - name
+        - description
+        - owner
+      properties:
+        name:
+          title: Name
+          type: string
+          description: Name of the GitOps repository, its catalog entry and its Argo CD project
+          pattern: '^[a-z]([a-z0-9-]*[a-z0-9])?$'
+          maxLength: 40
+          ui:autofocus: true
+          ui:help: 'Lowercase letters, numbers and hyphens, starting with a letter'
+        description:
+          title: Description
+          type: string
+          description: Brief description of what this repository deploys
+        owner:
+          title: Owner
+          type: string
+          description: Owner of the repository
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: [Group, User]
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+    - title: Argo CD
+      properties:
+        argocd_namespace:
+          title: Argo CD Namespace
+          type: string
+          description: Namespace Argo CD runs in; Applications and the ApplicationSet are created there
+          default: argocd
+          pattern: '^[a-z]([a-z0-9-]*[a-z0-9])?$'
+          maxLength: 63
+        production_auto_sync:
+          title: Sync Production Automatically
+          type: boolean
+          description: When off, production Applications show the difference and wait for a manual sync. Dev and staging always sync automatically.
+          default: false
+
+    - title: Secrets
+      properties:
+        secrets_backend:
+          title: Secrets Management
+          type: string
+          description: How secrets reach the cluster without being committed in plain text
+          default: external-secrets
+          enum:
+            - external-secrets
+            - sealed-secrets
+          enumNames:
+            - External Secrets Operator (secrets stay in your secret manager)
+            - Sealed Secrets (encrypted secrets committed to this repository)
+      dependencies:
+        secrets_backend:
+          oneOf:
+            - properties:
+                secrets_backend:
+                  enum:
+                    - external-secrets
+                secret_store:
+                  title: ClusterSecretStore Name
+                  type: string
+                  description: Name of the ClusterSecretStore that connects External Secrets to your secret manager. ExternalSecrets in this repository refer to it.
+                  default: default
+                  pattern: '^[a-z]([a-z0-9-]*[a-z0-9])?$'
+                  maxLength: 63
+            - properties:
+                secrets_backend:
+                  enum:
+                    - sealed-secrets
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton/base
+        copyWithoutTemplating:
+          - .github/workflows/*
+          - scripts/*
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'Argo CD GitOps repository' }}
+          owner: ${{ parameters.owner }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+          argocd_namespace: ${{ parameters.argocd_namespace }}
+          production_auto_sync: ${{ parameters.production_auto_sync }}
+          secrets_backend: ${{ parameters.secrets_backend }}
+          secret_store: ${{ parameters.secret_store or 'default' }}
+
+    - id: fetch-secrets
+      name: Add Secrets Management
+      action: fetch:template
+      input:
+        url: ./skeleton/secrets-${{ parameters.secrets_backend }}
+        copyWithoutTemplating:
+          - scripts/*
+        values:
+          name: ${{ parameters.name }}
+          argocd_namespace: ${{ parameters.argocd_namespace }}
+          secret_store: ${{ parameters.secret_store or 'default' }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: ${{ parameters.description }}
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}
+      - title: CI runs
+        url: ${{ steps['publish'].output.remoteUrl + '/actions' }}

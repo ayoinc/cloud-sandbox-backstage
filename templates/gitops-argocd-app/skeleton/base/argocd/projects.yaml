@@ -1,0 +1,61 @@
+# Workloads: only this repository, only the namespaces of the three
+# environments, and no cluster-scoped resources except their Namespace.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: ${{ values.name }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: Workloads deployed from ${{ values.destination.owner }}/${{ values.destination.repo }}
+  sourceRepos:
+    - https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}.git
+  destinations:
+    - server: '*'
+      namespace: '*-dev'
+    - server: '*'
+      namespace: '*-staging'
+    - server: '*'
+      namespace: '*-production'
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace
+  namespaceResourceBlacklist:
+    # Quotas and limits of a namespace belong to the platform, not to the app in it.
+    - group: ''
+      kind: ResourceQuota
+    - group: ''
+      kind: LimitRange
+  orphanedResources:
+    warn: true
+---
+# Platform components: cluster-wide controllers installed from their charts.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: ${{ values.name }}-platform
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: Platform components that the workloads of ${{ values.name }} depend on
+  sourceRepos:
+{%- if values.secrets_backend == 'external-secrets' %}
+    - https://charts.external-secrets.io
+{%- else %}
+    - https://bitnami.github.io/sealed-secrets
+{%- endif %}
+  destinations:
+{%- if values.secrets_backend == 'external-secrets' %}
+    - server: https://kubernetes.default.svc
+      namespace: external-secrets
+{%- else %}
+    - server: https://kubernetes.default.svc
+      namespace: sealed-secrets
+{%- endif %}
+  clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'

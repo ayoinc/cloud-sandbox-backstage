@@ -1,0 +1,43 @@
+name: Set up a Python project
+description: Installs uv and Python with a dependency cache and runs "uv sync --locked"
+
+inputs:
+  python-version:
+    description: Python version. Empty uses the .python-version file of the project, or ${{ values.python_version }}.
+    required: false
+    default: ''
+  working-directory:
+    description: Directory of the project, relative to the repository root
+    required: false
+    default: .
+{% raw %}
+runs:
+  using: composite
+  steps:
+    - name: Choose the Python version
+      id: version
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        REQUESTED: ${{ inputs.python-version }}
+      run: |
+        if [ -n "$REQUESTED" ]; then
+          echo "version=$REQUESTED" >> "$GITHUB_OUTPUT"
+        elif [ -f .python-version ]; then
+          echo "version=$(tr -d '[:space:]' < .python-version)" >> "$GITHUB_OUTPUT"
+        else
+{% endraw %}          echo "version=${{ values.python_version }}"{% raw %} >> "$GITHUB_OUTPUT"
+        fi
+
+    - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      with:
+        version: '0.13.7'
+        python-version: ${{ steps.version.outputs.version }}
+        enable-cache: true
+        cache-dependency-glob: ${{ inputs.working-directory }}/uv.lock
+
+    - name: Install the project and its development dependencies
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: uv sync --locked
+{% endraw %}

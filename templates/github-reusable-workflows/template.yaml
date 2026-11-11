@@ -1,0 +1,116 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: github-reusable-workflows
+  title: Reusable GitHub Actions Workflows
+  description: Create a repository of reusable workflows and composite actions for build, test and signed container publishing with OIDC and SLSA provenance, checked with actionlint and zizmor
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - github-actions
+    - ci-cd
+    - supply-chain
+    - platform
+    - security
+spec:
+  owner: platform-team
+  type: library
+  parameters:
+    - title: Repository Information
+      required:
+        - name
+        - description
+        - owner
+      properties:
+        name:
+          title: Name
+          type: string
+          description: Name of the repository and its catalog entry
+          pattern: '^[a-z]([a-z0-9-]*[a-z0-9])?$'
+          maxLength: 63
+          ui:autofocus: true
+          ui:help: 'Lowercase letters, numbers and hyphens, starting with a letter'
+        description:
+          title: Description
+          type: string
+          description: Brief description of who these workflows are for
+        owner:
+          title: Owner
+          type: string
+          description: Owner of the workflows
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: [Group, User]
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+    - title: Defaults
+      properties:
+        node_version:
+          title: Default Node.js Version
+          type: string
+          description: Version the Node.js workflow uses when the caller sets none and has no .node-version file
+          default: '26'
+          enum:
+            - '24'
+            - '26'
+        python_version:
+          title: Default Python Version
+          type: string
+          description: Version the Python workflow uses when the caller sets none and has no .python-version file
+          default: '3.13'
+          enum:
+            - '3.12'
+            - '3.13'
+            - '3.14'
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'Reusable GitHub Actions workflows' }}
+          owner: ${{ parameters.owner }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+          node_version: ${{ parameters.node_version }}
+          python_version: ${{ parameters.python_version }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: ${{ parameters.description }}
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}
+      - title: CI runs
+        url: ${{ steps['publish'].output.remoteUrl + '/actions' }}

@@ -1,0 +1,27 @@
+suite: values schema
+templates:
+  - deployment.yaml
+tests:
+  - it: rejects unknown values, which are usually typing mistakes
+    set:
+      replicas: 3
+    asserts:
+      - failedTemplate: {}
+
+  - it: rejects a port outside the valid range
+    set:
+      containerPort: 70000
+    asserts:
+      - failedTemplate: {}
+
+  - it: rejects an image digest that is not a sha256 digest
+    set:
+      image.digest: latest
+    asserts:
+      - failedTemplate: {}
+
+  - it: rejects an enabled ingress without hosts
+    set:
+      ingress.enabled: true
+    asserts:
+      - failedTemplate: {}

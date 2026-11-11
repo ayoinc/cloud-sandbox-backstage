@@ -1,0 +1,47 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Deployed as the Application podinfo-production into the namespace podinfo-production.
+resources:
+  - ../../base
+
+replicas:
+  - name: podinfo
+    count: 3
+
+# Promote a version by changing the tag here, one environment at a time.
+images:
+  - name: ghcr.io/stefanprodan/podinfo
+    newTag: 6.17.0
+
+patches:
+  - target:
+      kind: Deployment
+      name: podinfo
+    patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/args/1
+        value: --level=warn
+  - target:
+      kind: Deployment
+      name: podinfo
+    patch: |
+      - op: add
+        path: /spec/template/spec/topologySpreadConstraints
+        value:
+          - maxSkew: 1
+            topologyKey: kubernetes.io/hostname
+            whenUnsatisfiable: ScheduleAnyway
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: podinfo
+{%- if values.secrets_backend == 'external-secrets' %}
+  # Each environment reads its own entry of the secret manager.
+  - target:
+      kind: ExternalSecret
+      name: podinfo-config
+    patch: |
+      - op: replace
+        path: /spec/dataFrom/0/extract/key
+        value: podinfo/production
+{%- endif %}

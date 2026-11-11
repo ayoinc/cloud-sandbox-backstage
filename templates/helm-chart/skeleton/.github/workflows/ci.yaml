@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  HELM_UNITTEST_VERSION: v1.2.1
+  KUBECONFORM_VERSION: 0.8.0
+  KUBERNETES_VERSION: 1.37.0
+
+jobs:
+  lint-test:
+    name: Lint, unit test and validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # chart-testing compares the branch with main.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
+        with:
+          version: v4.3.1
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+
+      - uses: helm/chart-testing-action@720270857a28afd41e2426521a7801db09e9b510 # v2.9.0
+
+      - name: helm lint
+        run: |
+          for chart in charts/*/; do
+            helm lint "$chart" --strict
+            for values in "$chart"ci/*-values.yaml; do
+              helm lint "$chart" --strict --values "$values"
+            done
+          done
+
+      # On a branch, a chart that differs from main must have a new version.
+      # On main there is nothing to compare with, so every chart is linted.
+      - name: chart-testing lint
+        run: |
+          if [ "$GITHUB_REF_NAME" = main ]; then
+            ct lint --config ct.yaml --all --check-version-increment=false
+          else
+            ct lint --config ct.yaml
+          fi
+
+      - name: helm unittest
+        run: |
+          helm plugin install https://github.com/helm-unittest/helm-unittest --version "$HELM_UNITTEST_VERSION" --verify=false
+          helm unittest charts/*
+
+      - name: Validate the rendered manifests against the Kubernetes schemas
+        run: |
+          curl -fsSL "https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" |
+            tar -xz -C "$RUNNER_TEMP" kubeconform
+          for chart in charts/*/; do
+            helm template release "$chart" |
+              "$RUNNER_TEMP/kubeconform" -strict -summary -kubernetes-version "$KUBERNETES_VERSION"
+            for values in "$chart"ci/*-values.yaml; do
+              helm template release "$chart" --values "$values" |
+                "$RUNNER_TEMP/kubeconform" -strict -summary -kubernetes-version "$KUBERNETES_VERSION"
+            done
+          done
+
+  install:
+    name: Install on kind
+    runs-on: ubuntu-latest
+    needs: lint-test
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # chart-testing compares the branch with main.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
+        with:
+          version: v4.3.1
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+
+      - uses: helm/chart-testing-action@720270857a28afd41e2426521a7801db09e9b510 # v2.9.0
+
+      - name: Create a kind cluster
+        uses: helm/kind-action@ea822c7bf1874f08e5a491df991c228edffc3376 # v1.15.2
+
+      # Installs each chart once per file in its ci/ directory, waits for the
+      # pods to be ready and runs "helm test".
+      - name: chart-testing install
+        run: ct install --config ct.yaml --all

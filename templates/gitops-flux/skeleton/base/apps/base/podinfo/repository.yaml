@@ -1,0 +1,13 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: podinfo
+spec:
+  interval: 10m
+  url: oci://ghcr.io/stefanprodan/charts/podinfo
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy
+  # Each cluster's overlay replaces this with the version it runs.
+  ref:
+    tag: 6.17.0

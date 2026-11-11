@@ -1,0 +1,122 @@
+# Default values of ${{ values.name }}. Every value is described in README.md and
+# validated against values.schema.json when the chart is installed.
+
+# -- Number of pods. Ignored when autoscaling.enabled is true.
+replicaCount: 1
+
+image:
+  # -- Image repository
+  repository: ${{ values.image_repository }}
+  # -- Image tag. Defaults to the chart's appVersion.
+  tag: ""
+  # -- Image digest (sha256:...). Takes precedence over the tag.
+  digest: ""
+  pullPolicy: IfNotPresent
+
+# -- Secrets with credentials of private registries
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+# -- Port the application listens on
+containerPort: ${{ values.container_port }}
+
+# -- Overrides the image's entrypoint
+command: []
+# -- Overrides the image's arguments
+args: []
+
+# -- Environment variables of the container, as a list of name/value(From)
+env: []
+# -- ConfigMaps and Secrets whose keys become environment variables
+envFrom: []
+
+serviceAccount:
+  # -- Create a ServiceAccount for the workload
+  create: true
+  # -- Mount the ServiceAccount token. Enable only if the application calls the Kubernetes API.
+  automount: false
+  annotations: {}
+  # -- Name of the ServiceAccount. Defaults to the full name of the release.
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+# The defaults satisfy the "restricted" Pod Security Standard.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  type: ClusterIP
+  port: 80
+  annotations: {}
+
+ingress:
+  # -- Expose the Service through an Ingress. Off by default: nothing is reachable from outside the cluster.
+  enabled: false
+  className: ""
+  annotations: {}
+  # -- Hosts and paths, for example [{host: app.internal, paths: [{path: /, pathType: Prefix}]}]
+  hosts: []
+  # -- TLS configuration, for example [{secretName: app-tls, hosts: [app.internal]}]
+  tls: []
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+
+livenessProbe:
+  httpGet:
+    path: /
+    port: http
+readinessProbe:
+  httpGet:
+    path: /
+    port: http
+# -- Optional startup probe for applications that start slowly
+startupProbe: {}
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 75
+  # -- Optional memory target
+  targetMemoryUtilizationPercentage: null
+
+podDisruptionBudget:
+  # -- Keep pods available during node maintenance. Enable when running more than one replica.
+  enabled: false
+  maxUnavailable: 1
+
+networkPolicy:
+  # -- Only allow traffic to the container port. Requires a CNI that enforces NetworkPolicy.
+  enabled: true
+  # -- Peers allowed to connect, as NetworkPolicy "from" entries. Empty allows every pod in the cluster.
+  ingressFrom: []
+
+# -- Additional volumes, for example an emptyDir for /tmp with a read-only root filesystem
+extraVolumes: []
+extraVolumeMounts: []
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+topologySpreadConstraints: []

@@ -1,0 +1,40 @@
+# The collector on a single host. Configuration: collector/config.yaml.
+# Backend endpoint and credentials: .env (see .env.example).
+#
+#   docker compose up --detach
+name: ${{ values.name }}
+
+services:
+  collector:
+    image: otel/opentelemetry-collector-contrib:0.165.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./collector/config.yaml:/etc/otelcol/config.yaml:ro
+    # Published on the loopback interface only. To receive from other hosts,
+    # publish 4317 and 4318 on the address of a private network, behind TLS.
+    ports:
+      - 127.0.0.1:4317:4317 # OTLP gRPC
+      - 127.0.0.1:4318:4318 # OTLP HTTP
+{%- if values.receive_legacy_tracing %}
+      - 127.0.0.1:14250:14250 # Jaeger gRPC
+      - 127.0.0.1:14268:14268 # Jaeger Thrift HTTP
+      - 127.0.0.1:9411:9411 # Zipkin
+{%- endif %}
+      - 127.0.0.1:13133:13133 # health check
+      - 127.0.0.1:8888:8888 # the collector's own metrics
+    # The memory limiter of the configuration works from this limit.
+    mem_limit: 1g
+    cpus: 1.0
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"

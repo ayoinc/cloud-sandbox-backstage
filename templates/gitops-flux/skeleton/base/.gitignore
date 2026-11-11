@@ -1,0 +1,15 @@
+# Tools and schemas downloaded by scripts/validate.sh
+.bin/
+
+# Private keys and plain-text secrets must never be committed.
+*.agekey
+age.key
+keys.txt
+*.secret.yaml
+*.dec.yaml
+.env
+
+# TechDocs output
+site/
+
+.DS_Store

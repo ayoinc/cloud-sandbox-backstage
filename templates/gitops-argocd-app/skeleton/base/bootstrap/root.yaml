@@ -1,0 +1,35 @@
+# The one manifest applied by hand. It points Argo CD at the argocd/ directory
+# of this repository; everything else is created from Git.
+#
+#   kubectl apply -f bootstrap/root.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ${{ values.name }}-root
+  namespace: ${{ values.argocd_namespace }}
+  labels:
+    app.kubernetes.io/part-of: ${{ values.name }}
+  finalizers:
+    # Deleting the root deletes what it created, children first.
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}.git
+    targetRevision: main
+    path: argocd
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ${{ values.argocd_namespace }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m

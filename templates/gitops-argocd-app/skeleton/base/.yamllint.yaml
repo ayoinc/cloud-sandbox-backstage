@@ -1,0 +1,15 @@
+extends: default
+
+ignore: |
+  .bin/
+  site/
+
+rules:
+  document-start: disable
+  line-length:
+    max: 160
+  truthy:
+    # "on" is a key of GitHub Actions workflows.
+    check-keys: false
+  comments:
+    min-spaces-from-content: 1

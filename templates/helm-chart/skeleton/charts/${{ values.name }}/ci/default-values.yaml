@@ -1,0 +1,21 @@
+# Values used by "ct install" in CI. The chart's default image may not exist
+# yet or may be private, so the install test runs a small public web server on
+# the chart's container port instead.
+image:
+  repository: ghcr.io/stefanprodan/podinfo
+  tag: 6.17.0
+command:
+  - ./podinfo
+args:
+  - --port=${{ values.container_port }}
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: http
+replicaCount: 2
+podDisruptionBudget:
+  enabled: true

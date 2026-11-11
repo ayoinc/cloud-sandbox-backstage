@@ -1,0 +1,71 @@
+# One Application per directory apps/<app>/overlays/<environment>.
+#
+# Adding an app or an environment is a commit: create the directory and the
+# ApplicationSet controller creates the Application. Where an environment
+# runs, and whether it syncs by itself, is read from environments/<environment>.yaml.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: ${{ values.name }}-apps
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - matrix:
+        generators:
+          - git:
+              repoURL: https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}.git
+              revision: main
+              directories:
+                - path: apps/*/overlays/*
+          - git:
+              repoURL: https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}.git
+              revision: main
+              files:
+                - path: 'environments/{{ .path.basename }}.yaml'
+              # Both generators produce "path"; this one's goes under "envFile".
+              pathParamPrefix: envFile
+  template:
+    metadata:
+      name: '{{ index .path.segments 1 }}-{{ .environment }}'
+      labels:
+        app.kubernetes.io/part-of: ${{ values.name }}
+        app.kubernetes.io/name: '{{ index .path.segments 1 }}'
+        environment: '{{ .environment }}'
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: ${{ values.name }}
+      source:
+        repoURL: https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}.git
+        targetRevision: main
+        path: '{{ .path.path }}'
+      destination:
+        server: '{{ .cluster }}'
+        namespace: '{{ index .path.segments 1 }}-{{ .environment }}'
+      syncPolicy:
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - PruneLast=true
+        managedNamespaceMetadata:
+          labels:
+            environment: '{{ .environment }}'
+            pod-security.kubernetes.io/enforce: restricted
+        retry:
+          limit: 3
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 2m
+  # Automated sync is added only where the environment file asks for it.
+  templatePatch: |
+    {{- if .autoSync }}
+    spec:
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+    {{- end }}

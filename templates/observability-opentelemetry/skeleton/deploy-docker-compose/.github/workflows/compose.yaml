@@ -1,0 +1,40 @@
+name: Compose
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  compose:
+    name: Check the Compose deployment
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Validate docker-compose.yaml
+        run: |
+          cp .env.example .env
+          docker compose config --quiet
+
+      # The backend in .env.example is empty, so nothing is exported; this
+      # checks that the hardened container starts and reports healthy.
+      - name: Start the collector and check its health endpoint
+        run: |
+          sed -i 's|^OTLP_ENDPOINT=.*|OTLP_ENDPOINT=127.0.0.1:4317|' .env
+          sed -i 's|^PROMETHEUS_REMOTE_WRITE_ENDPOINT=.*|PROMETHEUS_REMOTE_WRITE_ENDPOINT=http://127.0.0.1:9090/api/v1/write|' .env
+          docker compose up --detach
+          for _ in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:13133/; then
+              echo
+              exit 0
+            fi
+            sleep 1
+          done
+          docker compose logs
+          exit 1

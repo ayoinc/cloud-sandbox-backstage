@@ -721,6 +721,38 @@ catalog:
       target: ../../templates/terragrunt-live/template.yaml
       rules:
         - allow: [Template]
+    - type: file
+      target: ../../templates/ai-agent-python/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/github-reusable-workflows/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/gitops-argocd-app/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/gitops-flux/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/helm-chart/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/kubernetes-operator/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/mcp-server-typescript/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/observability-opentelemetry/template.yaml
+      rules:
+        - allow: [Template]
 
 kubernetes:
   serviceLocatorMethod:

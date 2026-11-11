@@ -1,0 +1,36 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../base/podinfo
+
+patches:
+  # New versions are tried here first.
+  - target:
+      kind: OCIRepository
+      name: podinfo
+    patch: |
+      - op: replace
+        path: /spec/ref/tag
+        value: 6.17.0
+  - target:
+      kind: HelmRelease
+      name: podinfo
+    patch: |
+      - op: replace
+        path: /spec/values/replicaCount
+        value: 1
+      - op: add
+        path: /spec/values/ui
+        value:
+          message: Hello from staging
+{%- if values.secrets_backend == 'external-secrets' %}
+  # Each cluster reads its own entry of the secret manager.
+  - target:
+      kind: ExternalSecret
+      name: podinfo-values
+    patch: |
+      - op: replace
+        path: /spec/data/0/remoteRef/key
+        value: podinfo/staging
+{%- endif %}

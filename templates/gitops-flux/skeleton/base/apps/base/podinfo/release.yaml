@@ -1,0 +1,47 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: podinfo
+spec:
+  releaseName: podinfo
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: podinfo
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+      remediateLastFailure: true
+  test:
+    enable: true
+  driftDetection:
+    mode: enabled
+  values:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      runAsNonRoot: true
+      runAsUser: 10001
+      capabilities:
+        drop: [ALL]
+      seccompProfile:
+        type: RuntimeDefault
+  # Sensitive chart values come from a Secret that is{% if values.secrets_backend == 'sops' %} committed encrypted
+  # as apps/<cluster>/podinfo-values.sops.yaml.{% else %} created by the
+  # ExternalSecret next to this file.{% endif %} Optional, so the release
+  # also installs when there are none.
+  valuesFrom:
+    - kind: Secret
+      name: podinfo-values
+      valuesKey: values.yaml
+      optional: true

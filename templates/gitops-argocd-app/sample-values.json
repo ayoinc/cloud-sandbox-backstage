@@ -1,0 +1,12 @@
+{
+  "values": {
+    "name": "sample-gitops",
+    "description": "The platform team's \"source of truth\": what runs in each environment",
+    "owner": "group:default/platform-team",
+    "repoUrl": "github.com?owner=example-org&repo=sample-gitops",
+    "argocd_namespace": "argocd",
+    "production_auto_sync": false,
+    "secrets_backend": "external-secrets",
+    "secret_store": "default"
+  }
+}

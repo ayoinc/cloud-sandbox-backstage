@@ -1,0 +1,11 @@
+{
+  "values": {
+    "name": "sample-orders",
+    "description": "The sample team's \"orders\" chart: deploys the orders service",
+    "owner": "group:default/platform-team",
+    "repoUrl": "github.com?owner=example-org&repo=sample-orders-chart",
+    "image_repository": "ghcr.io/example-org/sample-orders",
+    "app_version": "1.0.0",
+    "container_port": 8080
+  }
+}

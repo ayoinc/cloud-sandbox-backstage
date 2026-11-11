@@ -1,0 +1,6 @@
+{"id": "arithmetic-product", "input": "What is 1234 multiplied by 5678?", "expect": {"tools": ["calculate"], "answer_contains": ["7006652"]}}
+{"id": "arithmetic-word-problem", "input": "A team of 7 people each works 37.5 hours a week for 6 weeks. How many hours is that in total?", "expect": {"tools": ["calculate"], "answer_contains": ["1575"]}}
+{"id": "arithmetic-percentage", "input": "What is 15% of 2,480?", "expect": {"tools": ["calculate"], "answer_contains": ["372"]}}
+{"id": "time-zone", "input": "What is the date today in Tokyo?", "expect": {"tools": ["get_current_time"], "tool_arguments": {"get_current_time": {"timezone": "Asia/Tokyo"}}}}
+{"id": "general-knowledge-no-tool", "input": "What is the capital of France?", "expect": {"tools": [], "answer_contains": ["Paris"], "confidence": ["high"]}}
+{"id": "unknowable-is-low-confidence", "input": "What did I have for breakfast this morning?", "expect": {"tools": [], "confidence": ["low"]}}

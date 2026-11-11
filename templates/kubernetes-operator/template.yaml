@@ -1,0 +1,145 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: kubernetes-operator
+  title: Kubernetes Operator (Go, Kubebuilder)
+  description: Create a Go operator in the Kubebuilder layout with a custom resource, a controller, envtest and kind end-to-end tests
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - kubernetes
+    - operator
+    - go
+    - kubebuilder
+    - platform
+spec:
+  owner: platform-team
+  type: service
+  parameters:
+    - title: Operator Information
+      required:
+        - name
+        - description
+        - owner
+      properties:
+        name:
+          title: Operator Name
+          type: string
+          description: Name of the operator, its repository and its catalog entry
+          pattern: '^[a-z]([a-z0-9-]*[a-z0-9])?$'
+          maxLength: 36
+          ui:autofocus: true
+          ui:help: 'Lowercase letters, numbers and hyphens, starting with a letter. It prefixes every cluster object of the operator.'
+        description:
+          title: Description
+          type: string
+          description: Brief description of what the operator manages
+        owner:
+          title: Owner
+          type: string
+          description: Owner of the operator
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: [Group, User]
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+    - title: Custom Resource
+      required:
+        - domain
+        - group
+        - kind
+      properties:
+        domain:
+          title: API Domain
+          type: string
+          description: Domain your organisation owns; API groups are created below it
+          pattern: '^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$'
+          maxLength: 100
+          ui:help: 'For example platform.acme.io. The full API group is <group>.<domain>.'
+        group:
+          title: API Group
+          type: string
+          description: First label of the API group, for example apps or cache
+          pattern: '^[a-z][a-z0-9]*$'
+          maxLength: 30
+        version:
+          title: API Version
+          type: string
+          description: Version of the first API. Start at v1alpha1 unless the schema is already stable.
+          default: v1alpha1
+          enum:
+            - v1alpha1
+            - v1beta1
+            - v1
+        kind:
+          title: Kind
+          type: string
+          description: Kind of the custom resource, in PascalCase and singular
+          pattern: '^[A-Z][A-Za-z0-9]*$'
+          maxLength: 40
+          ui:help: 'For example Workload or CacheCluster'
+        plural:
+          title: Plural Resource Name
+          type: string
+          description: Lowercase plural used in kubectl and RBAC. Leave empty to use the lowercase kind followed by an s.
+          pattern: '^[a-z][a-z0-9]*$'
+          maxLength: 45
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        copyWithoutTemplating:
+          - .github/workflows/*
+          - go.sum
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'Kubernetes operator' }}
+          owner: ${{ parameters.owner }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+          domain: ${{ parameters.domain }}
+          group: ${{ parameters.group }}
+          version: ${{ parameters.version }}
+          kind: ${{ parameters.kind }}
+          kind_lower: ${{ parameters.kind | lower }}
+          plural: ${{ parameters.plural or (parameters.kind | lower) + 's' }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: ${{ parameters.description }}
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}
+      - title: CI runs
+        url: ${{ steps['publish'].output.remoteUrl + '/actions' }}

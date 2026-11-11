@@ -1,0 +1,10 @@
+{
+  "values": {
+    "name": "sample-workflows",
+    "description": "The platform team's \"paved road\" for CI: build, test and publish",
+    "owner": "group:default/platform-team",
+    "repoUrl": "github.com?owner=example-org&repo=sample-workflows",
+    "node_version": "26",
+    "python_version": "3.13"
+  }
+}

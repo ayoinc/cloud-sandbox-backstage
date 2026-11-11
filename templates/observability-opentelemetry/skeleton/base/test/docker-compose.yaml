@@ -1,0 +1,51 @@
+# The smoke test: the collector with the real configuration, a sink in place of
+# the backend, and a generator that sends telemetry. Run by scripts/smoke-test.sh.
+name: ${{ values.name }}-test
+
+services:
+  sink:
+    image: otel/opentelemetry-collector-contrib:0.165.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./sink-config.yaml:/etc/otelcol/config.yaml:ro
+{%- if values.metrics_exporter == 'prometheus-remote-write' %}
+
+  prometheus:
+    image: prom/prometheus:v3.16.0
+    command:
+      - --config.file=/dev/null
+      - --web.enable-remote-write-receiver
+      - --storage.tsdb.path=/tmp/prometheus
+    ports:
+      - 127.0.0.1:19090:9090
+{%- endif %}
+
+  collector:
+    image: otel/opentelemetry-collector-contrib:0.165.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    mem_limit: 512m
+    environment:
+{%- if values.exporter_protocol == 'otlp_http' %}
+      OTLP_ENDPOINT: http://sink:4318
+{%- else %}
+      OTLP_ENDPOINT: sink:4317
+      OTLP_INSECURE: "true"
+{%- endif %}
+      # A credential that must not show up at the sink in span attributes.
+      OTLP_AUTHORIZATION: Bearer smoke-test
+{%- if values.metrics_exporter == 'prometheus-remote-write' %}
+      PROMETHEUS_REMOTE_WRITE_ENDPOINT: http://prometheus:9090/api/v1/write
+      PROMETHEUS_REMOTE_WRITE_AUTHORIZATION: ""
+{%- endif %}
+      DEPLOYMENT_ENVIRONMENT: smoke-test
+    volumes:
+      - ../collector/config.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - 127.0.0.1:14317:4317
+      - 127.0.0.1:14318:4318
+      - 127.0.0.1:13133:13133
+    depends_on:
+      - sink
+{%- if values.metrics_exporter == 'prometheus-remote-write' %}
+      - prometheus
+{%- endif %}

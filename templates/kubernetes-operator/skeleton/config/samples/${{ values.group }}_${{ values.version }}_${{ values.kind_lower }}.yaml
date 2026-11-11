@@ -1,0 +1,11 @@
+apiVersion: ${{ values.group }}.${{ values.domain }}/${{ values.version }}
+kind: ${{ values.kind }}
+metadata:
+  labels:
+    app.kubernetes.io/name: ${{ values.name }}
+    app.kubernetes.io/managed-by: kustomize
+  name: ${{ values.kind_lower }}-sample
+spec:
+  # The pause image starts anywhere and needs no configuration.
+  image: registry.k8s.io/pause:3.10
+  replicas: 2

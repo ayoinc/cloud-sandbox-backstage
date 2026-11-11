@@ -1,0 +1,10 @@
+{
+  "values": {
+    "name": "sample-notes-mcp",
+    "description": "The sample team's \"notes\" MCP server: tools and resources for AI clients",
+    "owner": "group:default/platform-team",
+    "repoUrl": "github.com?owner=example-org&repo=sample-notes-mcp",
+    "node_version": "26",
+    "port": 3000
+  }
+}

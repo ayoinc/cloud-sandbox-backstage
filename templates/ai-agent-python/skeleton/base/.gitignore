@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+
+# Tool caches and reports
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage.xml
+evals/reports/
+
+# Local configuration: credentials live here and never in the repository
+.env
+.env.*
+!.env.example
+
+# TechDocs output
+site/
+
+.DS_Store

@@ -71,24 +71,26 @@ This directory contains all scaffolder templates for the Cloud Sandbox Backstage
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `oci-compute` | Create an Oracle Cloud Infrastructure compute instance in its own VCN with network security groups, including the Always Free Ampere shape |
 
-### Applications (14 templates)
+### Applications (16 templates)
 
-| Template             | Description                                                                                                                                       |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `app-astro-site`     | Create an Astro content site with typed Markdown collections, Tailwind CSS v4 and a deployment workflow for GitHub Pages, Cloudflare or Amazon S3 |
-| `app-bun-api`        | Create a TypeScript API on Bun with Hono, validated environment variables, bun test and a non-root container image                                |
-| `app-dotnet-api`     | Create a .NET 10 minimal API with OpenAPI, health checks, JSON logs, xUnit integration tests and a chiseled container image                       |
-| `app-go-service`     | Create a Go HTTP service with structured logging, OpenTelemetry tracing and a distroless image                                                    |
-| `app-hono-worker`    | Create a TypeScript Hono API on Cloudflare Workers with an optional D1 or KV binding and tests that run in the Workers runtime                    |
-| `app-kotlin-ktor`    | Create a Ktor 3 service in Kotlin with a Gradle version catalog, kotlinx.serialization, JSON logs, tests and a distroless image                   |
-| `app-nextjs`         | Create a Next.js 14 application with TypeScript and App Router                                                                                    |
-| `app-nodejs-api`     | Create a Node.js TypeScript API with Express or Fastify                                                                                           |
-| `app-rust-axum`      | Create a Rust HTTP service with axum and tokio, structured tracing, optional PostgreSQL through sqlx and a distroless image                       |
-| `app-springboot`     | Create a Spring Boot 3 REST API with Java                                                                                                         |
-| `app-sveltekit`      | Create a SvelteKit app with Svelte 5 runes and TypeScript, Vitest and Playwright tests, and the adapter for your host                             |
-| `docker-application` | Create a containerised service with a tested, scanned and published Docker image                                                                  |
-| `python-api`         | Create a tested FastAPI service with a container image and a GitHub Actions pipeline                                                              |
-| `react-frontend`     | Create a React single-page application with Vite, TypeScript, Vitest and a GitHub Actions pipeline                                                |
+| Template                | Description                                                                                                                                                      |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ai-agent-python`       | Create an LLM agent service with tool calling, structured outputs, a streaming FastAPI endpoint, evals and OpenTelemetry, on Anthropic, OpenAI or Amazon Bedrock |
+| `app-astro-site`        | Create an Astro content site with typed Markdown collections, Tailwind CSS v4 and a deployment workflow for GitHub Pages, Cloudflare or Amazon S3                |
+| `app-bun-api`           | Create a TypeScript API on Bun with Hono, validated environment variables, bun test and a non-root container image                                               |
+| `app-dotnet-api`        | Create a .NET 10 minimal API with OpenAPI, health checks, JSON logs, xUnit integration tests and a chiseled container image                                      |
+| `app-go-service`        | Create a Go HTTP service with structured logging, OpenTelemetry tracing and a distroless image                                                                   |
+| `app-hono-worker`       | Create a TypeScript Hono API on Cloudflare Workers with an optional D1 or KV binding and tests that run in the Workers runtime                                   |
+| `app-kotlin-ktor`       | Create a Ktor 3 service in Kotlin with a Gradle version catalog, kotlinx.serialization, JSON logs, tests and a distroless image                                  |
+| `app-nextjs`            | Create a Next.js 14 application with TypeScript and App Router                                                                                                   |
+| `app-nodejs-api`        | Create a Node.js TypeScript API with Express or Fastify                                                                                                          |
+| `app-rust-axum`         | Create a Rust HTTP service with axum and tokio, structured tracing, optional PostgreSQL through sqlx and a distroless image                                      |
+| `app-springboot`        | Create a Spring Boot 3 REST API with Java                                                                                                                        |
+| `app-sveltekit`         | Create a SvelteKit app with Svelte 5 runes and TypeScript, Vitest and Playwright tests, and the adapter for your host                                            |
+| `docker-application`    | Create a containerised service with a tested, scanned and published Docker image                                                                                 |
+| `mcp-server-typescript` | Create a Model Context Protocol server in TypeScript with tools, resources, Streamable HTTP and stdio transports, tests and a container image                    |
+| `python-api`            | Create a tested FastAPI service with a container image and a GitHub Actions pipeline                                                                             |
+| `react-frontend`        | Create a React single-page application with Vite, TypeScript, Vitest and a GitHub Actions pipeline                                                               |
 
 ### Infrastructure as Code (12 templates)
 
@@ -123,12 +125,16 @@ This directory contains all scaffolder templates for the Cloud Sandbox Backstage
 | `ansible-windows`               | Create playbooks for Windows hosts over WinRM or SSH with a security baseline, features, Windows Update and Chocolatey or winget packages                                 |
 | `awx-deployment`                | Deploy AWX instance using the AWX Operator in Kubernetes                                                                                                                  |
 
-### Kubernetes and GitOps (2 templates)
+### Kubernetes and GitOps (6 templates)
 
-| Template                     | Description                                                                                                                   |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `kubernetes-microservice`    | Create a containerised microservice with Kubernetes manifests, a tested pipeline and a deployment workflow                    |
-| `kubernetes-platform-addons` | Install an ingress controller, cert-manager, ExternalDNS and Metrics Server on any Kubernetes cluster with Terraform and Helm |
+| Template                     | Description                                                                                                                                              |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gitops-argocd-app`          | Create an Argo CD GitOps repository with an app-of-apps root, an ApplicationSet, Kustomize overlays per environment, sync waves and secrets wiring       |
+| `gitops-flux`                | Create a Flux v2 GitOps repository with clusters, infrastructure and apps layers, staging and production overlays, and SOPS or External Secrets          |
+| `helm-chart`                 | Create a Helm chart with a values schema, helm-unittest and chart-testing suites, and a workflow that publishes it to an OCI registry signed with cosign |
+| `kubernetes-microservice`    | Create a containerised microservice with Kubernetes manifests, a tested pipeline and a deployment workflow                                               |
+| `kubernetes-operator`        | Create a Go operator in the Kubebuilder layout with a custom resource, a controller, envtest and kind end-to-end tests                                   |
+| `kubernetes-platform-addons` | Install an ingress controller, cert-manager, ExternalDNS and Metrics Server on any Kubernetes cluster with Terraform and Helm                            |
 
 ### Data Engineering (3 templates)
 
@@ -156,11 +162,13 @@ This directory contains all scaffolder templates for the Cloud Sandbox Backstage
 | `test-k6-load`    | Create a k6 load testing project for performance and stress testing   |
 | `test-playwright` | Create a Playwright end-to-end testing project with Page Object Model |
 
-### DevOps and SRE (1 templates)
+### DevOps and SRE (3 templates)
 
-| Template         | Description                                                                     |
-| ---------------- | ------------------------------------------------------------------------------- |
-| `sre-monitoring` | Create a monitoring stack with Prometheus alerting rules and Grafana dashboards |
+| Template                      | Description                                                                                                                                                                       |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `github-reusable-workflows`   | Create a repository of reusable workflows and composite actions for build, test and signed container publishing with OIDC and SLSA provenance, checked with actionlint and zizmor |
+| `observability-opentelemetry` | Create an OpenTelemetry Collector configuration repository with chosen receivers, processors and exporters, deployed with Docker Compose or Helm, and validated in CI             |
+| `sre-monitoring`              | Create a monitoring stack with Prometheus alerting rules and Grafana dashboards                                                                                                   |
 
 ### Marketing (2 templates)
 

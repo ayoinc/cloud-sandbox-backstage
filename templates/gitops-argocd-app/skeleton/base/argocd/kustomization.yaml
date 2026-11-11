@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: ${{ values.argocd_namespace }}
+
+# Applied by the root Application in the order of the sync-wave annotations:
+#   -2  projects       what may be deployed, from where, to where
+#   -1  platform       controllers the workloads depend on
+#    0  apps           one Application per app and environment
+resources:
+  - projects.yaml
+  - platform-${{ values.secrets_backend }}.yaml
+  - apps.yaml
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: ${{ values.name }}

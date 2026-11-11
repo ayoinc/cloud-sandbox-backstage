@@ -1,0 +1,122 @@
+# Checks this repository itself: static analysis of every workflow and action,
+# then each reusable workflow and composite action is run against a fixture.
+name: CI
+{% raw %}
+on:
+  push:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: actionlint and zizmor
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Syntax, expressions and types of workflows; shell scripts through ShellCheck.
+      - name: actionlint
+        uses: docker://rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+        with:
+          args: -color
+
+      # Security of workflows and actions: unpinned actions, excessive
+      # permissions, template injection, credential persistence.
+      - name: zizmor
+        uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
+        with:
+          version: '1.32.0'
+          persona: pedantic
+          # Findings fail the job and are printed in its log. Set to true to
+          # send them to the Security tab instead (needs security-events: write).
+          advanced-security: false
+
+  test-node:
+    name: Test node-ci
+    needs: lint
+    permissions:
+      contents: read
+    uses: ./.github/workflows/node-ci.yaml
+    with:
+      working-directory: test/fixtures/node
+
+  test-python:
+    name: Test python-ci
+    needs: lint
+    permissions:
+      contents: read
+    uses: ./.github/workflows/python-ci.yaml
+    with:
+      working-directory: test/fixtures/python
+      run-ruff: false
+      test-command: python -m unittest discover --start-directory tests
+
+  # Builds and scans the fixture without publishing, so that a push to a
+  # branch never writes to the registry.
+  test-container:
+    name: Test container-publish
+    needs: lint
+    permissions:
+      contents: read
+      # The called workflow declares these; with push: false it uses none of them.
+      packages: write # push the image
+      id-token: write # sign and attest with the run's OIDC identity
+      attestations: write # store the provenance attestation
+    uses: ./.github/workflows/container-publish.yaml
+    with:
+      context: test/fixtures/container
+      push: false
+
+  test-actions:
+    name: Test composite actions
+    needs: lint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: setup-node-project
+        id: node
+        uses: ./actions/setup-node-project
+        with:
+          working-directory: test/fixtures/node
+
+      - name: The Node.js fixture runs with the installed version
+        working-directory: test/fixtures/node
+        env:
+          INSTALLED: ${{ steps.node.outputs.node-version }}
+        run: |
+          test "$(node --version)" = "$INSTALLED"
+          npm test
+
+      - name: setup-python-project
+        uses: ./actions/setup-python-project
+        with:
+          working-directory: test/fixtures/python
+
+      - name: The Python fixture runs in the synchronised environment
+        working-directory: test/fixtures/python
+        run: uv run python -m unittest discover --start-directory tests
+
+      - name: Build the container fixture
+        run: docker build --tag fixture:ci test/fixtures/container
+
+      - name: container-smoke-test
+        uses: ./actions/container-smoke-test
+        with:
+          image: fixture:ci
+          port: '8080'
+          path: /index.html
+{% endraw %}

@@ -1,0 +1,209 @@
+# Configuration of the OpenTelemetry Collector (contrib distribution).
+#
+# Endpoints and credentials are not in this file. ${env:NAME} is replaced with
+# the environment variable NAME when the collector starts; see .env.example.
+#
+# Validate a change before pushing it:  scripts/validate.sh
+
+extensions:
+  # Liveness and readiness endpoint, on port 13133.
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+receivers:
+  # OTLP, the native protocol of OpenTelemetry SDKs and of other collectors.
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+        max_recv_msg_size_mib: 16
+      http:
+        endpoint: 0.0.0.0:4318
+{%- if values.receive_legacy_tracing %}
+
+  # For services that still export in the Jaeger or Zipkin format.
+  jaeger:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:14250
+      thrift_http:
+        endpoint: 0.0.0.0:14268
+  zipkin:
+    endpoint: 0.0.0.0:9411
+{%- endif %}
+{%- if values.receive_prometheus %}
+
+  # Scrapes Prometheus endpoints. The first job reads the collector's own
+  # metrics; add a job per group of targets below it.
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: otel-collector
+          scrape_interval: 30s
+          static_configs:
+            - targets: ['127.0.0.1:8888']
+{%- endif %}
+
+processors:
+  # Refuses data before the process runs out of memory. Must be the first
+  # processor of every pipeline. The percentages apply to the memory limit of
+  # the container.
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 20
+
+  # Adds where the telemetry passed through. Attributes set by the sender win.
+  resource_detection:
+    detectors: [env, system]
+    timeout: 2s
+    override: false
+    system:
+      hostname_sources: [os]
+
+  # Marks everything with the environment this collector serves.
+  resource/environment:
+    attributes:
+      - key: deployment.environment.name
+        value: ${env:DEPLOYMENT_ENVIRONMENT}
+        action: insert
+{%- if values.scrub_sensitive_attributes %}
+
+  # Removes credentials that instrumentation libraries can capture. Extend the
+  # list with attributes that are sensitive in your services.
+  attributes/scrub:
+    actions:
+      - key: http.request.header.authorization
+        action: delete
+      - key: http.request.header.proxy-authorization
+        action: delete
+      - key: http.request.header.cookie
+        action: delete
+      - key: http.response.header.set-cookie
+        action: delete
+      - key: http.request.header.x-api-key
+        action: delete
+      - key: url.query
+        action: delete
+{%- endif %}
+{%- if values.tail_sampling %}
+
+  # Decides per trace, once it is complete: keep every trace with an error or
+  # that took longer than a second, and one in ten of the others. All spans of
+  # a trace must arrive at the same collector instance.
+  tail_sampling:
+    decision_wait: 10s
+    num_traces: 100000
+    expected_new_traces_per_sec: 1000
+    policies:
+      - name: errors
+        type: status_code
+        status_code:
+          status_codes: [ERROR]
+      - name: slow
+        type: latency
+        latency:
+          threshold_ms: 1000
+      - name: baseline
+        type: probabilistic
+        probabilistic:
+          sampling_percentage: 10
+{%- endif %}
+
+  # Groups telemetry into fewer, larger requests. Last processor of a pipeline.
+  batch:
+    send_batch_size: 8192
+    send_batch_max_size: 16384
+    timeout: 5s
+
+exporters:
+  # The observability backend, over OTLP{% if values.exporter_protocol == 'otlp_http' %}/HTTP{% else %}/gRPC{% endif %}.
+  ${{ values.exporter_protocol }}:
+    endpoint: ${env:OTLP_ENDPOINT}
+{%- if values.exporter_protocol == 'otlp_grpc' %}
+    # TLS is on unless OTLP_INSECURE is set to true, which is only acceptable
+    # inside a trusted network.
+    tls:
+      insecure: ${env:OTLP_INSECURE:-false}
+{%- endif %}
+    headers:
+      Authorization: ${env:OTLP_AUTHORIZATION}
+    compression: gzip
+    timeout: 30s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 5m
+    sending_queue:
+      enabled: true
+      num_consumers: 4
+      queue_size: 2000
+{%- if values.metrics_exporter == 'prometheus-remote-write' %}
+
+  # Metrics go to a Prometheus remote-write endpoint instead.
+  prometheus_remote_write:
+    endpoint: ${env:PROMETHEUS_REMOTE_WRITE_ENDPOINT}
+    headers:
+      Authorization: ${env:PROMETHEUS_REMOTE_WRITE_AUTHORIZATION}
+    resource_to_telemetry_conversion:
+      enabled: true
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 5m
+{%- endif %}
+
+service:
+  extensions: [health_check]
+
+  # The collector's own logs and metrics. The metrics are served for scraping
+  # on port 8888.
+  telemetry:
+    logs:
+      level: info
+      encoding: json
+    metrics:
+      level: normal
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888
+
+  pipelines:
+    traces:
+      receivers: [otlp{% if values.receive_legacy_tracing %}, jaeger, zipkin{% endif %}]
+      processors:
+        - memory_limiter
+        - resource_detection
+        - resource/environment
+{%- if values.scrub_sensitive_attributes %}
+        - attributes/scrub
+{%- endif %}
+{%- if values.tail_sampling %}
+        - tail_sampling
+{%- endif %}
+        - batch
+      exporters: [${{ values.exporter_protocol }}]
+    metrics:
+      receivers: [otlp{% if values.receive_prometheus %}, prometheus{% endif %}]
+      processors:
+        - memory_limiter
+        - resource_detection
+        - resource/environment
+        - batch
+      exporters: [{% if values.metrics_exporter == 'prometheus-remote-write' %}prometheus_remote_write{% else %}${{ values.exporter_protocol }}{% endif %}]
+    logs:
+      receivers: [otlp]
+      processors:
+        - memory_limiter
+        - resource_detection
+        - resource/environment
+{%- if values.scrub_sensitive_attributes %}
+        - attributes/scrub
+{%- endif %}
+        - batch
+      exporters: [${{ values.exporter_protocol }}]

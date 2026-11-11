@@ -1,0 +1,13 @@
+# Tools downloaded by scripts/validate.sh
+.bin/
+
+# Plain-text secrets must never be committed; seal or externalise them.
+*.secret.yaml
+*.secret.yml
+secret.yaml
+.env
+
+# TechDocs output
+site/
+
+.DS_Store

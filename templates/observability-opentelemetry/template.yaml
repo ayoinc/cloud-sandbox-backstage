@@ -1,0 +1,202 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: observability-opentelemetry
+  title: OpenTelemetry Collector Configuration
+  description: Create an OpenTelemetry Collector configuration repository with chosen receivers, processors and exporters, deployed with Docker Compose or Helm, and validated in CI
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - observability
+    - opentelemetry
+    - monitoring
+    - tracing
+    - platform
+spec:
+  owner: platform-team
+  type: infrastructure
+  parameters:
+    - title: Collector Information
+      required:
+        - name
+        - description
+        - owner
+      properties:
+        name:
+          title: Name
+          type: string
+          description: Name of the collector deployment, its repository and its catalog entry
+          pattern: '^[a-z]([a-z0-9-]*[a-z0-9])?$'
+          maxLength: 40
+          ui:autofocus: true
+          ui:help: 'Lowercase letters, numbers and hyphens, starting with a letter'
+        description:
+          title: Description
+          type: string
+          description: Brief description of what this collector receives and where it sends it
+        owner:
+          title: Owner
+          type: string
+          description: Owner of the collector
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: [Group, User]
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+    - title: Deployment
+      properties:
+        deployment:
+          title: Deployment Method
+          type: string
+          description: How the collector is run
+          default: kubernetes-helm
+          enum:
+            - kubernetes-helm
+            - docker-compose
+          enumNames:
+            - Kubernetes, with the official Helm chart (gateway)
+            - Docker Compose, on a single host
+      dependencies:
+        deployment:
+          oneOf:
+            - properties:
+                deployment:
+                  enum:
+                    - kubernetes-helm
+                namespace:
+                  title: Kubernetes Namespace
+                  type: string
+                  description: Namespace the collector is installed in
+                  default: observability
+                  pattern: '^[a-z]([a-z0-9-]*[a-z0-9])?$'
+                  maxLength: 63
+            - properties:
+                deployment:
+                  enum:
+                    - docker-compose
+
+    - title: Receivers
+      properties:
+        receive_prometheus:
+          title: Scrape Prometheus Endpoints
+          type: boolean
+          description: Add the Prometheus receiver, which scrapes metrics endpoints. OTLP over gRPC and HTTP is always received.
+          default: true
+        receive_legacy_tracing:
+          title: Accept Jaeger and Zipkin
+          type: boolean
+          description: Add the Jaeger and Zipkin receivers for services that have not moved to OTLP yet
+          default: false
+
+    - title: Processors
+      properties:
+        scrub_sensitive_attributes:
+          title: Remove Sensitive Attributes
+          type: boolean
+          description: Delete credentials that instrumentation may capture (authorization headers, cookies, API keys, URL query strings) before telemetry leaves the collector
+          default: true
+        tail_sampling:
+          title: Tail Sampling of Traces
+          type: boolean
+          description: Keep every trace with an error or high latency and a tenth of the rest. Requires that all spans of a trace reach the same collector instance.
+          default: false
+
+    - title: Exporters
+      properties:
+        exporter_protocol:
+          title: Backend Protocol
+          type: string
+          description: Protocol of the observability backend. Its endpoint and credentials are read from the environment at run time and are never asked for here.
+          default: otlp_http
+          enum:
+            - otlp_http
+            - otlp_grpc
+          enumNames:
+            - OTLP over HTTP
+            - OTLP over gRPC
+        metrics_exporter:
+          title: Metrics Destination
+          type: string
+          description: Where metrics are sent
+          default: otlp
+          enum:
+            - otlp
+            - prometheus-remote-write
+          enumNames:
+            - The same OTLP backend as traces and logs
+            - A Prometheus remote-write endpoint (Prometheus, Mimir, Thanos, Cortex)
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton/base
+        copyWithoutTemplating:
+          - .github/workflows/*
+          - scripts/*
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'OpenTelemetry Collector configuration' }}
+          owner: ${{ parameters.owner }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+          deployment: ${{ parameters.deployment }}
+          namespace: ${{ parameters.namespace or 'observability' }}
+          receive_prometheus: ${{ parameters.receive_prometheus }}
+          receive_legacy_tracing: ${{ parameters.receive_legacy_tracing }}
+          scrub_sensitive_attributes: ${{ parameters.scrub_sensitive_attributes }}
+          tail_sampling: ${{ parameters.tail_sampling }}
+          exporter_protocol: ${{ parameters.exporter_protocol }}
+          metrics_exporter: ${{ parameters.metrics_exporter }}
+
+    - id: fetch-deployment
+      name: Add Deployment Files
+      action: fetch:template
+      input:
+        url: ./skeleton/deploy-${{ parameters.deployment }}
+        copyWithoutTemplating:
+          - .github/workflows/*
+        values:
+          name: ${{ parameters.name }}
+          namespace: ${{ parameters.namespace or 'observability' }}
+          receive_legacy_tracing: ${{ parameters.receive_legacy_tracing }}
+          tail_sampling: ${{ parameters.tail_sampling }}
+          metrics_exporter: ${{ parameters.metrics_exporter }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: ${{ parameters.description }}
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}
+      - title: CI runs
+        url: ${{ steps['publish'].output.remoteUrl + '/actions' }}
