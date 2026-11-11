@@ -62,8 +62,15 @@ export const brandingSettingsPlugin = createBackendPlugin({
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         httpRouter.use(router as any);
+        // The sign-in page shows the name and logo before anyone has signed
+        // in. Routes that change anything check for an administrator
+        // themselves.
         httpRouter.addAuthPolicy({
           path: '/',
+          allow: 'unauthenticated',
+        });
+        httpRouter.addAuthPolicy({
+          path: '/logo',
           allow: 'unauthenticated',
         });
       },
