@@ -1,7 +1,7 @@
 import { brandTokensFor } from '../tokens/brandTokens';
 import { resolveBrandColors } from '../tokens/overrides';
 import type { BrandColorOverrides } from '../tokens/overrides';
-import type { BrandMode, StatusName } from '../tokens/brandTokens';
+import type { BrandMode, BrandTokens, StatusName } from '../tokens/brandTokens';
 
 /** mkdocs-material admonition types grouped by brand status. */
 const ADMONITIONS: Record<StatusName, string[]> = {
@@ -25,6 +25,53 @@ const ADMONITIONS: Record<StatusName, string[]> = {
 };
 
 /**
+ * D2 draws a diagram in its theme's colours, named B1 to B6 (the theme
+ * colour, dark to light) and AA/AB (two accents), on neutrals N1 to N7.
+ * Mapping the theme names onto the preset's palettes makes every diagram in
+ * the documentation take the portal's colours.
+ *
+ * The neutrals are left alone, in dark mode too: authors give shapes light
+ * fills of their own and rely on the theme's dark text over them, so a
+ * diagram stays a sheet of light paper, set on a card where the page is dark.
+ */
+function d2ThemeCss(
+  mode: BrandMode,
+  p: BrandTokens['palettes'],
+  card: number,
+): string {
+  const colours: Record<string, string> = {
+    B1: p.primary[35],
+    B2: p.primary[35],
+    B3: p.primary[90],
+    B4: p.primary[90],
+    B5: p.primary[95],
+    B6: p.primary[98],
+    AA2: p.secondary[40],
+    AA4: p.secondary[95],
+    AA5: p.secondary[98],
+    AB4: p.tertiary[95],
+    AB5: p.tertiary[98],
+  };
+  // D2 scopes its own rules to the diagram with one class, so these need
+  // !important to win.
+  const mapped = Object.entries(colours)
+    .map(
+      ([
+        name,
+        colour,
+      ]) => `:host svg.d2-svg .fill-${name} { fill: ${colour} !important; }
+:host svg.d2-svg .stroke-${name} { stroke: ${colour} !important; }
+:host svg.d2-svg .color-${name} { color: ${colour} !important; }
+:host svg.d2-svg .background-color-${name} { background-color: ${colour} !important; }`,
+    )
+    .join('\n');
+  return mode === 'dark'
+    ? `${mapped}
+:host svg.d2-svg { border-radius: ${card}px; }`
+    : mapped;
+}
+
+/**
  * Brand stylesheet for TechDocs content. It is written for the TechDocs
  * shadow root (`:host` scoped) and layers on top of the palette-driven
  * variables TechDocs already derives from the active MUI theme.
@@ -34,7 +81,10 @@ export function techdocsBrandCss(
   overrides?: BrandColorOverrides,
 ): string {
   const c = resolveBrandColors(mode, overrides);
-  const { typography, shape, focus } = brandTokensFor(overrides?.preset);
+  const tokens = brandTokensFor(overrides?.preset);
+  const { typography, shape, focus } = tokens;
+
+  const diagrams = d2ThemeCss(mode, tokens.palettes, shape.card);
 
   const admonitions = (Object.keys(ADMONITIONS) as StatusName[])
     .map(status => {
@@ -147,5 +197,6 @@ ${icons} {
   font-variant-numeric: tabular-nums;
 }
 ${admonitions}
+${diagrams}
 `;
 }
