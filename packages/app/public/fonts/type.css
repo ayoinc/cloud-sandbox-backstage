@@ -21,7 +21,6 @@
   src: url('/fonts/lato-latin-700-normal.woff2') format('woff2');
 }
 :root {
-  --portal-font: 'Lato', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  --portal-mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas,
-    'Liberation Mono', monospace;
+  --portal-font: "Lato", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --portal-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
 }

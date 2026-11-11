@@ -24,3 +24,4 @@ packages/app/public/figures/
 
 # Written from the brand tokens (packages/brand/src/pages/pagesCss.ts)
 packages/app/public/pages.css
+packages/app/public/fonts/type.css
