@@ -1,0 +1,30 @@
+---
+galaxy_info:
+  # Galaxy allows only lower-case letters, digits and underscores in both
+  role_name: ${{ values.name | lower | replace('-', '_') | dump }}
+  namespace: ${{ values.destination.owner | lower | replace('-', '_') | dump }}
+  author: ${{ values.owner | dump }}
+  description: ${{ values.description | dump }}
+  license: MIT
+  min_ansible_version: '2.18'
+
+  platforms:
+    - name: Ubuntu
+      versions:
+        - all
+    - name: Debian
+      versions:
+        - all
+    - name: EL
+      versions:
+        - all
+
+  galaxy_tags:
+    - security
+    - hardening
+    - cis
+    - ssh
+    - auditd
+    - firewall
+
+dependencies: []

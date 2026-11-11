@@ -1,0 +1,139 @@
+---
+# Every variable is described, with its type, in meta/argument_specs.yml.
+
+# ---------------------------------------------------------------------------
+# Control toggles
+# ---------------------------------------------------------------------------
+linux_hardening_sshd_enabled: ${{ 'true' if values.manageSshd else 'false' }}
+linux_hardening_sysctl_enabled: ${{ 'true' if values.manageSysctl else 'false' }}
+linux_hardening_auditd_enabled: ${{ 'true' if values.manageAuditd else 'false' }}
+linux_hardening_firewall_enabled: ${{ 'true' if values.manageFirewall else 'false' }}
+linux_hardening_updates_enabled: ${{ 'true' if values.manageUpdates else 'false' }}
+
+# ---------------------------------------------------------------------------
+# SSH daemon
+# ---------------------------------------------------------------------------
+# Port sshd already listens on. The role does not move sshd; the firewall
+# control keeps this port open.
+linux_hardening_ssh_port: 22
+linux_hardening_ssh_permit_root_login: 'no'
+# With password logins off, hosts are reachable with keys only.
+linux_hardening_ssh_password_authentication: false
+linux_hardening_ssh_max_auth_tries: 4
+linux_hardening_ssh_max_sessions: 10
+linux_hardening_ssh_max_startups: '10:30:60'
+linux_hardening_ssh_login_grace_time: 60
+linux_hardening_ssh_client_alive_interval: 300
+linux_hardening_ssh_client_alive_count_max: 3
+linux_hardening_ssh_allow_tcp_forwarding: false
+linux_hardening_ssh_allow_agent_forwarding: false
+linux_hardening_ssh_x11_forwarding: false
+linux_hardening_ssh_log_level: VERBOSE
+# Groups allowed to log in. Empty leaves group membership unrestricted.
+linux_hardening_ssh_allow_groups: []
+linux_hardening_ssh_ciphers:
+  - chacha20-poly1305@openssh.com
+  - aes256-gcm@openssh.com
+  - aes128-gcm@openssh.com
+  - aes256-ctr
+  - aes192-ctr
+  - aes128-ctr
+linux_hardening_ssh_macs:
+  - hmac-sha2-512-etm@openssh.com
+  - hmac-sha2-256-etm@openssh.com
+linux_hardening_ssh_kex_algorithms:
+  - curve25519-sha256
+  - curve25519-sha256@libssh.org
+  - ecdh-sha2-nistp521
+  - ecdh-sha2-nistp384
+  - ecdh-sha2-nistp256
+  - diffie-hellman-group16-sha512
+  - diffie-hellman-group18-sha512
+# Shown before authentication. Empty disables the banner.
+linux_hardening_ssh_banner: |
+  Authorised use only. Activity on this system is monitored and recorded.
+
+# ---------------------------------------------------------------------------
+# Kernel parameters
+# ---------------------------------------------------------------------------
+# Whether to load the settings into the running kernel as well as writing them.
+linux_hardening_sysctl_apply: true
+linux_hardening_sysctl_settings:
+  net.ipv4.ip_forward: 0
+  net.ipv4.conf.all.send_redirects: 0
+  net.ipv4.conf.default.send_redirects: 0
+  net.ipv4.conf.all.accept_source_route: 0
+  net.ipv4.conf.default.accept_source_route: 0
+  net.ipv4.conf.all.accept_redirects: 0
+  net.ipv4.conf.default.accept_redirects: 0
+  net.ipv4.conf.all.secure_redirects: 0
+  net.ipv4.conf.default.secure_redirects: 0
+  net.ipv4.conf.all.log_martians: 1
+  net.ipv4.conf.default.log_martians: 1
+  net.ipv4.conf.all.rp_filter: 1
+  net.ipv4.conf.default.rp_filter: 1
+  net.ipv4.icmp_echo_ignore_broadcasts: 1
+  net.ipv4.icmp_ignore_bogus_error_responses: 1
+  net.ipv4.tcp_syncookies: 1
+  net.ipv6.conf.all.accept_ra: 0
+  net.ipv6.conf.default.accept_ra: 0
+  net.ipv6.conf.all.accept_redirects: 0
+  net.ipv6.conf.default.accept_redirects: 0
+  net.ipv6.conf.all.accept_source_route: 0
+  net.ipv6.conf.default.accept_source_route: 0
+  kernel.randomize_va_space: 2
+  kernel.yama.ptrace_scope: 1
+  kernel.dmesg_restrict: 1
+  kernel.kptr_restrict: 2
+  fs.suid_dumpable: 0
+  fs.protected_hardlinks: 1
+  fs.protected_symlinks: 1
+  fs.protected_fifos: 2
+  fs.protected_regular: 2
+# Merged over the settings above; the place for per-group exceptions such as
+# net.ipv4.ip_forward: 1 on routers and container hosts.
+linux_hardening_sysctl_overrides: {}
+
+# ---------------------------------------------------------------------------
+# Audit daemon
+# ---------------------------------------------------------------------------
+# Whether to start auditd and load the rules, as well as writing them.
+linux_hardening_auditd_apply: true
+# Settings written to /etc/audit/auditd.conf.
+linux_hardening_auditd_conf:
+  max_log_file: 32
+  num_logs: 10
+  max_log_file_action: rotate
+  space_left_action: syslog
+  admin_space_left_action: suspend
+# Kernel audit backlog; raise on busy hosts that report lost events.
+linux_hardening_auditd_backlog_limit: 8192
+# Lock the rules until the next reboot (-e 2). Rule changes then need a reboot.
+linux_hardening_auditd_immutable: false
+# Extra lines appended to the rule file, in auditctl syntax.
+linux_hardening_auditd_extra_rules: []
+
+# ---------------------------------------------------------------------------
+# Firewall
+# ---------------------------------------------------------------------------
+# Whether to load the ruleset and enable the service, as well as writing it.
+linux_hardening_firewall_apply: true
+# Sources allowed to reach sshd. With both lists empty, any source is allowed.
+linux_hardening_firewall_ssh_sources_ipv4: []
+linux_hardening_firewall_ssh_sources_ipv6: []
+# Further inbound ports to accept from any source.
+linux_hardening_firewall_allowed_tcp_ports: []
+linux_hardening_firewall_allowed_udp_ports: []
+# Log dropped inbound packets, rate limited.
+linux_hardening_firewall_log_dropped: true
+
+# ---------------------------------------------------------------------------
+# Unattended upgrades
+# ---------------------------------------------------------------------------
+# Reboot automatically when an update requires it (Debian and Ubuntu, and
+# Enterprise Linux 9 or newer).
+linux_hardening_updates_automatic_reboot: false
+# Time of day for that reboot, HH:MM (Debian and Ubuntu).
+linux_hardening_updates_reboot_time: '03:30'
+# Remove packages that were only installed as dependencies and are unused.
+linux_hardening_updates_remove_unused: true

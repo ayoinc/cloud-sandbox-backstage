@@ -1,0 +1,8 @@
+site_name: ${{ values.name }}
+site_description: ${{ ('GCP Cloud Storage - ' + values.description) | dump }}
+
+nav:
+  - Home: index.md
+
+plugins:
+  - techdocs-core

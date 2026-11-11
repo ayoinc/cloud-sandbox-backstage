@@ -1,0 +1,18 @@
+{
+  "values": {
+    "name": "sample-orders-db",
+    "description": "Database of the team's \"orders\" service: orders and invoices",
+    "owner": "group:default/platform-team",
+    "environment": "development",
+    "location": "westeurope",
+    "postgresVersion": "17",
+    "skuName": "B_Standard_B2s",
+    "storageGb": 32,
+    "highAvailability": "Disabled",
+    "databaseName": "orders",
+    "entraAdminObjectId": "11111111-2222-3333-4444-555555555555",
+    "entraAdminName": "Orders Database Admins",
+    "entraAdminType": "Group",
+    "repoUrl": "github.com?owner=example-org&repo=sample-orders-db"
+  }
+}

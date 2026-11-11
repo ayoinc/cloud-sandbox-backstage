@@ -1,0 +1,60 @@
+---
+argument_specs:
+  main:
+    short_description: ${{ values.description | dump }}
+    description:
+      - Installs packages, renders an INI configuration file and optionally
+        keeps a systemd unit in the desired state.
+    author:
+      - ${{ values.owner | dump }}
+    options:
+      ${{ values.rolePrefix }}_packages:
+        description: Packages installed in addition to the distribution's base set.
+        type: list
+        elements: str
+        default: []
+      ${{ values.rolePrefix }}_update_cache:
+        description: Whether to refresh the package cache before installing.
+        type: bool
+        default: true
+      ${{ values.rolePrefix }}_config_dir:
+        description: Directory holding the configuration file.
+        type: path
+        default: /etc/${{ values.rolePrefix }}
+      ${{ values.rolePrefix }}_config_file:
+        description: Path of the rendered configuration file.
+        type: path
+      ${{ values.rolePrefix }}_config_owner:
+        description: Owner of the configuration directory and file.
+        type: str
+        default: root
+      ${{ values.rolePrefix }}_config_group:
+        description: Group of the configuration directory and file.
+        type: str
+        default: root
+      ${{ values.rolePrefix }}_config_mode:
+        description: Mode of the configuration file, as a quoted octal string.
+        type: str
+        default: '0640'
+      ${{ values.rolePrefix }}_settings:
+        description:
+          - Content of the configuration file.
+          - A mapping of section name to a mapping of option name to value.
+        type: dict
+      ${{ values.rolePrefix }}_service_name:
+        description:
+          - systemd unit restarted when the configuration changes.
+          - Leave empty when the role manages no service.
+        type: str
+        default: ''
+      ${{ values.rolePrefix }}_service_state:
+        description: Desired state of the unit.
+        type: str
+        choices:
+          - started
+          - stopped
+        default: started
+      ${{ values.rolePrefix }}_service_enabled:
+        description: Whether the unit starts at boot.
+        type: bool
+        default: true

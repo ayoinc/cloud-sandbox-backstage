@@ -1,0 +1,30 @@
+---
+- name: Ensure Chocolatey is installed
+  chocolatey.chocolatey.win_chocolatey:
+    name: chocolatey
+    state: present
+
+- name: Use the internal feed only
+  when: win_packages_chocolatey_source_url | length > 0
+  block:
+    - name: Register the internal feed
+      chocolatey.chocolatey.win_chocolatey_source:
+        name: '{{ win_packages_chocolatey_source_name }}'
+        source: '{{ win_packages_chocolatey_source_url }}'
+        priority: 1
+        state: present
+
+    - name: Disable the community feed
+      chocolatey.chocolatey.win_chocolatey_source:
+        name: chocolatey
+        state: disabled
+
+- name: Manage Chocolatey packages
+  chocolatey.chocolatey.win_chocolatey:
+    name: '{{ item.name }}'
+    version: '{{ item.version | default(omit) }}'
+    state: "{{ item.state | default('present') }}"
+    pinned: '{{ item.pinned | default(omit) }}'
+  loop: '{{ win_packages_chocolatey }}'
+  loop_control:
+    label: "{{ item.name }} {{ item.version | default('') }}"

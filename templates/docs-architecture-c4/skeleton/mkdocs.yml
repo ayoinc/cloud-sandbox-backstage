@@ -1,0 +1,20 @@
+site_name: ${{ (values.systemName + " design") | dump }}
+site_description: ${{ values.description | dump }}
+
+nav:
+  - Overview: index.md
+  - High-level design: hld.md
+{%- if values.includeLld %}
+  - Low-level design: lld.md
+{%- endif %}
+
+plugins:
+  - techdocs-core
+  - d2:
+      sketch: true
+
+validation:
+  links:
+    not_found: warn
+    anchors: warn
+    unrecognized_links: warn

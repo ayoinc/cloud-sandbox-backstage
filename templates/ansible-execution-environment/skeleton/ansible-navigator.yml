@@ -1,0 +1,19 @@
+---
+ansible-navigator:
+  execution-environment:
+    enabled: true
+    image: ghcr.io/${{ values.destination.owner | lower }}/${{ values.destination.repo | lower }}:latest
+    container-engine: auto
+    pull:
+      policy: missing
+    environment-variables:
+      # Passed through from the calling shell when set; never written here.
+      pass:
+        - ANSIBLE_VAULT_PASSWORD_FILE
+        - SSH_AUTH_SOCK
+  mode: stdout
+  logging:
+    level: warning
+    file: ansible-navigator.log
+  playbook-artifact:
+    enable: false

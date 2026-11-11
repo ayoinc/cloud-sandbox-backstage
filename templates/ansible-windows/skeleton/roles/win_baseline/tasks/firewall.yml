@@ -1,0 +1,22 @@
+---
+# First the rule, then the firewall: the other way round would drop the
+# connection this play is running over.
+- name: Allow Ansible's management port
+  community.windows.win_firewall_rule:
+    name: Ansible management (TCP {{ win_baseline_management_port }})
+    description: Allows the Ansible control machine to manage this host.
+    localport: '{{ win_baseline_management_port }}'
+    protocol: tcp
+    direction: in
+    action: allow
+    remoteip: "{{ win_baseline_management_sources | join(',') }}"
+    profiles: '{{ win_baseline_firewall_profiles | map("lower") | list }}'
+    state: present
+    enabled: true
+
+- name: Enable the firewall and block unsolicited inbound traffic
+  ansible.windows.win_firewall:
+    profiles: '{{ win_baseline_firewall_profiles }}'
+    state: enabled
+    inbound_action: block
+    outbound_action: allow

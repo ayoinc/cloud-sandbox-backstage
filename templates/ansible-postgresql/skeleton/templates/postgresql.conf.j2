@@ -1,0 +1,12 @@
+# {{ ansible_managed }}
+# Settings here override postgresql.conf. Change them through the role's
+# variables; postgresql_settings wins over everything computed.
+{% for name, value in __postgresql_effective_settings | dictsort %}
+{% if value is boolean %}
+{{ name }} = {{ value | ternary('on', 'off') }}
+{% elif value is number %}
+{{ name }} = {{ value }}
+{% else %}
+{{ name }} = '{{ value | string | replace("'", "''") }}'
+{% endif %}
+{% endfor %}

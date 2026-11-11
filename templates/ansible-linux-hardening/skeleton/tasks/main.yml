@@ -1,0 +1,52 @@
+---
+- name: Check the target distribution is supported
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.os_family in ['Debian', 'RedHat']
+      - ansible_facts.service_mgr == 'systemd'
+    fail_msg: This role supports systemd-based Debian-family and Enterprise Linux hosts.
+    quiet: true
+
+- name: Load distribution-specific variables
+  ansible.builtin.include_vars: '{{ ansible_facts.os_family | lower }}.yml'
+
+- name: Refresh the apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  when: ansible_facts.os_family == 'Debian'
+
+- name: Harden the SSH daemon
+  ansible.builtin.import_tasks: sshd.yml
+  when: linux_hardening_sshd_enabled | bool
+  tags:
+    - hardening
+    - hardening_sshd
+
+- name: Harden kernel parameters
+  ansible.builtin.import_tasks: sysctl.yml
+  when: linux_hardening_sysctl_enabled | bool
+  tags:
+    - hardening
+    - hardening_sysctl
+
+- name: Configure the audit daemon
+  ansible.builtin.import_tasks: auditd.yml
+  when: linux_hardening_auditd_enabled | bool
+  tags:
+    - hardening
+    - hardening_auditd
+
+- name: Configure the firewall
+  ansible.builtin.import_tasks: firewall.yml
+  when: linux_hardening_firewall_enabled | bool
+  tags:
+    - hardening
+    - hardening_firewall
+
+- name: Configure unattended upgrades
+  ansible.builtin.import_tasks: updates.yml
+  when: linux_hardening_updates_enabled | bool
+  tags:
+    - hardening
+    - hardening_updates

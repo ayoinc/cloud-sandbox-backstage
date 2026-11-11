@@ -1,0 +1,191 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: digitalocean-kubernetes
+  title: DigitalOcean Kubernetes Cluster
+  description: Create a DigitalOcean Kubernetes (DOKS) cluster with autoscaling node pools, a VPC and container registry integration
+  tags:
+    - digitalocean
+    - doks
+    - kubernetes
+    - terraform
+    - devops
+    - platform
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: group:platform-team
+  type: infrastructure
+
+  parameters:
+    - title: Project Information
+      required:
+        - name
+        - owner
+      properties:
+        name:
+          title: Cluster Name
+          type: string
+          description: Name of the cluster; the environment is appended
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          maxLength: 40
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Purpose of this cluster
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns this resource
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+    - title: Cluster Configuration
+      required:
+        - environment
+        - region
+        - kubernetesVersion
+      properties:
+        environment:
+          title: Environment
+          type: string
+          description: Environment the pipeline deploys on push; variable files for all three are generated
+          enum:
+            - development
+            - staging
+            - production
+          default: development
+        region:
+          title: Region
+          type: string
+          enum:
+            - nyc3
+            - sfo3
+            - tor1
+            - lon1
+            - ams3
+            - fra1
+            - blr1
+            - sgp1
+            - syd1
+          enumNames:
+            - New York 3
+            - San Francisco 3
+            - Toronto 1
+            - London 1
+            - Amsterdam 3
+            - Frankfurt 1
+            - Bangalore 1
+            - Singapore 1
+            - Sydney 1
+          default: fra1
+        kubernetesVersion:
+          title: Kubernetes Version
+          type: string
+          description: Minor version; the latest patch release DigitalOcean offers is used
+          enum:
+            - '1.37'
+            - '1.36'
+            - '1.35'
+          default: '1.37'
+        nodeSize:
+          title: Node Size
+          type: string
+          description: Droplet size of the worker nodes in the chosen environment
+          enum:
+            - s-2vcpu-4gb
+            - s-4vcpu-8gb
+            - g-2vcpu-8gb
+            - g-4vcpu-16gb
+            - c-4
+          enumNames:
+            - Basic, 2 vCPU, 4 GB
+            - Basic, 4 vCPU, 8 GB
+            - General Purpose, 2 vCPU, 8 GB
+            - General Purpose, 4 vCPU, 16 GB
+            - CPU-Optimized, 4 vCPU, 8 GB
+          default: s-4vcpu-8gb
+        nodeCount:
+          title: Minimum Node Count
+          type: integer
+          default: 2
+          minimum: 1
+          maximum: 20
+        maxNodeCount:
+          title: Maximum Node Count (Autoscaler)
+          type: integer
+          default: 5
+          minimum: 1
+          maximum: 50
+        registry:
+          title: Container Registry
+          type: string
+          description: The integration lets the cluster pull images from the container registry of the account
+          enum:
+            - integrate
+            - create
+            - none
+          enumNames:
+            - Integrate with the existing registry of the account
+            - Create a registry and integrate with it
+            - No registry integration
+          default: integrate
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'DigitalOcean Kubernetes cluster ' + parameters.name }}
+          owner: ${{ parameters.owner }}
+          environment: ${{ parameters.environment }}
+          envName: "${{ {'development': 'dev', 'staging': 'staging', 'production': 'prod'}[parameters.environment] }}"
+          region: ${{ parameters.region }}
+          kubernetesVersion: ${{ parameters.kubernetesVersion }}
+          nodeSize: ${{ parameters.nodeSize or 's-4vcpu-8gb' }}
+          nodeCount: ${{ parameters.nodeCount or 2 }}
+          maxNodeCount: ${{ parameters.maxNodeCount or 5 }}
+          registry: ${{ parameters.registry or 'integrate' }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: 'DigitalOcean Kubernetes Cluster: ${{ parameters.name }}'
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

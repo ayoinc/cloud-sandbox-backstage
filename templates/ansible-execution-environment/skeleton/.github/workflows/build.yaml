@@ -1,0 +1,173 @@
+---
+name: Build Execution Environment
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*.*.*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: {% raw %}${{ github.workflow }}{% endraw %}-{% raw %}${{ github.ref }}{% endraw %}
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: '3.14'
+  PLATFORMS: ${{ 'linux/amd64,linux/arm64' if values.multiArch else 'linux/amd64' }}
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: {% raw %}${{ env.PYTHON_VERSION }}{% endraw %}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install tooling
+        run: pip install -r requirements-dev.txt
+
+      - name: Run yamllint
+        run: yamllint .
+
+      - name: Run ansible-lint
+        run: ansible-lint tests/
+
+      - name: Validate the definition
+        run: ansible-builder create --file execution-environment.yml --context context
+
+  build:
+    name: Build, test, push and sign
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: lint
+    permissions:
+      contents: read
+      packages: write
+      # Keyless signing with the workflow's OIDC identity.
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: {% raw %}${{ env.PYTHON_VERSION }}{% endraw %}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install tooling
+        run: pip install -r requirements-dev.txt
+
+      - name: Create the build context
+        run: ansible-builder create --file execution-environment.yml --context context --output-filename Containerfile
+
+      - name: Derive the image name
+        id: image
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Setup Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Describe the image
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: {% raw %}${{ steps.image.outputs.name }}{% endraw %}
+          tags: |
+            type=sha,format=long
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build for testing
+        uses: docker/build-push-action@v7
+        with:
+          context: context
+          file: context/Containerfile
+          platforms: linux/amd64
+          load: true
+          tags: ee:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run the smoke test in the image
+        run: |
+          docker run --rm \
+            --volume "$PWD:/runner/project:ro" \
+            --workdir /runner/project \
+            ee:test ansible-playbook tests/smoke.yml
+
+      - name: Scan the image for vulnerabilities
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ee:test
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Log in to the container registry
+        if: github.event_name == 'push'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: {% raw %}${{ github.actor }}{% endraw %}
+          password: {% raw %}${{ github.token }}{% endraw %}
+
+      - name: Build and push
+        id: push
+        if: github.event_name == 'push'
+        uses: docker/build-push-action@v7
+        with:
+          context: context
+          file: context/Containerfile
+          platforms: {% raw %}${{ env.PLATFORMS }}{% endraw %}
+          push: true
+          tags: {% raw %}${{ steps.meta.outputs.tags }}{% endraw %}
+          labels: {% raw %}${{ steps.meta.outputs.labels }}{% endraw %}
+          provenance: mode=max
+          sbom: true
+          cache-from: type=gha
+
+      - name: Install cosign
+        if: github.event_name == 'push'
+        uses: sigstore/cosign-installer@v4.1.3
+
+      - name: Sign the image
+        if: github.event_name == 'push'
+        env:
+          IMAGE: {% raw %}${{ steps.image.outputs.name }}{% endraw %}
+          DIGEST: {% raw %}${{ steps.push.outputs.digest }}{% endraw %}
+        run: cosign sign --yes --recursive "${IMAGE}@${DIGEST}"
+
+      - name: Summarise
+        if: github.event_name == 'push'
+        env:
+          IMAGE: {% raw %}${{ steps.image.outputs.name }}{% endraw %}
+          DIGEST: {% raw %}${{ steps.push.outputs.digest }}{% endraw %}
+          TAGS: {% raw %}${{ steps.meta.outputs.tags }}{% endraw %}
+        run: |
+          {
+            echo "### Published"
+            echo
+            echo "Digest: \`${IMAGE}@${DIGEST}\`"
+            echo
+            echo '```'
+            echo "$TAGS"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

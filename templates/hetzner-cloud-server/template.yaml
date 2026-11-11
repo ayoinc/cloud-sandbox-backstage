@@ -1,0 +1,204 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: hetzner-cloud-server
+  title: Hetzner Cloud Server
+  description: Create hardened Hetzner Cloud servers on a private network with a firewall, an optional load balancer and cloud-init
+  tags:
+    - hetzner
+    - hcloud
+    - compute
+    - terraform
+    - devops
+    - cloud-init
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: group:platform-team
+  type: infrastructure
+
+  parameters:
+    - title: Project Information
+      required:
+        - name
+        - owner
+      properties:
+        name:
+          title: Name
+          type: string
+          description: Name of the servers; the environment and a number are appended
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          maxLength: 40
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Purpose of this deployment
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns this resource
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+    - title: Server Configuration
+      required:
+        - environment
+        - location
+        - serverType
+        - image
+        - sshKeyName
+      properties:
+        environment:
+          title: Environment
+          type: string
+          description: Environment the pipeline deploys on push; variable files for all three are generated
+          enum:
+            - development
+            - staging
+            - production
+          default: development
+        location:
+          title: Location
+          type: string
+          enum:
+            - fsn1
+            - nbg1
+            - hel1
+            - ash
+            - hil
+            - sin
+          enumNames:
+            - Falkenstein, Germany
+            - Nuremberg, Germany
+            - Helsinki, Finland
+            - Ashburn, USA
+            - Hillsboro, USA
+            - Singapore
+          default: fsn1
+        serverType:
+          title: Server Type
+          type: string
+          description: Type of the servers in the chosen environment. The CX and CAX types are offered in the European locations only
+          enum:
+            - cx23
+            - cx33
+            - cx43
+            - cpx22
+            - cpx32
+            - cpx42
+            - cax11
+            - cax21
+            - cax31
+            - ccx13
+            - ccx23
+          enumNames:
+            - CX23, shared, 2 vCPU, 4 GB
+            - CX33, shared, 4 vCPU, 8 GB
+            - CX43, shared, 8 vCPU, 16 GB
+            - CPX22, shared AMD, 2 vCPU, 4 GB
+            - CPX32, shared AMD, 4 vCPU, 8 GB
+            - CPX42, shared AMD, 8 vCPU, 16 GB
+            - CAX11, Arm64, 2 vCPU, 4 GB
+            - CAX21, Arm64, 4 vCPU, 8 GB
+            - CAX31, Arm64, 8 vCPU, 16 GB
+            - CCX13, dedicated, 2 vCPU, 8 GB
+            - CCX23, dedicated, 4 vCPU, 16 GB
+          default: cpx22
+        image:
+          title: Operating System
+          type: string
+          enum:
+            - ubuntu-26.04
+            - ubuntu-24.04
+            - debian-13
+          enumNames:
+            - Ubuntu 26.04 LTS
+            - Ubuntu 24.04 LTS
+            - Debian 13
+          default: ubuntu-26.04
+        serverCount:
+          title: Number of Servers
+          type: integer
+          default: 1
+          minimum: 1
+          maximum: 10
+        sshKeyName:
+          title: SSH Key Name
+          type: string
+          description: Name of an SSH key that is already uploaded to the Hetzner Cloud project; it is installed for the admin user
+          pattern: '^[A-Za-z0-9][A-Za-z0-9@._ -]{0,62}$'
+        sshSourceCidr:
+          title: SSH Source Range
+          type: string
+          description: Optional. Network allowed to reach SSH, in CIDR notation. Leave empty to keep SSH closed to the internet
+          pattern: '^([0-9]{1,3}\.){3}[0-9]{1,3}/([0-9]|[12][0-9]|3[0-2])$'
+        allowWeb:
+          title: Allow HTTP and HTTPS From the Internet
+          type: boolean
+          default: false
+        loadBalancer:
+          title: Load Balancer
+          type: boolean
+          description: Put a load balancer in front of the servers; it reaches them over the private network
+          default: false
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'Hetzner Cloud servers ' + parameters.name }}
+          owner: ${{ parameters.owner }}
+          environment: ${{ parameters.environment }}
+          envName: "${{ {'development': 'dev', 'staging': 'staging', 'production': 'prod'}[parameters.environment] }}"
+          location: ${{ parameters.location }}
+          serverType: ${{ parameters.serverType }}
+          image: ${{ parameters.image }}
+          serverCount: ${{ parameters.serverCount or 1 }}
+          sshKeyName: ${{ parameters.sshKeyName }}
+          sshSourceCidr: ${{ parameters.sshSourceCidr or '' }}
+          allowWeb: ${{ parameters.allowWeb }}
+          loadBalancer: ${{ parameters.loadBalancer }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: 'Hetzner Cloud Server: ${{ parameters.name }}'
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

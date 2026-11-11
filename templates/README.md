@@ -4,117 +4,164 @@ This directory contains all scaffolder templates for the Cloud Sandbox Backstage
 
 ## Template Categories
 
-### Cloud Infrastructure (14 templates)
+### Cloud Infrastructure (30 templates)
 
 #### AWS
 
-| Template         | Description                                 |
-| ---------------- | ------------------------------------------- |
-| `aws-cloudfront` | CloudFront CDN distribution with S3 origin  |
-| `aws-eks`        | Elastic Kubernetes Service cluster          |
-| `aws-lambda`     | Serverless Lambda function with API Gateway |
-| `aws-rds`        | RDS PostgreSQL/MySQL database instance      |
-| `aws-s3`         | S3 bucket with versioning and encryption    |
-| `aws-vpc`        | VPC with public/private subnets             |
+| Template                  | Description                                                                                                                                           |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `aws-cloudfront`          | Create a CloudFront CDN distribution with Origin Access Control and caching configuration                                                             |
+| `aws-eks`                 | Create an EKS Kubernetes cluster with managed node groups and cluster autoscaler                                                                      |
+| `aws-full-infrastructure` | Complete AWS infrastructure stack with all resource categories - networking, compute, containers, storage, databases, security, monitoring, and more. |
+| `aws-lambda`              | Create an AWS Lambda function with IAM role, CloudWatch logs, and optional VPC configuration                                                          |
+| `aws-rds`                 | Create an RDS PostgreSQL or MySQL database with Multi-AZ, encryption, and automated backups                                                           |
+| `aws-s3`                  | Create an S3 bucket with encryption, versioning, and lifecycle policies                                                                               |
+| `aws-vpc`                 | Create an AWS VPC with public/private subnets, NAT gateways, and flow logs                                                                            |
 
 #### Azure
 
-| Template           | Description                      |
-| ------------------ | -------------------------------- |
-| `azure-aks`        | Azure Kubernetes Service cluster |
-| `azure-functions`  | Azure Functions serverless app   |
-| `azure-static-web` | Static Web App with CDN          |
-| `azure-vnet`       | Virtual Network with subnets     |
+| Template                    | Description                                                                                                                                                                                   |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `azure-aks`                 | Create an Azure Kubernetes Service cluster with node pools, RBAC, and monitoring                                                                                                              |
+| `azure-container-apps`      | Create an Azure Container Apps environment and app with a managed identity, Log Analytics, HTTPS ingress and autoscaling                                                                      |
+| `azure-full-infrastructure` | Complete Azure infrastructure stack with Terraform. Enable the modules you need (networking, compute, containers, storage, database, security, identity, monitoring, integration, governance) |
+| `azure-functions`           | Create an Azure Functions App for serverless event-driven compute                                                                                                                             |
+| `azure-key-vault`           | Create an Azure Key Vault with Azure RBAC, purge protection, a deny-by-default firewall and an optional private endpoint                                                                      |
+| `azure-postgresql`          | Create an Azure Database for PostgreSQL flexible server with private networking, Entra ID authentication and optional zone-redundant high availability                                        |
+| `azure-static-web`          | Create an Azure Static Web App for hosting static sites, SPAs, and serverless APIs                                                                                                            |
+| `azure-storage-account`     | Create a private Azure Storage account with Entra ID access, versioning, lifecycle rules and optional customer-managed keys                                                                   |
+| `azure-vnet`                | Create an Azure VNet with subnets, NSGs, and peering-ready configuration                                                                                                                      |
 
 #### GCP
 
-| Template        | Description                      |
-| --------------- | -------------------------------- |
-| `gcp-cloud-run` | Cloud Run serverless container   |
-| `gcp-cloud-sql` | Cloud SQL managed database       |
-| `gcp-gke`       | Google Kubernetes Engine cluster |
-| `gcp-vpc`       | VPC network with subnets         |
+| Template                  | Description                                                                                                                                             |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gcp-cloud-functions`     | Create a Cloud Run function (Cloud Functions 2nd gen) for Node.js with a dedicated service account, an HTTP or Pub/Sub trigger and Terraform deployment |
+| `gcp-cloud-run`           | Create a Cloud Run serverless container service with auto-scaling and custom domains                                                                    |
+| `gcp-cloud-sql`           | Create a managed Cloud SQL database instance with high availability, automated backups, and private networking                                          |
+| `gcp-cloud-storage`       | Create a Cloud Storage bucket with uniform access, public access prevention, versioning, lifecycle rules and optional customer-managed encryption       |
+| `gcp-full-infrastructure` | Complete GCP infrastructure stack with all resource categories - networking, compute, containers, storage, databases, security, monitoring, and more.   |
+| `gcp-gke`                 | Create a GKE Kubernetes cluster with Autopilot or Standard mode, Workload Identity, and monitoring                                                      |
+| `gcp-pubsub`              | Create a Pub/Sub topic with subscriptions, dead-letter handling, regional message storage and an optional Avro or Protocol Buffers schema               |
+| `gcp-vpc`                 | Create a GCP VPC with subnets, firewall rules, Cloud NAT, and Cloud Router                                                                              |
+
+#### Cloudflare
+
+| Template                      | Description                                                                                                               |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `cloudflare-workers-platform` | Deploy a Cloudflare Worker with an R2 bucket, a D1 database or KV namespace and a custom domain, all managed by Terraform |
+| `cloudflare-zone`             | Manage a Cloudflare zone with hardened TLS settings, DNS records, DNSSEC and WAF rulesets using Terraform                 |
+
+#### DigitalOcean
+
+| Template                  | Description                                                                                                           |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `digitalocean-droplet`    | Create hardened DigitalOcean Droplets in a VPC with a cloud firewall, reserved IPs and cloud-init                     |
+| `digitalocean-kubernetes` | Create a DigitalOcean Kubernetes (DOKS) cluster with autoscaling node pools, a VPC and container registry integration |
+
+#### Hetzner
+
+| Template               | Description                                                                                                          |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `hetzner-cloud-server` | Create hardened Hetzner Cloud servers on a private network with a firewall, an optional load balancer and cloud-init |
+
+#### Oracle Cloud
+
+| Template      | Description                                                                                                                                |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `oci-compute` | Create an Oracle Cloud Infrastructure compute instance in its own VCN with network security groups, including the Always Free Ampere shape |
 
 ### Applications (6 templates)
 
-| Template             | Description                              |
-| -------------------- | ---------------------------------------- |
-| `app-nextjs`         | Next.js 14 application with TypeScript   |
-| `app-nodejs-api`     | Node.js REST API with Express            |
-| `app-springboot`     | Spring Boot Java application             |
-| `python-api`         | FastAPI Python application               |
-| `react-frontend`     | React 18 SPA with TypeScript             |
-| `docker-application` | Generic Docker containerized application |
+| Template             | Description                                                                                        |
+| -------------------- | -------------------------------------------------------------------------------------------------- |
+| `app-nextjs`         | Create a Next.js 14 application with TypeScript and App Router                                     |
+| `app-nodejs-api`     | Create a Node.js TypeScript API with Express or Fastify                                            |
+| `app-springboot`     | Create a Spring Boot 3 REST API with Java                                                          |
+| `docker-application` | Create a containerised service with a tested, scanned and published Docker image                   |
+| `python-api`         | Create a tested FastAPI service with a container image and a GitHub Actions pipeline               |
+| `react-frontend`     | Create a React single-page application with Vite, TypeScript, Vitest and a GitHub Actions pipeline |
 
-### Infrastructure as Code (4 templates)
+### Infrastructure as Code (6 templates)
 
-| Template                   | Description                            |
-| -------------------------- | -------------------------------------- |
-| `terraform-module`         | Reusable Terraform module with tests   |
-| `terraform-infrastructure` | Multi-cloud Terraform configuration    |
-| `cloud-sandbox`            | Quick sandbox environment provisioning |
-| `packer-image`             | Packer machine image builder           |
+| Template                   | Description                                                                                                                                                                                    |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cloud-sandbox`            | Create a cloud development sandbox with VPC, compute, and optional services                                                                                                                    |
+| `packer-image`             | Create machine images for AWS, Azure, GCP, or VMware with Packer                                                                                                                               |
+| `terraform-component`      | Creates a Terraform infrastructure component on AWS, Azure or Google Cloud with naming and tagging conventions, isolated state per environment, tests and a validation and deployment pipeline |
+| `terraform-infrastructure` | Create enterprise-grade cloud infrastructure with Terraform, including security, monitoring, and compliance                                                                                    |
+| `terraform-module`         | Create a production-ready Terraform module with best practices for AWS, Azure, or GCP                                                                                                          |
+| `vagrant-environment`      | Create a local VM development environment with Vagrant                                                                                                                                         |
 
-### Ansible Automation (3 templates)
+### Ansible Automation (11 templates)
 
-| Template           | Description                          |
-| ------------------ | ------------------------------------ |
-| `ansible-playbook` | Ansible playbook with inventory      |
-| `ansible-docker`   | Ansible role for Docker installation |
-| `ansible-nginx`    | Ansible role for Nginx configuration |
+| Template                        | Description                                                                                                                                                               |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ansible-collection`            | Create an Ansible Galaxy collection with an example module, filter and role, ansible-test sanity, unit and integration tests, antsibull-changelog and a publish workflow  |
+| `ansible-docker`                | Create an Ansible role for installing and configuring Docker                                                                                                              |
+| `ansible-execution-environment` | Create an ansible-builder v3 execution environment with pinned collections, ansible-navigator configuration and a workflow that builds, scans, pushes and signs the image |
+| `ansible-k3s-cluster`           | Create playbooks for a highly available k3s cluster with embedded etcd, an optional kube-vip API address, rolling upgrades and reset                                      |
+| `ansible-linux-hardening`       | Create a CIS-aligned Linux hardening role covering sshd, sysctl, auditd, firewall and unattended upgrades, with a toggle per control and Molecule verification            |
+| `ansible-nginx`                 | Create an Ansible role for installing and configuring Nginx web server                                                                                                    |
+| `ansible-playbook`              | Create a new Ansible playbook project with best practices                                                                                                                 |
+| `ansible-postgresql`            | Create a PostgreSQL role with tuned configuration, declared roles and databases, pgBackRest backups and an optional streaming replica                                     |
+| `ansible-role-molecule`         | Create a tested Ansible role with Molecule, a multi-distribution matrix, argument specs and the ansible-lint production profile                                           |
+| `ansible-windows`               | Create playbooks for Windows hosts over WinRM or SSH with a security baseline, features, Windows Update and Chocolatey or winget packages                                 |
+| `awx-deployment`                | Deploy AWX instance using the AWX Operator in Kubernetes                                                                                                                  |
 
-### Kubernetes (2 templates)
+### Kubernetes and GitOps (2 templates)
 
-| Template                  | Description                                        |
-| ------------------------- | -------------------------------------------------- |
-| `kubernetes-microservice` | K8s microservice with Deployment, Service, Ingress |
-| `awx-deployment`          | AWX automation platform deployment                 |
+| Template                     | Description                                                                                                                   |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `kubernetes-microservice`    | Create a containerised microservice with Kubernetes manifests, a tested pipeline and a deployment workflow                    |
+| `kubernetes-platform-addons` | Install an ingress controller, cert-manager, ExternalDNS and Metrics Server on any Kubernetes cluster with Terraform and Helm |
 
 ### Data Engineering (3 templates)
 
-| Template        | Description                             |
-| --------------- | --------------------------------------- |
-| `data-airflow`  | Apache Airflow DAG project              |
-| `data-dbt`      | dbt data transformation project         |
-| `data-superset` | Apache Superset dashboard configuration |
+| Template        | Description                                                                        |
+| --------------- | ---------------------------------------------------------------------------------- |
+| `data-airflow`  | Create an Apache Airflow DAG project with best practices, testing, and CI/CD       |
+| `data-dbt`      | Create a dbt (data build tool) project for data transformation with best practices |
+| `data-superset` | Create an Apache Superset dashboard configuration project                          |
 
-### Documentation (4 templates)
+### Documentation and Delivery (6 templates)
 
-| Template        | Description                              |
-| --------------- | ---------------------------------------- |
-| `docs-project`  | Full project documentation with TechDocs |
-| `docs-adr`      | Architecture Decision Records            |
-| `docs-runbook`  | Operations runbook documentation         |
-| `docs-d2-guide` | D2 diagram documentation guide           |
+| Template               | Description                                                                                                                                             |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `docs-adr`             | Create an ADR repository for documenting architecture decisions                                                                                         |
+| `docs-architecture-c4` | A high-level and low-level design for one system, with C4 diagrams in D2, published as documentation and exported to branded PDF and Word               |
+| `docs-d2-guide`        | Template for creating documentation with D2 declarative diagrams                                                                                        |
+| `docs-delivery-pack`   | A delivery plan, RAID log, RACI matrix and status report kept as data, published as documentation and built into a branded Excel workbook, Word and PDF |
+| `docs-project`         | Create comprehensive project documentation with TechDocs                                                                                                |
+| `docs-runbook`         | Create operational runbooks for incident response and procedures                                                                                        |
 
 ### Testing (2 templates)
 
-| Template          | Description                    |
-| ----------------- | ------------------------------ |
-| `test-k6-load`    | k6 load testing project        |
-| `test-playwright` | Playwright E2E testing project |
+| Template          | Description                                                           |
+| ----------------- | --------------------------------------------------------------------- |
+| `test-k6-load`    | Create a k6 load testing project for performance and stress testing   |
+| `test-playwright` | Create a Playwright end-to-end testing project with Page Object Model |
 
-### DevOps & SRE (2 templates)
+### DevOps and SRE (1 templates)
 
-| Template              | Description                         |
-| --------------------- | ----------------------------------- |
-| `sre-monitoring`      | Prometheus/Grafana monitoring stack |
-| `vagrant-environment` | Vagrant development environment     |
+| Template         | Description                                                                     |
+| ---------------- | ------------------------------------------------------------------------------- |
+| `sre-monitoring` | Create a monitoring stack with Prometheus alerting rules and Grafana dashboards |
 
 ### Marketing (2 templates)
 
-| Template                 | Description            |
-| ------------------------ | ---------------------- |
-| `marketing-landing-page` | Marketing landing page |
-| `marketing-static-site`  | Hugo static site       |
+| Template                 | Description                                                 |
+| ------------------------ | ----------------------------------------------------------- |
+| `marketing-landing-page` | Create a responsive marketing landing page                  |
+| `marketing-static-site`  | Create a Hugo static website for marketing or documentation |
 
 ### GitHub Management (3 templates)
 
-| Template             | Description                        |
-| -------------------- | ---------------------------------- |
-| `github-team`        | Create GitHub team                 |
-| `github-team-member` | Add member to GitHub team          |
-| `github-user`        | Invite user to GitHub organization |
+| Template             | Description                                                                       |
+| -------------------- | --------------------------------------------------------------------------------- |
+| `github-team`        | Create a new team in a GitHub organization.                                       |
+| `github-team-member` | Add a GitHub user to a team of a GitHub organization, or change their role in it. |
+| `github-user`        | Invite a person to join a GitHub organization by email, optionally into teams.    |
 
 ## Template Structure
 

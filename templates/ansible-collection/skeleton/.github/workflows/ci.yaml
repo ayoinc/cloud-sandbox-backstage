@@ -1,0 +1,165 @@
+---
+name: Collection CI
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: {% raw %}${{ github.workflow }}{% endraw %}-{% raw %}${{ github.ref }}{% endraw %}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: '3.14'
+  PY_COLORS: '1'
+  ANSIBLE_FORCE_COLOR: '1'
+  # ansible-test only works inside ansible_collections/<namespace>/<name>.
+  COLLECTION_PATH: ansible_collections/${{ values.namespace }}/${{ values.collectionName }}
+
+defaults:
+  run:
+    working-directory: ansible_collections/${{ values.namespace }}/${{ values.collectionName }}
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          path: {% raw %}${{ env.COLLECTION_PATH }}{% endraw %}
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: {% raw %}${{ env.PYTHON_VERSION }}{% endraw %}
+          cache: pip
+          cache-dependency-path: {% raw %}${{ env.COLLECTION_PATH }}{% endraw %}/requirements-dev.txt
+
+      - name: Install tooling
+        run: pip install -r requirements-dev.txt
+
+      - name: Run yamllint
+        run: yamllint .
+
+      - name: Run ansible-lint
+        run: ansible-lint
+
+      - name: Check changelog fragments
+        run: antsibull-changelog lint
+
+  sanity:
+    name: Sanity
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          path: {% raw %}${{ env.COLLECTION_PATH }}{% endraw %}
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: {% raw %}${{ env.PYTHON_VERSION }}{% endraw %}
+          cache: pip
+          cache-dependency-path: {% raw %}${{ env.COLLECTION_PATH }}{% endraw %}/requirements-dev.txt
+
+      - name: Install tooling
+        run: pip install -r requirements-dev.txt
+
+      - name: Run ansible-test sanity
+        run: ansible-test sanity --docker default --color -v
+
+  units:
+    name: Units (Python {% raw %}${{ matrix.python }}{% endraw %})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        # Oldest and newest Python the supported managed hosts run.
+        python: ['3.9', '3.14']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          path: {% raw %}${{ env.COLLECTION_PATH }}{% endraw %}
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: {% raw %}${{ env.PYTHON_VERSION }}{% endraw %}
+          cache: pip
+          cache-dependency-path: {% raw %}${{ env.COLLECTION_PATH }}{% endraw %}/requirements-dev.txt
+
+      - name: Install tooling
+        run: pip install -r requirements-dev.txt
+
+      - name: Run ansible-test units
+        run: ansible-test units --docker default --python {% raw %}${{ matrix.python }}{% endraw %} --color -v
+
+  integration:
+    name: Integration ({% raw %}${{ matrix.image }}{% endraw %})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [ubuntu2404, ubuntu2604, fedora44]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          path: {% raw %}${{ env.COLLECTION_PATH }}{% endraw %}
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: {% raw %}${{ env.PYTHON_VERSION }}{% endraw %}
+          cache: pip
+          cache-dependency-path: {% raw %}${{ env.COLLECTION_PATH }}{% endraw %}/requirements-dev.txt
+
+      - name: Install tooling
+        run: pip install -r requirements-dev.txt
+
+      - name: Run ansible-test integration
+        run: ansible-test integration --docker {% raw %}${{ matrix.image }}{% endraw %} --color -v
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [lint, sanity, units, integration]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          path: {% raw %}${{ env.COLLECTION_PATH }}{% endraw %}
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: {% raw %}${{ env.PYTHON_VERSION }}{% endraw %}
+          cache: pip
+          cache-dependency-path: {% raw %}${{ env.COLLECTION_PATH }}{% endraw %}/requirements-dev.txt
+
+      - name: Install tooling
+        run: pip install -r requirements-dev.txt
+
+      - name: Build the collection
+        run: ansible-galaxy collection build --output-path dist
+
+      - name: Upload the artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: collection
+          path: {% raw %}${{ env.COLLECTION_PATH }}{% endraw %}/dist/*.tar.gz
+          if-no-files-found: error
+          retention-days: 7

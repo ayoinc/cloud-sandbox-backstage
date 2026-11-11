@@ -1,0 +1,168 @@
+# Shapes, lines and colours shared by every diagram, after the C4 model:
+# people, the system being designed, its containers and components, and the
+# systems around it. Import it at the top of a diagram with `...@c4`, then
+# give every shape and every line one of the classes below.
+#
+# Drawn bold on purpose: thick strokes, tinted fills and one colour per kind
+# of thing, so a diagram still reads on a projector or a printed page.
+#
+# `brand` is the organisation's primary colour. `scripts/export.py --sync-brand`
+# rewrites the line below from brand.yaml or the portal's branding settings.
+
+vars: {
+  brand: "#3f4a5a"
+  d2-config: {
+    sketch: true
+    layout-engine: dagre
+    pad: 40
+  }
+}
+
+classes: {
+  # Things
+  person: {
+    shape: c4-person
+    style: {
+      fill: "#ffffff"
+      stroke: ${brand}
+      stroke-width: 4
+      font-size: 18
+      bold: true
+      shadow: true
+      border-radius: 8
+    }
+  }
+  system: {
+    style: {
+      fill: "#eef1f5"
+      stroke: ${brand}
+      stroke-width: 4
+      font-size: 18
+      bold: true
+      shadow: true
+      border-radius: 8
+    }
+  }
+  external: {
+    shape: cloud
+    style: {
+      fill: "#eceff1"
+      stroke: "#333333"
+      stroke-width: 4
+      font-size: 18
+      bold: true
+      shadow: true
+      border-radius: 8
+    }
+  }
+  container: {
+    style: {
+      fill: "#e8f5e9"
+      stroke: "#2e7d32"
+      stroke-width: 4
+      font-size: 18
+      bold: true
+      shadow: true
+      border-radius: 8
+    }
+  }
+  component: {
+    style: {
+      fill: "#e1f5fe"
+      stroke: "#0277bd"
+      stroke-width: 4
+      font-size: 18
+      bold: true
+      shadow: true
+      border-radius: 8
+    }
+  }
+  store: {
+    shape: cylinder
+    style: {
+      fill: "#fce4ec"
+      stroke: "#c2185b"
+      stroke-width: 4
+      font-size: 18
+      bold: true
+      shadow: true
+      border-radius: 8
+    }
+  }
+  queue: {
+    shape: queue
+    style: {
+      fill: "#fff3e0"
+      stroke: "#e65100"
+      stroke-width: 4
+      font-size: 18
+      bold: true
+      shadow: true
+      border-radius: 8
+    }
+  }
+  boundary: {
+    style: {
+      fill: transparent
+      stroke: ${brand}
+      stroke-width: 3
+      stroke-dash: 5
+      font-size: 20
+      bold: true
+      border-radius: 12
+    }
+  }
+
+  # Lines, coloured like what they lead to
+  uses: {
+    style: {
+      stroke: ${brand}
+      stroke-width: 4
+      font-size: 15
+      bold: true
+    }
+  }
+  calls: {
+    style: {
+      stroke: "#2e7d32"
+      stroke-width: 4
+      font-size: 15
+      bold: true
+    }
+  }
+  inside: {
+    style: {
+      stroke: "#0277bd"
+      stroke-width: 4
+      font-size: 15
+      bold: true
+    }
+  }
+  data: {
+    style: {
+      stroke: "#c2185b"
+      stroke-width: 4
+      font-size: 15
+      bold: true
+    }
+  }
+  async: {
+    style: {
+      stroke: "#e65100"
+      stroke-width: 4
+      font-size: 15
+      bold: true
+      stroke-dash: 5
+      # The dashes flow in the direction of travel on the published page.
+      animated: true
+    }
+  }
+  outside: {
+    style: {
+      stroke: "#333333"
+      stroke-width: 4
+      font-size: 15
+      bold: true
+    }
+  }
+}

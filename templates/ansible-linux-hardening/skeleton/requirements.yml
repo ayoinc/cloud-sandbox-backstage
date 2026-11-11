@@ -1,0 +1,8 @@
+---
+# The role uses ansible.builtin only. community.docker is needed by Molecule's
+# Docker driver to create test instances.
+#
+#   ansible-galaxy collection install -r requirements.yml
+collections:
+  - name: community.docker
+    version: 5.4.0

@@ -1,0 +1,17 @@
+---
+- name: Create the configuration directory
+  ansible.builtin.file:
+    path: '{{ ${{ values.rolePrefix }}_config_dir }}'
+    state: directory
+    owner: '{{ ${{ values.rolePrefix }}_config_owner }}'
+    group: '{{ ${{ values.rolePrefix }}_config_group }}'
+    mode: '0750'
+
+- name: Render the configuration file
+  ansible.builtin.template:
+    src: config.ini.j2
+    dest: '{{ ${{ values.rolePrefix }}_config_file }}'
+    owner: '{{ ${{ values.rolePrefix }}_config_owner }}'
+    group: '{{ ${{ values.rolePrefix }}_config_group }}'
+    mode: '{{ ${{ values.rolePrefix }}_config_mode }}'
+  notify: Restart the managed service

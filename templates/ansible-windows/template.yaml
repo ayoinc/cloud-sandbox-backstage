@@ -1,0 +1,161 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: ansible-windows
+  title: Ansible Windows Management
+  description: Create playbooks for Windows hosts over WinRM or SSH with a security baseline, features, Windows Update and Chocolatey or winget packages
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - ansible
+    - windows
+    - winrm
+    - patching
+    - chocolatey
+spec:
+  owner: platform-team
+  type: ansible-playbook
+
+  parameters:
+    - title: Project Configuration
+      required:
+        - name
+        - description
+        - owner
+      properties:
+        name:
+          title: Name
+          type: string
+          description: Name of the repository (lower-case letters, digits, hyphens and underscores)
+          pattern: '^[a-z0-9]([a-z0-9_-]*[a-z0-9])?$'
+          maxLength: 63
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: What this repository is for, in one sentence
+        owner:
+          title: Owner
+          type: string
+          description: Team or user that owns the repository
+          ui:field: OwnerPicker
+          ui:options:
+            allowedKinds:
+              - Group
+              - User
+
+    - title: Hosts and Connection
+      required:
+        - hosts
+        - connection
+      properties:
+        hosts:
+          title: Hosts
+          type: array
+          description: Windows machines to manage, as fully qualified names or IP addresses. Kerberos and certificate validation need names
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            pattern: '^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$'
+        connection:
+          title: Connection
+          type: string
+          description: How Ansible reaches the hosts
+          default: winrm
+          enum:
+            - winrm
+            - ssh
+          enumNames:
+            - WinRM over HTTPS (port 5986)
+            - OpenSSH with PowerShell (port 22)
+        winrmTransport:
+          title: WinRM Authentication
+          type: string
+          description: Used with WinRM only. Kerberos for domain accounts; NTLM for local accounts
+          default: kerberos
+          enum:
+            - kerberos
+            - ntlm
+          enumNames:
+            - Kerberos
+            - NTLM
+
+    - title: Configuration
+      properties:
+        timezone:
+          title: Time Zone
+          type: string
+          description: Windows time zone name, as listed by "tzutil /l"
+          pattern: '^[A-Za-z0-9 .()+-]+$'
+          default: UTC
+        useChocolatey:
+          title: Install packages with Chocolatey
+          type: boolean
+          description: Manage the Chocolatey package list in the inventory
+          default: true
+        useWinget:
+          title: Install packages with winget
+          type: boolean
+          description: Manage the winget package list in the inventory (Windows 11 and Windows Server 2025 or newer)
+          default: false
+        allowReboot:
+          title: Allow automatic reboots
+          type: boolean
+          description: Let feature installation and Windows Update restart a host when required
+          default: false
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: template
+      name: Fetch Skeleton
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          hosts: ${{ parameters.hosts }}
+          connection: ${{ parameters.connection }}
+          winrmTransport: ${{ parameters.winrmTransport }}
+          timezone: ${{ parameters.timezone }}
+          useChocolatey: ${{ parameters.useChocolatey }}
+          useWinget: ${{ parameters.useWinget }}
+          allowReboot: ${{ parameters.allowReboot }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish
+      action: publish:github
+      input:
+        description: ${{ parameters.description }}
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: main
+        repoVisibility: private
+
+    - id: register
+      name: Register
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: /catalog-info.yaml
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}

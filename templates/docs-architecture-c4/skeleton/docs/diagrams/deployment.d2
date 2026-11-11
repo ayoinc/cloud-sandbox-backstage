@@ -1,0 +1,56 @@
+...@c4
+
+# Where the containers run in production.
+direction: right
+
+internet: Internet {
+  shape: cloud
+}
+
+edge: Edge {
+  class: boundary
+  cdn: CDN and WAF {class: container}
+}
+
+region: Primary region {
+  class: boundary
+
+  public: Public subnets {
+    class: boundary
+    lb: Load balancer {class: container}
+  }
+
+  private: Private subnets, three zones {
+    class: boundary
+    api: API\n3 or more instances {class: container}
+    worker: Worker\n2 or more instances {class: container}
+  }
+
+  data: Data subnets {
+    class: boundary
+    db: Database\nprimary and standby {class: store}
+    cache: Cache {class: store}
+    events: Event queue {class: queue}
+  }
+}
+
+dr: Recovery region {
+  class: boundary
+  replica: Database replica {class: store}
+  backups: Backups {class: store}
+}
+
+internet -> edge.cdn: HTTPS {class: uses}
+edge.cdn -> region.public.lb: HTTPS {class: uses}
+region.public.lb -> region.private.api {class: calls}
+region.private.api -> region.data.db {class: data}
+region.private.api -> region.data.cache {class: data}
+region.private.api -> region.data.events {class: async}
+region.data.events -> region.private.worker {class: async}
+region.private.worker -> region.data.db {class: data}
+region.data.db -> dr.replica: Asynchronous replication {
+  class: async
+}
+region.data.db -> dr.backups: Daily snapshot {
+  class: async
+}

@@ -1,0 +1,12 @@
+---
+# Internal, per-distribution values; not meant to be overridden.
+__postgresql_packages:
+  - 'postgresql-{{ postgresql_version }}'
+  - 'postgresql-client-{{ postgresql_version }}'
+  - python3-psycopg2
+  - acl
+__postgresql_data_dir: '/var/lib/postgresql/{{ postgresql_version }}/main'
+__postgresql_config_dir: '/etc/postgresql/{{ postgresql_version }}/main'
+__postgresql_bin_dir: '/usr/lib/postgresql/{{ postgresql_version }}/bin'
+__postgresql_home: /var/lib/postgresql
+__postgresql_service: 'postgresql@{{ postgresql_version }}-main'

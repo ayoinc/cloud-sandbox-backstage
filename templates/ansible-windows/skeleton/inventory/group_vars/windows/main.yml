@@ -1,0 +1,70 @@
+---
+# ---------------------------------------------------------------------------
+# Connection
+# ---------------------------------------------------------------------------
+{%- if values.connection == 'winrm' %}
+ansible_connection: winrm
+ansible_port: 5986
+ansible_winrm_scheme: https
+ansible_winrm_transport: ${{ values.winrmTransport }}
+# The listener's certificate must chain to a CA the control machine trusts.
+# Point ansible_winrm_ca_trust_path at an internal CA bundle if needed.
+ansible_winrm_server_cert_validation: validate
+ansible_winrm_operation_timeout_sec: 60
+ansible_winrm_read_timeout_sec: 90
+{%- if values.winrmTransport == 'kerberos' %}
+# user@REALM, realm in upper case. With a ticket from kinit no password is
+# needed; otherwise pywinrm obtains one with the vaulted password.
+ansible_user: "{{ vault_windows_user }}"
+ansible_password: "{{ vault_windows_password | default(omit) }}"
+ansible_winrm_kerberos_delegation: false
+{%- else %}
+# NTLM is for local accounts; it is encrypted by the HTTPS listener.
+ansible_user: "{{ vault_windows_user }}"
+ansible_password: "{{ vault_windows_password }}"
+{%- endif %}
+{%- else %}
+ansible_connection: ssh
+ansible_port: 22
+ansible_shell_type: powershell
+# Key-based login; the private key comes from your SSH agent.
+ansible_user: "{{ vault_windows_user }}"
+{%- endif %}
+
+# ---------------------------------------------------------------------------
+# Baseline
+# ---------------------------------------------------------------------------
+win_baseline_timezone: ${{ values.timezone | dump }}
+
+# ---------------------------------------------------------------------------
+# Features. Names as shown by Get-WindowsFeature (servers) and
+# Get-WindowsOptionalFeature -Online (client editions).
+# ---------------------------------------------------------------------------
+win_features_allow_reboot: ${{ 'true' if values.allowReboot else 'false' }}
+win_features_server_present: []
+win_features_optional_present: []
+
+# ---------------------------------------------------------------------------
+# Packages. Pin a version where a change must be deliberate.
+# ---------------------------------------------------------------------------
+win_packages_chocolatey_enabled: ${{ 'true' if values.useChocolatey else 'false' }}
+{%- if values.useChocolatey %}
+win_packages_chocolatey:
+  - name: 7zip
+  - name: powershell-core
+{%- else %}
+win_packages_chocolatey: []
+{%- endif %}
+win_packages_winget_enabled: ${{ 'true' if values.useWinget else 'false' }}
+{%- if values.useWinget %}
+win_packages_winget:
+  - id: 7zip.7zip
+  - id: Microsoft.PowerShell
+{%- else %}
+win_packages_winget: []
+{%- endif %}
+
+# ---------------------------------------------------------------------------
+# Windows Update (playbooks/updates.yml)
+# ---------------------------------------------------------------------------
+win_patching_reboot: ${{ 'true' if values.allowReboot else 'false' }}

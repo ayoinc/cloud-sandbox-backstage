@@ -1,0 +1,16 @@
+{
+  "values": {
+    "name": "sample-order-events",
+    "description": "Events of the team's \"orders\" service: created, paid and shipped",
+    "owner": "group:default/platform-team",
+    "environment": "development",
+    "region": "europe-west1",
+    "gcpProject": "sample-project-123456",
+    "subscriptions": ["billing", "shipping"],
+    "messageRetention": "604800s",
+    "deadLetter": true,
+    "maxDeliveryAttempts": 5,
+    "schemaType": "AVRO",
+    "repoUrl": "github.com?owner=example-org&repo=sample-order-events"
+  }
+}

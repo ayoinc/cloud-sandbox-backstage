@@ -1,0 +1,49 @@
+#!/usr/sbin/nft -f
+# {{ ansible_managed }}
+
+flush ruleset
+
+table inet filter {
+    chain input {
+        type filter hook input priority filter; policy drop;
+
+        ct state invalid drop
+        ct state established,related accept
+        iif "lo" accept
+
+        # Address resolution, path MTU discovery and diagnostics
+        meta l4proto icmp icmp type { echo-request, destination-unreachable, time-exceeded, parameter-problem } accept
+        meta l4proto ipv6-icmp icmpv6 type { echo-request, destination-unreachable, packet-too-big, time-exceeded, parameter-problem, nd-router-advert, nd-neighbor-solicit, nd-neighbor-advert } accept
+
+        # SSH
+{% if linux_hardening_firewall_ssh_sources_ipv4 | length == 0 and linux_hardening_firewall_ssh_sources_ipv6 | length == 0 %}
+        tcp dport {{ linux_hardening_ssh_port }} accept
+{% else %}
+{% if linux_hardening_firewall_ssh_sources_ipv4 | length > 0 %}
+        ip saddr { {{ linux_hardening_firewall_ssh_sources_ipv4 | join(', ') }} } tcp dport {{ linux_hardening_ssh_port }} accept
+{% endif %}
+{% if linux_hardening_firewall_ssh_sources_ipv6 | length > 0 %}
+        ip6 saddr { {{ linux_hardening_firewall_ssh_sources_ipv6 | join(', ') }} } tcp dport {{ linux_hardening_ssh_port }} accept
+{% endif %}
+{% endif %}
+{% if linux_hardening_firewall_allowed_tcp_ports | length > 0 %}
+
+        tcp dport { {{ linux_hardening_firewall_allowed_tcp_ports | join(', ') }} } accept
+{% endif %}
+{% if linux_hardening_firewall_allowed_udp_ports | length > 0 %}
+        udp dport { {{ linux_hardening_firewall_allowed_udp_ports | join(', ') }} } accept
+{% endif %}
+{% if linux_hardening_firewall_log_dropped | bool %}
+
+        limit rate 5/minute burst 10 packets log prefix "nft-input-drop: " level info
+{% endif %}
+    }
+
+    chain forward {
+        type filter hook forward priority filter; policy drop;
+    }
+
+    chain output {
+        type filter hook output priority filter; policy accept;
+    }
+}

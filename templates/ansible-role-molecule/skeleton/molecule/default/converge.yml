@@ -1,0 +1,16 @@
+---
+- name: Converge
+  hosts: all
+  become: true
+
+  vars:
+    ${{ values.rolePrefix }}_packages:
+      - curl
+    ${{ values.rolePrefix }}_settings:
+      general:
+        log_level: debug
+      limits:
+        max_connections: 128
+
+  roles:
+    - role: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"

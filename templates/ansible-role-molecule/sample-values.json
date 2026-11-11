@@ -1,0 +1,10 @@
+{
+  "values": {
+    "name": "sample-role",
+    "description": "App config role: the platform team's \"golden path\" for service hosts",
+    "owner": "group:default/platform-team",
+    "moleculeDriver": "docker",
+    "distros": ["ubuntu2404", "debian13", "rockylinux10"],
+    "repoUrl": "github.com?owner=example-org&repo=sample-role"
+  }
+}

@@ -1,0 +1,18 @@
+site_name: ${{ (values.projectName + " delivery") | dump }}
+site_description: ${{ values.description | dump }}
+
+nav:
+  - Overview: index.md
+  - Status: status.md
+  - Plan: plan.md
+  - RAID log: raid.md
+  - RACI: raci.md
+
+plugins:
+  - techdocs-core
+
+validation:
+  links:
+    not_found: warn
+    anchors: warn
+    unrecognized_links: warn

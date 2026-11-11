@@ -1,0 +1,66 @@
+---
+# A replica is copied from the primary exactly once: when this role created its
+# empty cluster. A host that was later promoted, or that already holds data,
+# has no marker and is never wiped.
+- name: Check whether this replica still has to be seeded
+  ansible.builtin.stat:
+    path: '{{ __postgresql_seed_marker }}'
+  register: __postgresql_seed
+
+- name: Store the replication password for the postgres user
+  ansible.builtin.lineinfile:
+    path: '{{ __postgresql_home }}/.pgpass'
+    regexp: >-
+      ^{{ postgresql_replication_primary_host | regex_escape }}:{{ postgresql_replication_primary_port }}:replication:{{
+      postgresql_replication_user | regex_escape }}:
+    line: >-
+      {{ postgresql_replication_primary_host }}:{{ postgresql_replication_primary_port }}:replication:{{
+      postgresql_replication_user }}:{{ postgresql_replication_password | replace('\\', '\\\\') | replace(':', '\\:') }}
+    create: true
+    owner: postgres
+    group: postgres
+    mode: '0600'
+  no_log: true
+
+- name: Copy the primary into the empty data directory
+  when: __postgresql_seed.stat.exists
+  block:
+    - name: Stop PostgreSQL
+      ansible.builtin.systemd_service:
+        name: '{{ __postgresql_service }}'
+        state: stopped
+
+    - name: Empty the data directory
+      ansible.builtin.file:
+        path: '{{ __postgresql_data_dir }}'
+        state: absent
+
+    - name: Create the data directory
+      ansible.builtin.file:
+        path: '{{ __postgresql_data_dir }}'
+        state: directory
+        owner: postgres
+        group: postgres
+        mode: '0700'
+
+    - name: Run pg_basebackup
+      ansible.builtin.command:
+        argv: >-
+          {{ [__postgresql_bin_dir ~ '/pg_basebackup',
+              '--pgdata=' ~ __postgresql_data_dir,
+              '--host=' ~ postgresql_replication_primary_host,
+              '--port=' ~ postgresql_replication_primary_port,
+              '--username=' ~ postgresql_replication_user,
+              '--no-password',
+              '--wal-method=stream',
+              '--checkpoint=fast',
+              '--write-recovery-conf']
+             + ((postgresql_replication_slot_name | length > 0) | ternary(['--slot=' ~ postgresql_replication_slot_name], [])) }}
+        creates: '{{ __postgresql_data_dir }}/PG_VERSION'
+      become: true
+      become_user: postgres
+
+    - name: Record that the replica has been seeded
+      ansible.builtin.file:
+        path: '{{ __postgresql_seed_marker }}'
+        state: absent

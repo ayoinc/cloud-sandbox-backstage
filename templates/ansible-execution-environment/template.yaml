@@ -1,0 +1,132 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: ansible-execution-environment
+  title: Ansible Execution Environment
+  description: Create an ansible-builder v3 execution environment with pinned collections, ansible-navigator configuration and a workflow that builds, scans, pushes and signs the image
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - ansible
+    - execution-environment
+    - container
+    - ansible-builder
+    - ansible-navigator
+spec:
+  owner: platform-team
+  type: ansible-execution-environment
+
+  parameters:
+    - title: Execution Environment Configuration
+      required:
+        - name
+        - description
+        - owner
+      properties:
+        name:
+          title: Name
+          type: string
+          description: Name of the repository; the image is published under the same name (lower-case letters, digits and hyphens)
+          pattern: '^[a-z0-9]([a-z0-9-]*[a-z0-9])?$'
+          maxLength: 63
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: What this repository is for, in one sentence
+        owner:
+          title: Owner
+          type: string
+          description: Team or user that owns the repository
+          ui:field: OwnerPicker
+          ui:options:
+            allowedKinds:
+              - Group
+              - User
+
+    - title: Image Content
+      properties:
+        collections:
+          title: Collections
+          type: array
+          description: Collections baked into the image, pinned to exact versions
+          uniqueItems: true
+          ui:widget: checkboxes
+          items:
+            type: string
+            enum:
+              - ansible.posix
+              - community.general
+              - ansible.utils
+              - community.crypto
+              - kubernetes.core
+              - community.docker
+              - community.postgresql
+              - ansible.windows
+            enumNames:
+              - ansible.posix (POSIX: authorized keys, mount, sysctl, firewalld)
+              - community.general (General-purpose modules and plugins)
+              - ansible.utils (Data validation and network address filters)
+              - community.crypto (Certificates, keys and ACME)
+              - kubernetes.core (Kubernetes and Helm)
+              - community.docker (Docker and Compose)
+              - community.postgresql (PostgreSQL roles, databases and queries)
+              - ansible.windows (Windows hosts over WinRM or SSH)
+          default:
+            - ansible.posix
+            - community.general
+        multiArch:
+          title: Build for amd64 and arm64
+          type: boolean
+          description: Publish a multi-architecture image; when off, only amd64 is built
+          default: true
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: template
+      name: Fetch Skeleton
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          collections: ${{ parameters.collections }}
+          multiArch: ${{ parameters.multiArch }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish
+      action: publish:github
+      input:
+        description: ${{ parameters.description }}
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: main
+        repoVisibility: private
+
+    - id: register
+      name: Register
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: /catalog-info.yaml
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}

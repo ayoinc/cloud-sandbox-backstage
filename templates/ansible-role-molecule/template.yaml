@@ -1,0 +1,140 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: ansible-role-molecule
+  title: Ansible Role with Molecule
+  description: Create a tested Ansible role with Molecule, a multi-distribution matrix, argument specs and the ansible-lint production profile
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - ansible
+    - role
+    - molecule
+    - testing
+    - automation
+spec:
+  owner: platform-team
+  type: ansible-role
+
+  parameters:
+    - title: Role Configuration
+      required:
+        - name
+        - description
+        - owner
+      properties:
+        name:
+          title: Name
+          type: string
+          description: Name of the role repository (lower-case letters, digits, hyphens and underscores, starting with a letter)
+          pattern: '^[a-z]([a-z0-9_-]*[a-z0-9])?$'
+          maxLength: 63
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: What this repository is for, in one sentence
+        owner:
+          title: Owner
+          type: string
+          description: Team or user that owns the repository
+          ui:field: OwnerPicker
+          ui:options:
+            allowedKinds:
+              - Group
+              - User
+
+    - title: Testing
+      required:
+        - moleculeDriver
+        - distros
+      properties:
+        moleculeDriver:
+          title: Molecule Driver
+          type: string
+          description: Container engine Molecule uses to create test instances
+          default: docker
+          enum:
+            - docker
+            - podman
+          enumNames:
+            - Docker
+            - Podman (rootless)
+        distros:
+          title: Distributions
+          type: array
+          description: Distributions the role supports and is tested on
+          minItems: 1
+          uniqueItems: true
+          ui:widget: checkboxes
+          items:
+            type: string
+            enum:
+              - ubuntu2404
+              - ubuntu2604
+              - debian12
+              - debian13
+              - rockylinux9
+              - rockylinux10
+            enumNames:
+              - Ubuntu 24.04
+              - Ubuntu 26.04
+              - Debian 12
+              - Debian 13
+              - Rocky Linux 9
+              - Rocky Linux 10
+          default:
+            - ubuntu2404
+            - debian13
+            - rockylinux10
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: template
+      name: Fetch Skeleton
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          moleculeDriver: ${{ parameters.moleculeDriver }}
+          distros: ${{ parameters.distros }}
+          rolePrefix: ${{ parameters.name | replace('-', '_') }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish
+      action: publish:github
+      input:
+        description: ${{ parameters.description }}
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: main
+        repoVisibility: private
+
+    - id: register
+      name: Register
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: /catalog-info.yaml
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}

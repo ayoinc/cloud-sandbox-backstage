@@ -1,0 +1,163 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: kubernetes-platform-addons
+  title: Kubernetes Platform Add-ons
+  description: Install an ingress controller, cert-manager, ExternalDNS and Metrics Server on any Kubernetes cluster with Terraform and Helm
+  tags:
+    - kubernetes
+    - helm
+    - ingress
+    - cert-manager
+    - terraform
+    - platform
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: group:platform-team
+  type: infrastructure
+
+  parameters:
+    - title: Project Information
+      required:
+        - name
+        - owner
+      properties:
+        name:
+          title: Name
+          type: string
+          description: Name of this add-on set, usually the name of the cluster it is installed on
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          maxLength: 40
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Purpose of this add-on set
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns this resource
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+    - title: Add-on Configuration
+      required:
+        - environment
+        - acmeEmail
+      properties:
+        environment:
+          title: Environment
+          type: string
+          description: Environment of the cluster. Production runs every add-on with two replicas
+          enum:
+            - development
+            - staging
+            - production
+          default: development
+        ingressController:
+          title: Ingress Controller (Traefik)
+          type: boolean
+          description: Serves Ingress resources behind a load balancer and redirects HTTP to HTTPS
+          default: true
+        certManager:
+          title: cert-manager
+          type: boolean
+          description: Issues and renews TLS certificates from Let's Encrypt
+          default: true
+        acmeEmail:
+          title: Certificate Contact E-mail
+          type: string
+          description: Address Let's Encrypt sends expiry warnings to
+          format: email
+        externalDns:
+          title: ExternalDNS
+          type: boolean
+          description: Creates DNS records for Ingress and Service hostnames
+          default: true
+        dnsProvider:
+          title: DNS Provider
+          type: string
+          description: Provider of the zone ExternalDNS manages
+          enum:
+            - cloudflare
+            - digitalocean
+            - aws
+            - google
+            - azure
+          enumNames:
+            - Cloudflare (API token)
+            - DigitalOcean (API token)
+            - AWS Route 53 (workload identity)
+            - Google Cloud DNS (workload identity)
+            - Azure DNS (workload identity)
+          default: cloudflare
+        dnsDomain:
+          title: DNS Domain
+          type: string
+          description: ExternalDNS only touches records under this domain
+          pattern: '^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$'
+        metricsServer:
+          title: Metrics Server
+          type: boolean
+          description: Needed by autoscalers and kubectl top. Turn it off on clusters that ship it, such as AKS, GKE and DOKS
+          default: true
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'Platform add-ons of the cluster ' + parameters.name }}
+          owner: ${{ parameters.owner }}
+          environment: ${{ parameters.environment }}
+          envName: "${{ {'development': 'dev', 'staging': 'staging', 'production': 'prod'}[parameters.environment] }}"
+          ingressController: ${{ parameters.ingressController }}
+          certManager: ${{ parameters.certManager }}
+          acmeEmail: ${{ parameters.acmeEmail }}
+          externalDns: ${{ parameters.externalDns }}
+          dnsProvider: ${{ parameters.dnsProvider or 'cloudflare' }}
+          dnsDomain: ${{ parameters.dnsDomain or '' }}
+          metricsServer: ${{ parameters.metricsServer }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: 'Kubernetes Platform Add-ons: ${{ parameters.name }}'
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

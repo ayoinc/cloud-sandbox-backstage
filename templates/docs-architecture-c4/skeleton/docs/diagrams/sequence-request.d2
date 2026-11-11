@@ -1,0 +1,43 @@
+# A write request from the browser to the record being stored and announced.
+shape: sequence_diagram
+
+vars: {
+  d2-config: {
+    sketch: true
+    pad: 40
+  }
+}
+
+*.style: {
+  font-size: 16
+  bold: true
+  stroke-width: 3
+}
+(* -> *)[*].style: {
+  stroke-width: 3
+  font-size: 14
+}
+
+user: Customer
+web: Web application
+api: API
+db: Database
+events: Event queue
+worker: Worker
+notifications: Notification service
+
+user -> web: Submits the form
+web -> api: POST /records (bearer token, idempotency key)
+api -> api: Validate, authorise
+api -> db: Begin transaction
+api -> db: Insert record and outbox row
+api -> db: Commit
+api -> web: 201 Created
+web -> user: Confirmation
+
+outbox: Out of band {
+  api -> events: Publish RecordCreated
+  events -> worker: Deliver
+  worker -> notifications: Send confirmation
+  worker -> db: Mark notification sent
+}

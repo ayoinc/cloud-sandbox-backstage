@@ -1,0 +1,4 @@
+---
+release_summary: >-
+  First release, with the ``properties_entry`` module, the ``to_properties``
+  filter and the ``properties_file`` role.

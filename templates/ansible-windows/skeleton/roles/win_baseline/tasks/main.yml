@@ -1,0 +1,74 @@
+---
+- name: Check the host runs Windows
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.os_family == 'Windows'
+    fail_msg: The win_baseline role only applies to Windows hosts.
+    quiet: true
+
+- name: Set the time zone
+  ansible.windows.win_timezone:
+    timezone: '{{ win_baseline_timezone }}'
+
+- name: Configure the firewall
+  ansible.builtin.import_tasks: firewall.yml
+  when: win_baseline_firewall_enabled | bool
+  tags:
+    - baseline_firewall
+
+- name: Apply registry settings
+  ansible.windows.win_regedit:
+    path: '{{ item.path }}'
+    name: '{{ item.name }}'
+    data: '{{ item.data }}'
+    type: "{{ item.type | default('dword') }}"
+    state: present
+  loop: '{{ win_baseline_registry + win_baseline_registry_extra }}'
+  loop_control:
+    label: '{{ item.path }}\{{ item.name }}'
+  notify: Report that a restart is needed
+  tags:
+    - baseline_registry
+
+- name: Apply the local account policy
+  community.windows.win_security_policy:
+    section: System Access
+    key: '{{ item.key }}'
+    value: '{{ item.value }}'
+  loop: '{{ win_baseline_account_policy | dict2items }}'
+  loop_control:
+    label: '{{ item.key }}'
+  when: win_baseline_account_policy_enabled | bool
+  tags:
+    - baseline_accounts
+
+- name: Apply the audit policy
+  ansible.windows.win_audit_policy_system:
+    subcategory: '{{ item.key }}'
+    audit_type: '{{ item.value }}'
+  loop: '{{ win_baseline_audit_policy | dict2items }}'
+  loop_control:
+    label: '{{ item.key }}'
+  tags:
+    - baseline_audit
+
+- name: Size the event logs
+  ansible.windows.win_eventlog:
+    name: '{{ item.key }}'
+    maximum_size: '{{ item.value }}'
+    overflow_action: OverwriteAsNeeded
+    state: present
+  loop: '{{ win_baseline_event_logs | dict2items }}'
+  loop_control:
+    label: '{{ item.key }}'
+  tags:
+    - baseline_audit
+
+- name: Stop and disable unneeded services
+  ansible.windows.win_service:
+    name: '{{ item }}'
+    state: stopped
+    start_mode: disabled
+  loop: '{{ win_baseline_disabled_services }}'
+  tags:
+    - baseline_services

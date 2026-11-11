@@ -1,0 +1,22 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: ${{ values.name }}
+  description: ${{ values.description | dump }}
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
+  tags:
+    - digitalocean
+    - droplet
+    - compute
+    - ${{ values.environment }}
+  links:
+    - url: https://cloud.digitalocean.com/droplets
+      title: DigitalOcean Control Panel
+      icon: cloud
+spec:
+  type: virtual-machine
+  owner: ${{ values.owner }}
+  lifecycle: ${{ values.environment }}
+  system: cloud-infrastructure

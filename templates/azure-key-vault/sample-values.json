@@ -1,0 +1,13 @@
+{
+  "values": {
+    "name": "sample-vault",
+    "description": "Secrets for the team's \"payments\" service: API keys and certificates",
+    "owner": "group:default/platform-team",
+    "environment": "development",
+    "location": "westeurope",
+    "skuName": "standard",
+    "softDeleteDays": 90,
+    "publicNetworkAccess": false,
+    "repoUrl": "github.com?owner=example-org&repo=sample-vault"
+  }
+}

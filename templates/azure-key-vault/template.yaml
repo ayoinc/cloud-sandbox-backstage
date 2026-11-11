@@ -1,0 +1,144 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: azure-key-vault
+  title: Azure Key Vault
+  description: Create an Azure Key Vault with Azure RBAC, purge protection, a deny-by-default firewall and an optional private endpoint
+  tags:
+    - azure
+    - key-vault
+    - secrets
+    - security
+    - terraform
+    - infrastructure
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: group:platform-team
+  type: infrastructure
+
+  parameters:
+    - title: Project Information
+      required:
+        - name
+        - owner
+      properties:
+        name:
+          title: Key Vault Name
+          type: string
+          description: Name used in resource names (at most 13 characters)
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          maxLength: 13
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Purpose of this key vault
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns this resource
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+    - title: Vault Configuration
+      required:
+        - environment
+        - location
+      properties:
+        environment:
+          title: Environment
+          type: string
+          description: Environment the pipeline deploys on push; variable files for all three are generated
+          enum:
+            - development
+            - staging
+            - production
+          default: development
+        location:
+          title: Azure Region
+          type: string
+          enum:
+            - eastus
+            - eastus2
+            - westus2
+            - westeurope
+            - northeurope
+            - uksouth
+          default: eastus
+        skuName:
+          title: Tier
+          type: string
+          description: Premium adds keys held in a hardware security module
+          enum:
+            - standard
+            - premium
+          default: standard
+        softDeleteDays:
+          title: Soft Delete Retention (days)
+          type: integer
+          description: How long a deleted secret, key or certificate can be recovered; fixed once the vault exists
+          default: 90
+          minimum: 7
+          maximum: 90
+        publicNetworkAccess:
+          title: Public Network Access
+          type: boolean
+          description: Keep the public endpoint behind a firewall that admits only the IP ranges you list. Off, the vault is reachable only through a private endpoint
+          default: false
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'Azure Key Vault ' + parameters.name }}
+          owner: ${{ parameters.owner }}
+          environment: ${{ parameters.environment }}
+          envName: "${{ {'development': 'dev', 'staging': 'staging', 'production': 'prod'}[parameters.environment] }}"
+          location: ${{ parameters.location }}
+          skuName: ${{ parameters.skuName or 'standard' }}
+          softDeleteDays: ${{ parameters.softDeleteDays or 90 }}
+          publicNetworkAccess: ${{ parameters.publicNetworkAccess === true }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: 'Azure Key Vault: ${{ parameters.name }}'
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

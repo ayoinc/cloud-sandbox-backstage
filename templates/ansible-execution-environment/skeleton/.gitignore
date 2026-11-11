@@ -1,0 +1,24 @@
+# Ansible working files
+.ansible/
+*.retry
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Molecule and local caches
+.cache/
+.molecule/
+
+# Secrets never belong in the repository
+*.vault-pass
+.vault_pass
+*.pem
+*.key
+
+# ansible-builder build context and ansible-navigator output
+/context/
+*-artifact-*.json
+ansible-navigator.log

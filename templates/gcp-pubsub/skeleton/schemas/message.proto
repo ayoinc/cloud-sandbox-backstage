@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+// Envelope of every message on the topic.
+message Message {
+  // Unique identifier of the event.
+  string id = 1;
+  // Kind of event, such as order.created.
+  string type = 2;
+  // RFC 3339 timestamp of the event.
+  string occurred_at = 3;
+  // Event payload, JSON-encoded.
+  string data = 4;
+}

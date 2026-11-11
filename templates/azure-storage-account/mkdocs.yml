@@ -1,0 +1,4 @@
+site_name: Azure Storage Account
+docs_dir: docs
+plugins:
+  - techdocs-core

@@ -1,0 +1,32 @@
+---
+galaxy_info:
+  # Galaxy allows only lower-case letters, digits and underscores in both
+  role_name: ${{ values.rolePrefix }}
+  namespace: ${{ values.destination.owner | lower | replace('-', '_') | dump }}
+  author: ${{ values.owner | dump }}
+  description: ${{ values.description | dump }}
+  license: MIT
+  min_ansible_version: '2.18'
+
+  platforms:
+{%- if 'ubuntu2404' in values.distros or 'ubuntu2604' in values.distros %}
+    - name: Ubuntu
+      versions:
+        - all
+{%- endif %}
+{%- if 'debian12' in values.distros or 'debian13' in values.distros %}
+    - name: Debian
+      versions:
+        - all
+{%- endif %}
+{%- if 'rockylinux9' in values.distros or 'rockylinux10' in values.distros %}
+    - name: EL
+      versions:
+        - all
+{%- endif %}
+
+  galaxy_tags:
+    - system
+    - configuration
+
+dependencies: []

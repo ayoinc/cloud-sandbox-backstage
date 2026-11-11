@@ -1,0 +1,22 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: ${{ values.name }}
+  description: ${{ values.description | dump }}
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
+  tags:
+    - oracle-cloud
+    - oci
+    - compute
+    - ${{ values.environment }}
+  links:
+    - url: https://cloud.oracle.com/compute/instances
+      title: Oracle Cloud Console
+      icon: cloud
+spec:
+  type: virtual-machine
+  owner: ${{ values.owner }}
+  lifecycle: ${{ values.environment }}
+  system: cloud-infrastructure

@@ -1,0 +1,145 @@
+---
+name: Publish Collection
+
+# Runs when a version tag such as 1.2.0 is pushed, or on demand for an
+# existing tag.
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to publish
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-{% raw %}${{ inputs.tag || github.ref_name }}{% endraw %}
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: '3.14'
+  RELEASE_TAG: {% raw %}${{ inputs.tag || github.ref_name }}{% endraw %}
+
+jobs:
+  build:
+    name: Build and attest
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # Keyless signing of the build provenance with the workflow's identity.
+      id-token: write
+      attestations: write
+    outputs:
+      artifact: {% raw %}${{ steps.build.outputs.artifact }}{% endraw %}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: {% raw %}${{ env.RELEASE_TAG }}{% endraw %}
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: {% raw %}${{ env.PYTHON_VERSION }}{% endraw %}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install tooling
+        run: pip install -r requirements-dev.txt
+
+      - name: Check the tag matches galaxy.yml and the changelog
+        run: |
+          version="$(python -c 'import yaml; print(yaml.safe_load(open("galaxy.yml"))["version"])')"
+          if [ "$version" != "$RELEASE_TAG" ]; then
+            echo "::error::Tag $RELEASE_TAG does not match version $version in galaxy.yml."
+            exit 1
+          fi
+          released="$(python -c 'import yaml; print(*(yaml.safe_load(open("changelogs/changelog.yaml")).get("releases") or dict()))')"
+          if ! printf '%s\n' $released | grep -qxF "$version"; then
+            echo "::error::changelogs/changelog.yaml has no release $version. Run antsibull-changelog release first."
+            exit 1
+          fi
+
+      - name: Build the collection
+        id: build
+        run: |
+          ansible-galaxy collection build --output-path dist
+          echo "artifact=$(basename dist/*.tar.gz)" >> "$GITHUB_OUTPUT"
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: dist/*.tar.gz
+
+      - name: Upload the artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: collection
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  release:
+    name: GitHub release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: build
+    permissions:
+      contents: write
+    steps:
+      - name: Download the artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: collection
+          path: dist
+
+      - name: Create the release
+        env:
+          GH_TOKEN: {% raw %}${{ github.token }}{% endraw %}
+          GH_REPO: {% raw %}${{ github.repository }}{% endraw %}
+        run: |
+          gh release create "$RELEASE_TAG" dist/*.tar.gz \
+            --title "$RELEASE_TAG" \
+            --notes "See CHANGELOG.rst for the changes in this release." \
+            --verify-tag
+
+  galaxy:
+    name: Publish to Galaxy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: build
+    steps:
+      - name: Download the artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: collection
+          path: dist
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: {% raw %}${{ env.PYTHON_VERSION }}{% endraw %}
+
+      - name: Install ansible-core
+        run: pip install ansible-core==2.22.0
+
+      # Galaxy and Automation Hub authenticate with an API token; neither
+      # accepts the workflow's OIDC identity.
+      - name: Publish
+        env:
+          ANSIBLE_GALAXY_TOKEN: {% raw %}${{ secrets.ANSIBLE_GALAXY_TOKEN }}{% endraw %}
+          GALAXY_SERVER: {% raw %}${{ vars.ANSIBLE_GALAXY_SERVER || 'https://galaxy.ansible.com/' }}{% endraw %}
+          ARTIFACT: {% raw %}${{ needs.build.outputs.artifact }}{% endraw %}
+        run: |
+          if [ -z "$ANSIBLE_GALAXY_TOKEN" ]; then
+            echo "::notice::ANSIBLE_GALAXY_TOKEN is not set, so the upload is skipped."
+            exit 0
+          fi
+          ansible-galaxy collection publish "dist/$ARTIFACT" \
+            --server "$GALAXY_SERVER" \
+            --token "$ANSIBLE_GALAXY_TOKEN"

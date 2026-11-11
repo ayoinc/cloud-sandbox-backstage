@@ -1,0 +1,12 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Scheduled pgBackRest diff backup
+
+[Timer]
+OnCalendar={{ postgresql_pgbackrest_diff_schedule }}
+Unit=pgbackrest-backup@diff.service
+RandomizedDelaySec=300
+Persistent=true
+
+[Install]
+WantedBy=timers.target

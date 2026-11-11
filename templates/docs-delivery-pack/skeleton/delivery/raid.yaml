@@ -1,0 +1,59 @@
+# Risks, assumptions, issues and dependencies.
+#
+# A risk's `probability` and `impact` are 1 (low) to 5 (high); the build
+# multiplies them into a score and colours it. `status` is open or closed.
+
+risks:
+  - id: R1
+    description: A partner's test environment is not available until late
+    probability: 3
+    impact: 4
+    response: Build against recorded responses. Agree a sandbox date by week 3
+    owner: Engineering lead
+    status: open
+  - id: R2
+    description: Peak volume is an estimate
+    probability: 2
+    impact: 4
+    response: Load test at three times the estimate before go-live
+    owner: Lead architect
+    status: open
+  - id: R3
+    description: Key people are shared with another project
+    probability: 3
+    impact: 3
+    response: Named cover for each role. Reviewed at every steering group
+    owner: Service owner
+    status: open
+
+assumptions:
+  - id: A1
+    description: The design authority meets every two weeks
+    owner: Lead architect
+    status: open
+  - id: A2
+    description: Existing data can be migrated without a freeze longer than four hours
+    owner: Engineering lead
+    status: open
+
+issues:
+  - id: I1
+    description: Access to the staging account is not yet granted
+    impact: Blocks M3
+    action: Raised with the platform team
+    owner: Platform lead
+    status: open
+
+dependencies:
+  - id: D1
+    description: Identity provider configured for the new application
+    on: Identity team
+    needed_by: week 4
+    owner: Platform lead
+    status: open
+  - id: D2
+    description: Penetration test booked
+    on: Security team
+    needed_by: week 9
+    owner: Engineering lead
+    status: open

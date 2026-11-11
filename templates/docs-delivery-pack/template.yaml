@@ -1,0 +1,128 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: docs-delivery-pack
+  title: Project Delivery Pack
+  description: A delivery plan, RAID log, RACI matrix and status report kept as data, published as documentation and built into a branded Excel workbook, Word and PDF
+  tags:
+    - documentation
+    - delivery
+    - project
+    - raid
+    - raci
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: group:architecture
+  type: documentation
+
+  parameters:
+    - title: Project Information
+      required:
+        - name
+        - projectName
+        - description
+        - owner
+      properties:
+        name:
+          title: Repository Name
+          type: string
+          description: Name of the delivery repository
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          ui:autofocus: true
+        projectName:
+          title: Project Name
+          type: string
+          description: The project, as people say it
+          maxLength: 60
+        description:
+          title: Description
+          type: string
+          description: What the project delivers, in a sentence
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns the delivery
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+    - title: Documents
+      required:
+        - startDate
+      properties:
+        startDate:
+          title: Start date
+          type: string
+          format: date
+          description: The first day of the plan. The sample plan is laid out from here
+        classification:
+          title: Classification
+          type: string
+          description: Printed on every exported page
+          enum:
+            - Public
+            - Internal
+            - Confidential
+          default: Internal
+        portalUrl:
+          title: Portal address
+          type: string
+          description: Optional. Exports take the organisation name, logo and colour from this portal's branding settings, for example https://portal.example.org. Leave empty to set them in brand.yaml
+          pattern: '^(https://[A-Za-z0-9.-]+(:[0-9]+)?)?$'
+          default: ''
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        copyWithoutTemplating:
+          - scripts/**
+        values:
+          name: ${{ parameters.name }}
+          projectName: ${{ parameters.projectName }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          startDate: ${{ parameters.startDate }}
+          classification: ${{ parameters.classification }}
+          portalUrl: ${{ parameters.portalUrl }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: 'Delivery pack: ${{ parameters.projectName }}'
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

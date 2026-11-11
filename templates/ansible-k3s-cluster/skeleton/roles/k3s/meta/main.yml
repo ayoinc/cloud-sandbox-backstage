@@ -1,0 +1,22 @@
+---
+galaxy_info:
+  role_name: k3s
+  author: ${{ values.owner | dump }}
+  description: Install and configure a k3s server or agent
+  license: MIT
+  min_ansible_version: '2.18'
+  platforms:
+    - name: Ubuntu
+      versions:
+        - all
+    - name: Debian
+      versions:
+        - all
+    - name: EL
+      versions:
+        - all
+  galaxy_tags:
+    - kubernetes
+    - k3s
+
+dependencies: []

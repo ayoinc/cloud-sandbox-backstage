@@ -1,0 +1,12 @@
+{
+  "values": {
+    "name": "sample-worker",
+    "description": "Edge API for the team's \"sample\" product: stores items & files",
+    "owner": "group:default/platform-team",
+    "environment": "development",
+    "dataStore": "d1",
+    "r2Location": "weur",
+    "customHostname": "api.sample-product.dev",
+    "repoUrl": "github.com?owner=example-org&repo=sample-worker"
+  }
+}

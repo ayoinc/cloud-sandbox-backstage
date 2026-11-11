@@ -1,0 +1,161 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: gcp-cloud-storage
+  title: GCP Cloud Storage Bucket
+  description: Create a Cloud Storage bucket with uniform access, public access prevention, versioning, lifecycle rules and optional customer-managed encryption
+  tags:
+    - gcp
+    - cloud-storage
+    - storage
+    - terraform
+    - infrastructure
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: group:platform-team
+  type: infrastructure
+
+  parameters:
+    - title: Project Information
+      required:
+        - name
+        - owner
+      properties:
+        name:
+          title: Bucket Name
+          type: string
+          description: Name used in the bucket name, after the project ID (at most 24 characters)
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          maxLength: 24
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Purpose of this bucket
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns this resource
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+    - title: Bucket Configuration
+      required:
+        - environment
+        - region
+        - gcpProject
+      properties:
+        environment:
+          title: Environment
+          type: string
+          description: Environment the pipeline deploys on push; variable files for all three are generated
+          enum:
+            - development
+            - staging
+            - production
+          default: development
+        region:
+          title: GCP Region
+          type: string
+          enum:
+            - us-central1
+            - us-east1
+            - us-west1
+            - europe-west1
+            - europe-west2
+            - asia-east1
+          default: us-central1
+        gcpProject:
+          title: GCP Project ID
+          type: string
+          description: The GCP project to deploy to
+          pattern: '^[a-z][a-z0-9-]{4,28}[a-z0-9]$'
+        locationType:
+          title: Location Type
+          type: string
+          description: A regional bucket lives in the chosen region; a multi-region bucket spreads over the US, EU or ASIA multi-region that contains it
+          enum:
+            - region
+            - multi-region
+          default: region
+        storageClass:
+          title: Storage Class
+          type: string
+          enum:
+            - STANDARD
+            - NEARLINE
+            - COLDLINE
+            - ARCHIVE
+          default: STANDARD
+        versioning:
+          title: Object Versioning
+          type: boolean
+          description: Keep previous versions of overwritten and deleted objects
+          default: true
+        encryption:
+          title: Encryption
+          type: string
+          description: Customer-managed creates a Cloud KMS key, rotated every 90 days, in the bucket location
+          enum:
+            - google-managed
+            - customer-managed
+          default: google-managed
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'Cloud Storage bucket ' + parameters.name }}
+          owner: ${{ parameters.owner }}
+          environment: ${{ parameters.environment }}
+          envName: "${{ {'development': 'dev', 'staging': 'staging', 'production': 'prod'}[parameters.environment] }}"
+          region: ${{ parameters.region }}
+          gcpProject: ${{ parameters.gcpProject }}
+          bucketLocation: "${{ {'us': 'US', 'europe': 'EU', 'asia': 'ASIA'}[parameters.region.split('-')[0]] if parameters.locationType == 'multi-region' else parameters.region }}"
+          storageClass: ${{ parameters.storageClass or 'STANDARD' }}
+          versioning: ${{ parameters.versioning !== false }}
+          encryption: ${{ parameters.encryption or 'google-managed' }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: 'GCP Cloud Storage Bucket: ${{ parameters.name }}'
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

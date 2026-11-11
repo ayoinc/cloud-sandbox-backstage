@@ -1,0 +1,183 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: gcp-pubsub
+  title: GCP Pub/Sub Topic
+  description: Create a Pub/Sub topic with subscriptions, dead-letter handling, regional message storage and an optional Avro or Protocol Buffers schema
+  tags:
+    - gcp
+    - pubsub
+    - messaging
+    - events
+    - terraform
+    - infrastructure
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: group:platform-team
+  type: infrastructure
+
+  parameters:
+    - title: Project Information
+      required:
+        - name
+        - owner
+      properties:
+        name:
+          title: Topic Name
+          type: string
+          description: Name of the topic, before the environment (at most 26 characters)
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          maxLength: 26
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Purpose of this topic
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns this resource
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+    - title: Messaging Configuration
+      required:
+        - environment
+        - region
+        - gcpProject
+        - subscriptions
+      properties:
+        environment:
+          title: Environment
+          type: string
+          description: Environment the pipeline deploys on push; variable files for all three are generated
+          enum:
+            - development
+            - staging
+            - production
+          default: development
+        region:
+          title: GCP Region
+          type: string
+          enum:
+            - us-central1
+            - us-east1
+            - us-west1
+            - europe-west1
+            - europe-west2
+            - asia-east1
+          default: us-central1
+        gcpProject:
+          title: GCP Project ID
+          type: string
+          description: The GCP project to deploy to
+          pattern: '^[a-z][a-z0-9-]{4,28}[a-z0-9]$'
+        subscriptions:
+          title: Subscriptions
+          type: array
+          description: Short names of the subscriptions to create; each consumer group needs its own
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            pattern: '^[a-z][a-z0-9-]{1,30}[a-z0-9]$'
+          default:
+            - worker
+        messageRetention:
+          title: Topic Message Retention
+          type: string
+          description: How far back subscriptions can replay messages
+          enum:
+            - 86400s
+            - 604800s
+            - 2678400s
+          enumNames:
+            - 1 day
+            - 7 days
+            - 31 days
+          default: 604800s
+        deadLetter:
+          title: Dead-Letter Topic
+          type: boolean
+          description: Park messages that keep failing in a dead-letter topic instead of redelivering them forever
+          default: true
+        maxDeliveryAttempts:
+          title: Max Delivery Attempts
+          type: integer
+          description: Attempts before a message goes to the dead-letter topic
+          default: 5
+          minimum: 5
+          maximum: 100
+        schemaType:
+          title: Message Schema
+          type: string
+          description: Reject published messages that do not match a schema
+          enum:
+            - NONE
+            - AVRO
+            - PROTOCOL_BUFFER
+          enumNames:
+            - None
+            - Avro
+            - Protocol Buffers
+          default: NONE
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'Pub/Sub topic ' + parameters.name }}
+          owner: ${{ parameters.owner }}
+          environment: ${{ parameters.environment }}
+          envName: "${{ {'development': 'dev', 'staging': 'staging', 'production': 'prod'}[parameters.environment] }}"
+          region: ${{ parameters.region }}
+          gcpProject: ${{ parameters.gcpProject }}
+          subscriptions: ${{ parameters.subscriptions }}
+          messageRetention: ${{ parameters.messageRetention or '604800s' }}
+          deadLetter: ${{ parameters.deadLetter !== false }}
+          maxDeliveryAttempts: ${{ parameters.maxDeliveryAttempts or 5 }}
+          schemaType: ${{ parameters.schemaType or 'NONE' }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: 'GCP Pub/Sub Topic: ${{ parameters.name }}'
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

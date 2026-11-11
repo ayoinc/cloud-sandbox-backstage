@@ -1,0 +1,4 @@
+site_name: Ansible Execution Environment
+docs_dir: docs
+plugins:
+  - techdocs-core

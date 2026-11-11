@@ -1,0 +1,14 @@
+---
+# Chocolatey. Each entry: name, and optionally version, state (present,
+# latest, absent) and pinned.
+win_packages_chocolatey_enabled: true
+win_packages_chocolatey: []
+# URL of an internal package feed. When set, it is registered and the public
+# community feed is disabled.
+win_packages_chocolatey_source_url: ''
+win_packages_chocolatey_source_name: internal
+
+# winget. Each entry: id, and optionally version and state (present, absent).
+win_packages_winget_enabled: false
+win_packages_winget: []
+win_packages_winget_source: winget

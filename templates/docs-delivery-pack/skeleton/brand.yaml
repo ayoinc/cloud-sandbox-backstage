@@ -1,0 +1,12 @@
+# What the exported workbook and documents look like. `uv run scripts/build.py`
+# reads this file. When `portal_url` is set, the organisation name, logo and
+# primary colour come from that portal's branding settings instead, and the
+# values below are used only for whatever the portal has not set.
+
+organisation: ''
+# A PNG or JPEG in this repository, for example docs/assets/logo.png
+logo: ''
+# Headings and table headers. Six-digit hex.
+primary_colour: '#3f4a5a'
+classification: ${{ values.classification | dump }}
+portal_url: ${{ values.portalUrl | dump }}

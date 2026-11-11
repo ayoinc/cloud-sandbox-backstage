@@ -1,0 +1,15 @@
+# {{ ansible_managed }}
+[Unit]
+Description=pgBackRest %i backup of stanza {{ postgresql_pgbackrest_stanza }}
+Documentation=https://pgbackrest.org/command.html#command-backup
+After=network-online.target {{ __postgresql_service }}.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=postgres
+Group=postgres
+ExecStart=/usr/bin/pgbackrest --stanza={{ postgresql_pgbackrest_stanza }} --type=%i backup
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

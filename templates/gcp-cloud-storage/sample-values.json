@@ -1,0 +1,15 @@
+{
+  "values": {
+    "name": "sample-reports",
+    "description": "Bucket of the team's \"reports\" service: exports and archives",
+    "owner": "group:default/platform-team",
+    "environment": "development",
+    "region": "europe-west1",
+    "gcpProject": "sample-project-123456",
+    "locationType": "region",
+    "storageClass": "STANDARD",
+    "versioning": true,
+    "encryption": "customer-managed",
+    "repoUrl": "github.com?owner=example-org&repo=sample-reports"
+  }
+}

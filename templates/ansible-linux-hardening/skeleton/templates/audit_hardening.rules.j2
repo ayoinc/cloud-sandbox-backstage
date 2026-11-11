@@ -1,0 +1,85 @@
+# {{ ansible_managed }}
+{# Syscalls that only exist on x86_64; newer architectures have the *at forms only. #}
+{% set legacy = ansible_facts.architecture == 'x86_64' %}
+{% set arches = ['b64', 'b32'] %}
+
+-b {{ linux_hardening_auditd_backlog_limit }}
+--backlog_wait_time 60000
+-f 1
+
+# Changes to date and time
+{% for arch in arches %}
+-a always,exit -F arch={{ arch }} -S adjtimex,settimeofday,clock_settime -k time-change
+{% endfor %}
+-w /etc/localtime -p wa -k time-change
+
+# Changes to users, groups and credentials
+-w /etc/group -p wa -k identity
+-w /etc/passwd -p wa -k identity
+-w /etc/gshadow -p wa -k identity
+-w /etc/shadow -p wa -k identity
+-w /etc/security/opasswd -p wa -k identity
+
+# Changes to the network environment
+{% for arch in arches %}
+-a always,exit -F arch={{ arch }} -S sethostname,setdomainname -k system-locale
+{% endfor %}
+-w /etc/issue -p wa -k system-locale
+-w /etc/issue.net -p wa -k system-locale
+-w /etc/hosts -p wa -k system-locale
+
+# Changes to privilege escalation rules, and its use
+-w /etc/sudoers -p wa -k scope
+-w /etc/sudoers.d -p wa -k scope
+{% for arch in arches %}
+-a always,exit -F arch={{ arch }} -S execve -C uid!=euid -F euid=0 -F auid>=1000 -F auid!=unset -k user-emulation
+{% endfor %}
+
+# Logins and sessions
+-w /var/log/lastlog -p wa -k logins
+-w /var/run/faillock -p wa -k logins
+-w /var/run/utmp -p wa -k session
+-w /var/log/wtmp -p wa -k session
+-w /var/log/btmp -p wa -k session
+
+# Changes to permissions and ownership
+{% for arch in arches %}
+-a always,exit -F arch={{ arch }} -S {{ legacy | ternary('chmod,', '') }}fchmod,fchmodat -F auid>=1000 -F auid!=unset -k perm_mod
+-a always,exit -F arch={{ arch }} -S {{ legacy | ternary('chown,lchown,', '') }}fchown,fchownat -F auid>=1000 -F auid!=unset -k perm_mod
+-a always,exit -F arch={{ arch }} -S setxattr,lsetxattr,fsetxattr,removexattr,lremovexattr,fremovexattr -F auid>=1000 -F auid!=unset -k perm_mod
+{% endfor %}
+
+# Unsuccessful attempts to open or create files
+{% for arch in arches %}
+{% for code in ['EACCES', 'EPERM'] %}
+-a always,exit -F arch={{ arch }} -S {{ legacy | ternary('creat,open,', '') }}openat,truncate,ftruncate -F exit=-{{ code }} -F auid>=1000 -F auid!=unset -k access
+{% endfor %}
+{% endfor %}
+
+# Mounts by users
+{% for arch in arches %}
+-a always,exit -F arch={{ arch }} -S mount -F auid>=1000 -F auid!=unset -k mounts
+{% endfor %}
+
+# Deletions and renames by users
+{% for arch in arches %}
+-a always,exit -F arch={{ arch }} -S {{ legacy | ternary('unlink,rename,', '') }}unlinkat,renameat -F auid>=1000 -F auid!=unset -k delete
+{% endfor %}
+
+# Kernel modules
+{% for arch in arches %}
+-a always,exit -F arch={{ arch }} -S init_module,finit_module,delete_module -k kernel_modules
+{% endfor %}
+-w /usr/bin/kmod -p x -k kernel_modules
+{% if linux_hardening_auditd_extra_rules | length > 0 %}
+
+# Local additions
+{% for rule in linux_hardening_auditd_extra_rules %}
+{{ rule }}
+{% endfor %}
+{% endif %}
+{% if linux_hardening_auditd_immutable | bool %}
+
+# Lock the configuration until the next reboot
+-e 2
+{% endif %}

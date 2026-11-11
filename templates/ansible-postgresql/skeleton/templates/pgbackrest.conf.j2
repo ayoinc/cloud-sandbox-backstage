@@ -1,0 +1,34 @@
+# {{ ansible_managed }}
+[global]
+repo1-type={{ postgresql_pgbackrest_repo_type }}
+repo1-path={{ postgresql_pgbackrest_repo_path }}
+{% for name, value in postgresql_pgbackrest_repo_options | dictsort %}
+{{ name }}={{ value }}
+{% endfor %}
+{% if postgresql_pgbackrest_encryption | bool %}
+repo1-cipher-type=aes-256-cbc
+repo1-cipher-pass={{ postgresql_pgbackrest_cipher_pass }}
+{% endif %}
+repo1-retention-full={{ postgresql_pgbackrest_retention_full }}
+repo1-retention-diff={{ postgresql_pgbackrest_retention_diff }}
+repo1-bundle=y
+repo1-block=y
+compress-type=zst
+process-max={{ postgresql_pgbackrest_process_max }}
+start-fast=y
+delta=y
+archive-async=y
+spool-path=/var/spool/pgbackrest
+log-path=/var/log/pgbackrest
+log-level-console=warn
+log-level-file=info
+
+[global:archive-get]
+process-max=2
+
+[global:archive-push]
+process-max=2
+
+[{{ postgresql_pgbackrest_stanza }}]
+pg1-path={{ __postgresql_data_dir }}
+pg1-port={{ postgresql_port }}

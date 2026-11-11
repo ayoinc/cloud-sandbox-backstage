@@ -1,0 +1,165 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: azure-storage-account
+  title: Azure Storage Account
+  description: Create a private Azure Storage account with Entra ID access, versioning, lifecycle rules and optional customer-managed keys
+  tags:
+    - azure
+    - storage
+    - blob
+    - terraform
+    - infrastructure
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: group:platform-team
+  type: infrastructure
+
+  parameters:
+    - title: Project Information
+      required:
+        - name
+        - owner
+      properties:
+        name:
+          title: Storage Account Name
+          type: string
+          description: Name used in resource names (at most 15 characters)
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          maxLength: 15
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Purpose of this storage account
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns this resource
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+    - title: Storage Configuration
+      required:
+        - environment
+        - location
+        - replicationType
+      properties:
+        environment:
+          title: Environment
+          type: string
+          description: Environment the pipeline deploys on push; variable files for all three are generated
+          enum:
+            - development
+            - staging
+            - production
+          default: development
+        location:
+          title: Azure Region
+          type: string
+          enum:
+            - eastus
+            - eastus2
+            - westus2
+            - westeurope
+            - northeurope
+            - uksouth
+          default: eastus
+        replicationType:
+          title: Redundancy
+          type: string
+          description: LRS keeps three copies in one datacentre, ZRS spreads them over zones, GRS and GZRS add a second region
+          enum:
+            - LRS
+            - ZRS
+            - GRS
+            - GZRS
+          default: ZRS
+        accessTier:
+          title: Default Access Tier
+          type: string
+          enum:
+            - Hot
+            - Cool
+          default: Hot
+        containerNames:
+          title: Containers
+          type: array
+          description: Private blob containers to create
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            pattern: '^[a-z0-9]([a-z0-9]|-(?!-)){1,61}[a-z0-9]$'
+          default:
+            - data
+        versioning:
+          title: Blob Versioning
+          type: boolean
+          description: Keep previous versions of overwritten and deleted blobs
+          default: true
+        softDeleteDays:
+          title: Soft Delete Retention (days)
+          type: integer
+          default: 30
+          minimum: 7
+          maximum: 365
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'Azure Storage account ' + parameters.name }}
+          owner: ${{ parameters.owner }}
+          environment: ${{ parameters.environment }}
+          envName: "${{ {'development': 'dev', 'staging': 'staging', 'production': 'prod'}[parameters.environment] }}"
+          location: ${{ parameters.location }}
+          replicationType: ${{ parameters.replicationType or 'ZRS' }}
+          accessTier: ${{ parameters.accessTier or 'Hot' }}
+          containerNames: ${{ parameters.containerNames or ['data'] }}
+          versioning: ${{ parameters.versioning !== false }}
+          softDeleteDays: ${{ parameters.softDeleteDays or 30 }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: 'Azure Storage Account: ${{ parameters.name }}'
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

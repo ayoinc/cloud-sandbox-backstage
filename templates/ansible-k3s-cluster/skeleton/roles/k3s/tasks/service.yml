@@ -1,0 +1,32 @@
+---
+# A new binary or configuration only takes effect on restart; otherwise the
+# service is left alone.
+- name: Ensure k3s is enabled and running the installed version and configuration
+  ansible.builtin.systemd_service:
+    name: '{{ __k3s_service }}'
+    state: "{{ (__k3s_installer is changed or __k3s_config_file is changed) | ternary('restarted', 'started') }}"
+    enabled: true
+    daemon_reload: true
+
+- name: Wait for the API server on this node
+  ansible.builtin.command:
+    cmd: /usr/local/bin/k3s kubectl get --raw /readyz
+  register: __k3s_readyz
+  changed_when: false
+  until: __k3s_readyz.rc == 0
+  retries: '{{ (k3s_ready_timeout | int / 5) | int }}'
+  delay: 5
+  when: __k3s_is_server | bool
+
+# Agents have no credentials of their own, so the first server is asked.
+- name: Wait for the node to be ready
+  ansible.builtin.command:
+    cmd: >-
+      /usr/local/bin/k3s kubectl wait node/{{ k3s_node_name }}
+      --for=condition=Ready --timeout=30s
+  register: __k3s_node_ready
+  changed_when: false
+  until: __k3s_node_ready.rc == 0
+  retries: '{{ (k3s_ready_timeout | int / 30) | int }}'
+  delay: 5
+  delegate_to: '{{ k3s_first_server }}'

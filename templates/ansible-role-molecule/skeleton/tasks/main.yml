@@ -1,0 +1,31 @@
+---
+- name: Check the target distribution is supported
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.os_family in ['Debian', 'RedHat']
+    fail_msg: >-
+      {{ ansible_facts.distribution }} is not supported by this role.
+      Supported families are Debian and RedHat.
+    quiet: true
+
+- name: Load distribution-specific variables
+  ansible.builtin.include_vars: '{{ ansible_facts.os_family | lower }}.yml'
+
+- name: Install packages
+  ansible.builtin.import_tasks: install.yml
+  tags:
+    - ${{ values.rolePrefix }}
+    - ${{ values.rolePrefix }}_install
+
+- name: Configure
+  ansible.builtin.import_tasks: configure.yml
+  tags:
+    - ${{ values.rolePrefix }}
+    - ${{ values.rolePrefix }}_configure
+
+- name: Manage the service
+  ansible.builtin.import_tasks: service.yml
+  when: ${{ values.rolePrefix }}_service_name | length > 0
+  tags:
+    - ${{ values.rolePrefix }}
+    - ${{ values.rolePrefix }}_service

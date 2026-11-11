@@ -1,0 +1,12 @@
+{
+  "values": {
+    "name": "sample-delivery",
+    "projectName": "Payments Migration",
+    "description": "Moves payments to the \"new\" platform: cut-over by the end of the quarter",
+    "owner": "group:default/platform-team",
+    "startDate": "2027-01-11",
+    "classification": "Internal",
+    "portalUrl": "",
+    "repoUrl": "github.com?owner=example-org&repo=sample-delivery"
+  }
+}

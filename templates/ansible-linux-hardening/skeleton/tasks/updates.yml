@@ -1,0 +1,61 @@
+---
+- name: Configure unattended upgrades (Debian family)
+  when: ansible_facts.os_family == 'Debian'
+  block:
+    - name: Install unattended-upgrades
+      ansible.builtin.apt:
+        name: unattended-upgrades
+        state: present
+
+    - name: Enable the periodic apt jobs
+      ansible.builtin.copy:
+        content: |
+          // {{ ansible_managed }}
+          APT::Periodic::Update-Package-Lists "1";
+          APT::Periodic::Unattended-Upgrade "1";
+          APT::Periodic::AutocleanInterval "7";
+        dest: /etc/apt/apt.conf.d/20auto-upgrades
+        owner: root
+        group: root
+        mode: '0644'
+
+    # The distribution's 50unattended-upgrades already limits upgrades to the
+    # security origins; this file only adds local policy on top of it.
+    - name: Write the unattended-upgrades policy
+      ansible.builtin.template:
+        src: unattended_upgrades.conf.j2
+        dest: /etc/apt/apt.conf.d/52unattended-upgrades-hardening
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Ensure the apt timers are enabled
+      ansible.builtin.systemd_service:
+        name: '{{ item }}'
+        state: started
+        enabled: true
+      loop:
+        - apt-daily.timer
+        - apt-daily-upgrade.timer
+
+- name: Configure automatic updates (Enterprise Linux)
+  when: ansible_facts.os_family == 'RedHat'
+  block:
+    - name: Install dnf-automatic
+      ansible.builtin.dnf:
+        name: dnf-automatic
+        state: present
+
+    - name: Write the dnf-automatic policy
+      ansible.builtin.template:
+        src: dnf_automatic.conf.j2
+        dest: /etc/dnf/automatic.conf
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Ensure the dnf-automatic timer is enabled
+      ansible.builtin.systemd_service:
+        name: dnf-automatic.timer
+        state: started
+        enabled: true

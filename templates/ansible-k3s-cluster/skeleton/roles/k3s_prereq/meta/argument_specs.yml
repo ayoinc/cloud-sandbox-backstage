@@ -1,0 +1,23 @@
+---
+argument_specs:
+  main:
+    short_description: Prepare a host to run k3s
+    description:
+      - Loads kernel modules, sets kernel parameters, installs packages and
+        opens the ports k3s needs in a running host firewall.
+    options:
+      k3s_prereq_manage_firewall:
+        description: Open the ports k3s needs when firewalld or ufw is running.
+        type: bool
+        default: true
+      k3s_prereq_cluster_cidr:
+        description: Pod network, allowed through the host firewall.
+        type: str
+        default: 10.42.0.0/16
+      k3s_prereq_service_cidr:
+        description: Service network, allowed through the host firewall.
+        type: str
+        default: 10.43.0.0/16
+      k3s_prereq_sysctl:
+        description: Kernel parameters to set and persist, name to value.
+        type: dict

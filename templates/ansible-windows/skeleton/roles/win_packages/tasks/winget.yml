@@ -1,0 +1,14 @@
+---
+# There is no winget module in the pinned collections, so a small script does
+# the work: it checks first, changes only when needed, and honours check mode.
+- name: Manage winget packages
+  ansible.windows.win_powershell:
+    script: "{{ lookup('ansible.builtin.file', 'winget_package.ps1') }}"
+    parameters:
+      Id: '{{ item.id }}'
+      Version: "{{ item.version | default('') }}"
+      State: "{{ item.state | default('present') }}"
+      Source: '{{ win_packages_winget_source }}'
+  loop: '{{ win_packages_winget }}'
+  loop_control:
+    label: "{{ item.id }} {{ item.version | default('') }}"

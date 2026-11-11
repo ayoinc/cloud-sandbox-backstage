@@ -1,0 +1,59 @@
+name: Delivery pack
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# The build commits the pages it rewrites from the data.
+permissions:
+  contents: write
+
+env:
+  TYPST_VERSION: '0.15.1'
+
+jobs:
+  build:
+    name: Check and build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install typst
+        run: |
+          curl -fsSL "https://github.com/typst/typst/releases/download/v${TYPST_VERSION}/typst-x86_64-unknown-linux-musl.tar.xz" | tar -xJ -C "$RUNNER_TEMP"
+          sudo install "$RUNNER_TEMP/typst-x86_64-unknown-linux-musl/typst" /usr/local/bin/typst
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends fonts-liberation2
+
+      - name: Check the data and build the pack
+        run: uv run scripts/build.py
+
+      - name: Build the pages
+        run: uvx --with mkdocs-techdocs-core==1.7.1 mkdocs build --strict
+
+      - name: Commit the rewritten pages
+        run: |
+          if git diff --quiet -- docs; then
+            echo "The pages already match the data."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs
+          git commit --message "Rewrite the delivery pages from the data [skip ci]"
+          git push
+
+      - name: Keep the pack
+        uses: actions/upload-artifact@v4
+        with:
+          name: delivery-pack
+          path: |
+            out/delivery-workbook.xlsx
+            out/status-report.docx
+            out/status-report.pdf
+          if-no-files-found: error

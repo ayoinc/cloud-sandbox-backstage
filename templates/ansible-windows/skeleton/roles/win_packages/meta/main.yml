@@ -1,0 +1,15 @@
+---
+galaxy_info:
+  role_name: win_packages
+  author: ${{ values.owner | dump }}
+  description: Software from Chocolatey and winget on Windows hosts
+  license: MIT
+  min_ansible_version: '2.18'
+  platforms:
+    - name: Windows
+      versions:
+        - all
+  galaxy_tags:
+    - windows
+
+dependencies: []

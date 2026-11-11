@@ -1,0 +1,34 @@
+---
+- name: Install the audit daemon
+  ansible.builtin.package:
+    name: '{{ __linux_hardening_auditd_packages }}'
+    state: present
+
+- name: Configure audit log retention
+  ansible.builtin.lineinfile:
+    path: /etc/audit/auditd.conf
+    regexp: '^\s*{{ item.key }}\s*='
+    line: '{{ item.key }} = {{ item.value }}'
+    owner: root
+    group: root
+    mode: '0640'
+  loop: '{{ linux_hardening_auditd_conf | dict2items }}'
+  loop_control:
+    label: '{{ item.key }}'
+  notify: Restart the audit daemon
+
+- name: Write the audit rules
+  ansible.builtin.template:
+    src: audit_hardening.rules.j2
+    dest: /etc/audit/rules.d/50-hardening.rules
+    owner: root
+    group: root
+    mode: '0640'
+  notify: Load the audit rules
+
+- name: Ensure the audit daemon is enabled and running
+  ansible.builtin.systemd_service:
+    name: auditd
+    state: started
+    enabled: true
+  when: linux_hardening_auditd_apply | bool

@@ -1,0 +1,22 @@
+# Terraform working directory, state and saved plans
+.terraform/
+*.tfstate
+*.tfstate.*
+tfplan
+crash.log
+
+# Local variable overrides
+*.auto.tfvars
+override.tf
+override.tf.json
+
+# Local credentials
+.env
+*.pem
+kubeconfig
+
+# TechDocs build output
+site/
+
+# Node.js
+node_modules/

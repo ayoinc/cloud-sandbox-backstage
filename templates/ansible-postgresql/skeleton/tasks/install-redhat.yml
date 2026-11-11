@@ -1,0 +1,66 @@
+---
+# module_hotfixes lets these packages take precedence over the distribution's
+# postgresql module stream without disabling the module.
+- name: Add the PGDG repositories
+  ansible.builtin.yum_repository:
+    name: '{{ item.name }}'
+    description: '{{ item.description }}'
+    baseurl: '{{ item.baseurl }}'
+    gpgkey: https://download.postgresql.org/pub/repos/yum/keys/PGDG-RPM-GPG-KEY-RHEL
+    gpgcheck: true
+    repo_gpgcheck: true
+    module_hotfixes: true
+    enabled: true
+  loop:
+    - name: 'pgdg{{ postgresql_version }}'
+      description: 'PostgreSQL {{ postgresql_version }} for Enterprise Linux'
+      baseurl: 'https://download.postgresql.org/pub/repos/yum/{{ postgresql_version }}/redhat/rhel-$releasever-$basearch'
+    - name: pgdg-common
+      description: PostgreSQL common packages for Enterprise Linux
+      baseurl: https://download.postgresql.org/pub/repos/yum/common/redhat/rhel-$releasever-$basearch
+  loop_control:
+    label: '{{ item.name }}'
+
+- name: Install EPEL for the pgBackRest dependencies
+  ansible.builtin.dnf:
+    name: epel-release
+    state: present
+  when:
+    - postgresql_pgbackrest_enabled | bool
+    - postgresql_epel_enabled | bool
+
+- name: Install PostgreSQL
+  ansible.builtin.dnf:
+    name: '{{ __postgresql_packages }}'
+    state: present
+
+- name: Check whether a cluster exists
+  ansible.builtin.stat:
+    path: '{{ __postgresql_data_dir }}/PG_VERSION'
+  register: __postgresql_pg_version
+
+- name: Create the cluster
+  ansible.builtin.command:
+    cmd: >-
+      {{ __postgresql_bin_dir }}/initdb
+      --pgdata={{ __postgresql_data_dir }}
+      --locale={{ postgresql_locale }}
+      --encoding={{ postgresql_encoding }}
+      --data-checksums
+      --auth-local=peer
+      --auth-host=scram-sha-256
+    creates: '{{ __postgresql_data_dir }}/PG_VERSION'
+  become: true
+  become_user: postgres
+  when: not (__postgresql_is_replica | bool)
+
+- name: Mark a new replica as waiting for its copy of the primary
+  ansible.builtin.file:
+    path: '{{ __postgresql_seed_marker }}'
+    state: touch
+    owner: postgres
+    group: postgres
+    mode: '0600'
+  when:
+    - __postgresql_is_replica | bool
+    - not __postgresql_pg_version.stat.exists

@@ -1,0 +1,17 @@
+{
+  "values": {
+    "name": "sample-droplet",
+    "description": "Hosts for the team's \"legacy\" service: API & workers",
+    "owner": "group:default/platform-team",
+    "environment": "development",
+    "region": "fra1",
+    "size": "s-2vcpu-4gb",
+    "image": "ubuntu-26-04-x64",
+    "dropletCount": 2,
+    "sshKeyName": "platform-team",
+    "sshSourceCidr": "198.51.100.0/24",
+    "allowWeb": true,
+    "reservedIp": true,
+    "repoUrl": "github.com?owner=example-org&repo=sample-droplet"
+  }
+}

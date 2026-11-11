@@ -1,0 +1,10 @@
+{
+  "values": {
+    "name": "sample-collection",
+    "description": "Platform collection: the infra team's \"shared toolbox\" of modules and roles",
+    "owner": "group:default/platform-team",
+    "namespace": "example_org",
+    "collectionName": "platform",
+    "repoUrl": "github.com?owner=example-org&repo=sample-collection"
+  }
+}

@@ -1,0 +1,24 @@
+---
+- name: Install Windows updates
+  ansible.windows.win_updates:
+    category_names: '{{ win_patching_categories }}'
+    reject_list: '{{ win_patching_reject_list }}'
+    state: installed
+    reboot: '{{ win_patching_reboot | bool }}'
+    reboot_timeout: '{{ win_patching_reboot_timeout }}'
+    log_path: '{{ win_patching_log_path }}'
+  register: __win_patching_result
+
+- name: Summarise the update run
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }}: {{ __win_patching_result.installed_update_count | default(0) }} installed,
+      {{ __win_patching_result.failed_update_count | default(0) }} failed,
+      restart {{ (__win_patching_result.reboot_required | default(false)) | ternary('still required', 'not required') }}.
+
+- name: Stop if any update failed
+  ansible.builtin.assert:
+    that:
+      - __win_patching_result.failed_update_count | default(0) | int == 0
+    fail_msg: 'Updates failed on {{ inventory_hostname }}; see {{ win_patching_log_path }} on the host.'
+    quiet: true

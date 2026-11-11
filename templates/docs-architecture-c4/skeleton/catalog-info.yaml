@@ -1,0 +1,17 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.name }}
+  title: ${{ (values.systemName + " design") | dump }}
+  description: ${{ values.description | dump }}
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
+  tags:
+    - documentation
+    - architecture
+    - c4
+spec:
+  type: documentation
+  lifecycle: production
+  owner: ${{ values.owner }}

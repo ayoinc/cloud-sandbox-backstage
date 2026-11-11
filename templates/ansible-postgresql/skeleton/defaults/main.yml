@@ -1,0 +1,122 @@
+---
+# Every variable is described, with its type, in meta/argument_specs.yml.
+
+# ---------------------------------------------------------------------------
+# Installation
+# ---------------------------------------------------------------------------
+postgresql_version: '${{ values.postgresVersion }}'
+# Locale and encoding of a newly created cluster.
+postgresql_locale: C.UTF-8
+postgresql_encoding: UTF8
+# pgBackRest on Enterprise Linux needs libraries from EPEL. Set to false where
+# EPEL is provided another way, for example through a content view.
+postgresql_epel_enabled: true
+
+# ---------------------------------------------------------------------------
+# Server configuration
+# ---------------------------------------------------------------------------
+# Addresses to listen on. Only localhost by default: opening the server to the
+# network is a decision made in inventory, together with postgresql_hba_entries.
+postgresql_listen_addresses:
+  - localhost
+postgresql_port: 5432
+postgresql_max_connections: 100
+
+# Derive memory, parallelism and WAL settings from the host's RAM and CPUs.
+postgresql_tuning_enabled: true
+# ssd or hdd; sets random_page_cost and effective_io_concurrency.
+postgresql_storage_type: ${{ values.storageType }}
+
+# Settings merged last, over everything the role computes. Name to value.
+postgresql_settings: {}
+
+# Restart automatically when a changed setting only takes effect at restart.
+# With false, the role reloads and reports that a restart is pending.
+postgresql_restart_on_change: true
+
+# TLS. The certificate and key must already be on the host, readable by the
+# postgres user.
+postgresql_ssl_enabled: false
+postgresql_ssl_cert_file: ''
+postgresql_ssl_key_file: ''
+
+# Client authentication rules added after the local defaults (see
+# templates/pg_hba.conf.j2). Each entry: type, database, user, address, method.
+postgresql_hba_entries: []
+
+# ---------------------------------------------------------------------------
+# Roles, databases and extensions (applied on a primary only)
+# ---------------------------------------------------------------------------
+# Each entry: name, and optionally password, role_attr_flags, state.
+postgresql_users: []
+# Each entry: name, and optionally owner, encoding, lc_collate, lc_ctype, state.
+postgresql_databases: []
+# Each entry: name, database, and optionally schema, state.
+postgresql_extensions: []
+
+# ---------------------------------------------------------------------------
+# Streaming replication
+# ---------------------------------------------------------------------------
+postgresql_replication_enabled: ${{ 'true' if values.enableReplication else 'false' }}
+# primary or replica; set per host or group.
+postgresql_replication_role: primary
+postgresql_replication_user: replicator
+# Required when replication is enabled. Keep it in Ansible Vault.
+postgresql_replication_password: ''
+# Networks replicas connect from, in CIDR notation (primary).
+postgresql_replication_allowed_addresses: []
+# Physical replication slots to keep on the primary, one per replica.
+postgresql_replication_slots: []
+# Address and port of the primary (replica).
+postgresql_replication_primary_host: ''
+postgresql_replication_primary_port: 5432
+# Slot this replica streams from; must be listed in the primary's slots.
+postgresql_replication_slot_name: ''
+
+# ---------------------------------------------------------------------------
+# pgBackRest
+# ---------------------------------------------------------------------------
+postgresql_pgbackrest_enabled: ${{ 'true' if values.enableBackups else 'false' }}
+postgresql_pgbackrest_stanza: main
+# posix, s3, azure or gcs.
+postgresql_pgbackrest_repo_type: ${{ values.backupRepoType }}
+# Path inside the repository; a directory for posix, a prefix for object stores.
+postgresql_pgbackrest_repo_path: /var/lib/pgbackrest
+# Further repository options, written as given to the [global] section.
+{%- if values.backupRepoType == 's3' %}
+# With repo1-s3-key-type auto, pgBackRest uses the instance's own identity and
+# no access key is stored on the host.
+postgresql_pgbackrest_repo_options:
+  repo1-s3-bucket: ''
+  repo1-s3-region: ''
+  repo1-s3-endpoint: ''
+  repo1-s3-key-type: auto
+{%- elif values.backupRepoType == 'azure' %}
+# With repo1-azure-key-type auto, pgBackRest uses the virtual machine's
+# managed identity and no account key is stored on the host.
+postgresql_pgbackrest_repo_options:
+  repo1-azure-account: ''
+  repo1-azure-container: ''
+  repo1-azure-key-type: auto
+{%- elif values.backupRepoType == 'gcs' %}
+# With repo1-gcs-key-type auto, pgBackRest uses the instance's service account
+# and no key file is stored on the host.
+postgresql_pgbackrest_repo_options:
+  repo1-gcs-bucket: ''
+  repo1-gcs-key-type: auto
+{%- else %}
+postgresql_pgbackrest_repo_options: {}
+{%- endif %}
+# Encrypt the repository with AES-256. The passphrase is required when this is
+# true; keep it in Ansible Vault and store a copy outside the database hosts.
+postgresql_pgbackrest_encryption: true
+postgresql_pgbackrest_cipher_pass: ''
+# Number of full backups to keep, and differentials per full.
+postgresql_pgbackrest_retention_full: 2
+postgresql_pgbackrest_retention_diff: 6
+postgresql_pgbackrest_process_max: 2
+# systemd calendar expressions for the scheduled backups.
+postgresql_pgbackrest_full_schedule: 'Sun *-*-* 01:00:00'
+postgresql_pgbackrest_diff_schedule: 'Mon..Sat *-*-* 01:00:00'
+# Start a full backup in the background when the stanza is first created.
+postgresql_pgbackrest_initial_backup: true

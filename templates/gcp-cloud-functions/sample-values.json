@@ -1,0 +1,17 @@
+{
+  "values": {
+    "name": "sample-greeter",
+    "description": "Function of the team's \"orders\" service: answers greeting requests",
+    "owner": "group:default/platform-team",
+    "environment": "development",
+    "region": "europe-west1",
+    "gcpProject": "sample-project-123456",
+    "runtime": "nodejs24",
+    "triggerType": "http",
+    "memory": "256M",
+    "timeoutSeconds": 60,
+    "maxInstances": 10,
+    "allowUnauthenticated": false,
+    "repoUrl": "github.com?owner=example-org&repo=sample-greeter"
+  }
+}

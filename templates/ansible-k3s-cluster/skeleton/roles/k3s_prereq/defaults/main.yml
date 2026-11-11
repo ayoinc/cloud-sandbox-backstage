@@ -1,0 +1,17 @@
+---
+# Open the ports k3s needs when firewalld or ufw is running on the host.
+k3s_prereq_manage_firewall: true
+# Networks pods and services use; allowed through the host firewall.
+k3s_prereq_cluster_cidr: 10.42.0.0/16
+k3s_prereq_service_cidr: 10.43.0.0/16
+# Kernel parameters. The vm and kernel values are the ones the kubelet insists
+# on when k3s runs with protect-kernel-defaults.
+k3s_prereq_sysctl:
+  net.ipv4.ip_forward: 1
+  net.ipv6.conf.all.forwarding: 1
+  net.bridge.bridge-nf-call-iptables: 1
+  net.bridge.bridge-nf-call-ip6tables: 1
+  vm.panic_on_oom: 0
+  vm.overcommit_memory: 1
+  kernel.panic: 10
+  kernel.panic_on_oops: 1

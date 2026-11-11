@@ -1,0 +1,31 @@
+---
+- name: Reload the SSH daemon
+  ansible.builtin.systemd_service:
+    name: '{{ __linux_hardening_ssh_service }}'
+    state: reloaded
+
+- name: Load kernel parameters
+  ansible.builtin.command:
+    cmd: sysctl --system
+  changed_when: true
+  when: linux_hardening_sysctl_apply | bool
+
+- name: Restart the audit daemon
+  # auditd refuses a manual restart through systemd on Enterprise Linux, so
+  # the daemon is signalled to re-read its configuration instead.
+  ansible.builtin.command:
+    cmd: systemctl kill --signal=HUP --kill-whom=main auditd.service
+  changed_when: true
+  when: linux_hardening_auditd_apply | bool
+
+- name: Load the audit rules
+  ansible.builtin.command:
+    cmd: augenrules --load
+  changed_when: true
+  when: linux_hardening_auditd_apply | bool
+
+- name: Reload the firewall
+  ansible.builtin.systemd_service:
+    name: nftables
+    state: restarted
+  when: linux_hardening_firewall_apply | bool

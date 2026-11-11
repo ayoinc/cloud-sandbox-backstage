@@ -1,0 +1,8 @@
+site_name: ${{ values.name }}
+site_description: ${{ ('Azure Container Apps - ' + values.description) | dump }}
+
+nav:
+  - Home: index.md
+
+plugins:
+  - techdocs-core

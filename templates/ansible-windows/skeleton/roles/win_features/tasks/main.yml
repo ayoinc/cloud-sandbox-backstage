@@ -1,0 +1,56 @@
+---
+- name: Manage server roles and features
+  when: ansible_facts.os_installation_type != 'Client'
+  block:
+    - name: Install server features
+      ansible.windows.win_feature:
+        name: '{{ win_features_server_present }}'
+        state: present
+        include_management_tools: true
+      register: __win_features_installed
+      when: win_features_server_present | length > 0
+
+    - name: Remove server features
+      ansible.windows.win_feature:
+        name: '{{ win_features_server_absent }}'
+        state: absent
+      register: __win_features_removed
+      when: win_features_server_absent | length > 0
+
+- name: Manage optional features
+  when: ansible_facts.os_installation_type == 'Client'
+  block:
+    - name: Enable optional features
+      ansible.windows.win_optional_feature:
+        name: '{{ win_features_optional_present }}'
+        state: present
+      register: __win_features_enabled
+      when: win_features_optional_present | length > 0
+
+    - name: Disable optional features
+      ansible.windows.win_optional_feature:
+        name: '{{ win_features_optional_absent }}'
+        state: absent
+      register: __win_features_disabled
+      when: win_features_optional_absent | length > 0
+
+- name: Work out whether a restart is required
+  ansible.builtin.set_fact:
+    __win_features_reboot_required: >-
+      {{ [__win_features_installed, __win_features_removed, __win_features_enabled, __win_features_disabled]
+         | select('defined') | selectattr('reboot_required', 'defined')
+         | map(attribute='reboot_required') | select | list | length > 0 }}
+
+- name: Restart to complete the feature changes
+  ansible.windows.win_reboot:
+    reboot_timeout: '{{ win_features_reboot_timeout }}'
+  when:
+    - __win_features_reboot_required | bool
+    - win_features_allow_reboot | bool
+
+- name: Report that a restart is needed
+  ansible.builtin.debug:
+    msg: Feature changes on {{ inventory_hostname }} are complete after the next restart.
+  when:
+    - __win_features_reboot_required | bool
+    - not (win_features_allow_reboot | bool)

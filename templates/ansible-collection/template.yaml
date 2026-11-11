@@ -1,0 +1,110 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: ansible-collection
+  title: Ansible Collection
+  description: Create an Ansible Galaxy collection with an example module, filter and role, ansible-test sanity, unit and integration tests, antsibull-changelog and a publish workflow
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - ansible
+    - collection
+    - galaxy
+    - automation
+spec:
+  owner: platform-team
+  type: ansible-collection
+
+  parameters:
+    - title: Collection Configuration
+      required:
+        - name
+        - description
+        - owner
+      properties:
+        name:
+          title: Name
+          type: string
+          description: Name of the repository (lower-case letters, digits, hyphens and underscores)
+          pattern: '^[a-z0-9]([a-z0-9_-]*[a-z0-9])?$'
+          maxLength: 63
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: What this repository is for, in one sentence
+        owner:
+          title: Owner
+          type: string
+          description: Team or user that owns the repository
+          ui:field: OwnerPicker
+          ui:options:
+            allowedKinds:
+              - Group
+              - User
+
+    - title: Galaxy Coordinates
+      required:
+        - namespace
+        - collectionName
+      properties:
+        namespace:
+          title: Namespace
+          type: string
+          description: Galaxy namespace, usually your organisation (lower-case letters, digits and underscores)
+          pattern: '^[a-z][a-z0-9_]{1,63}$'
+        collectionName:
+          title: Collection Name
+          type: string
+          description: Name of the collection inside the namespace (lower-case letters, digits and underscores)
+          pattern: '^[a-z][a-z0-9_]{1,63}$'
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: template
+      name: Fetch Skeleton
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          namespace: ${{ parameters.namespace }}
+          collectionName: ${{ parameters.collectionName }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish
+      action: publish:github
+      input:
+        description: ${{ parameters.description }}
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: main
+        repoVisibility: private
+
+    - id: register
+      name: Register
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: /catalog-info.yaml
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}

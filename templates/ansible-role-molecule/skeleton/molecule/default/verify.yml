@@ -1,0 +1,44 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Gather installed packages
+      ansible.builtin.package_facts:
+
+    - name: Check the requested package is installed
+      ansible.builtin.assert:
+        that:
+          - "'curl' in ansible_facts.packages"
+        quiet: true
+
+    - name: Inspect the configuration file
+      ansible.builtin.stat:
+        path: /etc/${{ values.rolePrefix }}/${{ values.rolePrefix }}.conf
+      register: verify_config
+
+    - name: Check ownership and mode of the configuration file
+      ansible.builtin.assert:
+        that:
+          - verify_config.stat.exists
+          - verify_config.stat.pw_name == 'root'
+          - verify_config.stat.mode == '0640'
+        quiet: true
+
+    - name: Read the configuration file
+      ansible.builtin.slurp:
+        src: /etc/${{ values.rolePrefix }}/${{ values.rolePrefix }}.conf
+      register: verify_config_content
+
+    - name: Check the settings were rendered
+      ansible.builtin.assert:
+        that:
+          - "'[general]' in verify_config_text"
+          - "'log_level = debug' in verify_config_text"
+          - "'[limits]' in verify_config_text"
+          - "'max_connections = 128' in verify_config_text"
+        quiet: true
+      vars:
+        verify_config_text: '{{ verify_config_content.content | b64decode }}'

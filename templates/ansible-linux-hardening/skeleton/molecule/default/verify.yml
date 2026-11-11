@@ -1,0 +1,128 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  gather_facts: true
+
+  vars_files:
+    # The toggles chosen when the repository was created.
+    - ../../defaults/main.yml
+
+  tasks:
+    - name: Verify the SSH daemon
+      when: linux_hardening_sshd_enabled | bool
+      block:
+        - name: Read the effective sshd configuration
+          ansible.builtin.command:
+            cmd: /usr/sbin/sshd -T
+          register: verify_sshd
+          changed_when: false
+
+        - name: Check the effective sshd configuration
+          ansible.builtin.assert:
+            that:
+              - "'permitrootlogin no' in verify_sshd.stdout_lines"
+              - "'passwordauthentication no' in verify_sshd.stdout_lines"
+              - "'permitemptypasswords no' in verify_sshd.stdout_lines"
+              - "'x11forwarding no' in verify_sshd.stdout_lines"
+              - "'allowtcpforwarding no' in verify_sshd.stdout_lines"
+              - "'maxauthtries 4' in verify_sshd.stdout_lines"
+              - "'allowgroups sudo' in verify_sshd.stdout_lines"
+              - "'allowgroups wheel' in verify_sshd.stdout_lines"
+              - "'banner /etc/issue.net' in verify_sshd.stdout_lines"
+              - "'macs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com' in verify_sshd.stdout_lines"
+            quiet: true
+
+    - name: Verify kernel parameters
+      when: linux_hardening_sysctl_enabled | bool
+      block:
+        - name: Read the sysctl file
+          ansible.builtin.slurp:
+            src: /etc/sysctl.d/60-hardening.conf
+          register: verify_sysctl
+
+        - name: Check baseline values and the override
+          ansible.builtin.assert:
+            that:
+              - "'net.ipv4.conf.all.accept_redirects = 0' in verify_sysctl_lines"
+              - "'kernel.randomize_va_space = 2' in verify_sysctl_lines"
+              - "'fs.suid_dumpable = 0' in verify_sysctl_lines"
+              - "'net.ipv4.ip_forward = 1' in verify_sysctl_lines"
+            quiet: true
+          vars:
+            verify_sysctl_lines: '{{ (verify_sysctl.content | b64decode).splitlines() }}'
+
+    - name: Verify the audit daemon
+      when: linux_hardening_auditd_enabled | bool
+      block:
+        - name: Read the audit rules
+          ansible.builtin.slurp:
+            src: /etc/audit/rules.d/50-hardening.rules
+          register: verify_audit_rules
+
+        - name: Read the audit daemon configuration
+          ansible.builtin.slurp:
+            src: /etc/audit/auditd.conf
+          register: verify_auditd_conf
+
+        - name: Check the audit rules and retention
+          ansible.builtin.assert:
+            that:
+              - "'-w /etc/shadow -p wa -k identity' in verify_rules"
+              - "'-w /etc/sudoers -p wa -k scope' in verify_rules"
+              - "'-w /etc/ssh/sshd_config.d -p wa -k sshd-config' in verify_rules"
+              - verify_rules | select('search', '-k kernel_modules$') | length >= 3
+              - "'-e 2' not in verify_rules"
+              - "'max_log_file_action = rotate' in verify_conf"
+            quiet: true
+          vars:
+            verify_rules: '{{ (verify_audit_rules.content | b64decode).splitlines() }}'
+            verify_conf: '{{ (verify_auditd_conf.content | b64decode).splitlines() }}'
+
+    - name: Verify the firewall
+      when: linux_hardening_firewall_enabled | bool
+      block:
+        - name: Read the loaded ruleset
+          ansible.builtin.command:
+            cmd: nft list ruleset
+          register: verify_nft
+          changed_when: false
+
+        - name: Check the loaded ruleset
+          ansible.builtin.assert:
+            that:
+              - verify_nft.stdout is search('hook input priority filter; policy drop;')
+              - verify_nft.stdout is search('tcp dport 22 accept')
+              - verify_nft.stdout is search('tcp dport 443 accept')
+            quiet: true
+
+        - name: Gather service state
+          ansible.builtin.service_facts:
+
+        - name: Check nftables starts at boot
+          ansible.builtin.assert:
+            that:
+              - ansible_facts.services['nftables.service'].status == 'enabled'
+            quiet: true
+
+    - name: Verify unattended upgrades
+      when: linux_hardening_updates_enabled | bool
+      block:
+        - name: Check the update policy file
+          ansible.builtin.stat:
+            path: "{{ (ansible_facts.os_family == 'Debian') | ternary('/etc/apt/apt.conf.d/52unattended-upgrades-hardening', '/etc/dnf/automatic.conf') }}"
+          register: verify_updates
+
+        - name: Check the update timer is enabled
+          ansible.builtin.systemd_service:
+            name: "{{ (ansible_facts.os_family == 'Debian') | ternary('apt-daily-upgrade.timer', 'dnf-automatic.timer') }}"
+            enabled: true
+          check_mode: true
+          register: verify_updates_timer
+
+        - name: Check unattended upgrades are configured
+          ansible.builtin.assert:
+            that:
+              - verify_updates.stat.exists
+              - verify_updates_timer is not changed
+            quiet: true

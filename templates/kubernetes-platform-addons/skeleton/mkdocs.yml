@@ -1,0 +1,8 @@
+site_name: ${{ values.name }}
+site_description: ${{ ('Kubernetes Platform Add-ons - ' + values.description) | dump }}
+
+nav:
+  - Home: index.md
+
+plugins:
+  - techdocs-core

@@ -1,0 +1,13 @@
+{
+  "values": {
+    "name": "sample-postgresql",
+    "description": "PostgreSQL role: the data team's \"system of record\" clusters, backed up nightly",
+    "owner": "group:default/platform-team",
+    "postgresVersion": "18",
+    "storageType": "ssd",
+    "enableBackups": true,
+    "backupRepoType": "posix",
+    "enableReplication": false,
+    "repoUrl": "github.com?owner=example-org&repo=sample-postgresql"
+  }
+}

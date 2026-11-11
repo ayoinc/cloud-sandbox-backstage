@@ -1,0 +1,16 @@
+---
+# Brings every Windows host to the declared state. Run with --check --diff
+# first; run a single area with --tags baseline, features or packages.
+- name: Configure Windows hosts
+  hosts: windows
+  gather_facts: true
+  roles:
+    - role: win_baseline
+      tags:
+        - baseline
+    - role: win_features
+      tags:
+        - features
+    - role: win_packages
+      tags:
+        - packages

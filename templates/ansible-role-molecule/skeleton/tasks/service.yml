@@ -1,0 +1,6 @@
+---
+- name: Ensure the service is in the desired state
+  ansible.builtin.systemd_service:
+    name: '{{ ${{ values.rolePrefix }}_service_name }}'
+    state: '{{ ${{ values.rolePrefix }}_service_state }}'
+    enabled: '{{ ${{ values.rolePrefix }}_service_enabled }}'

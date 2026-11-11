@@ -1,0 +1,33 @@
+---
+argument_specs:
+  main:
+    short_description: Keep entries of a properties file in the declared state
+    description:
+      - Sets and removes entries of one properties file, leaving comments and
+        unrelated entries untouched.
+    options:
+      properties_file_path:
+        description: Path of the properties file on the managed host.
+        type: path
+        required: true
+      properties_file_entries:
+        description: Entries to keep in the file, property name to value.
+        type: dict
+        default: {}
+      properties_file_absent:
+        description: Property names to remove from the file.
+        type: list
+        elements: str
+        default: []
+      properties_file_owner:
+        description: Owner of the file.
+        type: str
+        default: root
+      properties_file_group:
+        description: Group of the file.
+        type: str
+        default: root
+      properties_file_mode:
+        description: Mode of the file, as a quoted octal string.
+        type: str
+        default: '0640'

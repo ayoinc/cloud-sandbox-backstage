@@ -1,0 +1,15 @@
+---
+galaxy_info:
+  role_name: win_features
+  author: ${{ values.owner | dump }}
+  description: Windows server features and optional features
+  license: MIT
+  min_ansible_version: '2.18'
+  platforms:
+    - name: Windows
+      versions:
+        - all
+  galaxy_tags:
+    - windows
+
+dependencies: []

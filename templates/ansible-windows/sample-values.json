@@ -1,0 +1,15 @@
+{
+  "values": {
+    "name": "sample-windows",
+    "description": "Windows fleet: the workplace team's \"standard build\" for servers & kiosks",
+    "owner": "group:default/platform-team",
+    "hosts": ["win-app-01.corp.internal", "win-app-02.corp.internal"],
+    "connection": "winrm",
+    "winrmTransport": "kerberos",
+    "timezone": "UTC",
+    "useChocolatey": true,
+    "useWinget": false,
+    "allowReboot": false,
+    "repoUrl": "github.com?owner=example-org&repo=sample-windows"
+  }
+}

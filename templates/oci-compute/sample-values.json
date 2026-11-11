@@ -1,0 +1,17 @@
+{
+  "values": {
+    "name": "sample-instance",
+    "description": "Build host for the team's \"arm64\" pipeline: runners & caches",
+    "owner": "group:default/platform-team",
+    "environment": "development",
+    "region": "eu-frankfurt-1",
+    "shape": "VM.Standard.A1.Flex",
+    "ocpus": 2,
+    "memoryGb": 12,
+    "operatingSystem": "oracle-linux-9",
+    "assignPublicIp": false,
+    "sshPublicKey": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPlatformTeamSampleKey000000000000000000000000 platform-team",
+    "sshSourceCidr": "198.51.100.0/24",
+    "repoUrl": "github.com?owner=example-org&repo=sample-instance"
+  }
+}

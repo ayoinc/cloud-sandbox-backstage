@@ -1,0 +1,15 @@
+# {{ ansible_managed }}
+# The first matching line decides. Passwords are verified with SCRAM-SHA-256.
+# TYPE    DATABASE        USER            ADDRESS                 METHOD
+local     all             postgres                                peer
+local     all             all                                     peer
+host      all             all             127.0.0.1/32            scram-sha-256
+host      all             all             ::1/128                 scram-sha-256
+{% if postgresql_replication_enabled | bool %}
+{% for address in postgresql_replication_allowed_addresses %}
+{{ postgresql_ssl_enabled | bool | ternary('hostssl', 'host') }}  replication  {{ postgresql_replication_user }}  {{ address }}  scram-sha-256
+{% endfor %}
+{% endif %}
+{% for entry in postgresql_hba_entries %}
+{{ entry.type | default('hostssl') }}  {{ entry.database }}  {{ entry.user }}  {{ entry.address | default('') }}  {{ entry.method | default('scram-sha-256') }}
+{% endfor %}

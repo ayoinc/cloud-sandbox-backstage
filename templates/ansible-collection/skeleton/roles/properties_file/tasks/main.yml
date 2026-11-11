@@ -1,0 +1,19 @@
+---
+- name: Set the declared entries
+  ${{ values.namespace }}.${{ values.collectionName }}.properties_entry:
+    path: '{{ properties_file_path }}'
+    key: '{{ item.key }}'
+    value: '{{ (item.value is boolean) | ternary(item.value | string | lower, item.value) }}'
+    owner: '{{ properties_file_owner }}'
+    group: '{{ properties_file_group }}'
+    mode: '{{ properties_file_mode }}'
+  loop: '{{ properties_file_entries | dict2items }}'
+  loop_control:
+    label: '{{ item.key }}'
+
+- name: Remove the retired entries
+  ${{ values.namespace }}.${{ values.collectionName }}.properties_entry:
+    path: '{{ properties_file_path }}'
+    key: '{{ item }}'
+    state: absent
+  loop: '{{ properties_file_absent }}'

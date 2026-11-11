@@ -1,0 +1,69 @@
+---
+- name: Manage the replication role
+  community.postgresql.postgresql_user:
+    login_db: postgres
+    login_port: '{{ postgresql_port }}'
+    name: '{{ postgresql_replication_user }}'
+    password: '{{ postgresql_replication_password }}'
+    role_attr_flags: REPLICATION,LOGIN
+    state: present
+  become: true
+  become_user: postgres
+  no_log: true
+  when: postgresql_replication_enabled | bool
+
+- name: Manage physical replication slots
+  community.postgresql.postgresql_slot:
+    login_db: postgres
+    login_port: '{{ postgresql_port }}'
+    name: '{{ item }}'
+    slot_type: physical
+    state: present
+  become: true
+  become_user: postgres
+  loop: '{{ postgresql_replication_slots }}'
+  when: postgresql_replication_enabled | bool
+
+- name: Manage roles
+  community.postgresql.postgresql_user:
+    login_db: postgres
+    login_port: '{{ postgresql_port }}'
+    name: '{{ item.name }}'
+    password: '{{ item.password | default(omit) }}'
+    role_attr_flags: '{{ item.role_attr_flags | default(omit) }}'
+    state: "{{ item.state | default('present') }}"
+  become: true
+  become_user: postgres
+  no_log: true
+  loop: '{{ postgresql_users }}'
+  loop_control:
+    label: '{{ item.name }}'
+
+- name: Manage databases
+  community.postgresql.postgresql_db:
+    maintenance_db: postgres
+    login_port: '{{ postgresql_port }}'
+    name: '{{ item.name }}'
+    owner: '{{ item.owner | default(omit) }}'
+    encoding: '{{ item.encoding | default(omit) }}'
+    lc_collate: '{{ item.lc_collate | default(omit) }}'
+    lc_ctype: '{{ item.lc_ctype | default(omit) }}'
+    state: "{{ item.state | default('present') }}"
+  become: true
+  become_user: postgres
+  loop: '{{ postgresql_databases }}'
+  loop_control:
+    label: '{{ item.name }}'
+
+- name: Manage extensions
+  community.postgresql.postgresql_ext:
+    login_db: '{{ item.database }}'
+    login_port: '{{ postgresql_port }}'
+    name: '{{ item.name }}'
+    schema: '{{ item.schema | default(omit) }}'
+    state: "{{ item.state | default('present') }}"
+  become: true
+  become_user: postgres
+  loop: '{{ postgresql_extensions }}'
+  loop_control:
+    label: '{{ item.database }}/{{ item.name }}'

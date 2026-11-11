@@ -1,0 +1,185 @@
+---
+argument_specs:
+  main:
+    short_description: ${{ values.description | dump }}
+    description:
+      - Installs PostgreSQL from the PGDG repositories and configures it for production use.
+      - Optionally manages pgBackRest backups and streaming replication.
+    author:
+      - ${{ values.owner | dump }}
+    options:
+      postgresql_version:
+        description: PostgreSQL major version installed from PGDG.
+        type: str
+        choices:
+          - "16"
+          - "17"
+          - "18"
+      postgresql_locale:
+        description: Locale of a newly created cluster.
+        type: str
+        default: C.UTF-8
+      postgresql_encoding:
+        description: Encoding of a newly created cluster.
+        type: str
+        default: UTF8
+      postgresql_epel_enabled:
+        description: Install epel-release on Enterprise Linux when pgBackRest is enabled.
+        type: bool
+        default: true
+      postgresql_listen_addresses:
+        description: Addresses to listen on. Only localhost by default.
+        type: list
+        elements: str
+      postgresql_port:
+        description: TCP port.
+        type: int
+        default: 5432
+      postgresql_max_connections:
+        description: Maximum concurrent connections; also sizes work_mem.
+        type: int
+        default: 100
+      postgresql_tuning_enabled:
+        description: Derive memory, parallelism and WAL settings from RAM and CPU count.
+        type: bool
+        default: true
+      postgresql_storage_type:
+        description: Kind of disk under the data directory.
+        type: str
+        choices:
+          - ssd
+          - hdd
+      postgresql_settings:
+        description: Settings merged last, over everything the role computes.
+        type: dict
+        default: {}
+      postgresql_restart_on_change:
+        description: Restart when a changed setting only takes effect at restart.
+        type: bool
+        default: true
+      postgresql_ssl_enabled:
+        description: Enable TLS for client connections.
+        type: bool
+        default: false
+      postgresql_ssl_cert_file:
+        description: Path of the server certificate on the host.
+        type: str
+        default: ''
+      postgresql_ssl_key_file:
+        description: Path of the private key on the host.
+        type: str
+        default: ''
+      postgresql_hba_entries:
+        description: Client authentication rules. Each entry has database, user and optionally type, address and method.
+        type: list
+        elements: dict
+        default: []
+      postgresql_users:
+        description: Roles. Each entry has name and optionally password, role_attr_flags and state.
+        type: list
+        elements: dict
+        default: []
+      postgresql_databases:
+        description: Databases. Each entry has name and optionally owner, encoding, lc_collate, lc_ctype and state.
+        type: list
+        elements: dict
+        default: []
+      postgresql_extensions:
+        description: Extensions. Each entry has name, database and optionally schema and state.
+        type: list
+        elements: dict
+        default: []
+      postgresql_replication_enabled:
+        description: Prepare the primary for streaming replicas and allow replicas to be seeded.
+        type: bool
+      postgresql_replication_role:
+        description: Role of this host.
+        type: str
+        choices:
+          - primary
+          - replica
+        default: primary
+      postgresql_replication_user:
+        description: Name of the replication role.
+        type: str
+        default: replicator
+      postgresql_replication_password:
+        description: Password of the replication role. Required when replication is enabled.
+        type: str
+        default: ''
+        no_log: true
+      postgresql_replication_allowed_addresses:
+        description: Networks replicas connect from, in CIDR notation.
+        type: list
+        elements: str
+        default: []
+      postgresql_replication_slots:
+        description: Physical replication slots kept on the primary.
+        type: list
+        elements: str
+        default: []
+      postgresql_replication_primary_host:
+        description: Address of the primary. Required on a replica.
+        type: str
+        default: ''
+      postgresql_replication_primary_port:
+        description: Port of the primary.
+        type: int
+        default: 5432
+      postgresql_replication_slot_name:
+        description: Slot this replica streams from. Empty for none.
+        type: str
+        default: ''
+      postgresql_pgbackrest_enabled:
+        description: Install pgBackRest, archive WAL and schedule backups.
+        type: bool
+      postgresql_pgbackrest_stanza:
+        description: Name of the backup stanza.
+        type: str
+        default: main
+      postgresql_pgbackrest_repo_type:
+        description: Repository type.
+        type: str
+        choices:
+          - posix
+          - s3
+          - azure
+          - gcs
+      postgresql_pgbackrest_repo_path:
+        description: Directory or object prefix of the repository.
+        type: str
+        default: /var/lib/pgbackrest
+      postgresql_pgbackrest_repo_options:
+        description: Further repository options written to the global section.
+        type: dict
+      postgresql_pgbackrest_encryption:
+        description: Encrypt the repository with AES-256.
+        type: bool
+        default: true
+      postgresql_pgbackrest_cipher_pass:
+        description: Repository passphrase. Required when encryption is on.
+        type: str
+        default: ''
+        no_log: true
+      postgresql_pgbackrest_retention_full:
+        description: Full backups to keep.
+        type: int
+        default: 2
+      postgresql_pgbackrest_retention_diff:
+        description: Differential backups to keep.
+        type: int
+        default: 6
+      postgresql_pgbackrest_process_max:
+        description: Parallel processes for backup and restore.
+        type: int
+        default: 2
+      postgresql_pgbackrest_full_schedule:
+        description: systemd calendar expression for full backups.
+        type: str
+      postgresql_pgbackrest_diff_schedule:
+        description: systemd calendar expression for differential backups.
+        type: str
+      postgresql_pgbackrest_initial_backup:
+        description: Start a full backup in the background when the stanza is first created.
+        type: bool
+        default: true

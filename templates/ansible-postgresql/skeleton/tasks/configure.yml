@@ -1,0 +1,70 @@
+---
+- name: Create the drop-in configuration directory
+  ansible.builtin.file:
+    path: '{{ __postgresql_config_dir }}/conf.d'
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: '0755'
+
+- name: Ensure postgresql.conf reads the drop-in directory
+  ansible.builtin.lineinfile:
+    path: '{{ __postgresql_config_dir }}/postgresql.conf'
+    regexp: '^#?\s*include_dir\s*='
+    line: "include_dir = 'conf.d'"
+  notify: Reload PostgreSQL
+
+- name: Write the server settings
+  ansible.builtin.template:
+    src: postgresql.conf.j2
+    dest: '{{ __postgresql_config_dir }}/conf.d/00-ansible.conf'
+    owner: postgres
+    group: postgres
+    mode: '0640'
+  notify: Reload PostgreSQL
+
+- name: Write the client authentication rules
+  ansible.builtin.template:
+    src: pg_hba.conf.j2
+    dest: '{{ __postgresql_config_dir }}/pg_hba.conf'
+    owner: postgres
+    group: postgres
+    mode: '0640'
+  notify: Reload PostgreSQL
+
+- name: Ensure PostgreSQL is enabled and running
+  ansible.builtin.systemd_service:
+    name: '{{ __postgresql_service }}'
+    state: started
+    enabled: true
+
+- name: Apply configuration changes now
+  ansible.builtin.meta: flush_handlers
+
+# A reload applies most settings. The few that need a restart are reported by
+# the server itself, so the role restarts only when one of them changed.
+- name: Check whether a setting is waiting for a restart
+  community.postgresql.postgresql_query:
+    login_db: postgres
+    login_port: '{{ postgresql_port }}'
+    query: SELECT name FROM pg_settings WHERE pending_restart ORDER BY name
+  become: true
+  become_user: postgres
+  register: __postgresql_pending_restart
+
+- name: Restart PostgreSQL to apply the pending settings
+  ansible.builtin.systemd_service:
+    name: '{{ __postgresql_service }}'
+    state: restarted
+  when:
+    - __postgresql_pending_restart.rowcount > 0
+    - postgresql_restart_on_change | bool
+
+- name: Report settings still waiting for a restart
+  ansible.builtin.debug:
+    msg: >-
+      A restart is pending for {{ __postgresql_pending_restart.query_result | map(attribute='name') | join(', ') }}.
+      Restart {{ __postgresql_service }} in a maintenance window.
+  when:
+    - __postgresql_pending_restart.rowcount > 0
+    - not (postgresql_restart_on_change | bool)

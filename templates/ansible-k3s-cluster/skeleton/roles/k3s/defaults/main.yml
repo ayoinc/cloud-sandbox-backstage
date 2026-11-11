@@ -1,0 +1,42 @@
+---
+# Cluster-wide values are set in inventory/group_vars/k3s_cluster/main.yml;
+# the defaults here apply when inventory does not say otherwise.
+
+# Exact k3s release, for example v1.37.2+k3s1. Required.
+k3s_version: ''
+# server or agent. Set per group in inventory.
+k3s_node_type: agent
+# Shared join secret. Required; supply it from Ansible Vault.
+k3s_token: ''
+# Address clients and agents use for the Kubernetes API. Required.
+k3s_api_endpoint: ''
+k3s_api_port: 6443
+# Name the node registers with.
+k3s_node_name: '{{ ansible_facts.hostname | lower }}'
+
+# Address joining servers contact: the first server in the inventory.
+k3s_first_server: "{{ groups['server'] | first }}"
+k3s_first_server_address: '{{ hostvars[k3s_first_server].ansible_host | default(k3s_first_server) }}'
+
+# Further names or addresses the API certificate must be valid for.
+k3s_tls_san_extra: []
+# Bundled components to leave out, for example traefik or servicelb.
+k3s_disable: []
+k3s_cluster_cidr: 10.42.0.0/16
+k3s_service_cidr: 10.43.0.0/16
+
+# Embedded etcd snapshots, taken on every server.
+k3s_etcd_snapshot_schedule: '0 */6 * * *'
+k3s_etcd_snapshot_retention: 20
+
+# Options merged over the generated /etc/rancher/k3s/config.yaml, by node type.
+k3s_server_config_extra: {}
+k3s_agent_config_extra: {}
+
+# kube-vip: a virtual IP for the API, announced by ARP from the leading server.
+k3s_kube_vip_enabled: false
+k3s_kube_vip_version: v1.3.1
+k3s_kube_vip_interface: eth0
+
+# Seconds to wait for a node to become ready after it starts.
+k3s_ready_timeout: 300

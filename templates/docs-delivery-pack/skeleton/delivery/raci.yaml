@@ -1,0 +1,47 @@
+# Who does what. For each activity give every role one of:
+#   R responsible (does the work)   A accountable (answers for it; exactly one)
+#   C consulted                      I informed
+# Leave a role out of an activity when it has no part in it.
+
+roles:
+  - Service owner
+  - Product lead
+  - Lead architect
+  - Engineering lead
+  - Platform lead
+  - Security
+
+activities:
+  - name: Agree scope and success measures
+    Service owner: A
+    Product lead: R
+    Lead architect: C
+    Engineering lead: C
+  - name: Architecture design
+    Service owner: I
+    Product lead: C
+    Lead architect: A
+    Engineering lead: R
+    Platform lead: C
+    Security: C
+  - name: Environments and pipeline
+    Lead architect: C
+    Engineering lead: C
+    Platform lead: A
+    Security: C
+  - name: Build and test
+    Product lead: C
+    Lead architect: C
+    Engineering lead: A
+    Platform lead: I
+  - name: Security testing
+    Service owner: I
+    Engineering lead: R
+    Security: A
+  - name: Go-live decision
+    Service owner: A
+    Product lead: R
+    Lead architect: C
+    Engineering lead: C
+    Platform lead: C
+    Security: C

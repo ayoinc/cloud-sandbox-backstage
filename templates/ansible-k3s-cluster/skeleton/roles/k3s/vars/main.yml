@@ -1,0 +1,35 @@
+---
+# Internal values; not meant to be overridden.
+__k3s_is_server: "{{ k3s_node_type == 'server' }}"
+__k3s_is_first_server: "{{ k3s_node_type == 'server' and inventory_hostname == k3s_first_server }}"
+__k3s_service: "{{ (k3s_node_type == 'server') | ternary('k3s', 'k3s-agent') }}"
+__k3s_uninstall_script: "{{ (k3s_node_type == 'server') | ternary('k3s-uninstall.sh', 'k3s-agent-uninstall.sh') }}"
+# The installer is taken from the tagged release, so script and binary match.
+__k3s_install_script_url: 'https://raw.githubusercontent.com/k3s-io/k3s/{{ k3s_version | urlencode }}/install.sh'
+
+__k3s_common_config:
+  node-name: '{{ k3s_node_name }}'
+  token: '{{ k3s_token }}'
+  protect-kernel-defaults: true
+
+__k3s_server_config:
+  tls-san: '{{ ([k3s_api_endpoint] + k3s_tls_san_extra) | unique }}'
+  cluster-cidr: '{{ k3s_cluster_cidr }}'
+  service-cidr: '{{ k3s_service_cidr }}'
+  disable: '{{ k3s_disable }}'
+  write-kubeconfig-mode: '0600'
+  secrets-encryption: true
+  etcd-snapshot-schedule-cron: '{{ k3s_etcd_snapshot_schedule }}'
+  etcd-snapshot-retention: '{{ k3s_etcd_snapshot_retention | int }}'
+
+# The first server starts the etcd cluster, further servers join it through
+# the first one, and agents register through the API endpoint.
+__k3s_join_config: >-
+  {{ {'cluster-init': true} if (__k3s_is_first_server | bool)
+     else {'server': 'https://' ~ ((__k3s_is_server | bool) | ternary(k3s_first_server_address, k3s_api_endpoint)) ~ ':' ~ k3s_api_port} }}
+
+__k3s_config: >-
+  {{ __k3s_common_config
+     | combine((__k3s_is_server | bool) | ternary(__k3s_server_config, {}))
+     | combine(__k3s_join_config)
+     | combine((__k3s_is_server | bool) | ternary(k3s_server_config_extra, k3s_agent_config_extra)) }}

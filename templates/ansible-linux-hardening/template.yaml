@@ -1,0 +1,129 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: ansible-linux-hardening
+  title: Ansible Linux Hardening Baseline
+  description: Create a CIS-aligned Linux hardening role covering sshd, sysctl, auditd, firewall and unattended upgrades, with a toggle per control and Molecule verification
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - ansible
+    - security
+    - hardening
+    - cis
+    - linux
+spec:
+  owner: platform-team
+  type: ansible-role
+
+  parameters:
+    - title: Role Configuration
+      required:
+        - name
+        - description
+        - owner
+      properties:
+        name:
+          title: Name
+          type: string
+          description: Name of the role repository (lower-case letters, digits, hyphens and underscores)
+          pattern: '^[a-z0-9]([a-z0-9_-]*[a-z0-9])?$'
+          maxLength: 63
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: What this repository is for, in one sentence
+        owner:
+          title: Owner
+          type: string
+          description: Team or user that owns the repository
+          ui:field: OwnerPicker
+          ui:options:
+            allowedKinds:
+              - Group
+              - User
+
+    - title: Controls
+      description: Which controls are on by default. Each can be overridden from inventory later.
+      properties:
+        manageSshd:
+          title: Harden the SSH daemon
+          type: boolean
+          description: Disable root and password logins, restrict algorithms, set idle timeouts
+          default: true
+        manageSysctl:
+          title: Harden kernel parameters
+          type: boolean
+          description: Network stack and kernel self-protection settings in /etc/sysctl.d
+          default: true
+        manageAuditd:
+          title: Configure the audit daemon
+          type: boolean
+          description: Install auditd with a rule set for security-relevant events
+          default: true
+        manageFirewall:
+          title: Configure a default-deny firewall
+          type: boolean
+          description: nftables ruleset that drops inbound traffic except SSH and listed ports
+          default: true
+        manageUpdates:
+          title: Enable unattended security upgrades
+          type: boolean
+          description: unattended-upgrades on Debian and Ubuntu, dnf-automatic on Enterprise Linux
+          default: true
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: template
+      name: Fetch Skeleton
+      action: fetch:template
+      input:
+        url: ./skeleton
+        copyWithoutTemplating:
+          - '**/*.j2'
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          manageSshd: ${{ parameters.manageSshd }}
+          manageSysctl: ${{ parameters.manageSysctl }}
+          manageAuditd: ${{ parameters.manageAuditd }}
+          manageFirewall: ${{ parameters.manageFirewall }}
+          manageUpdates: ${{ parameters.manageUpdates }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish
+      action: publish:github
+      input:
+        description: ${{ parameters.description }}
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: main
+        repoVisibility: private
+
+    - id: register
+      name: Register
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: /catalog-info.yaml
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}

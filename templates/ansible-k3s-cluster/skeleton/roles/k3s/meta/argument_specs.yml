@@ -1,0 +1,90 @@
+---
+argument_specs:
+  main:
+    short_description: Install and configure a k3s server or agent
+    description:
+      - Installs a pinned k3s release, writes its configuration, optionally
+        deploys kube-vip, and waits for the node to become ready.
+    options:
+      k3s_version:
+        description: Exact k3s release, for example v1.37.2+k3s1.
+        type: str
+        required: true
+      k3s_node_type:
+        description: Whether the host is a server or an agent.
+        type: str
+        choices:
+          - server
+          - agent
+        default: agent
+      k3s_token:
+        description: Shared join secret. Supply it from Ansible Vault.
+        type: str
+        required: true
+        no_log: true
+      k3s_api_endpoint:
+        description: Address clients and agents use for the Kubernetes API.
+        type: str
+        required: true
+      k3s_api_port:
+        description: Port of the Kubernetes API.
+        type: int
+        default: 6443
+      k3s_node_name:
+        description: Name the node registers with. Defaults to the short host name.
+        type: str
+      k3s_first_server:
+        description: Inventory name of the server that bootstraps the cluster.
+        type: str
+      k3s_first_server_address:
+        description: Address joining servers contact.
+        type: str
+      k3s_tls_san_extra:
+        description: Further names or addresses the API certificate must be valid for.
+        type: list
+        elements: str
+        default: []
+      k3s_disable:
+        description: Bundled components to leave out.
+        type: list
+        elements: str
+        default: []
+      k3s_cluster_cidr:
+        description: Pod network.
+        type: str
+        default: 10.42.0.0/16
+      k3s_service_cidr:
+        description: Service network.
+        type: str
+        default: 10.43.0.0/16
+      k3s_etcd_snapshot_schedule:
+        description: Cron expression for etcd snapshots.
+        type: str
+      k3s_etcd_snapshot_retention:
+        description: Snapshots kept on each server.
+        type: int
+        default: 20
+      k3s_server_config_extra:
+        description: Options merged over the generated server configuration.
+        type: dict
+        default: {}
+      k3s_agent_config_extra:
+        description: Options merged over the generated agent configuration.
+        type: dict
+        default: {}
+      k3s_kube_vip_enabled:
+        description: Deploy kube-vip to announce the API endpoint as a virtual IP.
+        type: bool
+        default: false
+      k3s_kube_vip_version:
+        description: kube-vip image tag.
+        type: str
+        default: v1.3.1
+      k3s_kube_vip_interface:
+        description: Interface on the servers that carries the virtual IP.
+        type: str
+        default: eth0
+      k3s_ready_timeout:
+        description: Seconds to wait for a node to become ready.
+        type: int
+        default: 300

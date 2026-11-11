@@ -1,0 +1,19 @@
+...@c4
+
+# C4 level 1: who uses the system and what it depends on.
+direction: down
+
+user: Customer {class: person}
+operator: Operations staff {class: person}
+
+system: ${{ values.systemName | dump }} {class: system}
+
+identity: "Identity provider\nSigns people in" {class: external}
+notifications: "Notification service\nEmail and text" {class: external}
+partner: "Partner API\nExchanges records" {class: external}
+
+user -> system: Uses {class: uses}
+operator -> system: Administers {class: uses}
+system -> identity: Signs people in with {class: outside}
+system -> notifications: Sends messages through {class: outside}
+system -> partner: Exchanges records with {class: outside}

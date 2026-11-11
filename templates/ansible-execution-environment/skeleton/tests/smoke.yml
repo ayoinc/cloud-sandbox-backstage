@@ -1,0 +1,50 @@
+---
+# Run inside a freshly built image before it is pushed.
+- name: Smoke test the execution environment
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  tasks:
+    - name: Check the ansible-core and Python versions
+      ansible.builtin.assert:
+        that:
+          - ansible_version.full is version('2.22.0', '>=')
+          - ansible_facts.python_version is version('3.13', '>=')
+        quiet: true
+
+    - name: Check the image does not run as root
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.user_uid | int != 0
+        quiet: true
+
+    - name: List the installed collections
+      ansible.builtin.command:
+        cmd: ansible-galaxy collection list --format json
+      register: smoke_collections
+      changed_when: false
+
+    - name: Read the pinned collections
+      ansible.builtin.set_fact:
+        smoke_pinned: "{{ (lookup('ansible.builtin.file', playbook_dir ~ '/../requirements.yml') | from_yaml).collections }}"
+        smoke_installed: "{{ smoke_collections.stdout | from_json | dict2items | map(attribute='value') | combine }}"
+
+    - name: Check every pinned collection is installed at its pinned version
+      ansible.builtin.assert:
+        that:
+          - item.name in smoke_installed
+          - smoke_installed[item.name].version == item.version | string
+        quiet: true
+      loop: '{{ smoke_pinned }}'
+      loop_control:
+        label: '{{ item.name }} {{ item.version }}'
+
+    - name: Check the client tools playbooks rely on are present
+      ansible.builtin.command:
+        cmd: '{{ item }}'
+      changed_when: false
+      loop:
+        - ssh -V
+        - git --version
+        - rsync --version

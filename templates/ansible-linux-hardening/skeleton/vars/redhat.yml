@@ -1,0 +1,6 @@
+---
+# Internal, per-distribution values; not meant to be overridden.
+__linux_hardening_ssh_service: sshd
+__linux_hardening_auditd_packages:
+  - audit
+__linux_hardening_nftables_conf: /etc/sysconfig/nftables.conf

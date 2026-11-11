@@ -1,0 +1,32 @@
+#cloud-config
+# First-boot configuration. It is only read on the first boot: changing this
+# file replaces the instance on the next apply.
+
+package_update: true
+package_upgrade: true
+
+write_files:
+  # The platform images already limit SSH to key sign-in for the default user;
+  # this keeps it that way whatever the image defaults become.
+  - path: /etc/ssh/sshd_config.d/10-hardening.conf
+    permissions: "0600"
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      X11Forwarding no
+      MaxAuthTries 3
+
+runcmd:
+  - systemctl restart sshd || systemctl restart ssh
+  # Install security updates automatically: dnf-automatic on Oracle Linux,
+  # unattended-upgrades on Ubuntu.
+  - |
+    if command -v dnf > /dev/null; then
+      dnf install -y dnf-automatic
+      sed -i 's/^apply_updates.*/apply_updates = yes/; s/^upgrade_type.*/upgrade_type = security/' /etc/dnf/automatic.conf
+      systemctl enable --now dnf-automatic.timer
+    else
+      apt-get install -y unattended-upgrades
+      systemctl enable --now unattended-upgrades
+    fi

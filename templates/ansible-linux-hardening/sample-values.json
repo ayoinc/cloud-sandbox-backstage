@@ -1,0 +1,13 @@
+{
+  "values": {
+    "name": "sample-linux-hardening",
+    "description": "Server baseline: the security team's \"minimum bar\" for every Linux host",
+    "owner": "group:default/platform-team",
+    "manageSshd": true,
+    "manageSysctl": true,
+    "manageAuditd": true,
+    "manageFirewall": true,
+    "manageUpdates": true,
+    "repoUrl": "github.com?owner=example-org&repo=sample-linux-hardening"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "values": {
+    "name": "sample-execution-environment",
+    "description": "Automation image: the platform team's \"one true\" runtime for playbooks",
+    "owner": "group:default/platform-team",
+    "collections": ["ansible.posix", "community.general", "kubernetes.core"],
+    "multiArch": true,
+    "repoUrl": "github.com?owner=example-org&repo=sample-execution-environment"
+  }
+}

@@ -1,0 +1,21 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.name }}
+  description: ${{ values.description | dump }}
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
+  tags:
+    - cloudflare
+    - workers
+    - serverless
+    - ${{ values.environment }}
+  links:
+    - url: https://dash.cloudflare.com/?to=/:account/workers-and-pages
+      title: Workers Dashboard
+      icon: cloud
+spec:
+  type: service
+  owner: ${{ values.owner }}
+  lifecycle: ${{ values.environment }}

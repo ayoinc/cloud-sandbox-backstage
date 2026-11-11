@@ -1,0 +1,28 @@
+---
+- name: Converge
+  hosts: all
+  become: true
+
+  vars:
+    # Throwaway values for a container that is destroyed after the run.
+    postgresql_pgbackrest_cipher_pass: molecule-only-passphrase
+    postgresql_replication_password: molecule-only-password
+    # Whatever repository the role defaults to, the test uses a local one.
+    postgresql_pgbackrest_repo_type: posix
+    postgresql_pgbackrest_repo_options: {}
+    postgresql_pgbackrest_initial_backup: false
+    postgresql_max_connections: 50
+    postgresql_settings:
+      log_min_duration_statement: 250
+    postgresql_users:
+      - name: app
+        password: molecule-only-password
+    postgresql_databases:
+      - name: appdb
+        owner: app
+    postgresql_extensions:
+      - name: pg_stat_statements
+        database: appdb
+
+  roles:
+    - role: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"

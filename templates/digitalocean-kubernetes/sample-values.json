@@ -1,0 +1,15 @@
+{
+  "values": {
+    "name": "sample-doks",
+    "description": "Cluster for the team's \"main\" platform: runs the shared services",
+    "owner": "group:default/platform-team",
+    "environment": "development",
+    "region": "fra1",
+    "kubernetesVersion": "1.37",
+    "nodeSize": "s-4vcpu-8gb",
+    "nodeCount": 2,
+    "maxNodeCount": 5,
+    "registry": "create",
+    "repoUrl": "github.com?owner=example-org&repo=sample-doks"
+  }
+}

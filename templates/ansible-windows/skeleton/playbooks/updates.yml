@@ -1,0 +1,13 @@
+---
+# Installs Windows updates a batch of hosts at a time and stops at the first
+# batch in which a host fails, so a bad update reaches few machines.
+#
+#   ansible-playbook playbooks/updates.yml
+#   ansible-playbook playbooks/updates.yml --limit win-app-01 -e win_patching_reboot=true
+- name: Patch Windows hosts
+  hosts: windows
+  gather_facts: true
+  serial: "{{ win_patching_batch | default('25%') }}"
+  max_fail_percentage: 0
+  roles:
+    - role: win_patching

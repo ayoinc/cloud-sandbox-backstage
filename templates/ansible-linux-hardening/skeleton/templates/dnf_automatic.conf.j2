@@ -1,0 +1,15 @@
+# {{ ansible_managed }}
+[commands]
+upgrade_type = security
+random_sleep = 3600
+download_updates = yes
+apply_updates = yes
+{% if ansible_facts.distribution_major_version | int >= 9 %}
+reboot = {{ linux_hardening_updates_automatic_reboot | bool | ternary('when-needed', 'never') }}
+{% endif %}
+
+[emitters]
+emit_via = stdio
+
+[base]
+debuglevel = 1

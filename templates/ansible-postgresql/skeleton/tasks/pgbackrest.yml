@@ -1,0 +1,27 @@
+---
+- name: Install pgBackRest
+  ansible.builtin.package:
+    name: pgbackrest
+    state: present
+
+- name: Create the pgBackRest directories
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: '0750'
+  loop: >-
+    {{ ['/etc/pgbackrest', '/var/log/pgbackrest', '/var/spool/pgbackrest']
+       + ((postgresql_pgbackrest_repo_type == 'posix') | ternary([postgresql_pgbackrest_repo_path], [])) }}
+
+# The file holds the repository passphrase, so its content is kept out of
+# diffs and it is readable by the postgres user only.
+- name: Write the pgBackRest configuration
+  ansible.builtin.template:
+    src: pgbackrest.conf.j2
+    dest: /etc/pgbackrest/pgbackrest.conf
+    owner: postgres
+    group: postgres
+    mode: '0600'
+  diff: false

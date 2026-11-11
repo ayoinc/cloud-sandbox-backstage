@@ -1,0 +1,29 @@
+---
+ansible_user: ${{ values.ansibleUser }}
+
+# Exact release. To upgrade, change it and run playbooks/upgrade.yml.
+k3s_version: ${{ values.k3sVersion }}
+
+# Shared secret nodes join with. The value lives in vault.yml next to this
+# file, encrypted with Ansible Vault; README.md shows how to create it.
+k3s_token: "{{ vault_k3s_token }}"
+
+# Address clients and agents use for the Kubernetes API.
+k3s_api_endpoint: ${{ values.apiEndpoint }}
+
+# kube-vip announces k3s_api_endpoint as a virtual IP from the leading server.
+k3s_kube_vip_enabled: ${{ 'true' if values.enableKubeVip else 'false' }}
+k3s_kube_vip_interface: ${{ values.kubeVipInterface }}
+
+# Bundled components left out of the cluster.
+{%- if values.disableTraefik or values.disableServiceLb %}
+k3s_disable:
+{%- if values.disableTraefik %}
+  - traefik
+{%- endif %}
+{%- if values.disableServiceLb %}
+  - servicelb
+{%- endif %}
+{%- else %}
+k3s_disable: []
+{%- endif %}

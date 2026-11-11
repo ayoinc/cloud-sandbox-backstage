@@ -1,0 +1,6 @@
+# System packages beyond those the collections declare themselves.
+# Syntax: https://docs.opendev.org/opendev/bindep/latest/readme.html
+git-core [platform:rpm]
+openssh-clients [platform:rpm]
+rsync [platform:rpm]
+sshpass [platform:rpm]

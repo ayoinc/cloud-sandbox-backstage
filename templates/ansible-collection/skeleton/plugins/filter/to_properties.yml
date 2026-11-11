@@ -1,0 +1,28 @@
+---
+DOCUMENTATION:
+  name: to_properties
+  short_description: Render a dictionary as properties file text
+  version_added: "1.0.0"
+  author:
+    - ${{ values.destination.owner }} (@${{ values.destination.owner }})
+  description:
+    - Renders a dictionary as C(key=value) lines, sorted by key, each ending in a newline.
+    - Booleans are written as V(true) and V(false).
+  positional: _input
+  options:
+    _input:
+      description: Dictionary of property names to values.
+      type: dict
+      required: true
+
+EXAMPLES: |
+  - name: Write a properties file in one go
+    ansible.builtin.copy:
+      content: "{{ {'server.port': 8443, 'server.tls': true} | ${{ values.namespace }}.${{ values.collectionName }}.to_properties }}"
+      dest: /etc/app/app.properties
+      mode: "0640"
+
+RETURN:
+  _value:
+    description: The properties file text.
+    type: str

@@ -1,0 +1,16 @@
+{
+  "values": {
+    "name": "sample-addons",
+    "description": "Add-ons of the team's \"main\" cluster: ingress, certificates & DNS",
+    "owner": "group:default/platform-team",
+    "environment": "development",
+    "ingressController": true,
+    "certManager": true,
+    "acmeEmail": "platform-team@sample-product.dev",
+    "externalDns": true,
+    "dnsProvider": "cloudflare",
+    "dnsDomain": "sample-product.dev",
+    "metricsServer": true,
+    "repoUrl": "github.com?owner=example-org&repo=sample-addons"
+  }
+}

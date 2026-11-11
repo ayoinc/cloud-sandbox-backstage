@@ -1,0 +1,17 @@
+{
+  "values": {
+    "name": "sample-server",
+    "description": "Servers for the team's \"batch\" service: API & workers",
+    "owner": "group:default/platform-team",
+    "environment": "development",
+    "location": "fsn1",
+    "serverType": "cpx22",
+    "image": "ubuntu-26.04",
+    "serverCount": 2,
+    "sshKeyName": "platform-team",
+    "sshSourceCidr": "198.51.100.0/24",
+    "allowWeb": false,
+    "loadBalancer": true,
+    "repoUrl": "github.com?owner=example-org&repo=sample-server"
+  }
+}

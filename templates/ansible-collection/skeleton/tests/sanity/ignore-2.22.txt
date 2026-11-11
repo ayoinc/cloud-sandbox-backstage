@@ -1,0 +1,1 @@
+plugins/modules/properties_entry.py validate-modules:missing-gplv3-license # The collection is MIT licensed

@@ -1,0 +1,5 @@
+# Checkov configuration, used by the Security Scan job and by `checkov --config-file .checkov.yaml -d .`
+framework:
+  - terraform
+quiet: true
+compact: true

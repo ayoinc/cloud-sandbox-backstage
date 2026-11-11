@@ -1,0 +1,22 @@
+---
+# Server roles and features, by the names Get-WindowsFeature shows. Applied
+# on Windows Server only.
+win_features_server_present: []
+win_features_server_absent:
+  - FS-SMB1
+  - PowerShell-V2
+  - Telnet-Client
+  - TFTP-Client
+
+# Optional features, by the names Get-WindowsOptionalFeature -Online shows.
+# Applied on client editions only.
+win_features_optional_present: []
+win_features_optional_absent:
+  - SMB1Protocol
+  - MicrosoftWindowsPowerShellV2Root
+  - TelnetClient
+  - TFTP
+
+# Restart when a feature change requires it. With false, the need is reported.
+win_features_allow_reboot: false
+win_features_reboot_timeout: 1800

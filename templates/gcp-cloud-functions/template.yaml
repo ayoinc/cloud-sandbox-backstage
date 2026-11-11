@@ -1,0 +1,183 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: gcp-cloud-functions
+  title: GCP Cloud Run Function
+  description: Create a Cloud Run function (Cloud Functions 2nd gen) for Node.js with a dedicated service account, an HTTP or Pub/Sub trigger and Terraform deployment
+  tags:
+    - gcp
+    - cloud-functions
+    - cloud-run
+    - serverless
+    - nodejs
+    - terraform
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: group:platform-team
+  type: service
+
+  parameters:
+    - title: Project Information
+      required:
+        - name
+        - owner
+      properties:
+        name:
+          title: Function Name
+          type: string
+          description: Name of the function, before the environment (at most 18 characters)
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          maxLength: 18
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Purpose of this function
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns this resource
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+    - title: Function Configuration
+      required:
+        - environment
+        - region
+        - gcpProject
+        - runtime
+        - triggerType
+      properties:
+        environment:
+          title: Environment
+          type: string
+          description: Environment the pipeline deploys on push; variable files for all three are generated
+          enum:
+            - development
+            - staging
+            - production
+          default: development
+        region:
+          title: GCP Region
+          type: string
+          enum:
+            - us-central1
+            - us-east1
+            - us-west1
+            - europe-west1
+            - europe-west2
+            - asia-east1
+          default: us-central1
+        gcpProject:
+          title: GCP Project ID
+          type: string
+          description: The GCP project to deploy to
+          pattern: '^[a-z][a-z0-9-]{4,28}[a-z0-9]$'
+        runtime:
+          title: Runtime
+          type: string
+          enum:
+            - nodejs24
+            - nodejs22
+          enumNames:
+            - Node.js 24
+            - Node.js 22
+          default: nodejs24
+        triggerType:
+          title: Trigger
+          type: string
+          description: HTTPS requests, or messages on a Pub/Sub topic created with the function
+          enum:
+            - http
+            - pubsub
+          enumNames:
+            - HTTP
+            - Pub/Sub
+          default: http
+        memory:
+          title: Memory
+          type: string
+          enum:
+            - 256M
+            - 512M
+            - 1Gi
+            - 2Gi
+          default: 256M
+        timeoutSeconds:
+          title: Timeout (seconds)
+          type: integer
+          default: 60
+          minimum: 1
+          maximum: 3600
+        maxInstances:
+          title: Max Instances
+          type: integer
+          default: 10
+          minimum: 1
+          maximum: 100
+        allowUnauthenticated:
+          title: Allow Public Access
+          type: boolean
+          description: Let anyone invoke an HTTP function without authentication. Ignored for the Pub/Sub trigger
+          default: false
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'Cloud Run function ' + parameters.name }}
+          owner: ${{ parameters.owner }}
+          environment: ${{ parameters.environment }}
+          envName: "${{ {'development': 'dev', 'staging': 'staging', 'production': 'prod'}[parameters.environment] }}"
+          region: ${{ parameters.region }}
+          gcpProject: ${{ parameters.gcpProject }}
+          runtime: ${{ parameters.runtime }}
+          triggerType: ${{ parameters.triggerType }}
+          memory: ${{ parameters.memory or '256M' }}
+          timeoutSeconds: ${{ parameters.timeoutSeconds or 60 }}
+          maxInstances: ${{ parameters.maxInstances or 10 }}
+          allowUnauthenticated: ${{ parameters.allowUnauthenticated === true and parameters.triggerType == 'http' }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: 'GCP Cloud Run Function: ${{ parameters.name }}'
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

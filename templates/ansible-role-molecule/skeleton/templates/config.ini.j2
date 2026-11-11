@@ -1,0 +1,8 @@
+# {{ ansible_managed }}
+{% raw %}{%{% endraw %} for section, options in ${{ values.rolePrefix }}_settings | dictsort {% raw %}%}{% endraw %}
+
+[{{ section }}]
+{% raw %}{%{% endraw %} for option, value in options | dictsort {% raw %}%}{% endraw %}
+{{ option }} = {{ value }}
+{% raw %}{%{% endraw %} endfor {% raw %}%}{% endraw %}
+{% raw %}{%{% endraw %} endfor {% raw %}%}{% endraw %}

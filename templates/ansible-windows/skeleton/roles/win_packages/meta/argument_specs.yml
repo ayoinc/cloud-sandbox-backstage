@@ -1,0 +1,38 @@
+---
+argument_specs:
+  main:
+    short_description: Software from Chocolatey and winget on Windows hosts
+    description:
+      - Keeps the declared Chocolatey and winget packages installed, at a
+        pinned version where one is given.
+    options:
+      win_packages_chocolatey_enabled:
+        description: Manage Chocolatey and its package list.
+        type: bool
+        default: true
+      win_packages_chocolatey:
+        description: Chocolatey packages. Each entry has name and optionally version, state and pinned.
+        type: list
+        elements: dict
+        default: []
+      win_packages_chocolatey_source_url:
+        description: URL of an internal feed. When set, the community feed is disabled.
+        type: str
+        default: ''
+      win_packages_chocolatey_source_name:
+        description: Name the internal feed is registered under.
+        type: str
+        default: internal
+      win_packages_winget_enabled:
+        description: Manage the winget package list.
+        type: bool
+        default: false
+      win_packages_winget:
+        description: winget packages. Each entry has id and optionally version and state.
+        type: list
+        elements: dict
+        default: []
+      win_packages_winget_source:
+        description: winget source packages come from.
+        type: str
+        default: winget

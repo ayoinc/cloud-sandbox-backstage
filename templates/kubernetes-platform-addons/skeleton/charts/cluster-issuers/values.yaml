@@ -1,0 +1,5 @@
+# Address Let's Encrypt sends expiry warnings to. Required.
+email: ""
+
+# IngressClass that serves the HTTP-01 challenge.
+ingressClassName: traefik

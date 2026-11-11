@@ -1,0 +1,170 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: azure-container-apps
+  title: Azure Container Apps Service
+  description: Create an Azure Container Apps environment and app with a managed identity, Log Analytics, HTTPS ingress and autoscaling
+  tags:
+    - azure
+    - container-apps
+    - containers
+    - serverless
+    - terraform
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: group:platform-team
+  type: service
+
+  parameters:
+    - title: Project Information
+      required:
+        - name
+        - owner
+      properties:
+        name:
+          title: Application Name
+          type: string
+          description: Name used in resource names (at most 21 characters)
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          maxLength: 21
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Purpose of this application
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns this resource
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+    - title: Application Configuration
+      required:
+        - environment
+        - location
+        - containerImage
+        - targetPort
+      properties:
+        environment:
+          title: Environment
+          type: string
+          description: Environment the pipeline deploys on push; variable files for all three are generated
+          enum:
+            - development
+            - staging
+            - production
+          default: development
+        location:
+          title: Azure Region
+          type: string
+          enum:
+            - eastus
+            - eastus2
+            - westus2
+            - westeurope
+            - northeurope
+            - uksouth
+          default: eastus
+        containerImage:
+          title: Container Image
+          type: string
+          description: Image to run, with its tag or digest. The default is a public sample that listens on port 80
+          pattern: '^[a-z0-9][a-z0-9._/-]*(:[A-Za-z0-9_][A-Za-z0-9._-]{0,127})?(@sha256:[a-f0-9]{64})?$'
+          default: mcr.microsoft.com/k8se/quickstart:latest
+        targetPort:
+          title: Container Port
+          type: integer
+          description: Port the container listens on
+          default: 80
+          minimum: 1
+          maximum: 65535
+        cpu:
+          title: CPU per Replica
+          type: string
+          description: vCPUs per replica; memory is 2Gi for each vCPU
+          enum:
+            - '0.25'
+            - '0.5'
+            - '1'
+            - '2'
+          default: '0.5'
+        minReplicas:
+          title: Minimum Replicas
+          type: integer
+          description: 0 scales to zero when idle
+          default: 0
+          minimum: 0
+          maximum: 25
+        maxReplicas:
+          title: Maximum Replicas
+          type: integer
+          default: 3
+          minimum: 1
+          maximum: 100
+        externalIngress:
+          title: External Ingress
+          type: boolean
+          description: Accept requests from the internet. Off, only other apps in the same environment reach the app
+          default: false
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'Azure Container Apps service ' + parameters.name }}
+          owner: ${{ parameters.owner }}
+          environment: ${{ parameters.environment }}
+          envName: "${{ {'development': 'dev', 'staging': 'staging', 'production': 'prod'}[parameters.environment] }}"
+          location: ${{ parameters.location }}
+          containerImage: ${{ parameters.containerImage }}
+          targetPort: ${{ parameters.targetPort }}
+          cpu: ${{ parameters.cpu or '0.5' }}
+          memory: "${{ {'0.25': '0.5Gi', '0.5': '1Gi', '1': '2Gi', '2': '4Gi'}[parameters.cpu or '0.5'] }}"
+          minReplicas: ${{ parameters.minReplicas or 0 }}
+          maxReplicas: ${{ parameters.maxReplicas or 3 }}
+          externalIngress: ${{ parameters.externalIngress === true }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: 'Azure Container Apps Service: ${{ parameters.name }}'
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

@@ -1,0 +1,14 @@
+{
+  "values": {
+    "name": "sample-zone",
+    "description": "Public zone for the team's \"main\" product: website & API",
+    "owner": "group:default/platform-team",
+    "domain": "sample-product.dev",
+    "plan": "pro",
+    "sslMode": "strict",
+    "minTlsVersion": "1.2",
+    "originIpv4": "203.0.113.10",
+    "rateLimiting": true,
+    "repoUrl": "github.com?owner=example-org&repo=sample-zone"
+  }
+}

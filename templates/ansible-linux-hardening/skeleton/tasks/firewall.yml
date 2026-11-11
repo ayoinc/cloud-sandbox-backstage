@@ -1,0 +1,40 @@
+---
+- name: Install nftables
+  ansible.builtin.package:
+    name: nftables
+    state: present
+
+- name: Gather service state
+  ansible.builtin.service_facts:
+
+# Two firewall managers writing to the same kernel tables undo each other.
+- name: Stop other firewall managers
+  ansible.builtin.systemd_service:
+    name: '{{ item }}'
+    state: stopped
+    enabled: false
+    masked: true
+  loop:
+    - firewalld.service
+    - ufw.service
+  when:
+    - linux_hardening_firewall_apply | bool
+    - item in ansible_facts.services
+    - ansible_facts.services[item].status | default('not-found') not in ['not-found', 'masked']
+
+- name: Write the nftables ruleset
+  ansible.builtin.template:
+    src: nftables.conf.j2
+    dest: '{{ __linux_hardening_nftables_conf }}'
+    owner: root
+    group: root
+    mode: '0600'
+    validate: "{{ linux_hardening_firewall_apply | bool | ternary('nft -c -f %s', omit) }}"
+  notify: Reload the firewall
+
+- name: Ensure nftables is enabled and running
+  ansible.builtin.systemd_service:
+    name: nftables
+    state: started
+    enabled: true
+  when: linux_hardening_firewall_apply | bool

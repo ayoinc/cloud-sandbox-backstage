@@ -1,0 +1,15 @@
+---
+# Collections needed to test the role. The role itself uses ansible.builtin
+# only; add what new tasks need here, pinned to an exact version.
+#
+#   ansible-galaxy collection install -r requirements.yml
+collections:
+{%- if values.moleculeDriver == 'podman' %}
+  # Molecule's Podman driver creates instances with these modules.
+  - name: containers.podman
+    version: 1.21.2
+{%- else %}
+  # Molecule's Docker driver creates instances with these modules.
+  - name: community.docker
+    version: 5.4.0
+{%- endif %}

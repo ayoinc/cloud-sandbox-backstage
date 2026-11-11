@@ -1,0 +1,91 @@
+---
+# Rolling upgrade to the k3s_version set in inventory. Servers are upgraded
+# before agents, one node at a time; each node is drained first and returned
+# to service once it reports ready on the new version.
+#
+#   ansible-playbook playbooks/upgrade.yml
+- name: Check the upgrade is supported
+  hosts: server[0]
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Read the running version
+      ansible.builtin.command:
+        cmd: /usr/local/bin/k3s --version
+      register: k3s_running
+      changed_when: false
+
+    - name: Compare the running and target versions
+      ansible.builtin.assert:
+        that:
+          - k3s_target is version(k3s_current, '>=')
+          - (k3s_target.split('.')[0] | int) == (k3s_current.split('.')[0] | int)
+          - (k3s_target.split('.')[1] | int) - (k3s_current.split('.')[1] | int) <= 1
+        fail_msg: >-
+          Cannot go from {{ k3s_current }} to {{ k3s_target }}. Kubernetes supports
+          upgrading one minor version at a time, and does not support downgrades.
+        success_msg: 'Upgrading from {{ k3s_current }} to {{ k3s_target }}.'
+      vars:
+        k3s_current: "{{ k3s_running.stdout | regex_search('v([0-9]+\\.[0-9]+\\.[0-9]+)', '\\1') | first }}"
+        k3s_target: "{{ k3s_version | regex_search('v([0-9]+\\.[0-9]+\\.[0-9]+)', '\\1') | first }}"
+
+    - name: Take an etcd snapshot before changing anything
+      ansible.builtin.command:
+        cmd: /usr/local/bin/k3s etcd-snapshot save --name pre-upgrade
+      changed_when: true
+
+- name: Upgrade the servers
+  hosts: server
+  become: true
+  gather_facts: true
+  serial: 1
+  vars:
+    k3s_upgrade_drain: true
+    k3s_upgrade_drain_timeout: 300
+  pre_tasks:
+    - name: Drain the node
+      ansible.builtin.command:
+        cmd: >-
+          /usr/local/bin/k3s kubectl drain {{ k3s_node_name | default(ansible_facts.hostname | lower) }}
+          --ignore-daemonsets --delete-emptydir-data --timeout={{ k3s_upgrade_drain_timeout }}s
+      changed_when: true
+      delegate_to: '{{ groups["server"] | first }}'
+      when: k3s_upgrade_drain | bool
+
+  roles:
+    - role: k3s
+  post_tasks:
+    - name: Return the node to service
+      ansible.builtin.command:
+        cmd: /usr/local/bin/k3s kubectl uncordon {{ k3s_node_name | default(ansible_facts.hostname | lower) }}
+      changed_when: true
+      delegate_to: '{{ groups["server"] | first }}'
+      when: k3s_upgrade_drain | bool
+
+- name: Upgrade the agents
+  hosts: agent
+  become: true
+  gather_facts: true
+  serial: 1
+  vars:
+    k3s_upgrade_drain: true
+    k3s_upgrade_drain_timeout: 300
+  pre_tasks:
+    - name: Drain the node
+      ansible.builtin.command:
+        cmd: >-
+          /usr/local/bin/k3s kubectl drain {{ k3s_node_name | default(ansible_facts.hostname | lower) }}
+          --ignore-daemonsets --delete-emptydir-data --timeout={{ k3s_upgrade_drain_timeout }}s
+      changed_when: true
+      delegate_to: '{{ groups["server"] | first }}'
+      when: k3s_upgrade_drain | bool
+
+  roles:
+    - role: k3s
+  post_tasks:
+    - name: Return the node to service
+      ansible.builtin.command:
+        cmd: /usr/local/bin/k3s kubectl uncordon {{ k3s_node_name | default(ansible_facts.hostname | lower) }}
+      changed_when: true
+      delegate_to: '{{ groups["server"] | first }}'
+      when: k3s_upgrade_drain | bool

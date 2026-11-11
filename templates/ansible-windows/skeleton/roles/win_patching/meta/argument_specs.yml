@@ -1,0 +1,28 @@
+---
+argument_specs:
+  main:
+    short_description: Windows Update with controlled reboots
+    description:
+      - Installs updates of the selected classifications and restarts the
+        host if that is allowed and needed.
+    options:
+      win_patching_categories:
+        description: Update classifications to install.
+        type: list
+        elements: str
+      win_patching_reject_list:
+        description: Updates never installed, as regular expressions matching title or KB number.
+        type: list
+        elements: str
+        default: []
+      win_patching_reboot:
+        description: Restart when updates require it.
+        type: bool
+        default: false
+      win_patching_reboot_timeout:
+        description: Seconds to wait for the host to come back.
+        type: int
+        default: 3600
+      win_patching_log_path:
+        description: Log written on the host by the update run.
+        type: str

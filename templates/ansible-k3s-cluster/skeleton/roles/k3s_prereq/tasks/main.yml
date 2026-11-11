@@ -1,0 +1,40 @@
+---
+- name: Check the host can run k3s
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.os_family in ['Debian', 'RedHat']
+      - ansible_facts.service_mgr == 'systemd'
+      - ansible_facts.architecture in ['x86_64', 'aarch64']
+    fail_msg: k3s nodes must be systemd-based Debian-family or Enterprise Linux hosts on x86_64 or aarch64.
+    quiet: true
+
+- name: Install required packages
+  ansible.builtin.package:
+    name:
+      - curl
+      - ca-certificates
+    state: present
+
+- name: Load the kernel modules for container networking
+  community.general.modprobe:
+    name: '{{ item }}'
+    state: present
+    persistent: present
+  loop:
+    - br_netfilter
+    - overlay
+
+- name: Set kernel parameters
+  ansible.posix.sysctl:
+    name: '{{ item.key }}'
+    value: '{{ item.value }}'
+    sysctl_file: /etc/sysctl.d/90-k3s.conf
+    state: present
+    reload: true
+  loop: '{{ k3s_prereq_sysctl | dict2items }}'
+  loop_control:
+    label: '{{ item.key }}'
+
+- name: Configure the host firewall
+  ansible.builtin.include_tasks: firewall.yml
+  when: k3s_prereq_manage_firewall | bool

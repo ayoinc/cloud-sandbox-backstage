@@ -1,0 +1,25 @@
+# Ansible working files
+.ansible/
+*.retry
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Molecule and local caches
+.cache/
+.molecule/
+
+# Secrets never belong in the repository
+*.vault-pass
+.vault_pass
+*.pem
+*.key
+
+# Collection build and test output
+*.tar.gz
+/dist/
+/tests/output/
+/changelogs/.plugin-cache.yaml

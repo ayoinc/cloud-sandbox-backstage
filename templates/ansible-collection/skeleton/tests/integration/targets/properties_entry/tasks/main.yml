@@ -1,0 +1,159 @@
+---
+- name: Find out who the tests run as
+  ansible.builtin.setup:
+    gather_subset:
+      - '!all'
+      - user
+
+- name: Create a working directory
+  ansible.builtin.tempfile:
+    state: directory
+    suffix: .properties_entry
+  register: workdir
+
+- name: Run the tests and always clean up
+  vars:
+    target: '{{ workdir.path }}/app.properties'
+  block:
+    - name: Seed a file with a comment and a duplicate
+      ansible.builtin.copy:
+        content: |
+          # managed by hand
+          server.port=8080
+          server.port=9090
+        dest: '{{ target }}'
+        mode: '0644'
+
+    - name: Set a value in check mode
+      ${{ values.namespace }}.${{ values.collectionName }}.properties_entry:
+        path: '{{ target }}'
+        key: server.port
+        value: '8443'
+      check_mode: true
+      diff: true
+      register: checked
+
+    - name: Read the file after check mode
+      ansible.builtin.slurp:
+        src: '{{ target }}'
+      register: after_check
+
+    - name: Check that check mode reported a change and wrote nothing
+      ansible.builtin.assert:
+        that:
+          - checked is changed
+          - "'server.port=8443' in checked.diff.after"
+          - "'server.port=8080' in (after_check.content | b64decode)"
+
+    - name: Set the value
+      ${{ values.namespace }}.${{ values.collectionName }}.properties_entry:
+        path: '{{ target }}'
+        key: server.port
+        value: '8443'
+        mode: '0600'
+        backup: true
+      register: first
+
+    - name: Set the value again
+      ${{ values.namespace }}.${{ values.collectionName }}.properties_entry:
+        path: '{{ target }}'
+        key: server.port
+        value: '8443'
+        mode: '0600'
+      register: second
+
+    - name: Inspect the result
+      ansible.builtin.stat:
+        path: '{{ target }}'
+      register: target_stat
+
+    - name: Read the file
+      ansible.builtin.slurp:
+        src: '{{ target }}'
+      register: content
+
+    - name: Check the entry, the comment, the mode and idempotence
+      ansible.builtin.assert:
+        that:
+          - first is changed
+          - first.backup_file is defined
+          - second is not changed
+          - target_stat.stat.mode == '0600'
+          - (content.content | b64decode) == "# managed by hand\nserver.port=8443\n"
+
+    - name: Remove the entry
+      ${{ values.namespace }}.${{ values.collectionName }}.properties_entry:
+        path: '{{ target }}'
+        key: server.port
+        state: absent
+      register: removed
+
+    - name: Remove the entry again
+      ${{ values.namespace }}.${{ values.collectionName }}.properties_entry:
+        path: '{{ target }}'
+        key: server.port
+        state: absent
+      register: removed_again
+
+    - name: Check removal and idempotence
+      ansible.builtin.assert:
+        that:
+          - removed is changed
+          - removed_again is not changed
+
+    - name: Refuse to create a file when create is false
+      ${{ values.namespace }}.${{ values.collectionName }}.properties_entry:
+        path: '{{ workdir.path }}/missing.properties'
+        key: a
+        value: b
+        create: false
+      register: missing
+      ignore_errors: true
+
+    - name: Reject an invalid key
+      ${{ values.namespace }}.${{ values.collectionName }}.properties_entry:
+        path: '{{ target }}'
+        key: 'not valid'
+        value: b
+      register: invalid
+      ignore_errors: true
+
+    - name: Check both failures were reported
+      ansible.builtin.assert:
+        that:
+          - missing is failed
+          - "'does not exist' in missing.msg"
+          - invalid is failed
+          - "'must not' in invalid.msg"
+
+    - name: Apply the role
+      ansible.builtin.include_role:
+        name: ${{ values.namespace }}.${{ values.collectionName }}.properties_file
+      vars:
+        properties_file_path: '{{ workdir.path }}/role.properties'
+        properties_file_entries:
+          server.port: 8443
+          server.tls: true
+        properties_file_mode: '0600'
+        # The suite also runs unprivileged, where files cannot be given to root.
+        properties_file_owner: '{{ ansible_facts.user_id }}'
+        properties_file_group: '{{ ansible_facts.user_gid | string }}'
+
+    - name: Render the same entries with the filter
+      ansible.builtin.set_fact:
+        expected: "{{ {'server.port': 8443, 'server.tls': true} | ${{ values.namespace }}.${{ values.collectionName }}.to_properties }}"
+
+    - name: Read the file the role wrote
+      ansible.builtin.slurp:
+        src: '{{ workdir.path }}/role.properties'
+      register: role_content
+
+    - name: Check the role and the filter agree
+      ansible.builtin.assert:
+        that:
+          - (role_content.content | b64decode) == expected
+  always:
+    - name: Remove the working directory
+      ansible.builtin.file:
+        path: '{{ workdir.path }}'
+        state: absent

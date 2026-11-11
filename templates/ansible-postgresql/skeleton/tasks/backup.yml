@@ -1,0 +1,77 @@
+---
+- name: Read the state of the backup stanza
+  ansible.builtin.command:
+    argv:
+      - pgbackrest
+      - '--stanza={{ postgresql_pgbackrest_stanza }}'
+      - --output=json
+      - --log-level-console=off
+      - info
+  become: true
+  become_user: postgres
+  register: __postgresql_stanza_info
+  changed_when: false
+
+# Status 1 and 3 mean the repository has no such stanza yet; 2 means it
+# exists and only lacks a backup.
+- name: Create the backup stanza
+  ansible.builtin.command:
+    argv:
+      - pgbackrest
+      - '--stanza={{ postgresql_pgbackrest_stanza }}'
+      - stanza-create
+  become: true
+  become_user: postgres
+  register: __postgresql_stanza_create
+  changed_when: true
+  when: >-
+    (__postgresql_stanza_info.stdout | from_json | length == 0)
+    or (__postgresql_stanza_info.stdout | from_json | first).status.code in [1, 3]
+
+# Has to run here, before the timers are enabled, so it cannot be a handler.
+- name: Check that WAL archiving reaches the repository # noqa: no-handler
+  ansible.builtin.command:
+    argv:
+      - pgbackrest
+      - '--stanza={{ postgresql_pgbackrest_stanza }}'
+      - check
+  become: true
+  become_user: postgres
+  changed_when: false
+  when: __postgresql_stanza_create is changed
+
+- name: Install the backup service and timers
+  ansible.builtin.template:
+    src: '{{ item }}.j2'
+    dest: '/etc/systemd/system/{{ item }}'
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - pgbackrest-backup@.service
+    - pgbackrest-full.timer
+    - pgbackrest-diff.timer
+  notify: Reload systemd
+
+- name: Make systemd read the new units
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable the backup timers
+  ansible.builtin.systemd_service:
+    name: '{{ item }}'
+    state: started
+    enabled: true
+  loop:
+    - pgbackrest-full.timer
+    - pgbackrest-diff.timer
+
+# A new stanza has nothing to restore from until its first full backup, so one
+# is started in the background instead of waiting for the weekly timer.
+- name: Start the first full backup
+  ansible.builtin.systemd_service:
+    name: pgbackrest-backup@full.service
+    state: started
+    no_block: true
+  when:
+    - postgresql_pgbackrest_initial_backup | bool
+    - __postgresql_stanza_create is changed

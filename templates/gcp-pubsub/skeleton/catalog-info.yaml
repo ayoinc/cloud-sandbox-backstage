@@ -1,0 +1,22 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: ${{ values.name }}
+  description: ${{ values.description | dump }}
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
+  tags:
+    - gcp
+    - pubsub
+    - messaging
+    - ${{ values.environment }}
+  links:
+    - url: https://console.cloud.google.com/cloudpubsub/topic/list
+      title: GCP Console
+      icon: cloud
+spec:
+  type: pubsub-topic
+  owner: ${{ values.owner }}
+  lifecycle: ${{ values.environment }}
+  system: cloud-infrastructure

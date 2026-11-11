@@ -1,0 +1,4 @@
+site_name: Azure Key Vault
+docs_dir: docs
+plugins:
+  - techdocs-core

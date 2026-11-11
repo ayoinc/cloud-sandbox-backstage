@@ -1,0 +1,175 @@
+---
+argument_specs:
+  main:
+    short_description: ${{ values.description | dump }}
+    description:
+      - Applies a CIS-aligned baseline to Debian-family and Enterprise Linux hosts.
+      - Each control area has its own toggle and can be applied on its own.
+    author:
+      - ${{ values.owner | dump }}
+    options:
+      linux_hardening_sshd_enabled:
+        description: Apply the SSH daemon control.
+        type: bool
+      linux_hardening_sysctl_enabled:
+        description: Apply the kernel parameter control.
+        type: bool
+      linux_hardening_auditd_enabled:
+        description: Apply the audit daemon control.
+        type: bool
+      linux_hardening_firewall_enabled:
+        description: Apply the firewall control.
+        type: bool
+      linux_hardening_updates_enabled:
+        description: Apply the unattended upgrades control.
+        type: bool
+      linux_hardening_ssh_port:
+        description: Port sshd already listens on. Kept open by the firewall; the role does not move sshd.
+        type: int
+        default: 22
+      linux_hardening_ssh_permit_root_login:
+        description: Value of PermitRootLogin.
+        type: str
+        choices:
+          - "no"
+          - prohibit-password
+          - forced-commands-only
+        default: 'no'
+      linux_hardening_ssh_password_authentication:
+        description: Allow password logins.
+        type: bool
+        default: false
+      linux_hardening_ssh_max_auth_tries:
+        description: Authentication attempts per connection.
+        type: int
+        default: 4
+      linux_hardening_ssh_max_sessions:
+        description: Sessions per network connection.
+        type: int
+        default: 10
+      linux_hardening_ssh_max_startups:
+        description: "Limit on concurrent unauthenticated connections, as start:rate:full."
+        type: str
+        default: '10:30:60'
+      linux_hardening_ssh_login_grace_time:
+        description: Seconds allowed to complete authentication.
+        type: int
+        default: 60
+      linux_hardening_ssh_client_alive_interval:
+        description: Seconds of silence before sshd probes the client.
+        type: int
+        default: 300
+      linux_hardening_ssh_client_alive_count_max:
+        description: Unanswered probes before the session is closed.
+        type: int
+        default: 3
+      linux_hardening_ssh_allow_tcp_forwarding:
+        description: Allow TCP port forwarding.
+        type: bool
+        default: false
+      linux_hardening_ssh_allow_agent_forwarding:
+        description: Allow agent forwarding.
+        type: bool
+        default: false
+      linux_hardening_ssh_x11_forwarding:
+        description: Allow X11 forwarding.
+        type: bool
+        default: false
+      linux_hardening_ssh_log_level:
+        description: sshd log level.
+        type: str
+        choices:
+          - INFO
+          - VERBOSE
+        default: VERBOSE
+      linux_hardening_ssh_allow_groups:
+        description: Groups allowed to log in. Empty leaves group membership unrestricted.
+        type: list
+        elements: str
+        default: []
+      linux_hardening_ssh_ciphers:
+        description: Accepted ciphers, in order of preference.
+        type: list
+        elements: str
+      linux_hardening_ssh_macs:
+        description: Accepted message authentication codes.
+        type: list
+        elements: str
+      linux_hardening_ssh_kex_algorithms:
+        description: Accepted key exchange algorithms.
+        type: list
+        elements: str
+      linux_hardening_ssh_banner:
+        description: Text shown before authentication. Empty disables the banner.
+        type: str
+      linux_hardening_sysctl_apply:
+        description: Load the settings into the running kernel as well as writing them.
+        type: bool
+        default: true
+      linux_hardening_sysctl_settings:
+        description: Baseline kernel parameters, name to value.
+        type: dict
+      linux_hardening_sysctl_overrides:
+        description: Merged over the baseline; the place for per-group exceptions.
+        type: dict
+        default: {}
+      linux_hardening_auditd_apply:
+        description: Start auditd and load the rules as well as writing them.
+        type: bool
+        default: true
+      linux_hardening_auditd_conf:
+        description: Settings written to /etc/audit/auditd.conf.
+        type: dict
+      linux_hardening_auditd_backlog_limit:
+        description: Kernel audit backlog size.
+        type: int
+        default: 8192
+      linux_hardening_auditd_immutable:
+        description: Lock the rules until the next reboot.
+        type: bool
+        default: false
+      linux_hardening_auditd_extra_rules:
+        description: Extra rule lines in auditctl syntax.
+        type: list
+        elements: str
+        default: []
+      linux_hardening_firewall_apply:
+        description: Load the ruleset and enable nftables as well as writing the file.
+        type: bool
+        default: true
+      linux_hardening_firewall_ssh_sources_ipv4:
+        description: IPv4 networks allowed to reach sshd. With both source lists empty, any source is allowed.
+        type: list
+        elements: str
+        default: []
+      linux_hardening_firewall_ssh_sources_ipv6:
+        description: IPv6 networks allowed to reach sshd.
+        type: list
+        elements: str
+        default: []
+      linux_hardening_firewall_allowed_tcp_ports:
+        description: Further inbound TCP ports to accept.
+        type: list
+        elements: int
+        default: []
+      linux_hardening_firewall_allowed_udp_ports:
+        description: Further inbound UDP ports to accept.
+        type: list
+        elements: int
+        default: []
+      linux_hardening_firewall_log_dropped:
+        description: Log dropped inbound packets, rate limited.
+        type: bool
+        default: true
+      linux_hardening_updates_automatic_reboot:
+        description: Reboot automatically when an update requires it.
+        type: bool
+        default: false
+      linux_hardening_updates_reboot_time:
+        description: "Time of day for the automatic reboot, HH:MM (Debian and Ubuntu)."
+        type: str
+        default: '03:30'
+      linux_hardening_updates_remove_unused:
+        description: Remove unused dependencies and old kernels (Debian and Ubuntu).
+        type: bool
+        default: true

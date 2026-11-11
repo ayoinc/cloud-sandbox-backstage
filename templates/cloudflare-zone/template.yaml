@@ -1,0 +1,152 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: cloudflare-zone
+  title: Cloudflare Zone
+  description: Manage a Cloudflare zone with hardened TLS settings, DNS records, DNSSEC and WAF rulesets using Terraform
+  tags:
+    - cloudflare
+    - dns
+    - waf
+    - terraform
+    - devops
+    - security
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: group:platform-team
+  type: infrastructure
+
+  parameters:
+    - title: Project Information
+      required:
+        - name
+        - owner
+      properties:
+        name:
+          title: Name
+          type: string
+          description: Name of the repository and of the catalog entry
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          maxLength: 40
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Purpose of this zone
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns this resource
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+    - title: Zone Configuration
+      required:
+        - domain
+        - plan
+        - sslMode
+        - minTlsVersion
+      properties:
+        domain:
+          title: Domain
+          type: string
+          description: Apex domain of the zone, for instance a domain your organisation has registered
+          pattern: '^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$'
+        existingZoneId:
+          title: Existing Zone ID
+          type: string
+          description: Leave empty to create the zone. Set it to manage a zone that already exists in the account
+          pattern: '^[a-f0-9]{32}$'
+        plan:
+          title: Cloudflare Plan
+          type: string
+          description: Plan of the zone. The Cloudflare Managed and OWASP rulesets are deployed on paid plans only
+          enum:
+            - free
+            - pro
+            - business
+            - enterprise
+          default: free
+        sslMode:
+          title: SSL/TLS Encryption Mode
+          type: string
+          description: strict validates the origin certificate; full encrypts without validating it
+          enum:
+            - strict
+            - full
+          default: strict
+        minTlsVersion:
+          title: Minimum TLS Version
+          type: string
+          enum:
+            - '1.2'
+            - '1.3'
+          default: '1.2'
+        originIpv4:
+          title: Origin IPv4 Address
+          type: string
+          description: Optional. Creates proxied records for the apex and www that point at this address
+          format: ipv4
+        rateLimiting:
+          title: Rate Limit Sign-in Paths
+          type: boolean
+          description: Block clients that send bursts of requests to sign-in paths
+          default: true
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'Cloudflare zone ' + parameters.domain }}
+          owner: ${{ parameters.owner }}
+          domain: ${{ parameters.domain }}
+          existingZoneId: ${{ parameters.existingZoneId or '' }}
+          plan: ${{ parameters.plan or 'free' }}
+          sslMode: ${{ parameters.sslMode or 'strict' }}
+          minTlsVersion: ${{ parameters.minTlsVersion or '1.2' }}
+          originIpv4: ${{ parameters.originIpv4 or '' }}
+          rateLimiting: ${{ parameters.rateLimiting }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: 'Cloudflare Zone: ${{ parameters.name }}'
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

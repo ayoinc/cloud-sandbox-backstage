@@ -1,0 +1,72 @@
+---
+# Internal values computed from the public variables; not meant to be
+# overridden. Public settings go in postgresql_settings.
+__postgresql_is_replica: "{{ postgresql_replication_enabled | bool and postgresql_replication_role == 'replica' }}"
+__postgresql_memory_mb: '{{ ansible_facts.memtotal_mb | int }}'
+__postgresql_cpus: '{{ ansible_facts.processor_vcpus | default(1) | int }}'
+# Marks a replica whose data directory still has to be copied from the primary.
+__postgresql_seed_marker: '{{ __postgresql_home }}/.replica_seed_pending_{{ postgresql_version }}'
+
+__postgresql_base_settings:
+  listen_addresses: "{{ postgresql_listen_addresses | join(',') }}"
+  port: '{{ postgresql_port | int }}'
+  max_connections: '{{ postgresql_max_connections | int }}'
+  password_encryption: scram-sha-256
+  ssl: '{{ postgresql_ssl_enabled | bool }}'
+  ssl_min_protocol_version: TLSv1.2
+  log_line_prefix: '%m [%p] %q%u@%d/%a '
+  log_checkpoints: true
+  log_connections: true
+  log_disconnections: true
+  log_lock_waits: true
+  log_temp_files: 0
+  log_min_duration_statement: 1000
+  log_autovacuum_min_duration: 0
+  shared_preload_libraries: pg_stat_statements
+  track_io_timing: true
+  idle_in_transaction_session_timeout: 600000
+
+__postgresql_ssl_settings:
+  ssl_cert_file: '{{ postgresql_ssl_cert_file }}'
+  ssl_key_file: '{{ postgresql_ssl_key_file }}'
+
+# A quarter of memory for shared buffers, three quarters assumed cached, and
+# work_mem sized so that every connection sorting at once stays within a
+# quarter of memory. Values are in megabytes.
+__postgresql_tuned_settings:
+  shared_buffers: '{{ [(__postgresql_memory_mb | int // 4), 128] | max }}MB'
+  effective_cache_size: '{{ [(__postgresql_memory_mb | int * 3 // 4), 256] | max }}MB'
+  maintenance_work_mem: '{{ [[(__postgresql_memory_mb | int // 16), 64] | max, 2048] | min }}MB'
+  work_mem: '{{ [(__postgresql_memory_mb | int // 4 // (postgresql_max_connections | int)), 4] | max }}MB'
+  wal_buffers: 16MB
+  min_wal_size: 1GB
+  max_wal_size: 4GB
+  checkpoint_completion_target: 0.9
+  default_statistics_target: 100
+  random_page_cost: "{{ (postgresql_storage_type == 'ssd') | ternary(1.1, 4) }}"
+  effective_io_concurrency: "{{ (postgresql_storage_type == 'ssd') | ternary(200, 2) }}"
+  max_worker_processes: '{{ [__postgresql_cpus | int, 8] | max }}'
+  max_parallel_workers: '{{ [__postgresql_cpus | int, 2] | max }}'
+  max_parallel_workers_per_gather: '{{ [[(__postgresql_cpus | int // 2), 1] | max, 4] | min }}'
+  max_parallel_maintenance_workers: '{{ [[(__postgresql_cpus | int // 2), 1] | max, 4] | min }}'
+
+__postgresql_replication_settings:
+  wal_level: replica
+  max_wal_senders: 10
+  max_replication_slots: 10
+  hot_standby: true
+  wal_log_hints: true
+
+__postgresql_archive_settings:
+  archive_mode: true
+  archive_command: 'pgbackrest --stanza={{ postgresql_pgbackrest_stanza }} archive-push %p'
+  archive_timeout: 300
+  restore_command: 'pgbackrest --stanza={{ postgresql_pgbackrest_stanza }} archive-get %f "%p"'
+
+__postgresql_effective_settings: >-
+  {{ __postgresql_base_settings
+     | combine(postgresql_ssl_enabled | bool | ternary(__postgresql_ssl_settings, {}))
+     | combine(postgresql_tuning_enabled | bool | ternary(__postgresql_tuned_settings, {}))
+     | combine(postgresql_replication_enabled | bool | ternary(__postgresql_replication_settings, {}))
+     | combine(postgresql_pgbackrest_enabled | bool | ternary(__postgresql_archive_settings, {}))
+     | combine(postgresql_settings) }}

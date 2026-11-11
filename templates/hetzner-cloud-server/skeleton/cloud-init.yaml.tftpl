@@ -1,0 +1,50 @@
+#cloud-config
+# First-boot configuration, rendered by Terraform (templatefile). Changing this
+# file replaces the servers, because user data is only read on the first boot.
+
+package_update: true
+package_upgrade: true
+packages:
+  - fail2ban
+  - unattended-upgrades
+
+users:
+  - name: ${admin_user}
+    groups: [sudo]
+    shell: /bin/bash
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    lock_passwd: true
+    ssh_authorized_keys:
+%{ for key in ssh_public_keys ~}
+      - ${key}
+%{ endfor ~}
+
+write_files:
+  # Key-based sign-in for the admin user only.
+  - path: /etc/ssh/sshd_config.d/10-hardening.conf
+    permissions: "0644"
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      X11Forwarding no
+      MaxAuthTries 3
+      AllowUsers ${admin_user}
+  # Security updates are installed daily.
+  - path: /etc/apt/apt.conf.d/20auto-upgrades
+    permissions: "0644"
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+  - path: /etc/fail2ban/jail.d/sshd.local
+    permissions: "0644"
+    content: |
+      [sshd]
+      enabled = true
+      maxretry = 5
+      bantime = 1h
+
+runcmd:
+  - systemctl restart ssh
+  - systemctl enable --now fail2ban
+  - systemctl enable --now unattended-upgrades

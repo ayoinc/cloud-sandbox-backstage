@@ -1,0 +1,16 @@
+---
+site_name: ${{ values.name | dump }}
+site_description: ${{ values.description | dump }}
+
+nav:
+  - Home: index.md
+  - Usage: usage.md
+
+plugins:
+  - techdocs-core
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - tables

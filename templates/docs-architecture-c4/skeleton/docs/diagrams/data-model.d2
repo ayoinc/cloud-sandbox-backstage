@@ -1,0 +1,54 @@
+# The tables behind the write path. Replace with the real model.
+direction: right
+
+vars: {
+  d2-config: {
+    sketch: true
+    pad: 40
+  }
+}
+
+(* -> *)[*].style: {
+  stroke: "#c2185b"
+  stroke-width: 4
+}
+
+account: {
+  shape: sql_table
+  id: uuid {constraint: primary_key}
+  email: text {constraint: unique}
+  status: text
+  created_at: timestamptz
+}
+
+record: {
+  shape: sql_table
+  id: uuid {constraint: primary_key}
+  account_id: uuid {constraint: foreign_key}
+  idempotency_key: text {constraint: unique}
+  state: text
+  amount_minor: bigint
+  currency: char(3)
+  created_at: timestamptz
+  updated_at: timestamptz
+}
+
+record_event: {
+  shape: sql_table
+  id: bigint {constraint: primary_key}
+  record_id: uuid {constraint: foreign_key}
+  type: text
+  payload: jsonb
+  occurred_at: timestamptz
+}
+
+outbox: {
+  shape: sql_table
+  id: bigint {constraint: primary_key}
+  topic: text
+  payload: jsonb
+  published_at: timestamptz
+}
+
+record.account_id -> account.id
+record_event.record_id -> record.id

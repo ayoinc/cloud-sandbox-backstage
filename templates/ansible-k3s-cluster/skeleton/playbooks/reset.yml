@@ -1,0 +1,64 @@
+---
+# Removes k3s and all cluster data from every node. There is no undo.
+#
+#   ansible-playbook playbooks/reset.yml -e k3s_reset_confirm=yes
+#
+# Limit it to take single nodes out: --limit <host>. Remove the node from the
+# cluster first with "kubectl delete node".
+- name: Confirm the reset
+  hosts: k3s_cluster
+  gather_facts: false
+  tasks:
+    - name: Require explicit confirmation
+      ansible.builtin.assert:
+        that:
+          - k3s_reset_confirm | default('') == 'yes'
+        fail_msg: >-
+          This removes k3s and its data from {{ ansible_play_hosts_all | length }} host(s).
+          Run again with -e k3s_reset_confirm=yes to proceed.
+        quiet: true
+      run_once: true
+
+- name: Remove k3s from the agents
+  hosts: agent
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Run the agent uninstall script
+      ansible.builtin.command:
+        cmd: /usr/local/bin/k3s-agent-uninstall.sh
+        removes: /usr/local/bin/k3s-agent-uninstall.sh
+
+- name: Remove k3s from the servers
+  hosts: server
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Run the server uninstall script
+      ansible.builtin.command:
+        cmd: /usr/local/bin/k3s-uninstall.sh
+        removes: /usr/local/bin/k3s-uninstall.sh
+
+- name: Remove what the uninstall scripts leave behind
+  hosts: k3s_cluster
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Remove configuration, installer and kernel parameter files
+      ansible.builtin.file:
+        path: '{{ item }}'
+        state: absent
+      loop:
+        - /etc/rancher/k3s
+        - /usr/local/bin/k3s-install.sh
+        - /etc/sysctl.d/90-k3s.conf
+
+- name: Remove the local kubeconfig
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Delete the fetched kubeconfig
+      ansible.builtin.file:
+        path: '{{ playbook_dir }}/../kubeconfig'
+        state: absent

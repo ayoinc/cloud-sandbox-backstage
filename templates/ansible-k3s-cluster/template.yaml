@@ -1,0 +1,171 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: ansible-k3s-cluster
+  title: Ansible k3s Cluster
+  description: Create playbooks for a highly available k3s cluster with embedded etcd, an optional kube-vip API address, rolling upgrades and reset
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - ansible
+    - k3s
+    - kubernetes
+    - cluster
+    - high-availability
+spec:
+  owner: platform-team
+  type: ansible-playbook
+
+  parameters:
+    - title: Project Configuration
+      required:
+        - name
+        - description
+        - owner
+      properties:
+        name:
+          title: Name
+          type: string
+          description: Name of the repository (lower-case letters, digits, hyphens and underscores)
+          pattern: '^[a-z0-9]([a-z0-9_-]*[a-z0-9])?$'
+          maxLength: 63
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: What this repository is for, in one sentence
+        owner:
+          title: Owner
+          type: string
+          description: Team or user that owns the repository
+          ui:field: OwnerPicker
+          ui:options:
+            allowedKinds:
+              - Group
+              - User
+
+    - title: Cluster
+      required:
+        - k3sVersion
+        - servers
+        - apiEndpoint
+        - ansibleUser
+      properties:
+        k3sVersion:
+          title: k3s Version
+          type: string
+          description: Exact k3s release to install
+          pattern: '^v[0-9]+\.[0-9]+\.[0-9]+\+k3s[0-9]+$'
+          default: v1.37.2+k3s1
+        servers:
+          title: Servers
+          type: array
+          description: Control-plane hosts, as IP addresses or resolvable names. Use an odd number; three or more for high availability
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            pattern: '^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$'
+        agents:
+          title: Agents
+          type: array
+          description: Worker hosts, as IP addresses or resolvable names. May be left empty
+          uniqueItems: true
+          default: []
+          items:
+            type: string
+            pattern: '^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$'
+        ansibleUser:
+          title: SSH User
+          type: string
+          description: Account Ansible connects with; it needs passwordless sudo
+          pattern: '^[a-z_][a-z0-9_-]*$'
+          default: ansible
+        apiEndpoint:
+          title: API Endpoint
+          type: string
+          description: Address clients and agents use to reach the Kubernetes API - the kube-vip virtual IP, or the address of an existing load balancer
+          pattern: '^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$'
+
+    - title: Networking
+      properties:
+        enableKubeVip:
+          title: Deploy kube-vip
+          type: boolean
+          description: Announce the API endpoint as a virtual IP from the leading server. The endpoint must then be an unused IPv4 address in the servers' subnet
+          default: true
+        kubeVipInterface:
+          title: kube-vip Interface
+          type: string
+          description: Network interface on the servers that carries the virtual IP
+          pattern: '^[A-Za-z0-9._-]+$'
+          default: eth0
+        disableTraefik:
+          title: Leave out Traefik
+          type: boolean
+          description: Do not deploy the bundled Traefik ingress controller
+          default: false
+        disableServiceLb:
+          title: Leave out ServiceLB
+          type: boolean
+          description: Do not deploy the bundled ServiceLB load balancer, for example when using MetalLB or a cloud controller
+          default: false
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: template
+      name: Fetch Skeleton
+      action: fetch:template
+      input:
+        url: ./skeleton
+        copyWithoutTemplating:
+          - '**/*.j2'
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          k3sVersion: ${{ parameters.k3sVersion }}
+          servers: ${{ parameters.servers }}
+          agents: ${{ parameters.agents }}
+          ansibleUser: ${{ parameters.ansibleUser }}
+          apiEndpoint: ${{ parameters.apiEndpoint }}
+          enableKubeVip: ${{ parameters.enableKubeVip }}
+          kubeVipInterface: ${{ parameters.kubeVipInterface }}
+          disableTraefik: ${{ parameters.disableTraefik }}
+          disableServiceLb: ${{ parameters.disableServiceLb }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish
+      action: publish:github
+      input:
+        description: ${{ parameters.description }}
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: main
+        repoVisibility: private
+
+    - id: register
+      name: Register
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: /catalog-info.yaml
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}

@@ -1,0 +1,50 @@
+---
+- name: Gather service state
+  ansible.builtin.service_facts:
+
+- name: Work out which ports this node needs
+  ansible.builtin.set_fact:
+    # Kubelet and flannel VXLAN everywhere; API and etcd on servers.
+    __k3s_prereq_ports: >-
+      {{ ['10250/tcp', '8472/udp']
+         + ((k3s_node_type == 'server') | ternary(['6443/tcp', '2379-2380/tcp'], [])) }}
+    __k3s_prereq_firewalld: "{{ (ansible_facts.services['firewalld.service'] | default({})).state | default('') == 'running' }}"
+    __k3s_prereq_ufw: "{{ (ansible_facts.services['ufw.service'] | default({})).state | default('') in ['running', 'active'] }}"
+
+- name: Open the k3s ports in firewalld
+  ansible.posix.firewalld:
+    port: '{{ item }}'
+    permanent: true
+    immediate: true
+    state: enabled
+  loop: '{{ __k3s_prereq_ports }}'
+  when: __k3s_prereq_firewalld | bool
+
+- name: Trust the pod and service networks in firewalld
+  ansible.posix.firewalld:
+    zone: trusted
+    source: '{{ item }}'
+    permanent: true
+    immediate: true
+    state: enabled
+  loop:
+    - '{{ k3s_prereq_cluster_cidr }}'
+    - '{{ k3s_prereq_service_cidr }}'
+  when: __k3s_prereq_firewalld | bool
+
+- name: Open the k3s ports in ufw
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.split('/')[0] | replace('-', ':') }}"
+    proto: "{{ item.split('/')[1] }}"
+  loop: '{{ __k3s_prereq_ports }}'
+  when: __k3s_prereq_ufw | bool
+
+- name: Allow the pod and service networks in ufw
+  community.general.ufw:
+    rule: allow
+    from_ip: '{{ item }}'
+  loop:
+    - '{{ k3s_prereq_cluster_cidr }}'
+    - '{{ k3s_prereq_service_cidr }}'
+  when: __k3s_prereq_ufw | bool

@@ -1,0 +1,203 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: oci-compute
+  title: Oracle Cloud Compute Instance
+  description: Create an Oracle Cloud Infrastructure compute instance in its own VCN with network security groups, including the Always Free Ampere shape
+  tags:
+    - oracle-cloud
+    - oci
+    - compute
+    - terraform
+    - devops
+    - arm64
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: group:platform-team
+  type: infrastructure
+
+  parameters:
+    - title: Project Information
+      required:
+        - name
+        - owner
+      properties:
+        name:
+          title: Instance Name
+          type: string
+          description: Name of the instance; the environment is appended
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          maxLength: 40
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Purpose of this instance
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns this resource
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+    - title: Instance Configuration
+      required:
+        - environment
+        - region
+        - shape
+        - operatingSystem
+        - sshPublicKey
+      properties:
+        environment:
+          title: Environment
+          type: string
+          description: Environment the pipeline deploys on push; variable files for all three are generated
+          enum:
+            - development
+            - staging
+            - production
+          default: development
+        region:
+          title: Region
+          type: string
+          description: Always Free resources can only be created in the home region of the tenancy
+          enum:
+            - eu-frankfurt-1
+            - eu-amsterdam-1
+            - uk-london-1
+            - us-ashburn-1
+            - us-phoenix-1
+            - ca-toronto-1
+            - sa-saopaulo-1
+            - ap-singapore-1
+            - ap-tokyo-1
+            - ap-sydney-1
+          enumNames:
+            - Germany Central (Frankfurt)
+            - Netherlands Northwest (Amsterdam)
+            - UK South (London)
+            - US East (Ashburn)
+            - US West (Phoenix)
+            - Canada Southeast (Toronto)
+            - Brazil East (Sao Paulo)
+            - Singapore
+            - Japan East (Tokyo)
+            - Australia East (Sydney)
+          default: eu-frankfurt-1
+        shape:
+          title: Shape
+          type: string
+          description: The two Always Free shapes cost nothing within the Always Free limits of the tenancy
+          enum:
+            - VM.Standard.A1.Flex
+            - VM.Standard.E2.1.Micro
+            - VM.Standard.A2.Flex
+            - VM.Standard.E5.Flex
+            - VM.Standard3.Flex
+          enumNames:
+            - VM.Standard.A1.Flex (Ampere Arm64, Always Free up to 4 OCPUs and 24 GB)
+            - VM.Standard.E2.1.Micro (AMD, Always Free, fixed 1 OCPU and 1 GB)
+            - VM.Standard.A2.Flex (Ampere Arm64)
+            - VM.Standard.E5.Flex (AMD)
+            - VM.Standard3.Flex (Intel)
+          default: VM.Standard.A1.Flex
+        ocpus:
+          title: OCPUs
+          type: integer
+          description: Used by the flexible shapes, in the chosen environment
+          default: 2
+          minimum: 1
+          maximum: 32
+        memoryGb:
+          title: Memory (GB)
+          type: integer
+          description: Used by the flexible shapes, in the chosen environment
+          default: 12
+          minimum: 1
+          maximum: 256
+        operatingSystem:
+          title: Operating System
+          type: string
+          enum:
+            - oracle-linux-9
+            - ubuntu-24.04
+          enumNames:
+            - Oracle Linux 9
+            - Ubuntu 24.04 LTS
+          default: oracle-linux-9
+        assignPublicIp:
+          title: Public IP Address
+          type: boolean
+          description: Off places the instance in a private subnet behind a NAT gateway, reached through the OCI Bastion service. Always Free tenancies have no NAT gateway and need this on
+          default: false
+        sshPublicKey:
+          title: SSH Public Key
+          type: string
+          description: Public key installed for the default user of the image (never paste a private key)
+          pattern: '^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp(256|384|521)) [A-Za-z0-9+/]+=*( [A-Za-z0-9@._-]+)?$'
+        sshSourceCidr:
+          title: SSH Source Range
+          type: string
+          description: Optional. Network allowed to reach SSH, in CIDR notation. Leave empty to keep SSH closed
+          pattern: '^([0-9]{1,3}\.){3}[0-9]{1,3}/([0-9]|[12][0-9]|3[0-2])$'
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'Oracle Cloud compute instance ' + parameters.name }}
+          owner: ${{ parameters.owner }}
+          environment: ${{ parameters.environment }}
+          envName: "${{ {'development': 'dev', 'staging': 'staging', 'production': 'prod'}[parameters.environment] }}"
+          region: ${{ parameters.region }}
+          shape: ${{ parameters.shape }}
+          ocpus: ${{ parameters.ocpus or 2 }}
+          memoryGb: ${{ parameters.memoryGb or 12 }}
+          operatingSystem: ${{ parameters.operatingSystem }}
+          assignPublicIp: ${{ parameters.assignPublicIp }}
+          sshPublicKey: ${{ parameters.sshPublicKey }}
+          sshSourceCidr: ${{ parameters.sshSourceCidr or '' }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: 'Oracle Cloud Compute Instance: ${{ parameters.name }}'
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

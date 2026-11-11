@@ -1,0 +1,33 @@
+...@c4
+
+# C4 level 2: the deployable parts of the system and how they talk.
+direction: down
+
+user: Customer {class: person}
+
+system: ${{ values.systemName | dump }} {
+  class: boundary
+
+  web: "Web application\nSingle-page app" {class: container}
+  api: "API\nStateless service" {class: container}
+  worker: "Worker\nQueue consumer" {class: container}
+  db: "Database\nRelational" {class: store}
+  events: "Event queue\nDurable" {class: queue}
+  cache: "Cache\nIn memory" {class: store}
+}
+
+identity: "Identity provider\nOpenID Connect" {class: external}
+notifications: "Notification service\nEmail and text" {class: external}
+partner: Partner API {class: external}
+
+user -> system.web: HTTPS {class: uses}
+system.web -> system.api: JSON over HTTPS {class: calls}
+system.api -> system.db: SQL over TLS {class: data}
+system.api -> system.cache: Reads, writes {class: data}
+system.api -> system.events: Publishes {class: async}
+system.events -> system.worker: Delivers {class: async}
+system.worker -> system.db: SQL over TLS {class: data}
+system.web -> identity: OpenID Connect {class: outside}
+system.api -> identity: Validates tokens {class: outside}
+system.worker -> notifications: HTTPS {class: outside}
+system.worker -> partner: HTTPS, mutual TLS {class: outside}

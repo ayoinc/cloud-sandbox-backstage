@@ -1,0 +1,31 @@
+...@c4
+
+# C4 level 3: what the API is made of.
+direction: down
+
+web: Web application {class: container}
+
+api: API {
+  class: boundary
+
+  http: "HTTP layer\nRouting, validation, auth" {class: component}
+  services: "Application services\nOne per use case" {class: component}
+  domain: "Domain model\nBusiness rules, no I/O" {class: component}
+  repositories: "Repositories\nPersistence" {class: component}
+  outbox: "Outbox publisher\nEvents with the change" {class: component}
+  clients: "Service clients\nTimeouts and retries" {class: component}
+}
+
+db: Database {class: store}
+events: Event queue {class: queue}
+identity: Identity provider {class: external}
+
+web -> api.http: JSON over HTTPS {class: uses}
+api.http -> api.services {class: inside}
+api.services -> api.domain {class: inside}
+api.services -> api.repositories {class: inside}
+api.services -> api.clients {class: inside}
+api.repositories -> db {class: data}
+api.outbox -> db: Reads the outbox {class: data}
+api.outbox -> events: Publishes {class: async}
+api.clients -> identity {class: outside}

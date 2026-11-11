@@ -1,0 +1,33 @@
+---
+- name: Read the installed k3s version
+  ansible.builtin.command:
+    cmd: /usr/local/bin/k3s --version
+  register: __k3s_installed
+  changed_when: false
+  failed_when: false
+
+- name: Install the pinned release
+  when: k3s_version not in (__k3s_installed.stdout | default(''))
+  block:
+    - name: Download the installer of the release
+      ansible.builtin.get_url:
+        url: '{{ __k3s_install_script_url }}'
+        dest: /usr/local/bin/k3s-install.sh
+        owner: root
+        group: root
+        mode: '0700'
+        force: true
+
+    # The installer downloads the binary, verifies its SHA-256 checksum and
+    # writes the systemd unit. Starting is left to this role, so that the
+    # configuration is in place first.
+    - name: Run the installer
+      ansible.builtin.command:
+        cmd: /usr/local/bin/k3s-install.sh
+      environment:
+        INSTALL_K3S_VERSION: '{{ k3s_version }}'
+        INSTALL_K3S_EXEC: '{{ k3s_node_type }}'
+        INSTALL_K3S_SKIP_START: 'true'
+        INSTALL_K3S_SKIP_ENABLE: 'true'
+      register: __k3s_installer
+      changed_when: true

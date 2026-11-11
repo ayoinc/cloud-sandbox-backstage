@@ -1,0 +1,13 @@
+---
+- name: Refresh the apt cache
+  ansible.builtin.apt:
+    update_cache: true
+
+- name: Reload PostgreSQL
+  ansible.builtin.systemd_service:
+    name: '{{ __postgresql_service }}'
+    state: reloaded
+
+- name: Reload systemd
+  ansible.builtin.systemd_service:
+    daemon_reload: true

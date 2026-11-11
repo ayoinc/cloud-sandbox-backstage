@@ -1,0 +1,14 @@
+---
+# Update classifications to install.
+win_patching_categories:
+  - SecurityUpdates
+  - CriticalUpdates
+  - UpdateRollups
+  - DefinitionUpdates
+# Updates never installed: titles or KB numbers, as regular expressions.
+win_patching_reject_list: []
+# Restart when updates require it, and continue installing afterwards.
+win_patching_reboot: false
+win_patching_reboot_timeout: 3600
+# Log written on the host by the update run.
+win_patching_log_path: C:\Windows\Temp\ansible-win-updates.log

@@ -1,0 +1,26 @@
+---
+# Every variable is described, with its type, in meta/argument_specs.yml.
+
+# Packages installed in addition to the distribution's base set (vars/).
+${{ values.rolePrefix }}_packages: []
+
+# Whether to refresh the package cache before installing.
+${{ values.rolePrefix }}_update_cache: true
+
+# Configuration file rendered from ${{ values.rolePrefix }}_settings.
+${{ values.rolePrefix }}_config_dir: /etc/${{ values.rolePrefix }}
+${{ values.rolePrefix }}_config_file: '{{ ${{ values.rolePrefix }}_config_dir }}/${{ values.rolePrefix }}.conf'
+${{ values.rolePrefix }}_config_owner: root
+${{ values.rolePrefix }}_config_group: root
+${{ values.rolePrefix }}_config_mode: '0640'
+
+# INI content: a mapping of section name to a mapping of option to value.
+${{ values.rolePrefix }}_settings:
+  general:
+    log_level: info
+
+# systemd unit restarted when the configuration changes. Leave empty when the
+# role manages no service.
+${{ values.rolePrefix }}_service_name: ''
+${{ values.rolePrefix }}_service_state: started
+${{ values.rolePrefix }}_service_enabled: true

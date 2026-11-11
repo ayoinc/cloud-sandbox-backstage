@@ -1,0 +1,39 @@
+# {{ ansible_managed }}
+# Hardening baseline. sshd keeps the first value it reads for each keyword,
+# so these settings win over later drop-ins and over sshd_config itself.
+
+LogLevel {{ linux_hardening_ssh_log_level }}
+
+# Authentication
+PermitRootLogin {{ linux_hardening_ssh_permit_root_login }}
+PubkeyAuthentication yes
+PasswordAuthentication {{ linux_hardening_ssh_password_authentication | bool | ternary('yes', 'no') }}
+KbdInteractiveAuthentication no
+PermitEmptyPasswords no
+HostbasedAuthentication no
+IgnoreRhosts yes
+PermitUserEnvironment no
+UsePAM yes
+MaxAuthTries {{ linux_hardening_ssh_max_auth_tries }}
+MaxSessions {{ linux_hardening_ssh_max_sessions }}
+MaxStartups {{ linux_hardening_ssh_max_startups }}
+LoginGraceTime {{ linux_hardening_ssh_login_grace_time }}
+{% if linux_hardening_ssh_allow_groups | length > 0 %}
+AllowGroups {{ linux_hardening_ssh_allow_groups | join(' ') }}
+{% endif %}
+
+# Sessions
+ClientAliveInterval {{ linux_hardening_ssh_client_alive_interval }}
+ClientAliveCountMax {{ linux_hardening_ssh_client_alive_count_max }}
+AllowTcpForwarding {{ linux_hardening_ssh_allow_tcp_forwarding | bool | ternary('yes', 'no') }}
+AllowAgentForwarding {{ linux_hardening_ssh_allow_agent_forwarding | bool | ternary('yes', 'no') }}
+X11Forwarding {{ linux_hardening_ssh_x11_forwarding | bool | ternary('yes', 'no') }}
+PermitTunnel no
+{% if linux_hardening_ssh_banner | length > 0 %}
+Banner /etc/issue.net
+{% endif %}
+
+# Cryptography
+Ciphers {{ linux_hardening_ssh_ciphers | join(',') }}
+MACs {{ linux_hardening_ssh_macs | join(',') }}
+KexAlgorithms {{ linux_hardening_ssh_kex_algorithms | join(',') }}

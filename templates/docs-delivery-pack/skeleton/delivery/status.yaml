@@ -1,0 +1,25 @@
+# This period's status report. Replace it each period: the history is in git.
+#
+# `rag` is green, amber or red, overall and for each of the four measures.
+
+period: Week 1
+rag:
+  overall: green
+  schedule: green
+  scope: green
+  budget: green
+  quality: green
+
+summary: >-
+  The project has started. Scope and success measures are being agreed with
+  the sponsor, and the first design sessions are booked.
+
+achievements:
+  - Team in place and working agreements set
+  - First draft of the scope shared with the sponsor
+
+next:
+  - Agree scope and success measures (M1)
+  - Start the architecture design (M2)
+
+decisions_needed: []

@@ -1,0 +1,200 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: azure-postgresql
+  title: Azure Database for PostgreSQL
+  description: Create an Azure Database for PostgreSQL flexible server with private networking, Entra ID authentication and optional zone-redundant high availability
+  tags:
+    - azure
+    - postgresql
+    - database
+    - terraform
+    - infrastructure
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: group:platform-team
+  type: infrastructure
+
+  parameters:
+    - title: Project Information
+      required:
+        - name
+        - owner
+      properties:
+        name:
+          title: Server Name
+          type: string
+          description: Name used in resource names
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          maxLength: 40
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Purpose of this database
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns this resource
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+    - title: Database Configuration
+      required:
+        - environment
+        - location
+        - postgresVersion
+        - skuName
+        - entraAdminObjectId
+        - entraAdminName
+        - entraAdminType
+      properties:
+        environment:
+          title: Environment
+          type: string
+          description: Environment the pipeline deploys on push; variable files for all three are generated
+          enum:
+            - development
+            - staging
+            - production
+          default: development
+        location:
+          title: Azure Region
+          type: string
+          enum:
+            - eastus
+            - eastus2
+            - westus2
+            - westeurope
+            - northeurope
+            - uksouth
+          default: eastus
+        postgresVersion:
+          title: PostgreSQL Version
+          type: string
+          enum:
+            - '18'
+            - '17'
+            - '16'
+          default: '17'
+        skuName:
+          title: Compute Size
+          type: string
+          description: Burstable suits development; high availability needs General Purpose or Memory Optimized
+          enum:
+            - B_Standard_B2s
+            - GP_Standard_D2ds_v5
+            - GP_Standard_D4ds_v5
+            - GP_Standard_D8ds_v5
+            - MO_Standard_E4ds_v5
+          enumNames:
+            - Burstable B2s (2 vCores, 4 GiB)
+            - General Purpose D2ds v5 (2 vCores, 8 GiB)
+            - General Purpose D4ds v5 (4 vCores, 16 GiB)
+            - General Purpose D8ds v5 (8 vCores, 32 GiB)
+            - Memory Optimized E4ds v5 (4 vCores, 32 GiB)
+          default: B_Standard_B2s
+        storageGb:
+          title: Storage (GiB)
+          type: integer
+          enum:
+            - 32
+            - 64
+            - 128
+            - 256
+            - 512
+          default: 32
+        highAvailability:
+          title: High Availability
+          type: string
+          description: Standby replica with automatic failover; not available with Burstable compute
+          enum:
+            - Disabled
+            - ZoneRedundant
+            - SameZone
+          default: Disabled
+        databaseName:
+          title: Database Name
+          type: string
+          pattern: '^[a-z][a-z0-9_]{0,62}$'
+          default: app
+        entraAdminObjectId:
+          title: Administrator Object ID
+          type: string
+          description: Object ID of the Entra ID group, user or service principal that administers the server
+          pattern: '^[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$'
+        entraAdminName:
+          title: Administrator Name
+          type: string
+          description: Display name of that group, user principal name of that user, or name of that service principal
+          maxLength: 128
+        entraAdminType:
+          title: Administrator Type
+          type: string
+          enum:
+            - Group
+            - User
+            - ServicePrincipal
+          default: Group
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'Azure Database for PostgreSQL server ' + parameters.name }}
+          owner: ${{ parameters.owner }}
+          environment: ${{ parameters.environment }}
+          envName: "${{ {'development': 'dev', 'staging': 'staging', 'production': 'prod'}[parameters.environment] }}"
+          location: ${{ parameters.location }}
+          postgresVersion: ${{ parameters.postgresVersion }}
+          skuName: ${{ parameters.skuName }}
+          storageGb: ${{ parameters.storageGb or 32 }}
+          highAvailability: ${{ parameters.highAvailability or 'Disabled' }}
+          databaseName: ${{ parameters.databaseName or 'app' }}
+          entraAdminObjectId: ${{ parameters.entraAdminObjectId }}
+          entraAdminName: ${{ parameters.entraAdminName }}
+          entraAdminType: ${{ parameters.entraAdminType }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: 'Azure Database for PostgreSQL: ${{ parameters.name }}'
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

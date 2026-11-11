@@ -1,0 +1,34 @@
+---
+argument_specs:
+  main:
+    short_description: Windows server features and optional features
+    description:
+      - Installs and removes server roles and features on Windows Server, and
+        optional features on client editions.
+    options:
+      win_features_server_present:
+        description: Server roles and features to install.
+        type: list
+        elements: str
+        default: []
+      win_features_server_absent:
+        description: Server roles and features to remove.
+        type: list
+        elements: str
+      win_features_optional_present:
+        description: Optional features to enable on client editions.
+        type: list
+        elements: str
+        default: []
+      win_features_optional_absent:
+        description: Optional features to disable on client editions.
+        type: list
+        elements: str
+      win_features_allow_reboot:
+        description: Restart when a feature change requires it.
+        type: bool
+        default: false
+      win_features_reboot_timeout:
+        description: Seconds to wait for the host to come back.
+        type: int
+        default: 1800

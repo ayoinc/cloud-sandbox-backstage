@@ -1,0 +1,8 @@
+site_name: ${{ values.name }}
+site_description: ${{ ('Hetzner Cloud Server - ' + values.description) | dump }}
+
+nav:
+  - Home: index.md
+
+plugins:
+  - techdocs-core

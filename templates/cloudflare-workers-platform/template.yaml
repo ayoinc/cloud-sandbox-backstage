@@ -1,0 +1,148 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: cloudflare-workers-platform
+  title: Cloudflare Workers Platform
+  description: Deploy a Cloudflare Worker with an R2 bucket, a D1 database or KV namespace and a custom domain, all managed by Terraform
+  tags:
+    - cloudflare
+    - workers
+    - serverless
+    - r2
+    - terraform
+    - devops
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: group:platform-team
+  type: service
+
+  parameters:
+    - title: Project Information
+      required:
+        - name
+        - owner
+      properties:
+        name:
+          title: Worker Name
+          type: string
+          description: Name of the Worker; the environment is appended
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          maxLength: 40
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Purpose of this Worker
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns this resource
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+    - title: Worker Configuration
+      required:
+        - environment
+        - dataStore
+        - r2Location
+      properties:
+        environment:
+          title: Environment
+          type: string
+          description: Environment the pipeline deploys on push; variable files for all three are generated
+          enum:
+            - development
+            - staging
+            - production
+          default: development
+        dataStore:
+          title: Data Store
+          type: string
+          description: Store bound to the Worker next to the R2 bucket
+          enum:
+            - d1
+            - kv
+          enumNames:
+            - D1 (SQL database)
+            - Workers KV (key-value namespace)
+          default: d1
+        r2Location:
+          title: R2 Bucket Location
+          type: string
+          description: Region hint for the bucket; it cannot be changed after the bucket is created
+          enum:
+            - weur
+            - eeur
+            - enam
+            - wnam
+            - apac
+            - oc
+          enumNames:
+            - Western Europe
+            - Eastern Europe
+            - Eastern North America
+            - Western North America
+            - Asia-Pacific
+            - Oceania
+          default: weur
+        customHostname:
+          title: Custom Domain
+          type: string
+          description: Optional hostname in a zone of the same account. Leave empty to serve the Worker on its workers.dev address
+          pattern: '^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$'
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'Cloudflare Worker ' + parameters.name }}
+          owner: ${{ parameters.owner }}
+          environment: ${{ parameters.environment }}
+          envName: "${{ {'development': 'dev', 'staging': 'staging', 'production': 'prod'}[parameters.environment] }}"
+          dataStore: ${{ parameters.dataStore or 'd1' }}
+          r2Location: ${{ parameters.r2Location or 'weur' }}
+          customHostname: ${{ parameters.customHostname or '' }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: 'Cloudflare Worker: ${{ parameters.name }}'
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

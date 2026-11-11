@@ -1,0 +1,8 @@
+---
+# Entries to keep in the file: property name to value.
+properties_file_entries: {}
+# Property names to remove from the file.
+properties_file_absent: []
+properties_file_owner: root
+properties_file_group: root
+properties_file_mode: '0640'

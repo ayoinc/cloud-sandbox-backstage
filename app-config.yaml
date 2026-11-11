@@ -557,6 +557,110 @@ catalog:
       target: ../../templates/react-frontend/template.yaml
       rules:
         - allow: [Template]
+    - type: file
+      target: ../../templates/ansible-collection/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/ansible-execution-environment/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/ansible-k3s-cluster/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/ansible-linux-hardening/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/ansible-postgresql/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/ansible-role-molecule/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/ansible-windows/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/azure-container-apps/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/azure-key-vault/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/azure-postgresql/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/azure-storage-account/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/cloudflare-workers-platform/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/cloudflare-zone/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/digitalocean-droplet/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/digitalocean-kubernetes/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/docs-architecture-c4/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/docs-delivery-pack/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/gcp-cloud-functions/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/gcp-cloud-storage/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/gcp-pubsub/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/github-team/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/github-team-member/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/github-user/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/hetzner-cloud-server/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/kubernetes-platform-addons/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/oci-compute/template.yaml
+      rules:
+        - allow: [Template]
 
 kubernetes:
   serviceLocatorMethod:

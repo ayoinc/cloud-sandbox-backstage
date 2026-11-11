@@ -1,0 +1,63 @@
+---
+- name: Install repository prerequisites
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - python3-debian
+      - postgresql-common
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+# The role creates the cluster itself, so that locale and checksums are the
+# same on every distribution and a replica starts from an empty data directory.
+- name: Stop the packages creating a default cluster
+  ansible.builtin.lineinfile:
+    path: /etc/postgresql-common/createcluster.conf
+    regexp: '^#?\s*create_main_cluster\s*='
+    line: create_main_cluster = false
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Add the PGDG repository
+  ansible.builtin.deb822_repository:
+    name: pgdg
+    types: deb
+    uris: https://apt.postgresql.org/pub/repos/apt
+    suites: '{{ ansible_facts.distribution_release }}-pgdg'
+    components: main
+    signed_by: https://www.postgresql.org/media/keys/ACCC4CF8.asc
+    state: present
+  notify: Refresh the apt cache
+
+- name: Make the new repository available now
+  ansible.builtin.meta: flush_handlers
+
+- name: Install PostgreSQL
+  ansible.builtin.apt:
+    name: '{{ __postgresql_packages }}'
+    state: present
+
+- name: Create the cluster
+  ansible.builtin.command:
+    cmd: >-
+      pg_createcluster
+      --locale {{ postgresql_locale }}
+      --encoding {{ postgresql_encoding }}
+      --port {{ postgresql_port }}
+      {{ postgresql_version }} main
+      -- --data-checksums
+    creates: '{{ __postgresql_config_dir }}/postgresql.conf'
+  register: __postgresql_cluster
+
+- name: Mark a new replica as waiting for its copy of the primary
+  ansible.builtin.file:
+    path: '{{ __postgresql_seed_marker }}'
+    state: touch
+    owner: postgres
+    group: postgres
+    mode: '0600'
+  when:
+    - __postgresql_is_replica | bool
+    - __postgresql_cluster is changed

@@ -1,0 +1,107 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  gather_facts: false
+
+  vars_files:
+    # The choices made when the repository was created.
+    - ../../defaults/main.yml
+
+  tasks:
+    - name: Read server state
+      community.postgresql.postgresql_query:
+        login_db: appdb
+        query: >-
+          SELECT current_setting('server_version_num')::int / 10000 AS major,
+                 current_setting('max_connections') AS max_connections,
+                 current_setting('log_min_duration_statement') AS slow_log,
+                 current_setting('password_encryption') AS password_encryption,
+                 current_setting('listen_addresses') AS listen_addresses,
+                 current_setting('data_checksums') AS data_checksums,
+                 current_setting('archive_mode') AS archive_mode,
+                 (SELECT count(*) FROM pg_roles WHERE rolname = 'app' AND rolcanlogin) AS app_roles,
+                 (SELECT count(*) FROM pg_extension WHERE extname = 'pg_stat_statements') AS extensions,
+                 (SELECT count(*) FROM pg_settings WHERE pending_restart) AS pending_restart
+      become: true
+      become_user: postgres
+      register: verify_state
+
+    - name: Check version, settings and declared objects
+      ansible.builtin.assert:
+        that:
+          - verify_row.major | string == postgresql_version
+          - verify_row.max_connections == '50'
+          - verify_row.slow_log == '250ms'
+          - verify_row.password_encryption == 'scram-sha-256'
+          - verify_row.listen_addresses == 'localhost'
+          - verify_row.data_checksums == 'on'
+          - verify_row.app_roles == 1
+          - verify_row.extensions == 1
+          - verify_row.pending_restart == 0
+        quiet: true
+      vars:
+        verify_row: '{{ verify_state.query_result | first }}'
+
+    - name: Check the application role can log in with its password
+      community.postgresql.postgresql_ping:
+        login_db: appdb
+        login_host: 127.0.0.1
+        login_user: app
+        login_password: molecule-only-password
+      register: verify_login
+      failed_when: not verify_login.is_available
+
+    - name: Verify backups
+      when: postgresql_pgbackrest_enabled | bool
+      block:
+        - name: Check WAL archiving is on
+          ansible.builtin.assert:
+            that:
+              - (verify_state.query_result | first).archive_mode == 'on'
+            quiet: true
+
+        - name: Take a full backup
+          ansible.builtin.command:
+            argv:
+              - pgbackrest
+              - --stanza=main
+              - --type=full
+              - backup
+          become: true
+          become_user: postgres
+          changed_when: true
+
+        - name: Read the backup inventory
+          ansible.builtin.command:
+            argv:
+              - pgbackrest
+              - --stanza=main
+              - --output=json
+              - info
+          become: true
+          become_user: postgres
+          register: verify_backup
+          changed_when: false
+
+        - name: Check the stanza is healthy, encrypted and holds the backup
+          ansible.builtin.assert:
+            that:
+              - verify_stanza.status.code == 0
+              - verify_stanza.cipher == 'aes-256-cbc'
+              - verify_stanza.backup | length == 1
+              - (verify_stanza.backup | first).type == 'full'
+            quiet: true
+          vars:
+            verify_stanza: '{{ verify_backup.stdout | from_json | first }}'
+
+        - name: Check the backup timers are scheduled
+          ansible.builtin.systemd_service:
+            name: '{{ item }}'
+            enabled: true
+          check_mode: true
+          register: verify_timer
+          failed_when: verify_timer is changed
+          loop:
+            - pgbackrest-full.timer
+            - pgbackrest-diff.timer

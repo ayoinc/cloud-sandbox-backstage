@@ -1,0 +1,6 @@
+---
+# Protocol and credential settings are read at start-up. The role does not
+# restart hosts; playbooks/updates.yml or a maintenance window does.
+- name: Report that a restart is needed
+  ansible.builtin.debug:
+    msg: Registry settings changed on {{ inventory_hostname }}. They take full effect after the next restart.

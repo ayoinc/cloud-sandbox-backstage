@@ -1,0 +1,54 @@
+---
+argument_specs:
+  main:
+    short_description: Security and configuration baseline for Windows hosts
+    description:
+      - Sets the time zone, firewall, protocol and credential hardening,
+        account and audit policy, event log sizes and disabled services.
+    options:
+      win_baseline_timezone:
+        description: Windows time zone name.
+        type: str
+        default: UTC
+      win_baseline_firewall_enabled:
+        description: Manage Windows Firewall.
+        type: bool
+        default: true
+      win_baseline_firewall_profiles:
+        description: Firewall profiles to enable.
+        type: list
+        elements: str
+      win_baseline_management_port:
+        description: Port Ansible connects on; opened before the firewall is enabled.
+        type: raw
+      win_baseline_management_sources:
+        description: Sources allowed to reach the management port; any, or addresses and subnets.
+        type: list
+        elements: str
+      win_baseline_registry:
+        description: Registry values to set. Each entry has path, name, data and optionally type.
+        type: list
+        elements: dict
+      win_baseline_registry_extra:
+        description: Further registry values, same shape.
+        type: list
+        elements: dict
+        default: []
+      win_baseline_account_policy_enabled:
+        description: Manage the local password and lockout policy.
+        type: bool
+        default: true
+      win_baseline_account_policy:
+        description: System Access policy keys and values.
+        type: dict
+      win_baseline_audit_policy:
+        description: Audit subcategory to a list of success and failure.
+        type: dict
+      win_baseline_event_logs:
+        description: Event log name to maximum size.
+        type: dict
+      win_baseline_disabled_services:
+        description: Services to stop and disable.
+        type: list
+        elements: str
+        default: []

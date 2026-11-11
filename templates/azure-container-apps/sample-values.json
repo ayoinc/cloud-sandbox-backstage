@@ -1,0 +1,16 @@
+{
+  "values": {
+    "name": "sample-orders-api",
+    "description": "API of the team's \"orders\" service: REST endpoints",
+    "owner": "group:default/platform-team",
+    "environment": "development",
+    "location": "westeurope",
+    "containerImage": "mcr.microsoft.com/k8se/quickstart:latest",
+    "targetPort": 80,
+    "cpu": "0.5",
+    "minReplicas": 0,
+    "maxReplicas": 3,
+    "externalIngress": false,
+    "repoUrl": "github.com?owner=example-org&repo=sample-orders-api"
+  }
+}

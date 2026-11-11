@@ -1,0 +1,4 @@
+# {{ ansible_managed }}
+{% for key, value in (linux_hardening_sysctl_settings | combine(linux_hardening_sysctl_overrides)) | dictsort %}
+{{ key }} = {{ value }}
+{% endfor %}

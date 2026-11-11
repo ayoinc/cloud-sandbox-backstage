@@ -1,0 +1,10 @@
+# Checkov configuration, used by the Security Scan job and by `checkov --config-file .checkov.yaml -d .`
+framework:
+  - terraform
+quiet: true
+compact: true
+skip-check:
+  # The security rules are stateful on purpose: a stateless rule needs a
+  # matching rule for the return traffic, which is easy to get wrong and buys
+  # nothing for an instance that is not a high-volume endpoint.
+  - CKV_OCI_21

@@ -1,0 +1,138 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: docs-architecture-c4
+  title: Architecture Design (C4 HLD and LLD)
+  description: A high-level and low-level design for one system, with C4 diagrams in D2, published as documentation and exported to branded PDF and Word
+  tags:
+    - documentation
+    - architecture
+    - c4
+    - d2
+    - hld
+    - lld
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: group:architecture
+  type: documentation
+
+  parameters:
+    - title: Design Information
+      required:
+        - name
+        - systemName
+        - description
+        - owner
+      properties:
+        name:
+          title: Repository Name
+          type: string
+          description: Name of the design repository
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          ui:autofocus: true
+        systemName:
+          title: System Name
+          type: string
+          description: The system being designed, as people say it
+          maxLength: 60
+        description:
+          title: Description
+          type: string
+          description: What the system is for, in a sentence
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns this design
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+    - title: Documents
+      properties:
+        includeLld:
+          title: Include the low-level design
+          type: boolean
+          description: Components, sequences, data model and interfaces. Leave off while only the high-level design is being agreed
+          default: true
+        classification:
+          title: Classification
+          type: string
+          description: Printed on every exported page
+          enum:
+            - Public
+            - Internal
+            - Confidential
+          default: Internal
+        portalUrl:
+          title: Portal address
+          type: string
+          description: Optional. Exports take the organisation name, logo and colour from this portal's branding settings, for example https://portal.example.org. Leave empty to set them in brand.yaml
+          pattern: '^(https://[A-Za-z0-9.-]+(:[0-9]+)?)?$'
+          default: ''
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        copyWithoutTemplating:
+          - scripts/**
+        values:
+          name: ${{ parameters.name }}
+          systemName: ${{ parameters.systemName }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          includeLld: ${{ parameters.includeLld }}
+          classification: ${{ parameters.classification }}
+          portalUrl: ${{ parameters.portalUrl }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: remove-lld
+      name: Remove Low-Level Design
+      if: ${{ not parameters.includeLld }}
+      action: fs:delete
+      input:
+        files:
+          - docs/lld
+          - docs/diagrams/components.d2
+          - docs/diagrams/sequence-request.d2
+          - docs/diagrams/data-model.d2
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: 'Architecture design: ${{ parameters.systemName }}'
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

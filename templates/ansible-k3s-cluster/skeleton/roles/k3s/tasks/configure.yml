@@ -1,0 +1,50 @@
+---
+- name: Create the configuration directory
+  ansible.builtin.file:
+    path: /etc/rancher/k3s
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+# The file holds the join token.
+- name: Write the k3s configuration
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: /etc/rancher/k3s/config.yaml
+    owner: root
+    group: root
+    mode: '0600'
+  diff: false
+  register: __k3s_config_file
+
+- name: Deploy kube-vip with the cluster
+  when:
+    - __k3s_is_server | bool
+    - k3s_kube_vip_enabled | bool
+  block:
+    - name: Create the manifests directory
+      ansible.builtin.file:
+        path: /var/lib/rancher/k3s/server/manifests
+        state: directory
+        owner: root
+        group: root
+        mode: '0700'
+
+    # k3s applies every manifest in this directory, so the virtual IP comes up
+    # with the first server and the others can join through it later.
+    - name: Write the kube-vip manifest
+      ansible.builtin.template:
+        src: kube-vip.yaml.j2
+        dest: /var/lib/rancher/k3s/server/manifests/kube-vip.yaml
+        owner: root
+        group: root
+        mode: '0600'
+
+- name: Remove the kube-vip manifest
+  ansible.builtin.file:
+    path: /var/lib/rancher/k3s/server/manifests/kube-vip.yaml
+    state: absent
+  when:
+    - __k3s_is_server | bool
+    - not (k3s_kube_vip_enabled | bool)

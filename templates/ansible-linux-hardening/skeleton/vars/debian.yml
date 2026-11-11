@@ -1,0 +1,7 @@
+---
+# Internal, per-distribution values; not meant to be overridden.
+__linux_hardening_ssh_service: ssh
+__linux_hardening_auditd_packages:
+  - auditd
+  - audispd-plugins
+__linux_hardening_nftables_conf: /etc/nftables.conf

@@ -1,0 +1,80 @@
+---
+name: Hardening Role CI
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: {% raw %}${{ github.workflow }}{% endraw %}-{% raw %}${{ github.ref }}{% endraw %}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: '3.14'
+  PY_COLORS: '1'
+  ANSIBLE_FORCE_COLOR: '1'
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: {% raw %}${{ env.PYTHON_VERSION }}{% endraw %}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install tooling
+        run: pip install -r requirements-dev.txt
+
+      - name: Install collections
+        run: ansible-galaxy collection install -r requirements.yml
+
+      - name: Run yamllint
+        run: yamllint .
+
+      - name: Run ansible-lint
+        run: ansible-lint
+
+  molecule:
+    name: Molecule ({% raw %}${{ matrix.distro }}{% endraw %})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: lint
+    strategy:
+      fail-fast: false
+      matrix:
+        distro:
+          - ubuntu2404
+          - ubuntu2604
+          - debian13
+          - rockylinux9
+          - rockylinux10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: {% raw %}${{ env.PYTHON_VERSION }}{% endraw %}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install tooling
+        run: pip install -r requirements-dev.txt
+
+      - name: Run Molecule
+        run: molecule test
+        env:
+          MOLECULE_DISTRO: {% raw %}${{ matrix.distro }}{% endraw %}

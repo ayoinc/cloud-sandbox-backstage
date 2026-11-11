@@ -1,0 +1,5 @@
+---
+# Internal, per-distribution values. Loaded by tasks/main.yml; not meant to be
+# overridden from inventory.
+__${{ values.rolePrefix }}_base_packages:
+  - ca-certificates

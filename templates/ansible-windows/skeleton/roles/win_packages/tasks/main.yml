@@ -1,0 +1,12 @@
+---
+- name: Manage Chocolatey packages
+  ansible.builtin.import_tasks: chocolatey.yml
+  when: win_packages_chocolatey_enabled | bool
+  tags:
+    - packages_chocolatey
+
+- name: Manage winget packages
+  ansible.builtin.import_tasks: winget.yml
+  when: win_packages_winget_enabled | bool
+  tags:
+    - packages_winget

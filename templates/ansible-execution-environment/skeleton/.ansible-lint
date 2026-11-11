@@ -1,0 +1,15 @@
+---
+profile: production
+
+# Only Ansible content is linted here; MkDocs, Backstage and workflow files
+# follow their own schemas.
+exclude_paths:
+  - .ansible/
+  - .cache/
+  - .github/
+  - catalog-info.yaml
+  - docs/
+  - mkdocs.yml
+  - context/
+  - execution-environment.yml
+  - ansible-navigator.yml

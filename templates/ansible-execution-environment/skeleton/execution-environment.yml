@@ -1,0 +1,34 @@
+---
+# ansible-builder definition, schema version 3.
+#   ansible-builder build --tag ghcr.io/${{ values.destination.owner | lower }}/${{ values.destination.repo | lower }}:dev
+version: 3
+
+images:
+  base_image:
+    name: quay.io/fedora/fedora:44
+
+dependencies:
+  python_interpreter:
+    package_system: python3
+    python_path: /usr/bin/python3
+  ansible_core:
+    package_pip: ansible-core==2.22.0
+  ansible_runner:
+    package_pip: ansible-runner==2.4.3
+  galaxy: requirements.yml
+  python: requirements.txt
+  system: bindep.txt
+
+options:
+  package_manager_path: /usr/bin/dnf
+  # Run as an unprivileged user; ansible-runner and automation controllers
+  # may still assign an arbitrary user ID at run time.
+  user: '1000'
+
+additional_build_steps:
+  prepend_base:
+    # Pick up security fixes published since the base image was built.
+    - RUN $PKGMGR upgrade -y && $PKGMGR clean all
+  append_final:
+    # Fail the build, not the first playbook run, if the toolchain is broken.
+    - RUN ansible --version && ansible-runner --version && ansible-galaxy collection list

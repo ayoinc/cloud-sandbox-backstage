@@ -1,0 +1,198 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: digitalocean-droplet
+  title: DigitalOcean Droplet
+  description: Create hardened DigitalOcean Droplets in a VPC with a cloud firewall, reserved IPs and cloud-init
+  tags:
+    - digitalocean
+    - droplet
+    - compute
+    - terraform
+    - devops
+    - cloud-init
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: group:platform-team
+  type: infrastructure
+
+  parameters:
+    - title: Project Information
+      required:
+        - name
+        - owner
+      properties:
+        name:
+          title: Name
+          type: string
+          description: Name of the Droplets; the environment and a number are appended
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          maxLength: 40
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Purpose of this deployment
+        owner:
+          title: Owner
+          type: string
+          description: Team that owns this resource
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+    - title: Droplet Configuration
+      required:
+        - environment
+        - region
+        - size
+        - image
+        - sshKeyName
+      properties:
+        environment:
+          title: Environment
+          type: string
+          description: Environment the pipeline deploys on push; variable files for all three are generated
+          enum:
+            - development
+            - staging
+            - production
+          default: development
+        region:
+          title: Region
+          type: string
+          enum:
+            - nyc3
+            - sfo3
+            - tor1
+            - lon1
+            - ams3
+            - fra1
+            - blr1
+            - sgp1
+            - syd1
+          enumNames:
+            - New York 3
+            - San Francisco 3
+            - Toronto 1
+            - London 1
+            - Amsterdam 3
+            - Frankfurt 1
+            - Bangalore 1
+            - Singapore 1
+            - Sydney 1
+          default: fra1
+        size:
+          title: Droplet Size
+          type: string
+          description: Size of the Droplets in the chosen environment
+          enum:
+            - s-1vcpu-2gb
+            - s-2vcpu-4gb
+            - s-4vcpu-8gb
+            - g-2vcpu-8gb
+            - c-2
+          enumNames:
+            - Basic, 1 vCPU, 2 GB
+            - Basic, 2 vCPU, 4 GB
+            - Basic, 4 vCPU, 8 GB
+            - General Purpose, 2 vCPU, 8 GB
+            - CPU-Optimized, 2 vCPU, 4 GB
+          default: s-2vcpu-4gb
+        image:
+          title: Operating System
+          type: string
+          enum:
+            - ubuntu-26-04-x64
+            - ubuntu-24-04-x64
+            - debian-13-x64
+          enumNames:
+            - Ubuntu 26.04 LTS
+            - Ubuntu 24.04 LTS
+            - Debian 13
+          default: ubuntu-26-04-x64
+        dropletCount:
+          title: Number of Droplets
+          type: integer
+          default: 1
+          minimum: 1
+          maximum: 10
+        sshKeyName:
+          title: SSH Key Name
+          type: string
+          description: Name of an SSH key that is already uploaded to the DigitalOcean account; it is installed for the admin user
+          pattern: '^[A-Za-z0-9][A-Za-z0-9@._ -]{0,62}$'
+        sshSourceCidr:
+          title: SSH Source Range
+          type: string
+          description: Optional. Network allowed to reach SSH, in CIDR notation. Leave empty to keep SSH closed to the internet
+          pattern: '^([0-9]{1,3}\.){3}[0-9]{1,3}/([0-9]|[12][0-9]|3[0-2])$'
+        allowWeb:
+          title: Allow HTTP and HTTPS From the Internet
+          type: boolean
+          default: false
+        reservedIp:
+          title: Reserved IP
+          type: boolean
+          description: Give every Droplet a reserved IPv4 address that survives a rebuild
+          default: false
+
+    - title: Repository Configuration
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base Template
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          description: ${{ parameters.description or 'DigitalOcean Droplets ' + parameters.name }}
+          owner: ${{ parameters.owner }}
+          environment: ${{ parameters.environment }}
+          envName: "${{ {'development': 'dev', 'staging': 'staging', 'production': 'prod'}[parameters.environment] }}"
+          region: ${{ parameters.region }}
+          size: ${{ parameters.size }}
+          image: ${{ parameters.image }}
+          dropletCount: ${{ parameters.dropletCount or 1 }}
+          sshKeyName: ${{ parameters.sshKeyName }}
+          sshSourceCidr: ${{ parameters.sshSourceCidr or '' }}
+          allowWeb: ${{ parameters.allowWeb }}
+          reservedIp: ${{ parameters.reservedIp }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: 'DigitalOcean Droplet: ${{ parameters.name }}'
+        repoVisibility: private
+        defaultBranch: main
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

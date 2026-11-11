@@ -1,0 +1,12 @@
+{
+  "values": {
+    "name": "sample-design",
+    "systemName": "Payments Platform",
+    "description": "The team's \"north star\" design: how payments are taken, settled and reported",
+    "owner": "group:default/platform-team",
+    "includeLld": true,
+    "classification": "Internal",
+    "portalUrl": "",
+    "repoUrl": "github.com?owner=example-org&repo=sample-design"
+  }
+}

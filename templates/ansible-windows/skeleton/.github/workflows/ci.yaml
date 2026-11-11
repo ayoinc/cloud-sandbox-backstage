@@ -1,0 +1,74 @@
+---
+name: Playbook CI
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: {% raw %}${{ github.workflow }}{% endraw %}-{% raw %}${{ github.ref }}{% endraw %}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: '3.14'
+  PY_COLORS: '1'
+  ANSIBLE_FORCE_COLOR: '1'
+
+jobs:
+  lint:
+    name: Lint and validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: {% raw %}${{ env.PYTHON_VERSION }}{% endraw %}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install tooling
+        run: pip install -r requirements-dev.txt
+
+      - name: Install collections
+        run: ansible-galaxy collection install -r requirements.yml
+
+      - name: Run yamllint
+        run: yamllint .
+
+      - name: Run ansible-lint
+        run: ansible-lint
+
+      - name: Check the inventory parses
+        run: |
+          ansible-inventory --list > /dev/null
+          ansible-inventory --graph windows
+
+      - name: Check playbook syntax
+        run: |
+          for playbook in playbooks/*.yml; do
+            ansible-playbook --syntax-check "$playbook"
+          done
+
+  powershell:
+    name: Analyse PowerShell
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Run PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          Install-Module -Name PSScriptAnalyzer -RequiredVersion 1.25.0 -Scope CurrentUser -Force
+          $findings = Invoke-ScriptAnalyzer -Path roles -Recurse -Severity Warning, Error
+          $findings | Format-Table -AutoSize
+          if ($findings) { exit 1 }

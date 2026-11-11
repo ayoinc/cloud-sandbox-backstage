@@ -1,0 +1,11 @@
+{
+  "type": "record",
+  "name": "Message",
+  "doc": "Envelope of every message on the topic.",
+  "fields": [
+    { "name": "id", "type": "string", "doc": "Unique identifier of the event" },
+    { "name": "type", "type": "string", "doc": "Kind of event, such as order.created" },
+    { "name": "occurred_at", "type": "string", "doc": "RFC 3339 timestamp of the event" },
+    { "name": "data", "type": "string", "doc": "Event payload, JSON-encoded" }
+  ]
+}

@@ -1,0 +1,155 @@
+---
+# Windows time zone name, as listed by "tzutil /l".
+win_baseline_timezone: UTC
+
+# Windows Firewall. The port Ansible connects on is opened before the
+# firewall is switched on, so the baseline cannot lock itself out.
+win_baseline_firewall_enabled: true
+win_baseline_firewall_profiles:
+  - Domain
+  - Private
+  - Public
+win_baseline_management_port: '{{ ansible_port | default(5986) }}'
+# Sources allowed to reach the management port: 'any', or addresses and subnets.
+win_baseline_management_sources:
+  - any
+
+# Registry values, all REG_DWORD unless an entry says otherwise.
+win_baseline_registry:
+  # SMB version 1 server off
+  - path: 'HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters'
+    name: SMB1
+    data: 0
+  # SMB server signing required
+  - path: 'HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters'
+    name: RequireSecuritySignature
+    data: 1
+  # SMB client signing required
+  - path: 'HKLM:\SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters'
+    name: RequireSecuritySignature
+    data: 1
+  # NTLMv2 only; LM and NTLMv1 refused
+  - path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+    name: LmCompatibilityLevel
+    data: 5
+  # No LAN Manager password hashes stored
+  - path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+    name: NoLMHash
+    data: 1
+  # No anonymous enumeration of accounts and shares
+  - path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+    name: RestrictAnonymous
+    data: 1
+  # No clear-text credentials kept in memory by WDigest
+  - path: 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest'
+    name: UseLogonCredential
+    data: 0
+  # LLMNR name resolution off
+  - path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\DNSClient'
+    name: EnableMulticast
+    data: 0
+  # Remote Desktop requires Network Level Authentication
+  - path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp'
+    name: UserAuthentication
+    data: 1
+  # User Account Control on
+  - path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+    name: EnableLUA
+    data: 1
+  # .NET uses current TLS versions (64-bit)
+  - path: 'HKLM:\SOFTWARE\Microsoft\.NETFramework\v4.0.30319'
+    name: SchUseStrongCrypto
+    data: 1
+  # .NET uses current TLS versions (32-bit)
+  - path: 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\.NETFramework\v4.0.30319'
+    name: SchUseStrongCrypto
+    data: 1
+  # SSL 3.0 off (server)
+  - path: 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\SSL 3.0\Server'
+    name: Enabled
+    data: 0
+  # SSL 3.0 off by default (server)
+  - path: 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\SSL 3.0\Server'
+    name: DisabledByDefault
+    data: 1
+  # SSL 3.0 off (client)
+  - path: 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\SSL 3.0\Client'
+    name: Enabled
+    data: 0
+  # SSL 3.0 off by default (client)
+  - path: 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\SSL 3.0\Client'
+    name: DisabledByDefault
+    data: 1
+  # TLS 1.0 off (server)
+  - path: 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.0\Server'
+    name: Enabled
+    data: 0
+  # TLS 1.0 off by default (server)
+  - path: 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.0\Server'
+    name: DisabledByDefault
+    data: 1
+  # TLS 1.0 off (client)
+  - path: 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.0\Client'
+    name: Enabled
+    data: 0
+  # TLS 1.0 off by default (client)
+  - path: 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.0\Client'
+    name: DisabledByDefault
+    data: 1
+  # TLS 1.1 off (server)
+  - path: 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.1\Server'
+    name: Enabled
+    data: 0
+  # TLS 1.1 off by default (server)
+  - path: 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.1\Server'
+    name: DisabledByDefault
+    data: 1
+  # TLS 1.1 off (client)
+  - path: 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.1\Client'
+    name: Enabled
+    data: 0
+  # TLS 1.1 off by default (client)
+  - path: 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.1\Client'
+    name: DisabledByDefault
+    data: 1
+# Further registry values, same shape; an optional "type" overrides dword.
+win_baseline_registry_extra: []
+
+# Local account policy. On domain members the domain policy takes precedence.
+win_baseline_account_policy_enabled: true
+win_baseline_account_policy:
+  MinimumPasswordLength: 14
+  PasswordComplexity: 1
+  PasswordHistorySize: 24
+  MaximumPasswordAge: 365
+  MinimumPasswordAge: 1
+  LockoutBadCount: 5
+  LockoutDuration: 15
+  ResetLockoutCount: 15
+
+# Advanced audit policy: subcategory to the outcomes recorded.
+win_baseline_audit_policy:
+  Credential Validation: [success, failure]
+  Security Group Management: [success]
+  User Account Management: [success, failure]
+  Process Creation: [success]
+  Account Lockout: [failure]
+  Logon: [success, failure]
+  Logoff: [success]
+  Special Logon: [success]
+  Audit Policy Change: [success]
+  Authentication Policy Change: [success]
+  Sensitive Privilege Use: [success, failure]
+  Security State Change: [success]
+  Security System Extension: [success]
+  System Integrity: [success, failure]
+
+# Event logs: maximum size, oldest events overwritten when full.
+win_baseline_event_logs:
+  Security: 196608KB
+  Application: 32768KB
+  System: 32768KB
+
+# Services to stop and disable, by service name. For example Spooler on
+# machines that never print.
+win_baseline_disabled_services: []

@@ -1,0 +1,22 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: ${{ values.name }}
+  description: ${{ values.description | dump }}
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: ${{ values.destination.owner }}/${{ values.destination.repo }}
+  tags:
+    - azure
+    - storage
+    - blob
+    - ${{ values.environment }}
+  links:
+    - url: https://portal.azure.com
+      title: Azure Portal
+      icon: cloud
+spec:
+  type: storage-account
+  owner: ${{ values.owner }}
+  lifecycle: ${{ values.environment }}
+  system: cloud-infrastructure

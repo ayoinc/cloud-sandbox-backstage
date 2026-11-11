@@ -1,0 +1,15 @@
+{
+  "values": {
+    "name": "sample-store",
+    "description": "Storage for the team's \"reports\" service: exports and uploads",
+    "owner": "group:default/platform-team",
+    "environment": "development",
+    "location": "westeurope",
+    "replicationType": "ZRS",
+    "accessTier": "Hot",
+    "containerNames": ["reports", "uploads"],
+    "versioning": true,
+    "softDeleteDays": 30,
+    "repoUrl": "github.com?owner=example-org&repo=sample-store"
+  }
+}

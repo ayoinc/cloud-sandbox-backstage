@@ -1,0 +1,82 @@
+---
+- name: Check the target distribution is supported
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.os_family in ['Debian', 'RedHat']
+      - ansible_facts.service_mgr == 'systemd'
+    fail_msg: This role supports systemd-based Debian-family and Enterprise Linux hosts.
+    quiet: true
+
+- name: Check the secrets this configuration needs were supplied
+  ansible.builtin.assert:
+    that:
+      - not (postgresql_replication_enabled | bool) or postgresql_replication_password | length > 0
+      - >-
+        not (postgresql_replication_enabled | bool and postgresql_replication_role == 'replica')
+        or postgresql_replication_primary_host | length > 0
+      - >-
+        not (postgresql_pgbackrest_enabled | bool and postgresql_pgbackrest_encryption | bool)
+        or postgresql_pgbackrest_cipher_pass | length > 0
+      - >-
+        not (postgresql_pgbackrest_enabled | bool)
+        or (postgresql_pgbackrest_repo_options.values() | map('string') | select('equalto', '') | list | length == 0)
+      - >-
+        not (postgresql_ssl_enabled | bool)
+        or (postgresql_ssl_cert_file | length > 0 and postgresql_ssl_key_file | length > 0)
+    fail_msg: >-
+      A required value is missing. Replication needs postgresql_replication_password
+      (and postgresql_replication_primary_host on a replica), an encrypted backup
+      repository needs postgresql_pgbackrest_cipher_pass, every entry of
+      postgresql_pgbackrest_repo_options needs a value, and TLS needs
+      postgresql_ssl_cert_file and postgresql_ssl_key_file.
+    quiet: true
+
+- name: Load distribution-specific variables
+  ansible.builtin.include_vars: '{{ ansible_facts.os_family | lower }}.yml'
+
+- name: Install PostgreSQL
+  ansible.builtin.include_tasks:
+    file: 'install-{{ ansible_facts.os_family | lower }}.yml'
+    apply:
+      tags:
+        - postgresql
+        - postgresql_install
+  tags:
+    - postgresql
+    - postgresql_install
+
+- name: Seed the replica from the primary
+  ansible.builtin.import_tasks: replica.yml
+  when: __postgresql_is_replica | bool
+  tags:
+    - postgresql
+    - postgresql_replication
+
+- name: Configure pgBackRest
+  ansible.builtin.import_tasks: pgbackrest.yml
+  when: postgresql_pgbackrest_enabled | bool
+  tags:
+    - postgresql
+    - postgresql_backup
+
+- name: Configure PostgreSQL
+  ansible.builtin.import_tasks: configure.yml
+  tags:
+    - postgresql
+    - postgresql_configure
+
+- name: Manage roles, databases and extensions
+  ansible.builtin.import_tasks: objects.yml
+  when: not (__postgresql_is_replica | bool)
+  tags:
+    - postgresql
+    - postgresql_objects
+
+- name: Initialise and schedule backups
+  ansible.builtin.import_tasks: backup.yml
+  when:
+    - postgresql_pgbackrest_enabled | bool
+    - not (__postgresql_is_replica | bool)
+  tags:
+    - postgresql
+    - postgresql_backup

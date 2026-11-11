@@ -1,0 +1,17 @@
+{
+  "name": "${{ values.name }}",
+  "version": "1.0.0",
+  "private": true,
+  "description": ${{ values.description | dump }},
+  "main": "index.js",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "functions-framework --target=handler${{ "" if values.triggerType == "http" else " --signature-type=cloudevent" }}",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@google-cloud/functions-framework": "5.0.5"
+  }
+}

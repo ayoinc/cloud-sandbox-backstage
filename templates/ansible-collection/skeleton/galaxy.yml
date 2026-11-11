@@ -1,0 +1,34 @@
+---
+namespace: ${{ values.namespace }}
+name: ${{ values.collectionName }}
+version: 1.0.0
+readme: README.md
+authors:
+  - ${{ values.destination.owner }} (https://github.com/${{ values.destination.owner }})
+description: ${{ values.description | dump }}
+license_file: LICENSE
+tags:
+  - tools
+  - linux
+  - configuration
+dependencies: {}
+repository: https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}
+documentation: https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}/blob/main/README.md
+homepage: https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}
+issues: https://github.com/${{ values.destination.owner }}/${{ values.destination.repo }}/issues
+# Only Ansible content goes into the published artifact.
+build_ignore:
+  - .ansible
+  - .ansible-lint
+  - .cache
+  - .github
+  - .gitignore
+  - .venv
+  - .yamllint
+  - catalog-info.yaml
+  - dist
+  - docs
+  - mkdocs.yml
+  - requirements-dev.txt
+  - tests/output
+  - '*.tar.gz'
