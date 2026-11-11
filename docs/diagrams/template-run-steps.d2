@@ -1,0 +1,134 @@
+# What happens when someone creates from a template on the Cloudflare
+# deployment, one step per frame. Rendered as an animation:
+#   d2 --sketch --animate-interval 2200 template-run-steps.d2 template-run-steps.svg
+direction: down
+
+person: {
+  label: "🧑‍💻 Developer"
+  style: {
+    fill: "#FFFFFF"
+    stroke: "#333333"
+    stroke-width: 4
+    font-size: 16
+    bold: true
+    shadow: true
+    border-radius: 8
+  }
+}
+worker: {
+  label: "⚡ Worker"
+  style: {
+    fill: "#FFF3E0"
+    stroke: "#F38020"
+    stroke-width: 4
+    font-size: 16
+    bold: true
+    shadow: true
+    border-radius: 8
+  }
+}
+d1: {
+  shape: cylinder
+  label: "🗃️ D1\nTasks and events"
+  style: {
+    fill: "#E3F2FD"
+    stroke: "#336791"
+    stroke-width: 4
+    font-size: 16
+    bold: true
+    shadow: true
+  }
+}
+actions: {
+  label: "🛠️ GitHub Actions\nReal scaffolder"
+  style: {
+    fill: "#E8F5E9"
+    stroke: "#68A063"
+    stroke-width: 4
+    font-size: 16
+    bold: true
+    shadow: true
+    border-radius: 8
+  }
+}
+repo: {
+  label: "📁 New repository"
+  style: {
+    fill: "#F3E5F5"
+    stroke: "#7B1FA2"
+    stroke-width: 4
+    font-size: 16
+    bold: true
+    shadow: true
+    border-radius: 8
+  }
+}
+
+steps: {
+  1: {
+    person -> worker: "1. Fills the form, presses Create" {
+      style: {
+        stroke: "#F38020"
+        stroke-width: 5
+        font-size: 14
+        bold: true
+        animated: true
+      }
+    }
+  }
+  2: {
+    worker -> d1: "2. Stores the task" {
+      style: {
+        stroke: "#336791"
+        stroke-width: 5
+        font-size: 14
+        bold: true
+        animated: true
+      }
+    }
+  }
+  3: {
+    worker -> actions: "3. Starts the run" {
+      style: {
+        stroke: "#68A063"
+        stroke-width: 5
+        font-size: 14
+        bold: true
+        animated: true
+      }
+    }
+  }
+  4: {
+    actions -> repo: "4. Runs the steps, publishes" {
+      style: {
+        stroke: "#7B1FA2"
+        stroke-width: 5
+        font-size: 14
+        bold: true
+        animated: true
+      }
+    }
+  }
+  5: {
+    actions -> d1: "5. Reports each step as it happens" {
+      style: {
+        stroke: "#336791"
+        stroke-width: 5
+        font-size: 14
+        bold: true
+        animated: true
+      }
+    }
+  }
+  6: {
+    worker -> person: "6. Shows live progress, then the links" {
+      style: {
+        stroke: "#F38020"
+        stroke-width: 5
+        font-size: 14
+        bold: true
+        animated: true
+      }
+    }
+  }
+}

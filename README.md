@@ -382,6 +382,8 @@ every log line and the result back to the portal as they happen, hands the
 catalog file of the new repository to the portal, and then runs the sync so
 the new component and its documentation appear.
 
+![A template run, step by step](docs/diagrams/template-run-steps.svg)
+
 **`portal-dry-run.yml`** is started by the Worker when an administrator tries a
 template out in the template editor. The Worker keeps what the editor sent (the
 template, its files and the form values) in the bucket and gives the workflow
